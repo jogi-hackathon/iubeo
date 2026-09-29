@@ -38,15 +38,15 @@
   languages.typescript.enable = true;
 
   # https://devenv.sh/processes/
-  # frontend / backend の雛形ができたら有効化する
+  # backend の雛形ができたら有効化する
   # processes.backend = {
   #   cwd = "backend";
   #   exec = "air";
   # };
-  # processes.frontend = {
-  #   cwd = "frontend";
-  #   exec = "pnpm dev";
-  # };
+  processes.frontend = {
+    cwd = "frontend";
+    exec = "pnpm dev";
+  };
 
   # https://devenv.sh/scripts/
   scripts.fmt.exec = ''
@@ -88,6 +88,7 @@
     trim-trailing-whitespace.enable = true;
     typos.enable = true;
     nixfmt.enable = true;
+    mdformat.enable = true;
 
     # Go(backend/)
     gofmt = {
@@ -110,6 +111,8 @@
     biome = {
       enable = true;
       files = "^frontend/";
+      entry = "pnpm --dir frontend exec biome check --write --no-errors-on-unmatched .";
+      pass_filenames = false;
     };
 
     # Conventional Commits
