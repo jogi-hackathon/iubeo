@@ -1,6 +1,6 @@
 import { addAfterEffect, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
-import { graphicsSettings } from "../graphics";
+import { useAppContext } from "../../boot/context";
 
 const INTERVAL_MS = 500;
 
@@ -81,6 +81,7 @@ const fmtMB = (bytes: number | undefined): string =>
 /** FPS・ドローコール・三角形数・GPU メモリ・GPU 処理時間などを 0.5 秒ごとに更新する DOM パネル */
 export function DebugInfo() {
   const gl = useThree((s) => s.gl);
+  const { settings } = useAppContext();
 
   useEffect(() => {
     const r = gl as unknown as RendererLike;
@@ -148,7 +149,7 @@ export function DebugInfo() {
       const fps = ((frames - fpsFrame) * 1000) / (now - fpsTime);
       fpsFrame = frames;
       fpsTime = now;
-      const { fpsLimit, resolutionScale } = graphicsSettings;
+      const { fpsLimit, resolutionScale } = settings;
       el.textContent = [
         `FPS      ${fps.toFixed(0)}`,
         `Backend  ${backendLabel(r)}`,
@@ -171,7 +172,7 @@ export function DebugInfo() {
       window.clearInterval(id);
       el.remove();
     };
-  }, [gl]);
+  }, [gl, settings]);
 
   return null;
 }

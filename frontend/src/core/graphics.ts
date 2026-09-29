@@ -11,7 +11,8 @@ const MIN_FPS_LIMIT = 20;
 
 const DEFAULTS: GraphicsSettings = { resolutionScale: 1, fpsLimit: null };
 
-const load = (): GraphicsSettings => {
+/** 起動シーケンス(boot)の settings ステップから1回だけ呼ぶ */
+export const loadGraphicsSettings = (): GraphicsSettings => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -39,8 +40,5 @@ const load = (): GraphicsSettings => {
   }
 };
 
-/** 起動時に1回だけ読み込む */
-export const graphicsSettings: GraphicsSettings = load();
-
-export const getDpr = (): number =>
-  graphicsSettings.resolutionScale * window.devicePixelRatio;
+export const getDpr = (settings: GraphicsSettings): number =>
+  settings.resolutionScale * window.devicePixelRatio;

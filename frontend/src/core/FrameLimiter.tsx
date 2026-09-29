@@ -1,12 +1,13 @@
 import { useThree } from "@react-three/fiber";
 import { useEffect } from "react";
-import { graphicsSettings } from "./graphics";
+import { useAppContext } from "../boot/context";
 
 /** frameloop="never" の Canvas 内で fpsLimit に合わせて advance を呼ぶ。fpsLimit が null なら何もしない */
 export function FrameLimiter() {
   const advance = useThree((s) => s.advance);
+  const { settings } = useAppContext();
   useEffect(() => {
-    const { fpsLimit } = graphicsSettings;
+    const { fpsLimit } = settings;
     if (fpsLimit === null) return;
     const interval = 1000 / fpsLimit;
     let last = performance.now();
@@ -22,7 +23,7 @@ export function FrameLimiter() {
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, [advance]);
+  }, [advance, settings]);
 
   return null;
 }

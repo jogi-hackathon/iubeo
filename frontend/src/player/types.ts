@@ -1,10 +1,19 @@
 import type { Vector3 } from "three";
 
+/** 視線の向き。yaw=0 で -Z 前、pitch は上向きが正 */
+export interface Look {
+  yaw: number;
+  pitch: number;
+}
+
 export interface PlayerState {
   /** 足元の位置 */
   position: Vector3;
   velocity: Vector3;
   onGround: boolean;
+  /** 身体の向き。カメラはこれを写すだけ */
+  yaw: number;
+  pitch: number;
 }
 
 export interface MoveInput {
