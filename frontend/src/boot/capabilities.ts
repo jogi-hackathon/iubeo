@@ -2,8 +2,6 @@
 export type RendererBackend = "webgpu" | "webgl2-fallback" | "webgl";
 
 export interface Capabilities {
-  /** ディスプレイが HDR 出力可能かの「候補」(matchMedia)。最終確定はレンダラー生成後に行う */
-  displayHdr: boolean;
   rendererBackend: RendererBackend;
 }
 
@@ -31,19 +29,11 @@ const detectWebGPU = async (): Promise<boolean> => {
   }
 };
 
-const detectDisplayHdr = (): boolean => {
-  try {
-    return globalThis.matchMedia?.("(dynamic-range: high)").matches ?? false;
-  } catch {
-    return false;
-  }
-};
-
 export const detectCapabilities = async (): Promise<Capabilities> => {
   const rendererBackend: RendererBackend = (await detectWebGPU())
     ? "webgpu"
     : wantsWebGPU()
       ? "webgl2-fallback"
       : "webgl";
-  return { displayHdr: detectDisplayHdr(), rendererBackend };
+  return { rendererBackend };
 };

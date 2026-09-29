@@ -5,6 +5,8 @@ export interface DebugFlags {
   grid: boolean;
   bvh: boolean;
   freeCamera: boolean;
+  /** ポストプロセス調整パネル(camera/postprocess) */
+  postfx: boolean;
 }
 
 /** VITE_ENABLE_DEBUG=true のときだけデバッグ機能(?debug・ホットキー)が有効になる */
@@ -15,12 +17,14 @@ const ALL_OFF: DebugFlags = {
   grid: false,
   bvh: false,
   freeCamera: false,
+  postfx: false,
 };
 const ALL_ON: DebugFlags = {
   stats: true,
   grid: true,
   bvh: false,
   freeCamera: false,
+  postfx: false,
 };
 
 const initial = (): DebugFlags => {

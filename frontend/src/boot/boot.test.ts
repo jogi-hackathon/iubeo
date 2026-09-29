@@ -7,7 +7,7 @@ import type { AppContext } from "./context";
 
 const ctx: AppContext = {
   settings: { resolutionScale: 1, fpsLimit: null },
-  capabilities: { displayHdr: false, rendererBackend: "webgl" },
+  capabilities: { rendererBackend: "webgl" },
   assets: {},
 };
 
@@ -135,14 +135,6 @@ describe("detectCapabilities", () => {
     vi.stubEnv("VITE_RENDERER", "webgl");
     stubNavigator({ requestAdapter: async () => ({}) });
     expect((await detectCapabilities()).rendererBackend).toBe("webgl");
-  });
-
-  it("matchMedia の結果を displayHdr に反映する", async () => {
-    stubNavigator(undefined);
-    vi.stubGlobal("matchMedia", (q: string) => ({
-      matches: q === "(dynamic-range: high)",
-    }));
-    expect((await detectCapabilities()).displayHdr).toBe(true);
   });
 });
 

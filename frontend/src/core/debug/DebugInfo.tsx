@@ -81,7 +81,7 @@ const fmtMB = (bytes: number | undefined): string =>
 /** FPS・ドローコール・三角形数・GPU メモリ・GPU 処理時間などを 0.5 秒ごとに更新する DOM パネル */
 export function DebugInfo() {
   const gl = useThree((s) => s.gl);
-  const { settings, capabilities } = useAppContext();
+  const { settings } = useAppContext();
 
   useEffect(() => {
     const r = gl as unknown as RendererLike;
@@ -154,7 +154,6 @@ export function DebugInfo() {
         `FPS      ${fps.toFixed(0)}`,
         `Backend  ${backendLabel(r)}`,
         `GPU      ${gpuName}`,
-        `HDR      ${capabilities.displayHdr ? "display candidate" : "no"}`,
         `Res      ${r.domElement.width}x${r.domElement.height} (dpr ${r.getPixelRatio().toFixed(2)}, scale ${resolutionScale})`,
         `FPS cap  ${fpsLimit ?? "none"}`,
         `Draw     ${fmt(snap.drawCalls)}`,
@@ -173,7 +172,7 @@ export function DebugInfo() {
       window.clearInterval(id);
       el.remove();
     };
-  }, [gl, settings, capabilities]);
+  }, [gl, settings]);
 
   return null;
 }

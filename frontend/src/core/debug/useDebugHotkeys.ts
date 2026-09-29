@@ -24,6 +24,9 @@ export const useDebugHotkeys = (): void => {
         case "F8":
           toggleDebugFlag("freeCamera");
           break;
+        case "F9":
+          toggleDebugFlag("postfx");
+          break;
         default:
           return;
       }

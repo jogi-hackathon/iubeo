@@ -8,7 +8,7 @@ interface RendererLike {
 
 /**
  * レンダラー生成(init)直後に1回呼ぶ。実際のバックエンドを capabilities に反映して確定させる。
- * TODO: ここでディスプレイ HDR の最終確定・ポストプロセス構築・compileAsync も行う
+ * TODO: compileAsync
  */
 export const afterRendererInit = (renderer: object, ctx: AppContext): void => {
   const r = renderer as RendererLike;
