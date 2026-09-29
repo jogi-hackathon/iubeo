@@ -1,0 +1,12 @@
+export const CAPSULE_RADIUS = 0.3;
+export const PLAYER_HEIGHT = 1.7;
+export const EYE_HEIGHT = 1.6;
+export const WALK_SPEED = 4;
+export const JUMP_SPEED = 5;
+export const AIR_ACCEL = 8;
+export const GRAVITY = 9.8;
+export const MAX_DELTA = 0.05;
+export const MAX_FALL_SPEED = 40;
+export const PHYSICS_STEP = 1 / 120;
+export const START_POSITION: readonly [number, number, number] = [0, 2, 0];
+export const FLY_SPEED = 10;
