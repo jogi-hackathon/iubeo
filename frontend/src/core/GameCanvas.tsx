@@ -4,6 +4,7 @@ import { useAppContext } from "../boot/context";
 import { DebugOverlay } from "./debug/DebugOverlay";
 import { FrameLimiter } from "./FrameLimiter";
 import { getDpr } from "./graphics";
+import { PointerLockInput } from "./input";
 import { createRenderer } from "./renderer";
 
 const CAMERA = { fov: 75, near: 0.05, far: 500 };
@@ -21,6 +22,7 @@ export function GameCanvas({ children }: { children?: ReactNode }) {
     >
       {children}
       <FrameLimiter />
+      <PointerLockInput />
       <DebugOverlay />
     </Canvas>
   );

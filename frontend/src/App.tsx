@@ -1,5 +1,6 @@
+import { FirstPersonCamera, FlyCamera } from "./camera";
 import { GameCanvas } from "./core/GameCanvas";
-import { FlyCamera, PlayerController } from "./player";
+import { PlayerController } from "./player";
 import { type SceneName, scenes } from "./scenes";
 
 const CURRENT_SCENE: SceneName = "test";
@@ -10,6 +11,7 @@ export function App() {
     <GameCanvas>
       <Scene />
       <PlayerController />
+      <FirstPersonCamera />
       <FlyCamera />
     </GameCanvas>
   );
