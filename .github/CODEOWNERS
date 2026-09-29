@@ -1,0 +1,20 @@
+# CODEOWNERS
+# 記法: <path pattern> <@user or @org/team> ...
+# 詳細: https://docs.github.com/ja/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# フロントエンド
+/frontend/  @kurazuuuuuu
+
+# バックエンド
+/backend/   @Riochin
+
+# --- 必要になったらコメントを外す ---
+# デフォルトオーナー(どのルールにも一致しないファイル)
+# *         @kurazuuuuuu @Riochin
+#
+# ドキュメント / ADR
+# /docs/    @kurazuuuuuu @Riochin
+#
+# リポジトリ全体の設定(devenv, CI など)
+# /*.nix    @Riochin
+# /.github/ @Riochin
