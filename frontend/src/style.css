@@ -6,3 +6,26 @@ body,
   height: 100%;
   background: #111;
 }
+
+.boot-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+  color: #ccc;
+  font:
+    13px / 1.4 ui-monospace,
+    Menlo,
+    monospace;
+}
+
+.boot-screen p,
+.boot-screen pre {
+  margin: 0;
+}
+
+.boot-error {
+  color: #f88;
+}
