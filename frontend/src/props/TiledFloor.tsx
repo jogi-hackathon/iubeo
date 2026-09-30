@@ -43,7 +43,7 @@ export function TiledFloor({
 
   return (
     <BVHCollider>
-      <mesh position={[0, -thickness / 2, 0]} receiveShadow>
+      <mesh position={[0, -thickness / 2, 0]}>
         <boxGeometry args={[size, thickness, size]} />
         <meshStandardMaterial map={tiles} />
       </mesh>

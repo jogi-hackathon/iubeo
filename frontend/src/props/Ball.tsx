@@ -11,7 +11,7 @@ interface BallProps {
 export function Ball({ position, radius, color = PROP_COLOR }: BallProps) {
   return (
     <BVHCollider>
-      <mesh position={position} castShadow receiveShadow>
+      <mesh position={position}>
         <sphereGeometry args={[radius, 48, 32]} />
         <meshStandardMaterial color={color} />
       </mesh>

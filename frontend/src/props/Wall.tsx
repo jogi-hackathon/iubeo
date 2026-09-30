@@ -11,7 +11,7 @@ interface WallProps {
 export function Wall({ position, size, color = PROP_COLOR }: WallProps) {
   return (
     <BVHCollider>
-      <mesh position={position} castShadow receiveShadow>
+      <mesh position={position}>
         <boxGeometry args={size} />
         <meshStandardMaterial color={color} />
       </mesh>
