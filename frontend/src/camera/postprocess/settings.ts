@@ -35,6 +35,36 @@ export interface PostProcessSettings {
     intensity: number;
     smoothness: number;
   };
+  /**
+   * GTAO によるリアルタイム AO。間接光(ambient など)だけを減衰させる。
+   * ベイク AO(bakedAO)との分担は prop ごとの AO モード(src/bake/aoMode.ts)で決まる
+   */
+  ao: {
+    enabled: boolean;
+    /** GTAO とベイク AO を合成した後の AO だけを白黒で表示する(調整用。GTAO が off でも使える) */
+    showOnly: boolean;
+    /** GTAO のノイズを深度・法線を見ながらぼかす(AO と同じ解像度のパスが1枚増える) */
+    denoise: boolean;
+    /** 遮蔽を探す半径(ワールド単位) */
+    radius: number;
+    /** AO の強さ */
+    scale: number;
+    /** 遮蔽物の厚みの想定。大きいほど細い物の裏側まで暗くなる */
+    thickness: number;
+    samples: number;
+    /** AO を計算する解像度(ドローイングバッファ比) */
+    resolutionScale: number;
+  };
+  /** 事前ベイクした AO(src/bake/BakedAO.tsx が静的 mesh の aoMap に貼る) */
+  bakedAO: {
+    /**
+     * false で aoMap を外す。AO モード baked の面も GTAO に戻るので見比べられる
+     * (切り替えるたびに対象マテリアルが再コンパイルされる)
+     */
+    enabled: boolean;
+    /** aoMapIntensity(uniform なので再コンパイルは起きない) */
+    intensity: number;
+  };
 }
 
 /**
@@ -53,6 +83,17 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
   bloom: {enabled: true, strength: 0.5, radius: 0.4, threshold: 1},
   pixelate: {enabled: false, pixelSize: 4},
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
+  ao: {
+    enabled: true,
+    showOnly: false,
+    denoise: true,
+    radius: 0.5,
+    scale: 1,
+    thickness: 1,
+    samples: 16,
+    resolutionScale: 0.5,
+  },
+  bakedAO: {enabled: true, intensity: 1},
 };
 
 /** vignette の smoothness の下限。0 だと smoothstep の edge0 == edge1 になる */

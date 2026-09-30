@@ -11,9 +11,13 @@ import {
 afterEach(resetPostProcessSettings);
 
 describe("postprocess settings", () => {
-  it("既定値: 全体 on・bloom on(threshold 1.0)・pixelate off・Neutral・exposure 1.2", () => {
+  it("既定値: 全体 on・AO on・bloom on(threshold 1.0)・pixelate off・Neutral・exposure 1.2", () => {
     const s = getPostProcessSettings();
     expect(s.enabled).toBe(true);
+    expect(s.ao.enabled).toBe(true);
+    expect(s.ao.showOnly).toBe(false);
+    expect(s.ao.denoise).toBe(true);
+    expect(s.bakedAO).toEqual({enabled: true, intensity: 1});
     expect(s.bloom.enabled).toBe(true);
     expect(s.bloom.threshold).toBe(1);
     expect(s.pixelate.enabled).toBe(false);

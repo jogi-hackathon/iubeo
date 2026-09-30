@@ -1,3 +1,4 @@
+import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {GameCanvas} from "./core/GameCanvas";
@@ -12,6 +13,7 @@ export function App() {
     <>
       <GameCanvas>
         <Scene />
+        <BakedAO scene={CURRENT_SCENE} />
         <PlayerController />
         <FirstPersonCamera />
         <FlyCamera />

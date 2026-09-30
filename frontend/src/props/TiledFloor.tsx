@@ -1,12 +1,15 @@
-import {useEffect, useMemo} from "react";
+import {useEffect, useState} from "react";
 import {CanvasTexture, RepeatWrapping, SRGBColorSpace} from "three";
 
+import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {BVHCollider} from "../core/bvh";
 
 interface TiledFloorProps {
   size?: number;
   thickness?: number;
   tileSize?: number;
+  /** AO の出し方(src/bake/aoMode.ts)。省略時は親の指定(無ければ baked) */
+  ao?: AOMode;
 }
 
 const createTileTexture = (repeat: number) => {
@@ -34,16 +37,18 @@ export function TiledFloor({
   size = 200,
   thickness = 1,
   tileSize = 2,
+  ao,
 }: TiledFloorProps) {
-  const tiles = useMemo(
-    () => createTileTexture(size / tileSize),
-    [size, tileSize],
-  );
-  useEffect(() => () => tiles.dispose(), [tiles]);
+  const [tiles, setTiles] = useState<CanvasTexture | null>(null);
+  useEffect(() => {
+    const texture = createTileTexture(size / tileSize);
+    setTiles(texture);
+    return () => texture.dispose();
+  }, [size, tileSize]);
 
   return (
     <BVHCollider>
-      <mesh position={[0, -thickness / 2, 0]} receiveShadow>
+      <mesh userData={aoModeUserData(ao)} position={[0, -thickness / 2, 0]}>
         <boxGeometry args={[size, thickness, size]} />
         <meshStandardMaterial map={tiles} />
       </mesh>
