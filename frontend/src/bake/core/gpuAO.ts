@@ -19,7 +19,7 @@ import {
   insetPosition,
   queryChart,
 } from "./charts";
-import { decideHidden, rotatedFrame } from "./frame";
+import { decideHidden, type ProbePoint, rotatedFrame } from "./frame";
 import {
   BIAS,
   EMBEDDED,
@@ -38,6 +38,7 @@ export const CHUNK_TEXELS = 131072;
 const WORKGROUP_SIZE = 64;
 const TEXEL_VEC4 = 4; // フェーズ2: テクセルあたりの vec4 数(origin / T / B / N)
 const PROBE_VEC4 = 4; // フェーズ1: サンプル点あたりの vec4 数(origin / N / 接線 / 従接線)
+const PROBE_RESULTS = 3; // フェーズ1: サンプル点あたりの出力数(ao / 裏面ヒット数 / 非ヒット数)
 
 // ---------------------------------------------------------------- GPU エラー検知
 
@@ -362,12 +363,9 @@ export type ProbeStats = {
 };
 
 // 隠れチャート判定のレイキャスト部分を GPU で回す。サンプル点(チャートごとの 3x3)ごとに
-// 本ベイクと同じ式の AO(HIDDEN_DIRS、MAX_DIST、シード chartId*4 + s*2 + 1)だけを撃ち、
-// 判定(decideHidden)は CPU で行う。
-//
-// 移植元にあった「距離無制限のレイが何にも当たらない比率」(miss)による判定は廃止した。
-// IUBEO は屋外のオープンワールドで、床や壁の上面のように空が見える面が正当に存在し、
-// miss 判定だとそれらまで隠れチャート(2x2 テクセル)に潰れてしまうため。
+// 本ベイクと同じ式の AO(HIDDEN_DIRS、MAX_DIST、シード chartId*4 + s*2 + 1)と、同じ方向で
+// 距離無制限のレイの「裏面ヒット数・非ヒット数」を撃つ。判定(frame.ts の decideHidden)は CPU で行う。
+// 移植元からの判定の変更点は frame.ts の isHiddenPoint のコメントを参照。
 export class GpuHiddenProbe {
   private readonly renderer: WebGPURenderer;
   private readonly chunkPoints: number;
@@ -392,7 +390,7 @@ export class GpuHiddenProbe {
     // storage buffer は BVH 側が 4 本使うので、自前は入力 1 + 出力 1 に interleave する。
     // 入力 data(vec4 の並び): 先頭 HIDDEN_RAYS 個がサンプル方向、以降が点ごとに
     // [発射位置(BIAS 込み), 法線, 回転込みの接線, 回転込みの従接線] の 4 個ずつ。
-    // 出力 result: 点ごとに ao の 1 要素
+    // 出力 result: 点ごとに [ao, 裏面ヒット数, 非ヒット数] の 3 要素
     const n = chunkPoints;
     const rays = HIDDEN_DIRS.length;
     this.data = new Float32Array((rays + n * PROBE_VEC4) * 4);
@@ -402,13 +400,16 @@ export class GpuHiddenProbe {
       this.data[i * 4 + 2] = d.z;
     });
     this.dataAttr = new StorageBufferAttribute(this.data, 4);
-    this.result = new StorageBufferAttribute(new Uint32Array(n), 1);
+    this.result = new StorageBufferAttribute(
+      new Uint32Array(n * PROBE_RESULTS),
+      1,
+    );
     const dataNode = storage(
       this.dataAttr,
       "vec4",
       rays + n * PROBE_VEC4,
     ).toReadOnly();
-    const resultNode = storage(this.result, "uint", n);
+    const resultNode = storage(this.result, "uint", n * PROBE_RESULTS);
 
     this.countUniform = uniform(0, "uint");
 
@@ -471,7 +472,35 @@ export class GpuHiddenProbe {
           ao = u32( min( 255.0, floor( ( 1.0 - occlusion / f32( valid ) ) * 255.0 + 0.5 ) ) );
 
         }
-        ${resultNode}[ i ] = ao;
+
+        // 距離無制限(maxDist = 0 は無制限)で、裏面に当たった本数と何にも当たらなかった本数
+        var backHits = 0u;
+        var misses = 0u;
+        for ( var k = 0u; k < ${rays}u; k = k + 1u ) {
+
+          let d = ${dataNode}[ k ].xyz;
+          var ray: Ray;
+          ray.origin = origin;
+          ray.direction = tangent * d.x + bitangent * d.y + normal * d.z;
+          ray.maxDist = 0.0;
+
+          var hit: IntersectionResult;
+          bvh_RaycastFirstHit( ray, &hit );
+          if ( ! hit.didHit ) {
+
+            misses = misses + 1u;
+
+          } else if ( hit.side < 0.0 ) {
+
+            backHits = backHits + 1u;
+
+          }
+
+        }
+
+        ${resultNode}[ i * ${PROBE_RESULTS}u ] = ao;
+        ${resultNode}[ i * ${PROBE_RESULTS}u + 1u ] = backHits;
+        ${resultNode}[ i * ${PROBE_RESULTS}u + 2u ] = misses;
 
       }
     `;
@@ -497,7 +526,7 @@ export class GpuHiddenProbe {
       return new Uint32Array(
         await renderer.getArrayBufferAsync(this.result),
         0,
-        count,
+        count * PROBE_RESULTS,
       );
     });
   }
@@ -518,6 +547,7 @@ export class GpuHiddenProbe {
     const data = this.data;
     const rays = HIDDEN_DIRS.length;
     const pointChart = new Uint32Array(this.chunkPoints);
+    const pointNy = new Float32Array(this.chunkPoints);
     const frame = new Float64Array(6);
     let c = 0;
 
@@ -552,7 +582,9 @@ export class GpuHiddenProbe {
                 data[o + 8 + k] = frame[k] ?? 0;
                 data[o + 12 + k] = frame[3 + k] ?? 0;
               }
-              pointChart[n++] = c;
+              pointChart[n] = c;
+              pointNy[n] = hit.ny;
+              n++;
             }
             si++;
           }
@@ -563,18 +595,33 @@ export class GpuHiddenProbe {
       if (n === 0) continue;
 
       const tGpu = performance.now();
-      const ao = await this.dispatch(n);
+      const r = await this.dispatch(n);
       stats.gpuMs += performance.now() - tGpu;
       stats.chunks++;
       stats.points += n;
-      if (stats.chunks === 1) checkFirstChunk("隠れ判定 AO", ao, n);
+      const points: ProbePoint[] = [];
+      for (let i = 0; i < n; i++) {
+        points.push({
+          ao: r[i * PROBE_RESULTS] as number,
+          backHits: r[i * PROBE_RESULTS + 1] as number,
+          misses: r[i * PROBE_RESULTS + 2] as number,
+          ny: pointNy[i] as number,
+        });
+      }
+      if (stats.chunks === 1) {
+        checkFirstChunk(
+          "隠れ判定 AO",
+          points.map((p) => p.ao),
+          n,
+        );
+      }
 
       // 同じチャートの点は連続して並んでいるので、区切りごとに判定する
       for (let start = 0; start < n; ) {
         const chart = pointChart[start] as number;
         let end = start + 1;
         while (end < n && pointChart[end] === chart) end++;
-        hidden[chart] = decideHidden(ao.subarray(start, end)) ? 1 : 0;
+        hidden[chart] = decideHidden(points.slice(start, end), rays) ? 1 : 0;
         start = end;
       }
       if (onProgress) onProgress(c, chartCount);

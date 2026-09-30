@@ -17,6 +17,13 @@ export const CHART_INSET = 0.0005; // チャート内側へ寄せる距離(m)。
 export const HIDDEN_UV = [0.2, 0.5, 0.8]; // 隠れチャート判定の 3x3 サンプル位置(チャート内側に寄せた格子)
 export const HIDDEN_RAYS = 32; // 隠れチャート判定のサンプル点あたりのレイ本数
 export const HIDDEN_AO_EPS = 0.02;
+// 距離無制限のレイの、この割合以上が裏面に当たる点は「ほかの物体に埋まっている」とみなす
+// (MAX_DIST より厚い床に密着した面など。AO の距離では裏面まで届かず判定できない)
+export const HIDDEN_BURIED_RATIO = 0.5;
+// 下向き(法線の y がこれ以下)で、距離無制限のレイのこの割合以上が何にも当たらない点は、
+// ワールドの下の虚空を向いていて見えないとみなす(床の底面など)
+export const HIDDEN_VOID_MAX_NY = -0.5;
+export const HIDDEN_VOID_RATIO = 0.9;
 export const HIDDEN_TEXELS = 2; // 隠れチャートに縮めるテクセル数(1辺)
 
 export type Dir = { x: number; y: number; z: number };

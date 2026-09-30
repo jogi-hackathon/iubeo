@@ -1,6 +1,12 @@
 // 法線まわりの接線フレームと、隠れチャートの判定ロジック(レイキャスト結果は GPU 側が出す)。
 import { Vector3 } from "three";
-import { EMBEDDED, HIDDEN_AO_EPS } from "./params";
+import {
+  EMBEDDED,
+  HIDDEN_AO_EPS,
+  HIDDEN_BURIED_RATIO,
+  HIDDEN_VOID_MAX_NY,
+  HIDDEN_VOID_RATIO,
+} from "./params";
 
 const _t = new Vector3();
 const _b = new Vector3();
@@ -41,18 +47,39 @@ export const rotatedFrame = (
   out[5] = -s * t.z + c * b.z;
 };
 
-// 隠れチャートの判定。サンプル点ごとの AO(0..255 / EMBEDDED)を受け取り、
-// 「全点が埋まっている、または暗い」ときだけ隠れとみなす。
-//
-// 移植元の 3D 部屋ベイクでは「距離無制限のレイの大半が何にも当たらない面」も隠れ扱い
-// (部屋の外側の面)にしていたが、IUBEO は屋外のオープンワールドで、床や壁の上面のように
-// 空が見える面が正当に存在する。miss 判定を入れるとそれらまで 2x2 テクセルに潰れるため廃止した
-export const decideHidden = (aos: ArrayLike<number>): boolean => {
-  if (aos.length === 0) return false; // 判定できなければ安全側(通常解像度を維持)
-  for (let i = 0; i < aos.length; i++) {
-    const ao = aos[i] ?? EMBEDDED;
-    const dark = ao === EMBEDDED || ao / 255 < HIDDEN_AO_EPS;
-    if (!dark) return false;
-  }
-  return true;
+/** 隠れチャート判定のサンプル点ごとの結果(GPU の GpuHiddenProbe が出す) */
+export interface ProbePoint {
+  /** 本ベイクと同じ式の AO(0..255 / EMBEDDED) */
+  ao: number;
+  /** 距離無制限のレイのうち、裏面に当たった本数 */
+  backHits: number;
+  /** 距離無制限のレイのうち、何にも当たらなかった本数 */
+  misses: number;
+  /** 法線の y */
+  ny: number;
+}
+
+/**
+ * サンプル点が見えないか。次のいずれか:
+ * - 暗い・埋まり: AO が EMBEDDED か HIDDEN_AO_EPS 未満(移植元と同じ)
+ * - 埋まり(距離無制限): レイの HIDDEN_BURIED_RATIO 以上が裏面に当たる。MAX_DIST より厚い物体に密着した面
+ * - 虚空: 下向きで、レイの HIDDEN_VOID_RATIO 以上が何にも当たらない。ワールドの下を向いた面
+ *
+ * 移植元の「向きを問わず、距離無制限のレイの大半が何にも当たらない面」(部屋の外側の面)は使わない。
+ * IUBEO は屋外のオープンワールドで、床や壁の上面のように空が見える面が正当に存在するため。
+ * 下向きの面に限れば、上から見下ろすプレイヤーには見えない
+ */
+export const isHiddenPoint = (p: ProbePoint, rays: number): boolean => {
+  if (p.ao === EMBEDDED || p.ao / 255 < HIDDEN_AO_EPS) return true;
+  if (p.backHits >= rays * HIDDEN_BURIED_RATIO) return true;
+  return p.ny <= HIDDEN_VOID_MAX_NY && p.misses >= rays * HIDDEN_VOID_RATIO;
+};
+
+/** 全サンプル点が見えないチャートだけを隠れとみなす(1点でも見えれば通常の解像度でベイクする) */
+export const decideHidden = (
+  points: readonly ProbePoint[],
+  rays: number,
+): boolean => {
+  if (points.length === 0) return false; // 判定できなければ安全側(通常解像度を維持)
+  return points.every((p) => isHiddenPoint(p, rays));
 };
