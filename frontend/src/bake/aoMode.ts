@@ -5,6 +5,9 @@ import type { Object3D } from "three";
  * - baked: ベイク対象。面の AO はベイク AO だけ(GTAO は掛けない。画面端のちらつき・ノイズが乗らない)
  * - realtime: ベイク対象外(遮蔽物としても使わない)。面の AO は GTAO だけ。動く物・uv の無い物向け
  * - both: ベイク対象。面の AO はベイク AO と GTAO の暗い方。realtime の物が載る床など、動く物の接地の暗がりが要る面向け
+ *
+ * ao を実行中に変えても、反映は次のコライダー変化(再マウント)時。realtime との切り替えはベイク対象が変わるので再ベイクが必要
+ * (baked と both の切り替えはベイク対象が同じなので再ベイクは要らない)
  */
 export type AOMode = "baked" | "realtime" | "both";
 

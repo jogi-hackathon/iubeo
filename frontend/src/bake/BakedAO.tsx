@@ -14,7 +14,7 @@ import {
   getPostProcessSettings,
   subscribePostProcessSettings,
 } from "../camera/postprocess/settings";
-import { SKIP_GTAO } from "../camera/postprocess/skipGTAO";
+import { getSkipGTAO, setSkipGTAO } from "../camera/postprocess/skipGTAO";
 import { subscribeColliders } from "../core/bvh";
 import { type AOMode, aoModeOf, skipsGTAO } from "./aoMode";
 import {
@@ -54,7 +54,9 @@ const applyAtlas = (
   root: Object3D,
   layout: BakedAOLayout,
   texture: Texture,
-): { undo: () => void; materials: AOMaterial[] } | { mismatch: string } => {
+):
+  | { undo: () => void; materials: AOMaterial[]; warnings: string[] }
+  | { mismatch: string } => {
   const meshes = listBakeMeshes();
   const mismatch = findLayoutMismatch(layout, meshes.map(meshSignature));
   if (mismatch) return { mismatch };
@@ -78,6 +80,7 @@ const applyAtlas = (
     }
   }
 
+  const warnings: string[] = [];
   const undos: (() => void)[] = [];
   const materials: AOMaterial[] = [];
   let chartOffset = 0;
@@ -104,8 +107,8 @@ const applyAtlas = (
     for (const material of materialsOf(mesh)) {
       if (!hasAOMap(material)) continue;
       if (sharedWithOthers.has(material)) {
-        console.warn(
-          `[bakedAO] material "${material.name}" はベイク対象外の mesh と共有されているので aoMap を貼りません`,
+        warnings.push(
+          `material "${material.name}" はベイク対象外の mesh と共有されているので aoMap を貼りません`,
         );
         continue;
       }
@@ -113,18 +116,16 @@ const applyAtlas = (
       if (material.aoMap === texture) continue;
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
-      const prevSkip = material.userData[SKIP_GTAO];
+      const prevSkip = getSkipGTAO(material);
       material.aoMap = texture;
-      material.userData[SKIP_GTAO] = skipsGTAO(
-        modesByMaterial.get(material) ?? [],
-      );
+      // false も明示する(シェーダのキャッシュキーは値だけを並べるので、baked と both を区別するため)
+      setSkipGTAO(material, skipsGTAO(modesByMaterial.get(material) ?? []));
       material.needsUpdate = true;
       materials.push(material);
       undos.push(() => {
         material.aoMap = prev;
         material.aoMapIntensity = prevIntensity;
-        if (prevSkip === undefined) delete material.userData[SKIP_GTAO];
-        else material.userData[SKIP_GTAO] = prevSkip;
+        setSkipGTAO(material, prevSkip);
         material.needsUpdate = true;
       });
     }
@@ -134,6 +135,7 @@ const applyAtlas = (
       for (const u of undos.reverse()) u();
     },
     materials,
+    warnings,
   };
 };
 
@@ -146,7 +148,7 @@ const syncIntensity = (materials: readonly AOMaterial[]) => {
 /**
  * 事前ベイクした AO(`pnpm bake:ao --scene=<name>` の出力)を、シーンの静的 mesh に aoMap として貼る。
  * aoMap は間接光だけを減衰させる。GTAO(ポストプロセス)との分担は mesh の AO モード(aoMode.ts)に従い、
- * baked のマテリアルには SKIP_GTAO を立てて GTAO を掛けない。
+ * baked のマテリアルには skipGTAO を立てて GTAO を掛けない。
  * パネルでベイク AO を無効にすると貼ったものを外す(baked の面も GTAO に戻る)。
  * ベイク結果が無い・シーンと合わない場合は警告だけ出して何もしない(GTAO だけで描画される)。
  * コライダーの登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
@@ -235,6 +237,12 @@ export function BakedAO({ scene }: { scene: string }) {
         undo = result.undo;
         applied = result.materials;
         syncIntensity(applied);
+        // 貼り直しのたびに同じ警告を出さないよう、log の重複抑制に通す(警告があるときは情報ログの代わりに出す)
+        const warning = [...new Set(result.warnings)].join(" / ");
+        if (warning) {
+          log("warn", warning);
+          return;
+        }
         log(
           "info",
           `${scene}: ${layout.meshes.length} mesh / ${layout.rects.length} チャート / アトラス ${layout.atlasW}x${layout.atlasH}`,

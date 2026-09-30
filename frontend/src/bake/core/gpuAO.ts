@@ -174,6 +174,11 @@ export class GpuHiddenProbe {
     bvhData: BVHComputeData,
     chunkPoints = CHUNK_TEXELS,
   ) {
+    // 1チャート分のサンプル点が入らないと analyze が進まなくなる
+    if (chunkPoints < HIDDEN_POINTS)
+      throw new Error(
+        `[bake] chunkPoints は ${HIDDEN_POINTS} 以上にしてください(${chunkPoints})`,
+      );
     this.chunkPoints = chunkPoints;
     this.kernel = new RayKernel(
       renderer,

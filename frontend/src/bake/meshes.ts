@@ -24,11 +24,30 @@ const worldCenter = (mesh: Mesh): [number, number, number] => {
   return [_center.x, _center.y, _center.z];
 };
 
-/** 並べ替えのキー。f32 で保存したワールド中心と比べるので mm 単位に丸める */
-const sortKey = (mesh: Mesh): number[] => {
-  const [x, y, z] = worldCenter(mesh);
+/** ワールド座標のバウンディングボックスのサイズ */
+const worldSize = (mesh: Mesh): [number, number, number] => {
+  mesh.updateWorldMatrix(true, false);
+  const geometry = mesh.geometry;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  const box = (geometry.boundingBox as NonNullable<typeof geometry.boundingBox>)
+    .clone()
+    .applyMatrix4(mesh.matrixWorld);
+  box.getSize(_center);
+  return [_center.x, _center.y, _center.z];
+};
+
+/**
+ * 並べ替えのキー(中心 → 頂点数 → サイズ)。mm 単位に丸めるのは、浮動小数の誤差(行列の合成順など)で
+ * 同じ位置の mesh の並びが揺れないようにするため。中心と頂点数が同じでも、十字に置いた同じ箱のような
+ * 向き違いの mesh をタイにしないよう、サイズも入れる
+ */
+export const sortKey = (mesh: Mesh): number[] => {
   const mm = (v: number) => Math.round(v * 1000);
-  return [mm(x), mm(y), mm(z), mesh.geometry.getAttribute("position").count];
+  return [
+    ...worldCenter(mesh).map(mm),
+    mesh.geometry.getAttribute("position").count,
+    ...worldSize(mesh).map(mm),
+  ];
 };
 
 const compareKeys = (a: number[], b: number[]): number => {
@@ -42,7 +61,7 @@ const compareKeys = (a: number[], b: number[]): number => {
 /**
  * AO をベイクする静的 mesh。BVHCollider 配下の mesh(= 動かないコライダー)のうち、AO モードが realtime でないもの。
  * realtime の mesh は遮蔽物としても使わない(動く物がベイクに焼き込まれないように)。
- * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数の順に
+ * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数 → サイズの順に
  * 並べ替えて、ベイクページとゲーム本体で同じ並びにする。並びと形が一致しているかは format.ts で検証する
  */
 export const listBakeMeshes = (): Mesh[] =>
