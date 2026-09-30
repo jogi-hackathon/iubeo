@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "bake:ao": "node scripts/bake-ao.ts",
-    "lint": "oxlint .",
+    "lint": "oxlint . && oxfmt --check .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

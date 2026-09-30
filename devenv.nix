@@ -58,7 +58,7 @@
   scripts.lint.exec = ''
     cd "$DEVENV_ROOT"
     if [ -f backend/go.mod ]; then (cd backend && golangci-lint run ./...); fi
-    if [ -f frontend/package.json ]; then pnpm --dir frontend exec oxlint .; fi
+    if [ -f frontend/package.json ]; then pnpm --dir frontend exec oxlint . && pnpm --dir frontend exec oxfmt --check .; fi
   '';
 
   scripts.test-all.exec = ''
