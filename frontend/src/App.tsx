@@ -4,7 +4,8 @@ import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {GameCanvas} from "./core/GameCanvas";
-import {ManagedObjects} from "./objects";
+import {Interaction, ManagedObjects, Reticle} from "./objects";
+import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
@@ -28,11 +29,14 @@ export function App() {
         <ManagedObjects />
         <BakedAO scene={sceneName} />
         <PlayerController />
+        <Interaction />
         <LocalPlayerSkeleton />
         <FirstPersonCamera />
         <FlyCamera />
         <PostProcess />
       </GameCanvas>
+      <Reticle />
+      <OverviewCursor />
       <PostProcessPanel />
       <SceneDebugPanel />
       {DevTools && (

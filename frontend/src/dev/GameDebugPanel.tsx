@@ -1,8 +1,10 @@
-import {type CSSProperties, useEffect, useState} from "react";
+import {type CSSProperties, Fragment, useEffect, useState} from "react";
 
 import {useDebugFlags} from "../core/debug/flags";
+import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
 import {objectManager, useObjectsState} from "../objects";
+import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
 import {dummyAuthority} from "./authority";
 
 // パネルは Canvas の外の DOM なので、操作するには Esc で pointer lock を解除してから使う。
@@ -66,31 +68,36 @@ export function GameDebugPanel() {
       </div>
       {objects.length === 0 && <div style={{marginTop: 4}}>(none)</div>}
       {objects.map((o) => (
-        <div key={o.id} style={rowStyle}>
-          <span style={{flex: 1}}>
-            {o.id} [{o.scope}] {o.availability} users:{o.users.length}
-          </span>
-          <button type="button" onClick={() => objectManager.interact(o.id)}>
-            interact
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              dummyAuthority.setAvailability(
-                o.id,
-                o.availability === "available" ? "unavailable" : "available",
-              )
-            }
-          >
-            {o.availability === "available" ? "lock" : "unlock"}
-          </button>
-          <button
-            type="button"
-            onClick={() => dummyAuthority.removeObject(o.id)}
-          >
-            remove
-          </button>
-        </div>
+        <Fragment key={o.id}>
+          <div style={rowStyle}>
+            <span style={{flex: 1}}>
+              {o.id} [{o.scope}] {o.availability} users:{o.users.length}
+            </span>
+            <button type="button" onClick={() => objectManager.interact(o.id)}>
+              interact
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                dummyAuthority.setAvailability(
+                  o.id,
+                  o.availability === "available" ? "unavailable" : "available",
+                )
+              }
+            >
+              {o.availability === "available" ? "lock" : "unlock"}
+            </button>
+            <button
+              type="button"
+              onClick={() => dummyAuthority.removeObject(o.id)}
+            >
+              remove
+            </button>
+          </div>
+          {o.kind === DIRECTORY_KIND && (
+            <DirectoryRow id={o.id} data={o.data} />
+          )}
+        </Fragment>
       ))}
       <div style={{marginTop: 4}}>last rejected: {rejected || "-"}</div>
       <div style={headStyle}>items</div>
@@ -107,6 +114,34 @@ export function GameDebugPanel() {
           delete
         </button>
       </div>
+      <div style={rowStyle}>
+        <button type="button" onClick={() => dummyAuthority.spawnNewFile()}>
+          new file (write)
+        </button>
+        <button type="button" onClick={() => dummyAuthority.editHeldFile()}>
+          edit held file
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** ディレクトリの在庫・成果物・達成の数と、他のプレイヤーとしての貸し借り */
+function DirectoryRow({id, data}: {id: string; data: JsonValue}) {
+  const {stock, outputs} = parseDirectoryData(data);
+  return (
+    <div style={rowStyle}>
+      <span style={{flex: 1}}>
+        stock:{stock.length} outputs:{outputs} achieved:
+        {dummyAuthority.getAchieved()} borrowed:
+        {dummyAuthority.getBorrowedCount()}
+      </span>
+      <button type="button" onClick={() => dummyAuthority.borrowAsOther(id)}>
+        other borrows
+      </button>
+      <button type="button" onClick={() => dummyAuthority.returnAsOther(id)}>
+        other returns
+      </button>
     </div>
   );
 }

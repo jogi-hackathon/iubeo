@@ -2,6 +2,7 @@ import type {PlayerId} from "../player/types";
 import type {
   GameObject,
   HeldItemRef,
+  InteractOptions,
   InteractRequest,
   ObjectEvents,
   ObjectManagerState,
@@ -108,9 +109,10 @@ export const createObjectManager = ({
     },
     /**
      * インタラクトの要求を送る。手持ちも一緒に渡す(インタラクトの条件になるため)。
-     * 手元に無いオブジェクトは送らず false を返す。要求が通るかは、サーバーが検証して決める
+     * 手元に無いオブジェクトは送らず false を返す。要求が通るかは、サーバーが検証して決める。
+     * options.target は、対象の中から 1 つ選ぶ物(ディレクトリのファイルなど)で使う
      */
-    interact: (objectId: string): boolean => {
+    interact: (objectId: string, options: InteractOptions = {}): boolean => {
       if (!find(objectId)) {
         return false;
       }
@@ -119,6 +121,7 @@ export const createObjectManager = ({
         objectId,
         by: localPlayerId,
         heldItem: getHeldItem(),
+        ...(options.target !== undefined && {target: options.target}),
       });
       return true;
     },

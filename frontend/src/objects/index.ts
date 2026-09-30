@@ -1,9 +1,16 @@
 export {ManagedObjects} from "./ManagedObjects";
+export {
+  Interaction,
+  type InteractionHandler,
+  registerInteractionHandler,
+  Reticle,
+} from "./interaction";
 export {createObjectManager, type ObjectManager} from "./objectManager";
 export {objectManager, setRequestHandler} from "./objectStore";
 export type {
   GameObject,
   HeldItemRef,
+  InteractOptions,
   InteractRequest,
   ObjectAvailability,
   ObjectEvents,

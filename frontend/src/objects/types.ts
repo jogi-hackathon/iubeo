@@ -36,7 +36,12 @@ export type InteractRequest = {
   by: PlayerId;
   /** インタラクトの条件になる手持ち。サーバーが検証する */
   heldItem: HeldItemRef;
+  /** 対象の中から 1 つ選ぶときの指定(例: ディレクトリから取り出すファイルの id)。要らない物は付けない */
+  target?: string;
 };
+
+/** interact に足せる指定。InteractRequest の付加項目と対応する */
+export type InteractOptions = Pick<InteractRequest, "target">;
 
 export type RejectReason =
   | "not_found"

@@ -131,6 +131,20 @@ describe("createObjectManager", () => {
       ]);
     });
 
+    it("target を渡すと要求に載り、渡さなければ target のキー自体が無い", () => {
+      const {manager, send} = make();
+      manager.apply({type: "upsert", object: object("a")});
+
+      manager.interact("a", {target: "file-3"});
+      manager.interact("a", {});
+      manager.interact("a");
+
+      const [withTarget, empty, none] = send.mock.calls.map(([r]) => r);
+      expect(withTarget?.target).toBe("file-3");
+      expect(empty).not.toHaveProperty("target");
+      expect(none).not.toHaveProperty("target");
+    });
+
     it("手元に無いオブジェクトは送らず false を返す", () => {
       const {manager, send} = make();
       expect(manager.interact("nothing")).toBe(false);
