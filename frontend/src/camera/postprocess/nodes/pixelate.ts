@@ -1,5 +1,5 @@
-import { floor, max, screenSize, uv } from "three/tsl";
-import type { Node } from "three/webgpu";
+import {floor, max, screenSize, uv} from "three/tsl";
+import type {Node} from "three/webgpu";
 
 /**
  * 画面を pixelSize(ドローイングバッファの px)四方のブロックに量子化した UV を返す。

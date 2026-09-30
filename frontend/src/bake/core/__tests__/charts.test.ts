@@ -1,5 +1,6 @@
-import { BufferAttribute, BufferGeometry } from "three";
-import { describe, expect, it } from "vitest";
+import {BufferAttribute, BufferGeometry} from "three";
+import {describe, expect, it} from "vitest";
+
 import {
   buildChartIndex,
   buildChartTriangles,
@@ -9,7 +10,7 @@ import {
   queryChart,
   texelsFor,
 } from "../charts";
-import { MAX_TEXELS, MIN_TEXELS, TEXEL } from "../params";
+import {MAX_TEXELS, MIN_TEXELS, TEXEL} from "../params";
 
 // XY 平面上の (0,0)-(sx,sy) の四角形(法線 +Z、uv は [0,1]²)を 2 三角形で作る
 const plane = (sx: number, sy: number): ChartTri[] => {
@@ -61,7 +62,9 @@ describe("queryChart", () => {
 
   it("insetPosition は三角形の重心方向へ寄せる(縁の点でも面内に残る)", () => {
     const hit = queryChart(idx, 0, 0);
-    if (!hit) throw new Error("hit が null");
+    if (!hit) {
+      throw new Error("hit が null");
+    }
     const [x, y, z] = insetPosition(hit);
     expect(x).toBeGreaterThan(0);
     expect(y).toBeGreaterThanOrEqual(0);
@@ -106,7 +109,7 @@ describe("buildChartTriangles", () => {
       ...position.map((v, i) => (i % 3 === 2 ? 1 : v)),
     ];
     const uvs = [0, 0, 1, 0, 1, 1, 0, 1];
-    const normals = Array.from({ length: 8 }, () => [0, 0, 1]).flat();
+    const normals = Array.from({length: 8}, () => [0, 0, 1]).flat();
     geometry.setAttribute(
       "position",
       new BufferAttribute(new Float32Array(positions), 3),

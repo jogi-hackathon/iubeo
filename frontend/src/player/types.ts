@@ -1,4 +1,4 @@
-import type { Vector3 } from "three";
+import type {Vector3} from "three";
 
 /** 視線の向き。yaw=0 で -Z 前、pitch は上向きが正 */
 export interface Look {

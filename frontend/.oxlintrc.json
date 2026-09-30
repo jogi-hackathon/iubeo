@@ -1,0 +1,110 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Google TypeScript Style Guide (https://google.github.io/styleguide/tsguide.html)
+  // の MUST / SHOULD のうち、バグや設計に効くものだけを選んでいる。
+  // クォートやカンマなど些細な整形は oxfmt 側に任せる。
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "react",
+    "jsx-a11y"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "ignorePatterns": ["dist/**"],
+  "rules": {
+    // --- Language features / 制御構文 ---
+    // var 禁止・const 優先 (Use const and let)
+    "no-var": "error",
+    "prefer-const": ["error", {"destructuring": "all"}],
+    // ===/!== を必須に。null(undefined も含む)比較だけ ==/!= を許可 (Equality checks)
+    "eqeqeq": ["error", "always", {"null": "ignore"}],
+    // 全ての制御構文は block 必須 (Braces)
+    "curly": "error",
+    // for...in はプロトタイプ汚染を拾うのでフィルタ必須 (Iterating objects)
+    "guard-for-in": "error",
+    "no-unsafe-finally": "error",
+    "no-unsafe-negation": "error",
+    "no-unsafe-optional-chaining": "error",
+    // 例外は Error を投げる (Exceptions)
+    "no-throw-literal": "error",
+    "unicorn/error-message": "error",
+
+    // --- Disallowed features ---
+    // Array() / Object() コンストラクタ禁止
+    "no-array-constructor": "error",
+    "unicorn/no-new-array": "error",
+    "no-object-constructor": "error",
+    // String/Number/Boolean のラッパー生成禁止 (Wrapper objects)
+    "no-new-wrappers": "error",
+    // eval / Function コンストラクタ禁止
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    // with / debugger 禁止
+    "no-with": "error",
+    "no-debugger": "error",
+    // ビルトイン・プロトタイプの改変禁止 (Do not manipulate prototypes)
+    "no-extend-native": "error",
+    "no-proto": "error",
+    // parseInt は radix を明示
+    "radix": "error",
+
+    // --- Type system ---
+    // any ではなく unknown を使う (Using unknown over any)
+    "typescript/no-explicit-any": "error",
+    // @ts-ignore ではなく @ts-expect-error を使い、理由を書く
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description",
+        "ts-expect-error": "allow-with-description",
+        "ts-nocheck": true,
+        "ts-check": false,
+        "minimumDescriptionLength": 3
+      }
+    ],
+    "typescript/prefer-ts-expect-error": "error",
+    // enum 関連 (Enums)
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-mixed-enums": "error",
+    // this のエイリアス禁止、for...in 配列禁止、for...of 優先 (Rebinding this / Iterating containers)
+    "typescript/no-this-alias": "error",
+    "typescript/no-for-in-array": "error",
+    "typescript/prefer-for-of": "error",
+    // spread の型は合わせる (Using spread syntax)
+    "typescript/no-misused-spread": "error",
+    "typescript/no-invalid-void-type": "error",
+
+    // --- Modules / exports ---
+    // export let 禁止 (Mutable exports)
+    "import/no-mutable-exports": "error",
+    "import/no-self-import": "error",
+    "import/no-absolute-path": "error",
+    // import 文の整理
+    "import/no-duplicates": "error",
+    "import/no-cycle": "warn",
+
+    // --- React ---
+    // hooks の基本的な誤用 (Rules of Hooks)
+    "react/rules-of-hooks": "error",
+    // React Compiler 系診断は R3F(three.js のオブジェクトを effect 内で
+    // mutate する通常パターン)と相性が悪く false positive が出やすいので無効化
+    "react/immutability": "off",
+    "react/purity": "off",
+    "react/globals": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/incompatible-library": "off",
+    "react/use-memo": "off"
+  }
+}

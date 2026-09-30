@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { applyLook, LOOK_SENSITIVITY } from "../look";
+import {describe, expect, it} from "vitest";
 
-const look = () => ({ yaw: 0, pitch: 0 });
+import {applyLook, LOOK_SENSITIVITY} from "../look";
+
+const look = () => ({yaw: 0, pitch: 0});
 
 describe("applyLook", () => {
   it("感度は 1px あたり LOOK_SENSITIVITY rad", () => {

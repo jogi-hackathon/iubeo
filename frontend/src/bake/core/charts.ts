@@ -1,6 +1,7 @@
 // チャート(UV アイランド)の三角形収集・物理サイズ・チャート内の点クエリ。
-import type { BufferGeometry } from "three";
-import { CHART_INSET, clamp, MAX_TEXELS, MIN_TEXELS, TEXEL } from "./params";
+import type {BufferGeometry} from "three";
+
+import {CHART_INSET, clamp, MAX_TEXELS, MIN_TEXELS, TEXEL} from "./params";
 
 // ---------------------------------------------------------------- 型
 
@@ -18,9 +19,9 @@ export type Tuple9 = [
 export type Tuple6 = [number, number, number, number, number, number];
 
 /** チャート内の1三角形。p / n は 3 頂点分の位置・法線(xyz 連続)、uv は 3 頂点分の (u,v) */
-export type ChartTri = { p: Tuple9; n: Tuple9; uv: Tuple6 };
+export type ChartTri = {p: Tuple9; n: Tuple9; uv: Tuple6};
 
-export type ChartSize = { width: number; height: number };
+export type ChartSize = {width: number; height: number};
 
 /** チャート内の点クエリの結果。p* = 位置、n* = 正規化済み法線、c* = ヒットした三角形の重心 */
 export type ChartHit = {
@@ -36,7 +37,7 @@ export type ChartHit = {
 };
 
 /** uv 空間の n x n 格子に三角形をバケット分けした索引 */
-export type ChartIndex = { n: number; cells: ChartTri[][] };
+export type ChartIndex = {n: number; cells: ChartTri[][]};
 
 // ---------------------------------------------------------------- チャート三角形の収集
 
@@ -57,7 +58,7 @@ export const buildChartTriangles = (geometry: BufferGeometry): ChartTri[][] => {
   if (typeof chartCount !== "number") {
     throw new Error("[bake] geometry.userData.chartCount が必要です");
   }
-  const tris: ChartTri[][] = Array.from({ length: chartCount }, () => []);
+  const tris: ChartTri[][] = Array.from({length: chartCount}, () => []);
   for (let f = 0; f < index.count; f += 3) {
     const ia = index.getX(f);
     const ib = index.getX(f + 1);
@@ -119,7 +120,9 @@ export const chartPhysicalSize = (tris: ChartTri[]): ChartSize => {
     const e2v = v2 - v0;
     const det = e1u * e2v - e2u * e1v;
     const area = Math.abs(det) * 0.5;
-    if (area < 1e-12) continue;
+    if (area < 1e-12) {
+      continue;
+    }
     const e1x = bx - ax;
     const e1y = by - ay;
     const e1z = bz - az;
@@ -138,9 +141,9 @@ export const chartPhysicalSize = (tris: ChartTri[]): ChartSize => {
     dvSum += Math.hypot(dvx, dvy, dvz) * area;
   }
   if (areaSum < 1e-12) {
-    return { width: TEXEL * MIN_TEXELS, height: TEXEL * MIN_TEXELS };
+    return {width: TEXEL * MIN_TEXELS, height: TEXEL * MIN_TEXELS};
   }
-  return { width: duSum / areaSum, height: dvSum / areaSum };
+  return {width: duSum / areaSum, height: dvSum / areaSum};
 };
 
 export const texelsFor = (size: number): number =>
@@ -169,11 +172,15 @@ const baryOfUV = (
   const d20 = px * e1x + py * e1y;
   const d21 = px * e2x + py * e2y;
   const denom = d00 * d11 - d01 * d01;
-  if (Math.abs(denom) < 1e-12) return null;
+  if (Math.abs(denom) < 1e-12) {
+    return null;
+  }
   const b1 = (d11 * d20 - d01 * d21) / denom;
   const b2 = (d00 * d21 - d01 * d20) / denom;
   const b0 = 1 - b1 - b2;
-  if (b0 < -BARY_EPS || b1 < -BARY_EPS || b2 < -BARY_EPS) return null;
+  if (b0 < -BARY_EPS || b1 < -BARY_EPS || b2 < -BARY_EPS) {
+    return null;
+  }
   return [b0, b1, b2];
 };
 
@@ -211,7 +218,7 @@ const interpolateHit = (
 // (書類の束や壁のような、面ごとの三角形数が多いチャートで線形探索を避けるため)
 export const buildChartIndex = (tris: ChartTri[]): ChartIndex => {
   const n = Math.max(1, Math.ceil(Math.sqrt(tris.length)));
-  const cells: ChartTri[][] = Array.from({ length: n * n }, () => []);
+  const cells: ChartTri[][] = Array.from({length: n * n}, () => []);
   for (const t of tris) {
     const [u0, v0, u1, v1, u2, v2] = t.uv;
     const minU = Math.min(u0, u1, u2);
@@ -223,10 +230,12 @@ export const buildChartIndex = (tris: ChartTri[]): ChartIndex => {
     const cy0 = clamp(Math.floor(minV * n), 0, n - 1);
     const cy1 = clamp(Math.floor(maxV * n), 0, n - 1);
     for (let cy = cy0; cy <= cy1; cy++) {
-      for (let cx = cx0; cx <= cx1; cx++) cells[cy * n + cx]?.push(t);
+      for (let cx = cx0; cx <= cx1; cx++) {
+        cells[cy * n + cx]?.push(t);
+      }
     }
   }
-  return { n, cells };
+  return {n, cells};
 };
 
 export const queryChart = (
@@ -234,13 +243,15 @@ export const queryChart = (
   u: number,
   v: number,
 ): ChartHit | null => {
-  const { n, cells } = idx;
+  const {n, cells} = idx;
   const cx = clamp(Math.floor(u * n), 0, n - 1);
   const cy = clamp(Math.floor(v * n), 0, n - 1);
   const bucket = cells[cy * n + cx] ?? [];
   for (const t of bucket) {
     const bc = baryOfUV(u, v, t);
-    if (bc) return interpolateHit(t, bc);
+    if (bc) {
+      return interpolateHit(t, bc);
+    }
   }
   return null;
 };
@@ -251,7 +262,9 @@ export const insetPosition = (hit: ChartHit): [number, number, number] => {
   const dy = hit.cy - hit.py;
   const dz = hit.cz - hit.pz;
   const len = Math.hypot(dx, dy, dz);
-  if (len < 1e-9) return [hit.px, hit.py, hit.pz];
+  if (len < 1e-9) {
+    return [hit.px, hit.py, hit.pz];
+  }
   const s = Math.min(CHART_INSET, len) / len;
   return [hit.px + dx * s, hit.py + dy * s, hit.pz + dz * s];
 };

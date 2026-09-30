@@ -1,4 +1,4 @@
-import type { Material } from "three";
+import type {Material} from "three";
 
 /**
  * GTAO を掛けないマテリアルの目印(マテリアル直下のプロパティ名)。
@@ -12,18 +12,21 @@ import type { Material } from "three";
  */
 const KEY = "skipGTAO";
 
-type Flagged = Material & { [KEY]?: boolean };
+type Flagged = Material & {[KEY]?: boolean};
 
 export const isSkipGTAO = (material: object): boolean =>
-  (material as { [KEY]?: unknown })[KEY] === true;
+  (material as {[KEY]?: unknown})[KEY] === true;
 
 /** value が undefined なら目印ごと外す(元々無かったマテリアルを元に戻す用)。変えたら material.needsUpdate = true にする */
 export const setSkipGTAO = (
   material: Material,
   value: boolean | undefined,
 ): void => {
-  if (value === undefined) delete (material as Flagged)[KEY];
-  else (material as Flagged)[KEY] = value;
+  if (value === undefined) {
+    delete (material as Flagged)[KEY];
+  } else {
+    (material as Flagged)[KEY] = value;
+  }
 };
 
 /** 現在の値(未設定なら undefined)。setSkipGTAO で元に戻すために控える */

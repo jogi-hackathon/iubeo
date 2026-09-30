@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import {useEffect} from "react";
+
 import {
   DEBUG_AVAILABLE,
   getDebugFlags,
@@ -8,11 +9,13 @@ import {
 
 export const useDebugHotkeys = (): void => {
   useEffect(() => {
-    if (!DEBUG_AVAILABLE) return;
+    if (!DEBUG_AVAILABLE) {
+      return;
+    }
     const onKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case "F6": {
-          const { stats, grid } = getDebugFlags();
+          const {stats, grid} = getDebugFlags();
           const next = !(stats || grid);
           setDebugFlag("stats", next);
           setDebugFlag("grid", next);

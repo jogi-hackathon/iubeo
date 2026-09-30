@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import {useSyncExternalStore} from "react";
 
 export interface DebugFlags {
   stats: boolean;
@@ -28,7 +28,9 @@ const ALL_ON: DebugFlags = {
 };
 
 const initial = (): DebugFlags => {
-  if (!DEBUG_AVAILABLE) return ALL_OFF;
+  if (!DEBUG_AVAILABLE) {
+    return ALL_OFF;
+  }
   return new URLSearchParams(window.location.search).has("debug")
     ? ALL_ON
     : ALL_OFF;
@@ -40,9 +42,13 @@ const listeners = new Set<() => void>();
 export const getDebugFlags = (): DebugFlags => flags;
 
 export const setDebugFlag = (key: keyof DebugFlags, value: boolean): void => {
-  if (!DEBUG_AVAILABLE || flags[key] === value) return;
-  flags = { ...flags, [key]: value };
-  for (const l of listeners) l();
+  if (!DEBUG_AVAILABLE || flags[key] === value) {
+    return;
+  }
+  flags = {...flags, [key]: value};
+  for (const l of listeners) {
+    l();
+  }
 };
 
 export const toggleDebugFlag = (key: keyof DebugFlags): void => {

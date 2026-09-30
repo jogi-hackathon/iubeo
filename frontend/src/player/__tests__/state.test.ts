@@ -1,7 +1,8 @@
-import { Vector3 } from "three";
-import { describe, expect, it } from "vitest";
-import { EYE_HEIGHT } from "../constants";
-import { createPlayerState, getEyePosition } from "../state";
+import {Vector3} from "three";
+import {describe, expect, it} from "vitest";
+
+import {EYE_HEIGHT} from "../constants";
+import {createPlayerState, getEyePosition} from "../state";
 
 describe("createPlayerState", () => {
   it("向きは yaw=0, pitch=0(-Z 前・水平)で始まる", () => {

@@ -1,4 +1,4 @@
-import type { Mesh } from "three";
+import type {Mesh} from "three";
 
 /**
  * 衝突判定の対象。mesh.geometry.boundsTree(MeshBVH)が構築済みであること。
@@ -13,7 +13,9 @@ const colliders = new Set<Collider>();
 const listeners = new Set<() => void>();
 
 const notify = () => {
-  for (const l of listeners) l();
+  for (const l of listeners) {
+    l();
+  }
 };
 
 export const addCollider = (c: Collider): void => {
@@ -22,7 +24,13 @@ export const addCollider = (c: Collider): void => {
 };
 
 export const removeCollider = (c: Collider): void => {
-  if (colliders.delete(c)) notify();
+  if (colliders.delete(c)) {
+    notify();
+  }
+};
+
+export const setColliderEnabled = (c: Collider, enabled: boolean): void => {
+  c.enabled = enabled;
 };
 
 /** enabled なものだけ返さず全件返す。判定側で enabled を見ること */

@@ -3,16 +3,17 @@
 // AO の式を1か所にまとめる。
 // three-mesh-bvh の WebGPU API は unstable。使い方は node_modules/three-mesh-bvh/src/webgpu/ と
 // 同リポジトリの example/webgpu_gpuPathTracingSimple.js に合わせている。
-import type { BufferGeometry } from "three";
-import { localId, storage, uniform, workgroupId } from "three/tsl";
+import type {BufferGeometry} from "three";
+import {BVHComputeData, wgslTagFn} from "three-mesh-bvh/webgpu";
+import {localId, storage, uniform, workgroupId} from "three/tsl";
 import {
   type ComputeNode,
   StorageBufferAttribute,
   Vector3,
   type WebGPURenderer,
 } from "three/webgpu";
-import { BVHComputeData, wgslTagFn } from "three-mesh-bvh/webgpu";
-import { GpuErrorWatch } from "./gpuErrors";
+
+import {GpuErrorWatch} from "./gpuErrors";
 import {
   BIAS,
   type Dir,
@@ -116,7 +117,7 @@ export class RayKernel {
     // 他の物体に埋まった点(接する箱の内側など)は、距離 MAX_DIST 以内に何にも当たらないレイが有効と数えられて
     // 明るい値が出てしまうので、距離無制限のレイの裏面ヒットの割合でも EMBEDDED にする。round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
     // raycastFirstHit の side は sign(-dot(dir, geometricNormal)): +1 が表面、-1 が裏面
-    const kernelFn = wgslTagFn /* wgsl */`
+    const kernelFn = wgslTagFn /* wgsl */ `
       // fn
       fn castRays(
         workgroupSize: vec3u,
@@ -247,7 +248,7 @@ export class RayKernel {
 
   /** 先頭から count 点を GPU で計算し、点ごとに resultsPerPoint 個ずつ(先頭が AO: 0..255 / EMBEDDED)返す */
   async dispatch(count: number): Promise<Uint32Array> {
-    const { renderer } = this;
+    const {renderer} = this;
     this.dataAttr.needsUpdate = true;
     this.countUniform.value = count;
     return this.watch.run(async () => {

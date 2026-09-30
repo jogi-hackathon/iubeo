@@ -1,10 +1,11 @@
-import { Canvas, useThree } from "@react-three/fiber";
-import { type CSSProperties, Suspense, useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { WebGPURenderer } from "three/webgpu";
-import { type SceneName, scenes } from "../scenes";
-import { BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles } from "./paths";
-import { type BakeProgress, bakeSceneAO } from "./run";
+import {Canvas, useThree} from "@react-three/fiber";
+import {type CSSProperties, Suspense, useEffect, useState} from "react";
+import {createRoot} from "react-dom/client";
+import {WebGPURenderer} from "three/webgpu";
+
+import {type SceneName, scenes} from "../scenes";
+import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
+import {type BakeProgress, bakeSceneAO} from "./run";
 
 // dev 専用の AO ベイクページ(bake.html)。シーンを描画せずにマウントだけして、BVHCollider に登録された
 // 静的 mesh の AO を WebGPU でベイクし、dev サーバー(scripts/bakeSavePlugin.ts)へ送って public/ao/ に保存する。
@@ -59,7 +60,7 @@ interface AdapterLike {
 const adapterInfo = async (): Promise<Record<string, unknown>> => {
   const gpu = (
     navigator as {
-      gpu?: { requestAdapter(o?: object): Promise<AdapterLike | null> };
+      gpu?: {requestAdapter(o?: object): Promise<AdapterLike | null>};
     }
   ).gpu;
   const adapter = await gpu?.requestAdapter({
@@ -102,17 +103,18 @@ const save = async (
     },
     body,
   });
-  if (!res.ok)
+  if (!res.ok) {
     throw new Error(`保存に失敗しました: ${res.status} ${await res.text()}`);
+  }
 };
 
-function Runner({ onProgress }: { onProgress: (p: BakeProgress) => void }) {
+function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
   const gl = useThree((s) => s.gl) as unknown as WebGPURenderer;
 
   useEffect(() => {
     let adapter: Record<string, unknown> | undefined;
     (async () => {
-      const backend = gl.backend as unknown as { isWebGPUBackend?: boolean };
+      const backend = gl.backend as unknown as {isWebGPUBackend?: boolean};
       if (!backend.isWebGPUBackend) {
         throw new Error(
           "WebGPU バックエンドで初期化できませんでした(WebGL フォールバックではベイクしません)",
@@ -132,7 +134,7 @@ function Runner({ onProgress }: { onProgress: (p: BakeProgress) => void }) {
 
       const tAll = performance.now();
       const out = await bakeSceneAO(gl, onProgress);
-      onProgress({ status: "保存中" });
+      onProgress({status: "保存中"});
       await save(
         sceneName,
         out.atlas,
@@ -144,7 +146,7 @@ function Runner({ onProgress }: { onProgress: (p: BakeProgress) => void }) {
       const files = Object.values(bakedAOFiles(sceneName)).map(
         (f) => `public/${f}`,
       );
-      onProgress({ status: `完了: ${files.join(", ")}` });
+      onProgress({status: `完了: ${files.join(", ")}`});
       window.__bakeResult = {
         ok: true,
         files,
@@ -158,8 +160,8 @@ function Runner({ onProgress }: { onProgress: (p: BakeProgress) => void }) {
     })().catch((e: unknown) => {
       const error = e instanceof Error ? e.message : String(e);
       console.error(`[bake] ${error}`);
-      onProgress({ status: `エラー: ${error}` });
-      window.__bakeResult = { ok: false, error, adapter };
+      onProgress({status: `エラー: ${error}`});
+      window.__bakeResult = {ok: false, error, adapter};
     });
     // マウント時に1回だけ走らせる(StrictMode は使っていない)
   }, [gl, onProgress]);
@@ -173,15 +175,15 @@ const statusStyle: CSSProperties = {
 };
 
 function BakePage() {
-  const [progress, setProgress] = useState<BakeProgress>({ status: "起動中" });
+  const [progress, setProgress] = useState<BakeProgress>({status: "起動中"});
 
   if (!isSceneName(sceneName)) {
     const error = `不明なシーンです: ${sceneName}(${Object.keys(scenes).join(" / ")})`;
-    window.__bakeResult = { ok: false, error };
+    window.__bakeResult = {ok: false, error};
     return <div style={statusStyle}>{error}</div>;
   }
   const Scene = scenes[sceneName];
-  const { done, total } = progress;
+  const {done, total} = progress;
   return (
     <>
       <div style={statusStyle}>
@@ -197,7 +199,7 @@ function BakePage() {
       <Canvas
         gl={createRenderer}
         frameloop="never"
-        style={{ width: 1, height: 1 }}
+        style={{width: 1, height: 1}}
       >
         {/* Runner をシーンと同じ Suspense 境界に入れる。Suspense で読み込む prop(useGLTF / useLoader など)が
             すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
@@ -212,5 +214,7 @@ function BakePage() {
 }
 
 const root = document.getElementById("root");
-if (!root) throw new Error("#root not found");
+if (!root) {
+  throw new Error("#root not found");
+}
 createRoot(root).render(<BakePage />);

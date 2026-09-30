@@ -1,5 +1,5 @@
-import { Ball, TiledFloor, Wall } from "../../props";
-import { WhiteWorld } from "../environment/WhiteWorld";
+import {Ball, TiledFloor, Wall} from "../../props";
+import {WhiteWorld} from "../environment/WhiteWorld";
 
 /** 衝突確認用のテストシーン。開始位置(0,0,0)から見て -Z 方向に配置 */
 export function TestScene() {

@@ -1,6 +1,6 @@
 // テクセル → レイの発射位置・法線・回転角(CPU 版と GPU 版で同じサンプルを使うための共通部分)。
-import { type ChartIndex, insetPosition, queryChart } from "./charts";
-import { rotFor } from "./params";
+import {type ChartIndex, insetPosition, queryChart} from "./charts";
+import {rotFor} from "./params";
 
 export type TexelSample = {
   ox: number;
@@ -25,7 +25,9 @@ export const sampleTexel = (
   const v = h > 1 ? ty / (h - 1) : 0.5;
   const u = w > 1 ? tx / (w - 1) : 0.5;
   const hit = queryChart(idx, u, v);
-  if (!hit) return null;
+  if (!hit) {
+    return null;
+  }
   const pos = insetPosition(hit);
   const seed = chartId * 2000000 + ty * w + tx;
   return {

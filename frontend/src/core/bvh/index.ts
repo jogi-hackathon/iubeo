@@ -1,6 +1,6 @@
 import "./setup";
 
-export { BVHCollider } from "./BVHCollider";
+export {BVHCollider} from "./BVHCollider";
 export {
   addCollider,
   type Collider,

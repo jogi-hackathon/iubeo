@@ -1,22 +1,25 @@
-import { useSyncExternalStore } from "react";
-import { type BootProgress, boot } from "./boot";
-import type { AppContext } from "./context";
+import {useSyncExternalStore} from "react";
+
+import {type BootProgress, boot} from "./boot";
+import type {AppContext} from "./context";
 
 export type BootState =
-  | { status: "running"; progress: BootProgress | null }
-  | { status: "ready"; ctx: AppContext }
-  | { status: "error"; error: Error };
+  | {status: "running"; progress: BootProgress | null}
+  | {status: "ready"; ctx: AppContext}
+  | {status: "error"; error: Error};
 
 export const createBootStore = (
   run: (onProgress: (p: BootProgress) => void) => Promise<AppContext>,
 ) => {
-  let state: BootState = { status: "running", progress: null };
+  let state: BootState = {status: "running", progress: null};
   let started = false;
   const listeners = new Set<() => void>();
 
   const set = (next: BootState) => {
     state = next;
-    for (const l of listeners) l();
+    for (const l of listeners) {
+      l();
+    }
   };
 
   return {
@@ -27,10 +30,12 @@ export const createBootStore = (
     },
     /** 何度呼んでも boot は1回だけ実行する(StrictMode の effect 二重実行対策) */
     start: (): void => {
-      if (started) return;
+      if (started) {
+        return;
+      }
       started = true;
-      run((progress) => set({ status: "running", progress })).then(
-        (ctx) => set({ status: "ready", ctx }),
+      run((progress) => set({status: "running", progress})).then(
+        (ctx) => set({status: "ready", ctx}),
         (e: unknown) => {
           console.error(e);
           set({

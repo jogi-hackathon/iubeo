@@ -1,4 +1,4 @@
-import type { MeshSignature } from "./meshes";
+import type {MeshSignature} from "./meshes";
 
 /** アトラス上のチャートの内側矩形(テクセル単位。PAD を含まない) */
 export interface ChartRect {
@@ -32,12 +32,14 @@ const RECT_BYTES = 8;
 export const serializeLayout = (
   layout: BakedAOLayout,
 ): Uint8Array<ArrayBuffer> => {
-  const { atlasW, atlasH, meshes, rects } = layout;
+  const {atlasW, atlasH, meshes, rects} = layout;
   const buf = new Uint8Array(
     HEADER_BYTES + meshes.length * MESH_BYTES + rects.length * RECT_BYTES,
   );
   const dv = new DataView(buf.buffer);
-  for (let i = 0; i < MAGIC.length; i++) buf[i] = MAGIC.charCodeAt(i);
+  for (let i = 0; i < MAGIC.length; i++) {
+    buf[i] = MAGIC.charCodeAt(i);
+  }
   dv.setUint16(4, atlasW, true);
   dv.setUint16(6, atlasH, true);
   dv.setUint32(8, meshes.length, true);
@@ -64,7 +66,9 @@ export const serializeLayout = (
 export const parseLayout = (buffer: ArrayBuffer): BakedAOLayout => {
   const bytes = new Uint8Array(buffer);
   const magic = String.fromCharCode(...bytes.subarray(0, MAGIC.length));
-  if (magic !== MAGIC) throw new Error(`[bake] 形式が違います(${magic})`);
+  if (magic !== MAGIC) {
+    throw new Error(`[bake] 形式が違います(${magic})`);
+  }
   const dv = new DataView(buffer);
   const atlasW = dv.getUint16(4, true);
   const atlasH = dv.getUint16(6, true);
@@ -101,7 +105,7 @@ export const parseLayout = (buffer: ArrayBuffer): BakedAOLayout => {
     });
     o += RECT_BYTES;
   }
-  return { atlasW, atlasH, meshes, rects };
+  return {atlasW, atlasH, meshes, rects};
 };
 
 /** ワールド中心の許容誤差(m)。f32 で保存するので厳密一致にはしない */
@@ -146,10 +150,11 @@ export const atlasUV = (
   const out = new Float32Array(count * 2);
   for (let i = 0; i < count; i++) {
     const rect = layout.rects[chartOffset + (chart[i] as number)];
-    if (!rect)
+    if (!rect) {
       throw new Error(
         `[bake] チャート ${chartOffset + (chart[i] as number)} がありません`,
       );
+    }
     const u = uv[i * 2] as number;
     const v = uv[i * 2 + 1] as number;
     out[i * 2] = (rect.x + 0.5 + u * (rect.w - 1)) / layout.atlasW;

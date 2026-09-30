@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
+
 import {
   connectPointerLock,
   consumeLookDelta,
@@ -14,21 +15,26 @@ const createDom = (
   const handlers = new Map<string, Set<Handler>>();
   const emitter = () => ({
     addEventListener: (type: string, h: Handler) => {
-      if (!handlers.has(type)) handlers.set(type, new Set());
+      if (!handlers.has(type)) {
+        handlers.set(type, new Set());
+      }
       handlers.get(type)?.add(h);
     },
     removeEventListener: (type: string, h: Handler) => {
       handlers.get(type)?.delete(h);
     },
   });
-  const doc = { ...emitter(), pointerLockElement: null as unknown };
+  const doc = {...emitter(), pointerLockElement: null as unknown};
   const target = {
     ...emitter(),
     ownerDocument: doc,
     requestPointerLock: vi.fn(requestPointerLock),
   };
   const emit = (type: string, e?: unknown) => {
-    for (const h of [...(handlers.get(type) ?? [])]) h(e);
+    const snapshot = [...(handlers.get(type) ?? [])];
+    for (const h of snapshot) {
+      h(e);
+    }
   };
   const setLock = (locked: boolean) => {
     doc.pointerLockElement = locked ? target : null;
@@ -55,17 +61,17 @@ describe("pointerLock 蓄積", () => {
     const dom = createDom();
     disconnect = connectPointerLock(dom.target);
     dom.setLock(true);
-    dom.emit("mousemove", { movementX: 3, movementY: -1 });
-    dom.emit("mousemove", { movementX: 2, movementY: 4 });
-    expect(consumeLookDelta()).toEqual({ dx: 5, dy: 3 });
-    expect(consumeLookDelta()).toEqual({ dx: 0, dy: 0 });
+    dom.emit("mousemove", {movementX: 3, movementY: -1});
+    dom.emit("mousemove", {movementX: 2, movementY: 4});
+    expect(consumeLookDelta()).toEqual({dx: 5, dy: 3});
+    expect(consumeLookDelta()).toEqual({dx: 0, dy: 0});
   });
 
   it("ロックされていない間の movement は無視する", () => {
     const dom = createDom();
     disconnect = connectPointerLock(dom.target);
-    dom.emit("mousemove", { movementX: 9, movementY: 9 });
-    expect(consumeLookDelta()).toEqual({ dx: 0, dy: 0 });
+    dom.emit("mousemove", {movementX: 9, movementY: 9});
+    expect(consumeLookDelta()).toEqual({dx: 0, dy: 0});
   });
 
   it("unlock で未消費の累積を捨てる", () => {
@@ -73,10 +79,10 @@ describe("pointerLock 蓄積", () => {
     disconnect = connectPointerLock(dom.target);
     dom.setLock(true);
     expect(isPointerLocked()).toBe(true);
-    dom.emit("mousemove", { movementX: 7, movementY: 7 });
+    dom.emit("mousemove", {movementX: 7, movementY: 7});
     dom.setLock(false);
     expect(isPointerLocked()).toBe(false);
-    expect(consumeLookDelta()).toEqual({ dx: 0, dy: 0 });
+    expect(consumeLookDelta()).toEqual({dx: 0, dy: 0});
   });
 
   it("disconnect でリスナーを外し、ロック状態を戻す", () => {
@@ -100,7 +106,7 @@ describe("pointerLock 要求", () => {
     });
   });
 
-  const domError = (name: string) => Object.assign(new Error(name), { name });
+  const domError = (name: string) => Object.assign(new Error(name), {name});
 
   it("NotSupportedError なら引数なしで再試行する", async () => {
     const dom = createDom((options) =>

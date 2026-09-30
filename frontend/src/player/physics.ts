@@ -1,6 +1,7 @@
-import { Box3, Line3, Matrix4, Vector3 } from "three";
-import type { ExtendedTriangle } from "three-mesh-bvh";
-import type { Collider } from "../core/bvh";
+import {Box3, Line3, Matrix4, Vector3} from "three";
+import type {ExtendedTriangle} from "three-mesh-bvh";
+
+import type {Collider} from "../core/bvh";
 import {
   AIR_ACCEL,
   CAPSULE_RADIUS,
@@ -11,7 +12,7 @@ import {
   PLAYER_HEIGHT,
   WALK_SPEED,
 } from "./constants";
-import type { MoveInput, PlayerState } from "./types";
+import type {MoveInput, PlayerState} from "./types";
 
 /** yaw(Y 軸回転)が 0 のとき -Z 方向が前。水平面の速度を out に書く */
 export const walkVelocity = (
@@ -22,7 +23,9 @@ export const walkVelocity = (
   const f = Number(input.forward) - Number(input.back);
   const r = Number(input.right) - Number(input.left);
   const len = Math.hypot(f, r);
-  if (len === 0) return out.set(0, 0, 0);
+  if (len === 0) {
+    return out.set(0, 0, 0);
+  }
   const s = WALK_SPEED / len;
   const sin = Math.sin(yaw);
   const cos = Math.cos(yaw);
@@ -39,10 +42,14 @@ const airControl = (
   h: number,
 ): void => {
   walkVelocity(input, yaw, wish);
-  if (wish.lengthSq() === 0) return;
+  if (wish.lengthSq() === 0) {
+    return;
+  }
   wish.divideScalar(WALK_SPEED);
   const room = WALK_SPEED - (velocity.x * wish.x + velocity.z * wish.z);
-  if (room <= 0) return;
+  if (room <= 0) {
+    return;
+  }
   const a = Math.min(AIR_ACCEL * h, room);
   velocity.x += wish.x * a;
   velocity.z += wish.z * a;
@@ -63,7 +70,9 @@ const warned = new WeakSet<object>();
 
 /** BVH を失ったコライダー(geometry の差し替えなど)は判定から漏れるため、開発時に 1 回だけ警告する */
 const warnMissingBvh = (mesh: Collider["mesh"]): void => {
-  if (!import.meta.env.DEV || warned.has(mesh)) return;
+  if (!import.meta.env.DEV || warned.has(mesh)) {
+    return;
+  }
   warned.add(mesh);
   console.warn(
     "[physics] boundsTree のないコライダーをスキップしました。geometry が差し替わった可能性があります(BVHCollider の再マウントが必要)",
@@ -82,8 +91,10 @@ export const resolveCollisions = (
   segment.end.set(position.x, position.y + PLAYER_HEIGHT - r, position.z);
   before.copy(segment.start);
 
-  for (const { mesh, enabled } of colliders) {
-    if (!enabled) continue;
+  for (const {mesh, enabled} of colliders) {
+    if (!enabled) {
+      continue;
+    }
     const bvh = mesh.geometry.boundsTree;
     if (!bvh) {
       warnMissingBvh(mesh);
@@ -110,10 +121,15 @@ export const resolveCollisions = (
           triPoint,
           capPoint,
         );
-        if (dist >= lr) return;
+        if (dist >= lr) {
+          return;
+        }
         push.subVectors(capPoint, triPoint);
-        if (dist > 1e-6) push.normalize();
-        else push.copy(tri.getNormal(normal));
+        if (dist > 1e-6) {
+          push.normalize();
+        } else {
+          push.copy(tri.getNormal(normal));
+        }
         const depth = lr - dist;
         localSegment.start.addScaledVector(push, depth);
         localSegment.end.addScaledVector(push, depth);
@@ -136,15 +152,18 @@ export const stepPlayer = (
 ): void => {
   const steps = Math.max(1, Math.ceil(dt / PHYSICS_STEP));
   const h = dt / steps;
-  const { position, velocity } = state;
+  const {position, velocity} = state;
   let jump = input.jump;
   let grounded = false;
 
   for (let i = 0; i < steps; i++) {
     const wasGround = i === 0 ? state.onGround : grounded;
     const vy = velocity.y;
-    if (wasGround) walkVelocity(input, yaw, velocity).setY(vy);
-    else airControl(velocity, input, yaw, h);
+    if (wasGround) {
+      walkVelocity(input, yaw, velocity).setY(vy);
+    } else {
+      airControl(velocity, input, yaw, h);
+    }
     if (jump && wasGround) {
       velocity.y = JUMP_SPEED;
       jump = false;
@@ -155,11 +174,18 @@ export const stepPlayer = (
     grounded = false;
     for (let iter = 0; iter < 2; iter++) {
       resolveCollisions(position, colliders, delta);
-      if (delta.lengthSq() < 1e-12) break;
+      if (delta.lengthSq() < 1e-12) {
+        break;
+      }
       position.add(delta);
-      if (delta.y > Math.abs(h * velocity.y) * 0.25) grounded = true;
-      if (delta.y > 1e-6 && velocity.y < 0) velocity.y = 0;
-      else if (delta.y < -1e-6 && velocity.y > 0) velocity.y = 0;
+      if (delta.y > Math.abs(h * velocity.y) * 0.25) {
+        grounded = true;
+      }
+      if (delta.y > 1e-6 && velocity.y < 0) {
+        velocity.y = 0;
+      } else if (delta.y < -1e-6 && velocity.y > 0) {
+        velocity.y = 0;
+      }
     }
   }
   state.onGround = grounded;

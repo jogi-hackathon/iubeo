@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
-import { type AOMode, aoModeUserData } from "../bake/aoMode";
-import { BVHCollider } from "../core/bvh";
+import {useEffect, useState} from "react";
+import {CanvasTexture, RepeatWrapping, SRGBColorSpace} from "three";
+
+import {type AOMode, aoModeUserData} from "../bake/aoMode";
+import {BVHCollider} from "../core/bvh";
 
 interface TiledFloorProps {
   size?: number;

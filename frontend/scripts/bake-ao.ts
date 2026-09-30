@@ -8,9 +8,10 @@
 //   --headed          ヘッドありで起動(デバッグ用)
 //   --chrome-arg      Chrome に渡す追加フラグ(複数指定可)
 import net from "node:net";
-import { fileURLToPath } from "node:url";
-import { chromium } from "playwright-core";
-import { createServer } from "vite";
+import {fileURLToPath} from "node:url";
+
+import {chromium} from "playwright-core";
+import {createServer} from "vite";
 
 interface Options {
   scene: string;
@@ -43,20 +44,28 @@ const parseArgs = (argv: string[]): Options => {
   };
   for (const arg of argv) {
     const [key, value = ""] = arg.replace(/^--/, "").split(/=(.*)/s);
-    if (key === "scene") opts.scene = value;
-    else if (key === "timeout") opts.timeout = Number(value);
-    else if (key === "allow-software") opts.allowSoftware = true;
-    else if (key === "headed") opts.headed = true;
-    else if (key === "chrome-arg") opts.chromeArgs.push(value);
-    else throw new Error(`不明な引数: ${arg}`);
+    if (key === "scene") {
+      opts.scene = value;
+    } else if (key === "timeout") {
+      opts.timeout = Number(value);
+    } else if (key === "allow-software") {
+      opts.allowSoftware = true;
+    } else if (key === "headed") {
+      opts.headed = true;
+    } else if (key === "chrome-arg") {
+      opts.chromeArgs.push(value);
+    } else {
+      throw new Error(`不明な引数: ${arg}`);
+    }
   }
   if (!/^[a-z0-9-]+$/i.test(opts.scene)) {
     throw new Error(
       `--scene は英数字とハイフンで指定してください: ${opts.scene}`,
     );
   }
-  if (!(opts.timeout > 0))
+  if (!(opts.timeout > 0)) {
     throw new Error("--timeout は正の秒数で指定してください");
+  }
   return opts;
 };
 
@@ -132,8 +141,9 @@ const main = async (): Promise<number> => {
     const page = await browser.newPage();
     page.on("console", (msg) => {
       const text = msg.text();
-      if (text.startsWith("[bake]")) console.log(text);
-      else if (msg.type() === "error" || msg.type() === "warning") {
+      if (text.startsWith("[bake]")) {
+        console.log(text);
+      } else if (msg.type() === "error" || msg.type() === "warning") {
         console.log(`[page:${msg.type()}] ${text}`);
       }
     });
@@ -142,8 +152,10 @@ const main = async (): Promise<number> => {
       console.log("[page:crash] ページがクラッシュしました"),
     );
 
-    const query = new URLSearchParams({ scene: opts.scene });
-    if (opts.allowSoftware) query.set("allowSoftware", "1");
+    const query = new URLSearchParams({scene: opts.scene});
+    if (opts.allowSoftware) {
+      query.set("allowSoftware", "1");
+    }
     const url = `http://127.0.0.1:${port}/bake.html?${query}`;
     console.log(`[bake-ao] open ${url} (timeout ${opts.timeout}s)`);
     await page.goto(url);
@@ -152,16 +164,18 @@ const main = async (): Promise<number> => {
     try {
       const handle = await page.waitForFunction(
         // ページ内で評価される関数。Node 側の型に window は無いので globalThis で参照する
-        () => (globalThis as { __bakeResult?: unknown }).__bakeResult,
+        () => (globalThis as {__bakeResult?: unknown}).__bakeResult,
         null,
-        { timeout: opts.timeout * 1000, polling: 250 },
+        {timeout: opts.timeout * 1000, polling: 250},
       );
       result = (await handle.jsonValue()) as BakeResult;
     } catch (e) {
       const first = String(e instanceof Error ? e.message : e).split("\n")[0];
       throw new Error(`${opts.timeout} 秒以内に完了しませんでした: ${first}`);
     }
-    if (!result.ok) throw new Error(`ベイク失敗: ${result.error}`);
+    if (!result.ok) {
+      throw new Error(`ベイク失敗: ${result.error}`);
+    }
 
     console.log(`[bake-ao] adapter: ${JSON.stringify(result.adapter)}`);
     const timings = Object.entries(result.timings ?? {})
@@ -177,7 +191,9 @@ const main = async (): Promise<number> => {
     console.error(`[bake-ao] ${e instanceof Error ? e.message : String(e)}`);
     return 1;
   } finally {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
     await server.close().catch(() => {});
   }
 };

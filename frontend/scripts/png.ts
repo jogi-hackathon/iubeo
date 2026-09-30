@@ -1,5 +1,5 @@
 // 最小の PNG エンコーダ(8bit グレースケール・フィルタなし)。Node 専用
-import { deflateSync } from "node:zlib";
+import {deflateSync} from "node:zlib";
 
 let crcTable: Uint32Array | null = null;
 
@@ -8,7 +8,9 @@ const crc32 = (buf: Uint8Array): number => {
     crcTable = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
       let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
       crcTable[n] = c >>> 0;
     }
   }
@@ -55,7 +57,7 @@ export const encodePNGGray8 = (
   return Buffer.concat([
     signature,
     chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IDAT", deflateSync(raw, {level: 9})),
     chunk("IEND", Buffer.alloc(0)),
   ]);
 };

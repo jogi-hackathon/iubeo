@@ -1,6 +1,6 @@
 // three-mesh-bvh/webgpu の型定義に無いものを、使う分だけ補う(実体は
 // node_modules/three-mesh-bvh/src/webgpu/nodes/WGSLTagFnNode.js と BVHComputeData.js)。
-import type { ComputeNode } from "three/webgpu";
+import type {ComputeNode} from "three/webgpu";
 
 declare module "three-mesh-bvh/webgpu" {
   /** WGSL のテンプレートリテラルから関数ノードを作る。`${node}` で TSL ノードを埋め込める */

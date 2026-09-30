@@ -28,7 +28,7 @@ export const HIDDEN_VOID_MAX_NY = -0.5;
 export const HIDDEN_VOID_RATIO = 0.9;
 export const HIDDEN_TEXELS = 2; // 隠れチャートに縮めるテクセル数(1辺)
 
-export type Dir = { x: number; y: number; z: number };
+export type Dir = {x: number; y: number; z: number};
 
 // 半球上のコサイン重み付きサンプル(z軸が法線方向)
 export const hemisphereSamples = (n: number): Dir[] => {

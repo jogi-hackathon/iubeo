@@ -1,10 +1,11 @@
-import type { WebGPURenderer } from "three/webgpu";
-import { MeshBVH } from "three-mesh-bvh";
-import { dilateChart, packAtlas, writeChartToAtlas } from "./core/atlas";
-import { buildChartTriangles, chartPhysicalSize } from "./core/charts";
-import { createBVHData, GpuAOBaker, GpuHiddenProbe } from "./core/gpuAO";
-import { type BakedAOLayout, serializeLayout } from "./format";
-import { buildBakeGeometry, listBakeMeshes, meshSignature } from "./meshes";
+import {MeshBVH} from "three-mesh-bvh";
+import type {WebGPURenderer} from "three/webgpu";
+
+import {dilateChart, packAtlas, writeChartToAtlas} from "./core/atlas";
+import {buildChartTriangles, chartPhysicalSize} from "./core/charts";
+import {createBVHData, GpuAOBaker, GpuHiddenProbe} from "./core/gpuAO";
+import {type BakedAOLayout, serializeLayout} from "./format";
+import {buildBakeGeometry, listBakeMeshes, meshSignature} from "./meshes";
 
 export interface BakeProgress {
   status: string;
@@ -46,13 +47,14 @@ export const bakeSceneAO = async (
   };
 
   let t0 = performance.now();
-  onProgress({ status: "ジオメトリ結合・BVH 構築中" });
+  onProgress({status: "ジオメトリ結合・BVH 構築中"});
   await yieldToUI();
   const meshes = listBakeMeshes();
-  if (meshes.length === 0)
+  if (meshes.length === 0) {
     throw new Error(
       "ベイク対象の mesh がありません(BVHCollider 配下の mesh が対象)",
     );
+  }
   const signatures = meshes.map(meshSignature);
   const geometry = buildBakeGeometry(meshes);
   const chartCount = geometry.userData.chartCount as number;
@@ -77,7 +79,7 @@ export const bakeSceneAO = async (
     });
     const probe = new GpuHiddenProbe(renderer, bvhData);
     const hidden = await probe.analyze(chartTris, (done, total) =>
-      onProgress({ status: "隠れチャート判定", done, total }),
+      onProgress({status: "隠れチャート判定", done, total}),
     );
     const hiddenCount = hidden.reduce((a, b) => a + b, 0);
     lap("hidden", t0);
@@ -94,15 +96,15 @@ export const bakeSceneAO = async (
     const raws = await baker.bakeCharts(
       chartTris,
       packed.sizes,
-      (done, total) => onProgress({ status: "AO 計算", done, total }),
+      (done, total) => onProgress({status: "AO 計算", done, total}),
     );
     lap("ao", t0);
 
     t0 = performance.now();
-    onProgress({ status: "dilate・アトラス生成中" });
+    onProgress({status: "dilate・アトラス生成中"});
     await yieldToUI();
     const atlas = new Uint8Array(packed.atlasW * packed.atlasH).fill(255);
-    packed.sizes.forEach(({ w, h }, c) => {
+    packed.sizes.forEach(({w, h}, c) => {
       writeChartToAtlas(
         atlas,
         packed.atlasW,

@@ -1,5 +1,5 @@
-import { useThree } from "@react-three/fiber";
-import { useEffect } from "react";
+import {useThree} from "@react-three/fiber";
+import {useEffect} from "react";
 import {
   Float32BufferAttribute,
   LinearFilter,
@@ -10,21 +10,22 @@ import {
   type Texture,
   TextureLoader,
 } from "three";
+
 import {
   getPostProcessSettings,
   subscribePostProcessSettings,
 } from "../camera/postprocess/settings";
-import { getSkipGTAO, setSkipGTAO } from "../camera/postprocess/skipGTAO";
-import { subscribeColliders } from "../core/bvh";
-import { type AOMode, aoModeOf, skipsGTAO } from "./aoMode";
+import {getSkipGTAO, setSkipGTAO} from "../camera/postprocess/skipGTAO";
+import {subscribeColliders} from "../core/bvh";
+import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
 import {
   atlasUV,
   type BakedAOLayout,
   findLayoutMismatch,
   parseLayout,
 } from "./format";
-import { assignCharts, listBakeMeshes, meshSignature } from "./meshes";
-import { bakedAOFiles } from "./paths";
+import {assignCharts, listBakeMeshes, meshSignature} from "./meshes";
+import {bakedAOFiles} from "./paths";
 
 type AOMaterial = Material & {
   aoMap: Texture | null;
@@ -55,11 +56,13 @@ const applyAtlas = (
   layout: BakedAOLayout,
   texture: Texture,
 ):
-  | { undo: () => void; materials: AOMaterial[]; warnings: string[] }
-  | { mismatch: string } => {
+  | {undo: () => void; materials: AOMaterial[]; warnings: string[]}
+  | {mismatch: string} => {
   const meshes = listBakeMeshes();
   const mismatch = findLayoutMismatch(layout, meshes.map(meshSignature));
-  if (mismatch) return { mismatch };
+  if (mismatch) {
+    return {mismatch};
+  }
 
   // aoMap は uv1 で引くので、uv1 を持たないベイク対象外の mesh と共有している material には貼らない
   // (WebGPU では uv1 の無い mesh のパイプラインが作れなくなる)
@@ -67,8 +70,12 @@ const applyAtlas = (
   const sharedWithOthers = new Set<Material>();
   root.traverse((obj) => {
     const mesh = obj as Mesh;
-    if (!mesh.isMesh || bakeSet.has(mesh)) return;
-    for (const m of materialsOf(mesh)) sharedWithOthers.add(m);
+    if (!mesh.isMesh || bakeSet.has(mesh)) {
+      return;
+    }
+    for (const m of materialsOf(mesh)) {
+      sharedWithOthers.add(m);
+    }
   });
   // GTAO を省けるかはマテリアル単位で決まるので、同じマテリアルを使う mesh の AO モードを集める
   const modesByMaterial = new Map<Material, AOMode[]>();
@@ -86,7 +93,7 @@ const applyAtlas = (
   let chartOffset = 0;
   meshes.forEach((mesh, i) => {
     const geometry = mesh.geometry;
-    const { chart } = assignCharts(geometry);
+    const {chart} = assignCharts(geometry);
     const uvAttr = geometry.getAttribute("uv");
     const uv = new Float32Array(uvAttr.count * 2);
     for (let k = 0; k < uvAttr.count; k++) {
@@ -98,14 +105,19 @@ const applyAtlas = (
       "uv1",
       new Float32BufferAttribute(atlasUV(uv, chart, chartOffset, layout), 2),
     );
-    chartOffset += (layout.meshes[i] as { chartCount: number }).chartCount;
+    chartOffset += (layout.meshes[i] as {chartCount: number}).chartCount;
     undos.push(() => {
-      if (prevUV1) geometry.setAttribute("uv1", prevUV1);
-      else geometry.deleteAttribute("uv1");
+      if (prevUV1) {
+        geometry.setAttribute("uv1", prevUV1);
+      } else {
+        geometry.deleteAttribute("uv1");
+      }
     });
 
     for (const material of materialsOf(mesh)) {
-      if (!hasAOMap(material)) continue;
+      if (!hasAOMap(material)) {
+        continue;
+      }
       if (sharedWithOthers.has(material)) {
         warnings.push(
           `material "${material.name}" はベイク対象外の mesh と共有されているので aoMap を貼りません`,
@@ -113,7 +125,9 @@ const applyAtlas = (
         continue;
       }
       // 同じマテリアルを複数の mesh が使うと、2つ目以降では貼り済み
-      if (material.aoMap === texture) continue;
+      if (material.aoMap === texture) {
+        continue;
+      }
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
@@ -132,7 +146,9 @@ const applyAtlas = (
   });
   return {
     undo: () => {
-      for (const u of undos.reverse()) u();
+      for (const u of undos.reverse()) {
+        u();
+      }
     },
     materials,
     warnings,
@@ -141,8 +157,10 @@ const applyAtlas = (
 
 /** パネルのベイク AO の強さを aoMapIntensity に反映する(uniform なので再コンパイルは起きない) */
 const syncIntensity = (materials: readonly AOMaterial[]) => {
-  const { intensity } = getPostProcessSettings().bakedAO;
-  for (const m of materials) m.aoMapIntensity = intensity;
+  const {intensity} = getPostProcessSettings().bakedAO;
+  for (const m of materials) {
+    m.aoMapIntensity = intensity;
+  }
 };
 
 /**
@@ -154,7 +172,7 @@ const syncIntensity = (materials: readonly AOMaterial[]) => {
  * コライダーの登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
  * 貼り直すので、シーンが揃った時点でベイク結果と一致すれば AO が付く
  */
-export function BakedAO({ scene }: { scene: string }) {
+export function BakedAO({scene}: {scene: string}) {
   const root = useThree((s) => s.scene);
 
   useEffect(() => {
@@ -169,11 +187,15 @@ export function BakedAO({ scene }: { scene: string }) {
     // 1回のコミットで複数のコライダーが登録されるので、マイクロタスクでまとめて1回だけ貼り直す
     let scheduled = false;
     const schedule = () => {
-      if (scheduled) return;
+      if (scheduled) {
+        return;
+      }
       scheduled = true;
       queueMicrotask(() => {
         scheduled = false;
-        if (!disposed) apply?.();
+        if (!disposed) {
+          apply?.();
+        }
       });
     };
 
@@ -190,7 +212,9 @@ export function BakedAO({ scene }: { scene: string }) {
 
     const log = (level: "info" | "warn", message: string) => {
       // 貼り直しのたびに同じ内容を出さない
-      if (message === lastMessage) return;
+      if (message === lastMessage) {
+        return;
+      }
       lastMessage = message;
       console[level](`[bakedAO] ${message}`);
     };

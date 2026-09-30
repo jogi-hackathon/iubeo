@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
+import {describe, expect, it} from "vitest";
+
 import {
   type AtlasRect,
   dilateChart,
   packAtlas,
   writeChartToAtlas,
 } from "../atlas";
-import { texelsFor } from "../charts";
-import { HIDDEN_TEXELS, PAD } from "../params";
+import {texelsFor} from "../charts";
+import {HIDDEN_TEXELS, PAD} from "../params";
 
 // PAD を含めた矩形どうしが重ならないこと
 const overlaps = (a: AtlasRect, b: AtlasRect): boolean => {
@@ -26,19 +27,19 @@ describe("packAtlas", () => {
 
   it("hidden チャートは HIDDEN_TEXELS 四方に縮む", () => {
     for (const c of [1, 3]) {
-      expect(packed.sizes[c]).toEqual({ w: HIDDEN_TEXELS, h: HIDDEN_TEXELS });
+      expect(packed.sizes[c]).toEqual({w: HIDDEN_TEXELS, h: HIDDEN_TEXELS});
       expect(packed.rects[c]?.w).toBe(HIDDEN_TEXELS);
       expect(packed.rects[c]?.h).toBe(HIDDEN_TEXELS);
     }
   });
 
   it("通常チャートは texelsFor のテクセル数になる", () => {
-    expect(packed.sizes[0]).toEqual({ w: texelsFor(1), h: texelsFor(1) });
-    expect(packed.sizes[2]).toEqual({ w: texelsFor(0.5), h: texelsFor(0.25) });
+    expect(packed.sizes[0]).toEqual({w: texelsFor(1), h: texelsFor(1)});
+    expect(packed.sizes[2]).toEqual({w: texelsFor(0.5), h: texelsFor(0.25)});
   });
 
   it("rects が(PAD 込みで)重ならず、アトラス内に収まる", () => {
-    const { rects, atlasW, atlasH } = packed;
+    const {rects, atlasW, atlasH} = packed;
     expect(rects).toHaveLength(4);
     for (const r of rects) {
       expect(r.x).toBeGreaterThanOrEqual(PAD);
@@ -80,7 +81,7 @@ describe("dilateChart", () => {
 
   it("全部無効なら 0", () => {
     const out = dilateChart(new Int32Array(9).fill(-1), 3, 3);
-    expect(Array.from(out)).toEqual(new Array(9).fill(0));
+    expect(Array.from(out)).toEqual(Array.from({length: 9}).fill(0));
   });
 });
 
@@ -91,7 +92,7 @@ describe("writeChartToAtlas", () => {
       atlas,
       4,
       4,
-      { x: 1, y: 1, w: 2, h: 2 },
+      {x: 1, y: 1, w: 2, h: 2},
       2,
       2,
       [1, 2, 3, 4],

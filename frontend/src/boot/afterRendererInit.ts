@@ -1,9 +1,9 @@
-import type { AppContext } from "./context";
+import type {AppContext} from "./context";
 
 /** WebGPURenderer / WebGLRenderer の差を吸収して読む項目だけを型付けする */
 interface RendererLike {
   isWebGLRenderer?: boolean;
-  backend?: { isWebGPUBackend?: boolean };
+  backend?: {isWebGPUBackend?: boolean};
 }
 
 /**

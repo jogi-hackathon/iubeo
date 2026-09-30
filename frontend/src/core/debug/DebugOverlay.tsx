@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { Box3, Box3Helper, Group } from "three";
-import { listColliders } from "../bvh/registry";
-import { DebugInfo } from "./DebugInfo";
-import { useDebugFlags } from "./flags";
-import { useDebugHotkeys } from "./useDebugHotkeys";
+import {useEffect, useState} from "react";
+import {Box3, Box3Helper, Group} from "three";
+
+import {listColliders} from "../bvh/registry";
+import {DebugInfo} from "./DebugInfo";
+import {useDebugFlags} from "./flags";
+import {useDebugHotkeys} from "./useDebugHotkeys";
 
 /** MeshBVHHelper は three r186 で描画されないため、コライダーのワールド AABB を自前で描く */
 function BvhBounds() {
@@ -11,9 +12,11 @@ function BvhBounds() {
 
   useEffect(() => {
     const helpers: Box3Helper[] = [];
-    for (const { mesh } of listColliders()) {
+    for (const {mesh} of listColliders()) {
       const tree = mesh.geometry.boundsTree;
-      if (!tree) continue;
+      if (!tree) {
+        continue;
+      }
       mesh.updateWorldMatrix(true, false);
       const box = tree
         .getBoundingBox(new Box3())
@@ -35,7 +38,7 @@ function BvhBounds() {
 
 export function DebugOverlay() {
   useDebugHotkeys();
-  const { stats, grid, bvh } = useDebugFlags();
+  const {stats, grid, bvh} = useDebugFlags();
 
   return (
     <>

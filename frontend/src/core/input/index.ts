@@ -1,7 +1,7 @@
-export { PointerLockInput } from "./PointerLockInput";
+export {PointerLockInput} from "./PointerLockInput";
 export {
   consumeLookDelta,
   type LookDelta,
   usePointerLocked,
 } from "./pointerLock";
-export { useKeys } from "./useKeys";
+export {useKeys} from "./useKeys";

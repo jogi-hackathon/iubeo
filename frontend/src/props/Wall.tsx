@@ -1,6 +1,6 @@
-import { type AOMode, aoModeUserData } from "../bake/aoMode";
-import { BVHCollider } from "../core/bvh";
-import { PROP_COLOR, type Vec3 } from "./types";
+import {type AOMode, aoModeUserData} from "../bake/aoMode";
+import {BVHCollider} from "../core/bvh";
+import {PROP_COLOR, type Vec3} from "./types";
 
 interface WallProps {
   position: Vec3;
@@ -11,7 +11,7 @@ interface WallProps {
 }
 
 /** 直方体のブロック(壁・段差など)。BVH コライダー込み */
-export function Wall({ position, size, color = PROP_COLOR, ao }: WallProps) {
+export function Wall({position, size, color = PROP_COLOR, ao}: WallProps) {
   return (
     <BVHCollider>
       <mesh userData={aoModeUserData(ao)} position={position}>

@@ -1,50 +1,51 @@
-import { describe, expect, it } from "vitest";
+import {describe, expect, it} from "vitest";
+
 import {
   decideHidden,
   isHiddenPoint,
   type ProbePoint,
   rotatedFrame,
 } from "../frame";
-import { EMBEDDED, HIDDEN_AO_EPS } from "../params";
+import {EMBEDDED, HIDDEN_AO_EPS} from "../params";
 
 const RAYS = 32;
 /** 上向きで空が見える明るい点(見える) */
-const open: ProbePoint = { ao: 255, backHits: 0, misses: RAYS, ny: 1 };
+const open: ProbePoint = {ao: 255, backHits: 0, misses: RAYS, ny: 1};
 
 describe("isHiddenPoint", () => {
   it("暗い/埋まり(AO)なら見えない", () => {
-    expect(isHiddenPoint({ ...open, ao: 0 }, RAYS)).toBe(true);
-    expect(isHiddenPoint({ ...open, ao: EMBEDDED }, RAYS)).toBe(true);
+    expect(isHiddenPoint({...open, ao: 0}, RAYS)).toBe(true);
+    expect(isHiddenPoint({...open, ao: EMBEDDED}, RAYS)).toBe(true);
     // 閾値ちょうど(ao/255 = HIDDEN_AO_EPS 以上)は明るい扱い
     expect(
-      isHiddenPoint({ ...open, ao: Math.ceil(HIDDEN_AO_EPS * 255) }, RAYS),
+      isHiddenPoint({...open, ao: Math.ceil(HIDDEN_AO_EPS * 255)}, RAYS),
     ).toBe(false);
   });
 
   it("距離無制限のレイの半分以上が裏面に当たれば埋まり(厚い床に密着した面)", () => {
-    const buried = { ao: 255, backHits: RAYS / 2, misses: RAYS / 2, ny: -1 };
+    const buried = {ao: 255, backHits: RAYS / 2, misses: RAYS / 2, ny: -1};
     expect(isHiddenPoint(buried, RAYS)).toBe(true);
-    expect(isHiddenPoint({ ...buried, backHits: RAYS / 2 - 1 }, RAYS)).toBe(
+    expect(isHiddenPoint({...buried, backHits: RAYS / 2 - 1}, RAYS)).toBe(
       false,
     );
   });
 
   it("下向きで大半のレイが何にも当たらなければ虚空(床の底面)", () => {
-    const bottom = { ao: 255, backHits: 0, misses: RAYS, ny: -1 };
+    const bottom = {ao: 255, backHits: 0, misses: RAYS, ny: -1};
     expect(isHiddenPoint(bottom, RAYS)).toBe(true);
     // 下に床がある(当たる)なら見える: 張り出しの下面など
-    expect(isHiddenPoint({ ...bottom, misses: RAYS / 2 }, RAYS)).toBe(false);
+    expect(isHiddenPoint({...bottom, misses: RAYS / 2}, RAYS)).toBe(false);
   });
 
   it("上向き・横向きは何にも当たらなくても見える(空が見える面を潰さない)", () => {
     expect(isHiddenPoint(open, RAYS)).toBe(false);
-    expect(isHiddenPoint({ ...open, ny: 0 }, RAYS)).toBe(false);
+    expect(isHiddenPoint({...open, ny: 0}, RAYS)).toBe(false);
   });
 });
 
 describe("decideHidden", () => {
   it("全サンプル点が見えないときだけ隠れ", () => {
-    const hidden = { ...open, ao: 0 };
+    const hidden = {...open, ao: 0};
     expect(decideHidden([hidden, hidden], RAYS)).toBe(true);
     expect(decideHidden([hidden, open], RAYS)).toBe(false);
   });

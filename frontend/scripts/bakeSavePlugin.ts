@@ -1,13 +1,15 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import type { Plugin } from "vite";
+import {mkdirSync, writeFileSync} from "node:fs";
+import {dirname, resolve} from "node:path";
+
+import type {Plugin} from "vite";
+
 import {
   BAKE_SAVE_PATH,
   type BakeSaveMeta,
   bakedAOFiles,
   SCENE_NAME_RE,
 } from "../src/bake/paths.ts";
-import { encodePNGGray8 } from "./png.ts";
+import {encodePNGGray8} from "./png.ts";
 
 /**
  * dev サーバー専用。ベイクページから POST された結果を public/ao/<scene>.png / .bin に書き出す。
@@ -29,8 +31,9 @@ export const bakeSavePlugin = (): Plugin => ({
       req.on("end", () => {
         try {
           const header = req.headers["x-bake-meta"];
-          if (typeof header !== "string")
+          if (typeof header !== "string") {
             throw new Error("X-Bake-Meta がありません");
+          }
           const meta = JSON.parse(decodeURIComponent(header)) as BakeSaveMeta;
           if (
             typeof meta.scene !== "string" ||
@@ -58,7 +61,7 @@ export const bakeSavePlugin = (): Plugin => ({
           const files = bakedAOFiles(meta.scene);
           const atlasPath = resolve(publicDir, files.atlas);
           const layoutPath = resolve(publicDir, files.layout);
-          mkdirSync(dirname(atlasPath), { recursive: true });
+          mkdirSync(dirname(atlasPath), {recursive: true});
           writeFileSync(
             atlasPath,
             encodePNGGray8(

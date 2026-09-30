@@ -1,5 +1,6 @@
-import { BoxGeometry, Mesh, SphereGeometry } from "three";
-import { describe, expect, it } from "vitest";
+import {BoxGeometry, Mesh, SphereGeometry} from "three";
+import {describe, expect, it} from "vitest";
+
 import {
   atlasUV,
   type BakedAOLayout,
@@ -7,16 +8,16 @@ import {
   parseLayout,
   serializeLayout,
 } from "../format";
-import { assignCharts, meshSignature } from "../meshes";
+import {assignCharts, meshSignature} from "../meshes";
 
 const layout: BakedAOLayout = {
   atlasW: 64,
   atlasH: 32,
   meshes: [
-    { vertexCount: 24, chartCount: 6, center: [1, 2, 3] },
-    { vertexCount: 4, chartCount: 1, center: [-1.5, 0, 0.25] },
+    {vertexCount: 24, chartCount: 6, center: [1, 2, 3]},
+    {vertexCount: 4, chartCount: 1, center: [-1.5, 0, 0.25]},
   ],
-  rects: Array.from({ length: 7 }, (_, i) => ({
+  rects: Array.from({length: 7}, (_, i) => ({
     x: i * 8 + 1,
     y: 1,
     w: 6,
@@ -60,7 +61,7 @@ describe("bake format", () => {
     expect(
       findLayoutMismatch(layout, [
         layout.meshes[0] as BakedAOLayout["meshes"][number],
-        { vertexCount: 4, chartCount: 1, center: [-1.5, 0.1, 0.25] },
+        {vertexCount: 4, chartCount: 1, center: [-1.5, 0.1, 0.25]},
       ]),
     ).toMatch(/位置/);
   });
@@ -78,7 +79,7 @@ describe("bake format", () => {
 describe("bake meshes", () => {
   it("BoxGeometry は面ごとに6チャート、各頂点は所属面のチャート", () => {
     const box = new BoxGeometry(1, 1, 1);
-    const { chart, chartCount } = assignCharts(box);
+    const {chart, chartCount} = assignCharts(box);
     expect(chartCount).toBe(6);
     for (const [id, g] of box.groups.entries()) {
       for (let k = g.start; k < g.start + g.count; k++) {
@@ -88,7 +89,7 @@ describe("bake meshes", () => {
   });
 
   it("SphereGeometry は全体で1チャート", () => {
-    const { chart, chartCount } = assignCharts(new SphereGeometry(1, 8, 6));
+    const {chart, chartCount} = assignCharts(new SphereGeometry(1, 8, 6));
     expect(chartCount).toBe(1);
     expect(chart.every((c) => c === 0)).toBe(true);
   });

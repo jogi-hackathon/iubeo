@@ -1,6 +1,7 @@
-import { MeshStandardMaterial } from "three";
-import { describe, expect, it } from "vitest";
-import { getSkipGTAO, isSkipGTAO, setSkipGTAO } from "../skipGTAO";
+import {MeshStandardMaterial} from "three";
+import {describe, expect, it} from "vitest";
+
+import {getSkipGTAO, isSkipGTAO, setSkipGTAO} from "../skipGTAO";
 
 describe("skipGTAO", () => {
   it("未設定は false、true を入れると true", () => {

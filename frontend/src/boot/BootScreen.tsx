@@ -1,7 +1,8 @@
-import { useEffect } from "react";
-import { App } from "../App";
-import { startBoot, useBootState } from "./bootStore";
-import { AppContextProvider } from "./context";
+import {useEffect} from "react";
+
+import {App} from "../App";
+import {startBoot, useBootState} from "./bootStore";
+import {AppContextProvider} from "./context";
 
 /** 起動シーケンス完了までローディングを表示し、完了後に AppContext を提供して <App /> を描画する */
 export function BootScreen() {
@@ -26,7 +27,7 @@ export function BootScreen() {
       </div>
     );
   }
-  const { progress } = state;
+  const {progress} = state;
   return (
     <div className="boot-screen">
       <p>Loading...</p>

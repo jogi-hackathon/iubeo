@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 80,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
+  "trailingComma": "all",
+  "semi": true,
+  "arrowParens": "always",
+  "bracketSameLine": false,
+  // Google style: 中括弧の内側にスペースを入れない {a: 1}
+  "bracketSpacing": false,
+  "objectWrap": "preserve",
+  // Google style: LF endings + final newline
+  "endOfLine": "lf",
+  "insertFinalNewline": true,
+  "sortImports": true,
+  "sortPackageJson": false,
+  "ignorePatterns": []
+}

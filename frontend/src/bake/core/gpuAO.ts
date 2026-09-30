@@ -1,28 +1,23 @@
+import type {BVHComputeData} from "three-mesh-bvh/webgpu";
 // GPU 版の AO 計算。レイを撃つカーネルは rayKernel.ts、ここはチャートのテクセル・サンプル点をチャンクに詰めて
 // 回し、結果をチャートへ戻す部分。
 // 使い方: const bvhData = createBVHData(geometry); const baker = new GpuAOBaker(renderer, bvhData);
 //         const raws = await baker.bakeCharts(chartTris, sizes)
-import type { WebGPURenderer } from "three/webgpu";
-import type { BVHComputeData } from "three-mesh-bvh/webgpu";
+import type {WebGPURenderer} from "three/webgpu";
+
 import {
   buildChartIndex,
   type ChartTri,
   insetPosition,
   queryChart,
 } from "./charts";
-import { decideHidden, type ProbePoint, rotatedFrame } from "./frame";
-import { checkFirstChunk } from "./gpuErrors";
-import {
-  EMBEDDED,
-  HIDDEN_DIRS,
-  HIDDEN_UV,
-  rotFor,
-  SAMPLE_DIRS,
-} from "./params";
-import { RayKernel, type RayKernelExtra } from "./rayKernel";
-import { sampleTexel } from "./texels";
+import {decideHidden, type ProbePoint, rotatedFrame} from "./frame";
+import {checkFirstChunk} from "./gpuErrors";
+import {EMBEDDED, HIDDEN_DIRS, HIDDEN_UV, rotFor, SAMPLE_DIRS} from "./params";
+import {RayKernel, type RayKernelExtra} from "./rayKernel";
+import {sampleTexel} from "./texels";
 
-export { createBVHData } from "./rayKernel";
+export {createBVHData} from "./rayKernel";
 
 // 1回の dispatch で処理するテクセル数。macOS の GPU ウォッチドッグ(数秒で強制終了)を避けるため、
 // 1 dispatch が長くなりすぎない大きさに抑える。重い/軽いに応じて調整する
@@ -30,14 +25,14 @@ export const CHUNK_TEXELS = 131072;
 
 // ---------------------------------------------------------------- 本ベイク
 
-export type BakeStats = { sampleMs: number; gpuMs: number; chunks: number };
+export type BakeStats = {sampleMs: number; gpuMs: number; chunks: number};
 
 // テクセルごとに SAMPLE_DIRS(96 方向)の半球サンプルで AO を計算する
 export class GpuAOBaker {
   private readonly kernel: RayKernel;
   private readonly chunkTexels: number;
   /** 直近の bakeCharts の計測値。CPU 側のサンプル生成 / GPU 実行+読み戻しの累計 */
-  stats: BakeStats = { sampleMs: 0, gpuMs: 0, chunks: 0 };
+  stats: BakeStats = {sampleMs: 0, gpuMs: 0, chunks: 0};
 
   /**
    * @param renderer 初期化済み(await renderer.init())のレンダラー
@@ -60,18 +55,20 @@ export class GpuAOBaker {
    */
   async bakeCharts(
     chartTris: ChartTri[][],
-    sizes: { w: number; h: number }[],
+    sizes: {w: number; h: number}[],
     onProgress?: (done: number, total: number) => void,
   ): Promise<Int32Array[]> {
     const chartCount = chartTris.length;
-    const raws = sizes.map(({ w, h }) => new Int32Array(w * h).fill(-1));
+    const raws = sizes.map(({w, h}) => new Int32Array(w * h).fill(-1));
     let total = 0;
-    for (const { w, h } of sizes) total += w * h;
+    for (const {w, h} of sizes) {
+      total += w * h;
+    }
 
     const chartOf = new Uint32Array(this.chunkTexels);
     const texelOf = new Uint32Array(this.chunkTexels);
     const frame = new Float64Array(6);
-    const stats: BakeStats = { sampleMs: 0, gpuMs: 0, chunks: 0 };
+    const stats: BakeStats = {sampleMs: 0, gpuMs: 0, chunks: 0};
     this.stats = stats;
     let c = 0; // 次に処理するチャート
     let t = 0; // チャート内の次のテクセル(ty * w + tx)
@@ -85,22 +82,27 @@ export class GpuAOBaker {
       while (n < this.chunkTexels && c < chartCount) {
         const size = sizes[c];
         const tris = chartTris[c];
-        if (!size || !tris)
+        if (!size || !tris) {
           throw new Error(`[bake] チャート ${c} の情報がありません`);
-        const { w, h } = size;
+        }
+        const {w, h} = size;
         if (t >= w * h) {
           c++;
           t = 0;
           idx = null;
           continue;
         }
-        if (!idx) idx = buildChartIndex(tris);
+        if (!idx) {
+          idx = buildChartIndex(tris);
+        }
         const tx = t % w;
         const ty = (t - tx) / w;
         const s = sampleTexel(idx, c, w, h, tx, ty);
         t++;
         visited++;
-        if (!s) continue;
+        if (!s) {
+          continue;
+        }
         rotatedFrame(s.nx, s.ny, s.nz, s.rot, frame);
         this.kernel.setPoint(n, s.ox, s.oy, s.oz, s.nx, s.ny, s.nz, frame);
         chartOf[n] = c;
@@ -108,19 +110,27 @@ export class GpuAOBaker {
         n++;
       }
       stats.sampleMs += performance.now() - tSample;
-      if (n === 0) break;
+      if (n === 0) {
+        break;
+      }
 
       const tGpu = performance.now();
       const ao = await this.kernel.dispatch(n);
       stats.gpuMs += performance.now() - tGpu;
       stats.chunks++;
-      if (stats.chunks === 1) checkFirstChunk("AO", ao, n);
+      if (stats.chunks === 1) {
+        checkFirstChunk("AO", ao, n);
+      }
       for (let i = 0; i < n; i++) {
         const v = ao[i] as number;
         const raw = raws[chartOf[i] as number];
-        if (v !== EMBEDDED && raw) raw[texelOf[i] as number] = v;
+        if (v !== EMBEDDED && raw) {
+          raw[texelOf[i] as number] = v;
+        }
       }
-      if (onProgress) onProgress(visited, total);
+      if (onProgress) {
+        onProgress(visited, total);
+      }
     }
     return raws;
   }
@@ -167,7 +177,7 @@ export class GpuHiddenProbe {
   private readonly kernel: RayKernel;
   private readonly chunkPoints: number;
   /** 直近の analyze の計測値 */
-  stats: ProbeStats = { sampleMs: 0, gpuMs: 0, chunks: 0, points: 0 };
+  stats: ProbeStats = {sampleMs: 0, gpuMs: 0, chunks: 0, points: 0};
 
   constructor(
     renderer: WebGPURenderer,
@@ -175,10 +185,11 @@ export class GpuHiddenProbe {
     chunkPoints = CHUNK_TEXELS,
   ) {
     // 1チャート分のサンプル点が入らないと analyze が進まなくなる
-    if (chunkPoints < HIDDEN_POINTS)
+    if (chunkPoints < HIDDEN_POINTS) {
       throw new Error(
         `[bake] chunkPoints は ${HIDDEN_POINTS} 以上にしてください(${chunkPoints})`,
       );
+    }
     this.chunkPoints = chunkPoints;
     this.kernel = new RayKernel(
       renderer,
@@ -200,7 +211,7 @@ export class GpuHiddenProbe {
   ): Promise<Uint8Array> {
     const chartCount = chartTris.length;
     const hidden = new Uint8Array(chartCount);
-    const stats: ProbeStats = { sampleMs: 0, gpuMs: 0, chunks: 0, points: 0 };
+    const stats: ProbeStats = {sampleMs: 0, gpuMs: 0, chunks: 0, points: 0};
     this.stats = stats;
     const rays = HIDDEN_DIRS.length;
     const stride = this.kernel.resultsPerPoint;
@@ -249,7 +260,9 @@ export class GpuHiddenProbe {
         c++;
       }
       stats.sampleMs += performance.now() - tSample;
-      if (n === 0) continue;
+      if (n === 0) {
+        continue;
+      }
 
       const tGpu = performance.now();
       const r = await this.kernel.dispatch(n);
@@ -274,14 +287,18 @@ export class GpuHiddenProbe {
       }
 
       // 同じチャートの点は連続して並んでいるので、区切りごとに判定する
-      for (let start = 0; start < n; ) {
+      for (let start = 0; start < n;) {
         const chart = pointChart[start] as number;
         let end = start + 1;
-        while (end < n && pointChart[end] === chart) end++;
+        while (end < n && pointChart[end] === chart) {
+          end++;
+        }
         hidden[chart] = decideHidden(points.slice(start, end), rays) ? 1 : 0;
         start = end;
       }
-      if (onProgress) onProgress(c, chartCount);
+      if (onProgress) {
+        onProgress(c, chartCount);
+      }
     }
     return hidden;
   }

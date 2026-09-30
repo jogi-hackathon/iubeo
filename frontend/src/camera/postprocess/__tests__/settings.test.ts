@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
+
 import {
   DEFAULT_POSTPROCESS_SETTINGS,
   getPostProcessSettings,
@@ -16,7 +17,7 @@ describe("postprocess settings", () => {
     expect(s.ao.enabled).toBe(true);
     expect(s.ao.showOnly).toBe(false);
     expect(s.ao.denoise).toBe(true);
-    expect(s.bakedAO).toEqual({ enabled: true, intensity: 1 });
+    expect(s.bakedAO).toEqual({enabled: true, intensity: 1});
     expect(s.bloom.enabled).toBe(true);
     expect(s.bloom.threshold).toBe(1);
     expect(s.pixelate.enabled).toBe(false);
@@ -28,19 +29,19 @@ describe("postprocess settings", () => {
   it("トップレベルの項目を更新し、購読者へ通知する", () => {
     const listener = vi.fn();
     const off = subscribePostProcessSettings(listener);
-    updatePostProcessSettings({ exposure: 2, toneMapping: "agx" });
+    updatePostProcessSettings({exposure: 2, toneMapping: "agx"});
     expect(getPostProcessSettings()).toMatchObject({
       exposure: 2,
       toneMapping: "agx",
     });
     expect(listener).toHaveBeenCalledTimes(1);
     off();
-    updatePostProcessSettings({ exposure: 3 });
+    updatePostProcessSettings({exposure: 3});
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("グループは指定した項目だけを更新し、他の項目は保つ", () => {
-    updatePostProcessSettings({ bloom: { strength: 1.5 } });
+    updatePostProcessSettings({bloom: {strength: 1.5}});
     expect(getPostProcessSettings().bloom).toEqual({
       ...DEFAULT_POSTPROCESS_SETTINGS.bloom,
       strength: 1.5,
@@ -53,7 +54,7 @@ describe("postprocess settings", () => {
     subscribePostProcessSettings(listener);
     updatePostProcessSettings({
       exposure: before.exposure,
-      bloom: { strength: before.bloom.strength },
+      bloom: {strength: before.bloom.strength},
     });
     updatePostProcessSettings({});
     expect(getPostProcessSettings()).toBe(before);
@@ -61,13 +62,13 @@ describe("postprocess settings", () => {
   });
 
   it("更新は新しいオブジェクトを作り、既定値を書き換えない", () => {
-    updatePostProcessSettings({ pixelate: { enabled: true } });
+    updatePostProcessSettings({pixelate: {enabled: true}});
     expect(DEFAULT_POSTPROCESS_SETTINGS.pixelate.enabled).toBe(false);
     expect(getPostProcessSettings().pixelate.enabled).toBe(true);
   });
 
   it("reset で既定値に戻る", () => {
-    updatePostProcessSettings({ enabled: false, bloom: { strength: 2 } });
+    updatePostProcessSettings({enabled: false, bloom: {strength: 2}});
     resetPostProcessSettings();
     expect(getPostProcessSettings()).toBe(DEFAULT_POSTPROCESS_SETTINGS);
   });

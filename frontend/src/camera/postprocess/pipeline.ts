@@ -11,10 +11,10 @@ import {
   SRGBColorSpace,
   type ToneMapping,
 } from "three";
-import { bloom } from "three/addons/tsl/display/BloomNode.js";
-import { vignette } from "three/addons/tsl/display/CRT.js";
-import { denoise } from "three/addons/tsl/display/DenoiseNode.js";
-import { ao } from "three/addons/tsl/display/GTAONode.js";
+import {bloom} from "three/addons/tsl/display/BloomNode.js";
+import {vignette} from "three/addons/tsl/display/CRT.js";
+import {denoise} from "three/addons/tsl/display/DenoiseNode.js";
+import {ao} from "three/addons/tsl/display/GTAONode.js";
 import {
   ambientOcclusion,
   context,
@@ -33,14 +33,15 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { type Node, type Renderer, RenderPipeline } from "three/webgpu";
-import { pixelateUV } from "./nodes/pixelate";
+import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
+
+import {pixelateUV} from "./nodes/pixelate";
 import {
   type PostProcessSettings,
   type ToneMappingKind,
   VIGNETTE_MIN_SMOOTHNESS,
 } from "./settings";
-import { isSkipGTAO } from "./skipGTAO";
+import {isSkipGTAO} from "./skipGTAO";
 
 const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
   aces: ACESFilmicToneMapping,
@@ -70,7 +71,7 @@ const structureKey = (s: PostProcessSettings): string =>
     s.ao.enabled && s.ao.denoise,
   ].join("|");
 
-type MaterialLike = { transparent: boolean; skipGTAO?: unknown };
+type MaterialLike = {transparent: boolean; skipGTAO?: unknown};
 
 /**
  * scene pass の各マテリアルの AO(getAO)に GTAO を合成するコンテキスト。
@@ -83,11 +84,17 @@ const gtaoContext = (gtao: Node<"float">) =>
   context({
     getAO: (
       inputNode: Node<"float"> | null,
-      { material }: { material: MaterialLike },
+      {material}: {material: MaterialLike},
     ) => {
-      if (material.transparent) return inputNode;
-      if (inputNode === null) return gtao;
-      if (isSkipGTAO(material)) return inputNode;
+      if (material.transparent) {
+        return inputNode;
+      }
+      if (inputNode === null) {
+        return gtao;
+      }
+      if (isSkipGTAO(material)) {
+        return inputNode;
+      }
       return min(inputNode, gtao);
     },
   });
@@ -116,9 +123,9 @@ export const createPostProcessPipeline = (
   // テクスチャの型は PassNode.setup が Renderer の出力バッファ型(HalfFloat)で上書きするので、法線は詰めずにそのまま書く。
   // GTAO は深度を textureGather で読むため、Renderer の MSAA(antialias)を引き継がないよう samples: 0 にする
   // (マルチサンプルの深度テクスチャだと WGSL のコンパイルに失敗する)
-  const prePass = pass(scene, camera, { samples: 0 });
+  const prePass = pass(scene, camera, {samples: 0});
   prePass.transparent = false;
-  prePass.setMRT(mrt({ output: normalView }));
+  prePass.setMRT(mrt({output: normalView}));
   const prePassNormal = prePass.getTextureNode();
   const prePassDepth = prePass.getTextureNode("depth");
   const aoPass = ao(prePassDepth, prePassNormal, camera);
@@ -131,7 +138,7 @@ export const createPostProcessPipeline = (
     prePassNormal,
     camera,
   );
-  const denoised = rtt(denoiseNode, null, null, { format: RedFormat });
+  const denoised = rtt(denoiseNode, null, null, {format: RedFormat});
   const aoValues = {
     raw: aoPass.getTextureNode().sample(screenUV).r,
     denoised: denoised.sample(screenUV).r,
@@ -146,8 +153,8 @@ export const createPostProcessPipeline = (
   // scene pass の MRT を切り替えると、外したあとも描画先のアタッチメント数が戻らず WebGPU の検証エラーになるので、
   // 別のパスにしてある(表示中だけグラフに入るので、普段は描かれない)。
   // ambientOcclusion は AO の無いマテリアルでは既定値 1。g は「何か描かれた」印(背景はクリア値のまま)
-  const aoOnlyPass = pass(scene, camera, { samples: 0 });
-  aoOnlyPass.setMRT(mrt({ output, ao: vec4(ambientOcclusion, 1, 0, 1) }));
+  const aoOnlyPass = pass(scene, camera, {samples: 0});
+  aoOnlyPass.setMRT(mrt({output, ao: vec4(ambientOcclusion, 1, 0, 1)}));
 
   const scenePass = pass(scene, camera);
   const sceneColor = scenePass.getTextureNode("output");
@@ -165,7 +172,9 @@ export const createPostProcessPipeline = (
     const aoSource = s.ao.denoise ? "denoised" : "raw";
     const contextNode = s.ao.enabled ? aoContexts[aoSource] : null;
     for (const p of [scenePass, aoOnlyPass]) {
-      if (p.contextNode === contextNode) continue;
+      if (p.contextNode === contextNode) {
+        continue;
+      }
       // needsUpdate で version が上がり、PassNode がキャッシュしているコンテキストも作り直される。
       // コンテキストが変わると scene の全マテリアルが再コンパイルされるので、変わったときだけ行う
       p.contextNode = contextNode;
@@ -235,7 +244,9 @@ export const createPostProcessPipeline = (
       denoised.setResolutionScale(s.ao.resolutionScale);
 
       const next = structureKey(s);
-      if (next === key) return;
+      if (next === key) {
+        return;
+      }
       key = next;
       pipeline.outputNode = build(s);
       pipeline.needsUpdate = true;

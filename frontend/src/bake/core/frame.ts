@@ -1,5 +1,6 @@
 // 法線まわりの接線フレームと、隠れチャートの判定ロジック(レイキャスト結果は GPU 側が出す)。
-import { Vector3 } from "three";
+import {Vector3} from "three";
+
 import {
   EMBEDDED,
   HIDDEN_AO_EPS,
@@ -17,13 +18,13 @@ export const tangentFrame = (
   nx: number,
   ny: number,
   nz: number,
-): { t: Vector3; b: Vector3 } => {
+): {t: Vector3; b: Vector3} => {
   _n.set(nx, ny, nz);
   _t.set(Math.abs(nx) < 0.9 ? 1 : 0, Math.abs(nx) < 0.9 ? 0 : 1, 0)
     .cross(_n)
     .normalize();
   _b.crossVectors(_n, _t);
-  return { t: _t, b: _b };
+  return {t: _t, b: _b};
 };
 
 // 回転角 rot を掛けた接線フレーム(GPU へ渡す用)。半球サンプル方向 (dx,dy,dz) は
@@ -36,7 +37,7 @@ export const rotatedFrame = (
   rot: number,
   out: number[] | Float32Array | Float64Array,
 ): void => {
-  const { t, b } = tangentFrame(nx, ny, nz);
+  const {t, b} = tangentFrame(nx, ny, nz);
   const c = Math.cos(rot);
   const s = Math.sin(rot);
   out[0] = c * t.x + s * b.x;
@@ -70,8 +71,12 @@ export interface ProbePoint {
  * 下向きの面に限れば、上から見下ろすプレイヤーには見えない
  */
 export const isHiddenPoint = (p: ProbePoint, rays: number): boolean => {
-  if (p.ao === EMBEDDED || p.ao / 255 < HIDDEN_AO_EPS) return true;
-  if (p.backHits >= rays * HIDDEN_BURIED_RATIO) return true;
+  if (p.ao === EMBEDDED || p.ao / 255 < HIDDEN_AO_EPS) {
+    return true;
+  }
+  if (p.backHits >= rays * HIDDEN_BURIED_RATIO) {
+    return true;
+  }
   return p.ny <= HIDDEN_VOID_MAX_NY && p.misses >= rays * HIDDEN_VOID_RATIO;
 };
 
@@ -80,6 +85,8 @@ export const decideHidden = (
   points: readonly ProbePoint[],
   rays: number,
 ): boolean => {
-  if (points.length === 0) return false; // 判定できなければ安全側(通常解像度を維持)
+  if (points.length === 0) {
+    return false;
+  } // 判定できなければ安全側(通常解像度を維持)
   return points.every((p) => isHiddenPoint(p, rays));
 };

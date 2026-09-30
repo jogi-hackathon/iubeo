@@ -1,14 +1,15 @@
 // アトラスの配置(potpack)・チャート内 dilate・アトラスへの書き込み。
 import potpack from "potpack";
-import { texelsFor } from "./charts";
-import { ATLAS_MAX, clamp, HIDDEN_TEXELS, PAD } from "./params";
+
+import {texelsFor} from "./charts";
+import {ATLAS_MAX, clamp, HIDDEN_TEXELS, PAD} from "./params";
 
 // ---------------------------------------------------------------- 型
 
 /** アトラス上のチャート内側矩形(PAD を含まない) */
-export type AtlasRect = { x: number; y: number; w: number; h: number };
+export type AtlasRect = {x: number; y: number; w: number; h: number};
 /** チャートのテクセル数 */
-export type AtlasSize = { w: number; h: number };
+export type AtlasSize = {w: number; h: number};
 
 export type PackedAtlas = {
   atlasW: number;
@@ -58,8 +59,8 @@ export const packAtlas = (
     );
   }
 
-  const rects: AtlasRect[] = new Array(chartCount);
-  const sizes: AtlasSize[] = new Array(chartCount);
+  const rects: AtlasRect[] = Array.from({length: chartCount});
+  const sizes: AtlasSize[] = Array.from({length: chartCount});
   let texelTotal = 0;
   for (const b of boxes) {
     // potpack が x / y を書き込む(型上は optional)
@@ -69,10 +70,10 @@ export const packAtlas = (
       w: b.innerW,
       h: b.innerH,
     };
-    sizes[b.chart] = { w: b.innerW, h: b.innerH };
+    sizes[b.chart] = {w: b.innerW, h: b.innerH};
     texelTotal += b.innerW * b.innerH;
   }
-  return { atlasW, atlasH, fill: packStats.fill, rects, sizes, texelTotal };
+  return {atlasW, atlasH, fill: packStats.fill, rects, sizes, texelTotal};
 };
 
 // ---------------------------------------------------------------- dilate
@@ -102,15 +103,23 @@ export const dilateChart = (
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
-        if (valid[i]) continue;
+        if (valid[i]) {
+          continue;
+        }
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
+            if (dx === 0 && dy === 0) {
+              continue;
+            }
             const nx = x + dx;
             const ny = y + dy;
-            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
+              continue;
+            }
             const ni = ny * w + nx;
-            if (!valid[ni]) continue;
+            if (!valid[ni]) {
+              continue;
+            }
             sum[i] = (sum[i] ?? 0) + (values[ni] ?? 0);
             cnt[i] = (cnt[i] ?? 0) + 1;
           }
@@ -120,17 +129,25 @@ export const dilateChart = (
     let changed = false;
     for (let i = 0; i < w * h; i++) {
       const c = cnt[i] ?? 0;
-      if (valid[i] || c === 0) continue;
+      if (valid[i] || c === 0) {
+        continue;
+      }
       values[i] = Math.round((sum[i] ?? 0) / c);
       valid[i] = 1;
       remaining--;
       changed = true;
     }
-    if (!changed) break;
+    if (!changed) {
+      break;
+    }
   }
   if (remaining > 0) {
     // 同じチャート内に有効なテクセルが1つもつながらない(チャート全体が無効)場合は暗くしておく
-    for (let i = 0; i < w * h; i++) if (!valid[i]) values[i] = 0;
+    for (let i = 0; i < w * h; i++) {
+      if (!valid[i]) {
+        values[i] = 0;
+      }
+    }
   }
   return values;
 };
@@ -149,13 +166,17 @@ export const writeChartToAtlas = (
 ): void => {
   for (let py = -PAD; py < h + PAD; py++) {
     const ay = rect.y + py;
-    if (ay < 0 || ay >= atlasH) continue;
+    if (ay < 0 || ay >= atlasH) {
+      continue;
+    }
     const sy = clamp(py, 0, h - 1);
     const rowOff = ay * atlasW;
     const srcRow = sy * w;
     for (let px = -PAD; px < w + PAD; px++) {
       const ax = rect.x + px;
-      if (ax < 0 || ax >= atlasW) continue;
+      if (ax < 0 || ax >= atlasW) {
+        continue;
+      }
       const sx = clamp(px, 0, w - 1);
       atlas[rowOff + ax] = values[srcRow + sx] ?? 0;
     }
