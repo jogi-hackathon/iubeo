@@ -69,6 +69,19 @@ describe("CLIPS", () => {
     expect(at(c2, J.lHip * 3 + 1)).toBeLessThan(at(p2, J.lHip * 3 + 1));
   });
 
+  it("ホールドの肘は、肩と手首を結ぶ線より下にある(肘が反って見えない)", () => {
+    const h = frameOf(CLIPS.hold, 0);
+    for (const side of ["l", "r"] as const) {
+      const [s, e, w] = [`${side}Shoulder`, `${side}Elbow`, `${side}Wrist`].map(
+        (name) => J[name as JointName] * 3,
+      ) as [number, number, number];
+      // 肘の前後(Z)位置に対応する、肩→手首の線上の高さ
+      const t = (at(h, e + 2) - at(h, s + 2)) / (at(h, w + 2) - at(h, s + 2));
+      const lineY = at(h, s + 1) + t * (at(h, w + 1) - at(h, s + 1));
+      expect(at(h, e + 1)).toBeLessThan(lineY - 0.01);
+    }
+  });
+
   it("ホールドは両手首を胸の前(肩より前)で近づける", () => {
     const h = frameOf(CLIPS.hold, 0);
     for (const w of ["lWrist", "rWrist"] as const) {

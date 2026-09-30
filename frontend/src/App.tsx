@@ -1,11 +1,19 @@
+import {lazy, Suspense} from "react";
+
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {GameCanvas} from "./core/GameCanvas";
+import {ManagedObjects} from "./objects";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
+
+// 開発時のみ読み込む。ダミーのサーバー役ごと、本番のバンドルには入らない
+const DevTools = import.meta.env.DEV
+  ? lazy(() => import("./dev/DevTools"))
+  : null;
 
 export function App() {
   const sceneState = useSceneState();
@@ -17,6 +25,7 @@ export function App() {
     <>
       <GameCanvas>
         {Scene && <Scene key={sceneName} />}
+        <ManagedObjects />
         <BakedAO scene={sceneName} />
         <PlayerController />
         <LocalPlayerSkeleton />
@@ -26,6 +35,11 @@ export function App() {
       </GameCanvas>
       <PostProcessPanel />
       <SceneDebugPanel />
+      {DevTools && (
+        <Suspense fallback={null}>
+          <DevTools />
+        </Suspense>
+      )}
     </>
   );
 }

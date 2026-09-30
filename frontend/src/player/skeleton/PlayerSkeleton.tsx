@@ -1,5 +1,5 @@
 import {useFrame} from "@react-three/fiber";
-import {useMemo, useRef} from "react";
+import {type ReactNode, useMemo, useRef} from "react";
 import {
   BackSide,
   type Group,
@@ -16,6 +16,7 @@ import {MAX_DELTA} from "../../core/time";
 import type {PlayerState} from "../types";
 import {createAnimator, updateAnimator} from "./animator";
 import {composeBone} from "./bone";
+import {writeHeldItemPosition} from "./held";
 import {BONES, J, JOINT_COUNT} from "./joints";
 import {applyLean} from "./lean";
 import {writePoints} from "./pose";
@@ -44,8 +45,10 @@ setSkipGTAO(OUTLINE_MATERIAL, true);
 interface PlayerSkeletonProps {
   /** 描画元。毎フレーム読むだけで、変更しない */
   state: PlayerState;
-  /** ファイルを持っているか。暫定の入力で、PlayerState に持たせる方針が決まったらそちらへ移す */
+  /** アイテムを持っているか(ホールドの腕にする)。暫定の入力で、PlayerState に持たせる方針が決まったらそちらへ移す */
   holding?: boolean;
+  /** 手元に出す物。両手首の中点の少し前・上(held.ts)に置く */
+  handItem?: ReactNode;
   visible?: boolean;
   /** 頭と首の骨を隠す。自分の身体を一人称で見せるとき(頭がカメラと重なる)に使う */
   hideHead?: boolean;
@@ -95,10 +98,12 @@ const writeLayer = (layer: Layer, points: Float32Array, hideHead: boolean) => {
 export function PlayerSkeleton({
   state,
   holding = false,
+  handItem,
   visible = true,
   hideHead = false,
 }: PlayerSkeletonProps) {
   const group = useRef<Group>(null);
+  const hand = useRef<Group>(null);
   const joints = useRef<InstancedMesh>(null);
   const bones = useRef<InstancedMesh>(null);
   const jointsOutline = useRef<InstancedMesh>(null);
@@ -128,6 +133,9 @@ export function PlayerSkeleton({
 
     writePoints(points, animator.pose);
     applyLean(points, state.pitch);
+    if (hand.current) {
+      writeHeldItemPosition(hand.current.position, points);
+    }
     writeLayer(
       {bones: fillBones, joints: fillJoints, grow: 0},
       points,
@@ -175,6 +183,7 @@ export function PlayerSkeleton({
         <sphereGeometry args={[1, 12, 8]} />
         <primitive object={OUTLINE_MATERIAL} attach="material" />
       </instancedMesh>
+      <group ref={hand}>{handItem}</group>
     </group>
   );
 }

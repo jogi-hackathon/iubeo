@@ -9,6 +9,8 @@ export interface DebugFlags {
   postfx: boolean;
   /** シーン管理パネル(scenes/SceneDebugPanel) */
   scene: boolean;
+  /** オブジェクト・アイテム管理パネル(dev/GameDebugPanel) */
+  game: boolean;
 }
 
 /** VITE_ENABLE_DEBUG=true のときだけデバッグ機能(?debug・ホットキー)が有効になる */
@@ -21,6 +23,7 @@ const ALL_OFF: DebugFlags = {
   freeCamera: false,
   postfx: false,
   scene: false,
+  game: false,
 };
 const ALL_ON: DebugFlags = {
   stats: true,
@@ -29,6 +32,7 @@ const ALL_ON: DebugFlags = {
   freeCamera: false,
   postfx: false,
   scene: false,
+  game: false,
 };
 
 const initial = (): DebugFlags => {
