@@ -75,8 +75,9 @@ type MaterialLike = {transparent: boolean; skipGTAO?: unknown};
 
 /**
  * scene pass の各マテリアルの AO(getAO)に GTAO を合成するコンテキスト。
+ * - material.skipGTAO が true(skipGTAO.ts)(AO モード baked の prop、プレイヤーの骨格)→ マテリアル側の AO だけ
+ *   (aoMap が無ければ AO なし)
  * - マテリアル側の AO(ベイク AO の aoMap)が無い → GTAO だけ
- * - material.skipGTAO が true(skipGTAO.ts)(AO モード baked の prop)→ マテリアル側の AO だけ
  * - それ以外(AO モード both など)→ 暗い方。three の builtinAOContext は掛け算するが、両者は同じ遮蔽の見積もりなので、
  *   掛けると両方が効く場所(接地・壁の根元)だけ二重に暗くなる
  */
@@ -89,11 +90,11 @@ const gtaoContext = (gtao: Node<"float">) =>
       if (material.transparent) {
         return inputNode;
       }
-      if (inputNode === null) {
-        return gtao;
-      }
       if (isSkipGTAO(material)) {
         return inputNode;
+      }
+      if (inputNode === null) {
+        return gtao;
       }
       return min(inputNode, gtao);
     },

@@ -1,5 +1,6 @@
 import {Ball, TiledFloor, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
+import {DummyPlayers} from "./DummyPlayers";
 
 /** 衝突確認用のテストシーン。開始位置(0,0,0)から見て -Z 方向に配置 */
 export function TestScene() {
@@ -15,6 +16,7 @@ export function TestScene() {
       <Ball position={[3, 2, -8]} radius={2} />
       <Ball position={[-4, 0.5, -10]} radius={0.5} />
       <Ball position={[0, 1, -6]} radius={1} />
+      <DummyPlayers />
     </>
   );
 }

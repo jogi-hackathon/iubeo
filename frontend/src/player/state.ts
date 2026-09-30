@@ -1,6 +1,6 @@
 import {Vector3} from "three";
 
-import {EYE_HEIGHT} from "./constants";
+import {EYE_FORWARD, EYE_HEIGHT} from "./constants";
 import type {PlayerState} from "./types";
 
 export const createPlayerState = (
@@ -15,6 +15,10 @@ export const createPlayerState = (
   pitch: 0,
 });
 
-/** 目の位置(ワールド座標)を out に書く */
+/** 目の位置(ワールド座標)を out に書く。足元から EYE_HEIGHT 上で、身体の向き(yaw)へ EYE_FORWARD だけ前 */
 export const getEyePosition = (state: PlayerState, out: Vector3): Vector3 =>
-  out.copy(state.position).setY(state.position.y + EYE_HEIGHT);
+  out.set(
+    state.position.x - Math.sin(state.yaw) * EYE_FORWARD,
+    state.position.y + EYE_HEIGHT,
+    state.position.z - Math.cos(state.yaw) * EYE_FORWARD,
+  );

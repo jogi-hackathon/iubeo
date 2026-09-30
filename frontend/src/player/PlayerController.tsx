@@ -25,6 +25,8 @@ export function PlayerController() {
 
   useFrame((_, delta) => {
     if (freeCamera) {
+      // 身体は止まっているので速度も止める。残すと骨格が動きの途中の姿勢で固まり、復帰時に慣性が飛ぶ
+      localPlayer.velocity.set(0, 0, 0);
       return;
     }
     const {dx, dy} = consumeLookDelta();
