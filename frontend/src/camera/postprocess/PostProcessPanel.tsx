@@ -146,6 +146,65 @@ export function PostProcessPanel() {
           </select>
         </label>
       </Section>
+      <Section title="AO (GTAO)">
+        <Check
+          label="enabled"
+          checked={s.ao.enabled}
+          onChange={(enabled) => set({ ao: { enabled } })}
+        />
+        <Check
+          label="show AO only"
+          checked={s.ao.showOnly}
+          disabled={!s.ao.enabled}
+          onChange={(showOnly) => set({ ao: { showOnly } })}
+        />
+        <Check
+          label="denoise"
+          checked={s.ao.denoise}
+          disabled={!s.ao.enabled}
+          onChange={(denoise) => set({ ao: { denoise } })}
+        />
+        <Slider
+          label="radius"
+          value={s.ao.radius}
+          min={0.05}
+          max={3}
+          step={0.05}
+          onChange={(radius) => set({ ao: { radius } })}
+        />
+        <Slider
+          label="scale"
+          value={s.ao.scale}
+          min={0}
+          max={3}
+          step={0.05}
+          onChange={(scale) => set({ ao: { scale } })}
+        />
+        <Slider
+          label="thickness"
+          value={s.ao.thickness}
+          min={0.05}
+          max={5}
+          step={0.05}
+          onChange={(thickness) => set({ ao: { thickness } })}
+        />
+        <Slider
+          label="samples"
+          value={s.ao.samples}
+          min={4}
+          max={32}
+          step={1}
+          onChange={(samples) => set({ ao: { samples } })}
+        />
+        <Slider
+          label="resolution"
+          value={s.ao.resolutionScale}
+          min={0.25}
+          max={1}
+          step={0.05}
+          onChange={(resolutionScale) => set({ ao: { resolutionScale } })}
+        />
+      </Section>
       <Section title="Bloom">
         <Check
           label="enabled"
