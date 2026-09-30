@@ -13,7 +13,14 @@ import {
 } from "three/webgpu";
 import { BVHComputeData, wgslTagFn } from "three-mesh-bvh/webgpu";
 import { GpuErrorWatch } from "./gpuErrors";
-import { BIAS, type Dir, EMBEDDED, MAX_DIST } from "./params";
+import {
+  BIAS,
+  type Dir,
+  EMBEDDED,
+  INSIDE_BACK_RATIO,
+  INSIDE_RAYS,
+  MAX_DIST,
+} from "./params";
 
 const WORKGROUP_SIZE = 64;
 const POINT_VEC4 = 4; // 点あたりの入力の vec4 数(発射位置 / 接線 / 従接線 / 法線)
@@ -74,6 +81,10 @@ export class RayKernel {
     this.watch = new GpuErrorWatch(renderer);
     this.dirCount = dirs.length;
     const results = 1 + extra.results;
+    // 埋まり判定: サンプル方向から等間隔に選んだ insideRays 本を距離無制限で撃つ
+    const insideRays = Math.min(INSIDE_RAYS, dirs.length);
+    const insideStride = Math.floor(dirs.length / insideRays);
+    const insideMin = Math.ceil(insideRays * INSIDE_BACK_RATIO);
     this.resultsPerPoint = results;
 
     // storage buffer は BVH 側が 4 本使うので、自前は 2 本(入力 1 + 出力 1)に interleave して
@@ -101,7 +112,9 @@ export class RayKernel {
     this.countUniform = uniform(0, "uint");
 
     // 距離減衰つき AO: 裏面ヒットは valid から除外、有効レイが半分未満なら EMBEDDED、
-    // 有効ヒットは 1 - dist/MAX_DIST を積算。round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
+    // 有効ヒットは 1 - dist/MAX_DIST を積算。
+    // 他の物体に埋まった点(接する箱の内側など)は、距離 MAX_DIST 以内に何にも当たらないレイが有効と数えられて
+    // 明るい値が出てしまうので、距離無制限のレイの裏面ヒットの割合でも EMBEDDED にする。round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
     // raycastFirstHit の side は sign(-dot(dir, geometricNormal)): +1 が表面、-1 が裏面
     const kernelFn = wgslTagFn /* wgsl */`
       // fn
@@ -158,8 +171,27 @@ export class RayKernel {
 
         }
 
+        var insideBack = 0u;
+        for ( var m = 0u; m < ${insideRays}u; m = m + 1u ) {
+
+          let d = ${dataNode}[ m * ${insideStride}u ].xyz;
+          var insideRay: Ray;
+          insideRay.origin = origin;
+          insideRay.direction = tangent * d.x + bitangent * d.y + normal * d.z;
+          insideRay.maxDist = 0.0;
+
+          var insideHit: IntersectionResult;
+          bvh_RaycastFirstHit( insideRay, &insideHit );
+          if ( insideHit.didHit && insideHit.side < 0.0 ) {
+
+            insideBack = insideBack + 1u;
+
+          }
+
+        }
+
         var ao = ${EMBEDDED}u;
-        if ( valid >= ${Math.ceil(nDirs / 2)}u ) {
+        if ( valid >= ${Math.ceil(nDirs / 2)}u && insideBack < ${insideMin}u ) {
 
           ao = u32( min( 255.0, floor( ( 1.0 - occlusion / f32( valid ) ) * 255.0 + 0.5 ) ) );
 

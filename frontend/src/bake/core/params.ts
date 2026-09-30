@@ -6,6 +6,8 @@ export const SAMPLES = 96; // 本ベイクの1テクセルあたりのレイ本�
 export const MAX_DIST = 0.6; // これより遠い遮蔽物は数えない(m)
 export const BIAS = 0.002; // 自己交差を避けるためのレイ始点のずらし(m)
 export const EMBEDDED = 0xffff; // 埋まったテクセルの印
+export const INSIDE_RAYS = 16; // 埋まり判定用の距離無制限のレイ本数(サンプル方向から等間隔に選ぶ)
+export const INSIDE_BACK_RATIO = 0.25; // このうち裏面に先に当たった割合がこれ以上なら、他の物体の内側とみなす
 
 // ---- テクスチャベイク固有の定数
 export const TEXEL = 0.02; // 基準テクセル密度(m/テクセル)
