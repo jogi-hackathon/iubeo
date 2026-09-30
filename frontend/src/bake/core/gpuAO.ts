@@ -1,18 +1,9 @@
-// GPU 版の AO 計算。テクセルごとに 96 方向の半球サンプルを、WebGPU compute + three-mesh-bvh の
-// BVHComputeData(raycastFirstHit)で回す。
+// GPU 版の AO 計算。レイを撃つカーネルは rayKernel.ts、ここはチャートのテクセル・サンプル点をチャンクに詰めて
+// 回し、結果をチャートへ戻す部分。
 // 使い方: const bvhData = createBVHData(geometry); const baker = new GpuAOBaker(renderer, bvhData);
 //         const raws = await baker.bakeCharts(chartTris, sizes)
-// three-mesh-bvh の WebGPU API は unstable。使い方は node_modules/three-mesh-bvh/src/webgpu/ と
-// 同リポジトリの example/webgpu_gpuPathTracingSimple.js に合わせている。
-import type { BufferGeometry } from "three";
-import { localId, storage, uniform, workgroupId } from "three/tsl";
-import {
-  type ComputeNode,
-  StorageBufferAttribute,
-  Vector3,
-  type WebGPURenderer,
-} from "three/webgpu";
-import { BVHComputeData, wgslTagFn } from "three-mesh-bvh/webgpu";
+import type { WebGPURenderer } from "three/webgpu";
+import type { BVHComputeData } from "three-mesh-bvh/webgpu";
 import {
   buildChartIndex,
   type ChartTri,
@@ -20,122 +11,31 @@ import {
   queryChart,
 } from "./charts";
 import { decideHidden, type ProbePoint, rotatedFrame } from "./frame";
+import { checkFirstChunk } from "./gpuErrors";
 import {
-  BIAS,
   EMBEDDED,
   HIDDEN_DIRS,
   HIDDEN_UV,
-  MAX_DIST,
   rotFor,
   SAMPLE_DIRS,
-  SAMPLES,
 } from "./params";
+import { RayKernel, type RayKernelExtra } from "./rayKernel";
 import { sampleTexel } from "./texels";
+
+export { createBVHData } from "./rayKernel";
 
 // 1回の dispatch で処理するテクセル数。macOS の GPU ウォッチドッグ(数秒で強制終了)を避けるため、
 // 1 dispatch が長くなりすぎない大きさに抑える。重い/軽いに応じて調整する
 export const CHUNK_TEXELS = 131072;
-const WORKGROUP_SIZE = 64;
-const TEXEL_VEC4 = 4; // フェーズ2: テクセルあたりの vec4 数(origin / T / B / N)
-const PROBE_VEC4 = 4; // フェーズ1: サンプル点あたりの vec4 数(origin / N / 接線 / 従接線)
-const PROBE_RESULTS = 3; // フェーズ1: サンプル点あたりの出力数(ao / 裏面ヒット数 / 非ヒット数)
 
-// ---------------------------------------------------------------- GPU エラー検知
-
-// renderer.backend.device は three の型に無いので、使う分だけ狭める
-type GpuDeviceLike = {
-  addEventListener(
-    type: "uncapturederror",
-    listener: (e: { error?: { message?: string } }) => void,
-  ): void;
-  pushErrorScope(filter: "validation" | "out-of-memory"): void;
-  popErrorScope(): Promise<{ message: string } | null>;
-};
-
-// GPU のバリデーションエラー(バインドグループ不正、パイプライン作成失敗など)を確実に検知する。
-// three は Uncaptured エラーを console に出すだけで例外にしないため、device のエラーイベントと
-// pushErrorScope の両方で拾い、run() の結果と一緒に例外として投げる
-export class GpuErrorWatch {
-  private readonly device: GpuDeviceLike;
-  private readonly errors: string[] = [];
-
-  constructor(renderer: WebGPURenderer) {
-    const backend = renderer.backend as unknown as { device?: GpuDeviceLike };
-    if (!backend.device) {
-      throw new Error(
-        "[bake] WebGPU デバイスが取得できません(renderer.init() 済みか確認)",
-      );
-    }
-    this.device = backend.device;
-    this.device.addEventListener("uncapturederror", (e) =>
-      this.errors.push(e.error?.message ?? String(e.error)),
-    );
-  }
-
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    const { device } = this;
-    device.pushErrorScope("validation");
-    device.pushErrorScope("out-of-memory");
-    let result: T | undefined;
-    let thrown: unknown = null;
-    try {
-      result = await fn();
-    } catch (e) {
-      thrown = e;
-    }
-    const oom = await device.popErrorScope();
-    const validation = await device.popErrorScope();
-    const messages = [...this.errors];
-    this.errors.length = 0;
-    if (validation) messages.push(validation.message);
-    if (oom) messages.push(`out-of-memory: ${oom.message}`);
-    if (messages.length) {
-      throw new Error(
-        `WebGPU エラー: ${messages[0]}${messages.length > 1 ? ` (ほか ${messages.length - 1} 件)` : ""}`,
-      );
-    }
-    if (thrown) throw thrown;
-    return result as T;
-  }
-}
-
-// 最初のチャンクの結果が明らかに異常(全部 0 / 全部 EMBEDDED)なら止める。
-// 実行に失敗したカーネルは読み戻しが全 0 になるため、その見逃しを防ぐ
-export const checkFirstChunk = (
-  label: string,
-  values: ArrayLike<number>,
-  n: number,
-): void => {
-  if (n < 64) return;
-  const first = values[0];
-  if (first !== 0 && first !== EMBEDDED) return;
-  for (let i = 1; i < n; i++) if (values[i] !== first) return;
-  throw new Error(
-    `GPU の出力が異常です(${label} の先頭チャンク ${n} 件がすべて ${first === EMBEDDED ? "EMBEDDED" : first})`,
-  );
-};
-
-// BVH をパックして storage buffer に載せる(ジオメトリ index / position もここで載る)。
-// geometry.boundsTree があれば再利用される。フェーズ1・2 のカーネルで共有する
-export const createBVHData = (geometry: BufferGeometry): BVHComputeData => {
-  const bvhData = new BVHComputeData(geometry);
-  bvhData.update();
-  return bvhData;
-};
-
-// ---------------------------------------------------------------- フェーズ2(本ベイク)
+// ---------------------------------------------------------------- 本ベイク
 
 export type BakeStats = { sampleMs: number; gpuMs: number; chunks: number };
 
+// テクセルごとに SAMPLE_DIRS(96 方向)の半球サンプルで AO を計算する
 export class GpuAOBaker {
-  private readonly renderer: WebGPURenderer;
+  private readonly kernel: RayKernel;
   private readonly chunkTexels: number;
-  private readonly watch: GpuErrorWatch;
-  private readonly data: Float32Array;
-  private readonly dataAttr: StorageBufferAttribute;
-  private readonly result: StorageBufferAttribute;
-  private readonly countUniform: ReturnType<typeof uniform>;
-  private readonly kernel: ComputeNode;
   /** 直近の bakeCharts の計測値。CPU 側のサンプル生成 / GPU 実行+読み戻しの累計 */
   stats: BakeStats = { sampleMs: 0, gpuMs: 0, chunks: 0 };
 
@@ -148,120 +48,8 @@ export class GpuAOBaker {
     bvhData: BVHComputeData,
     chunkTexels = CHUNK_TEXELS,
   ) {
-    this.renderer = renderer;
     this.chunkTexels = chunkTexels;
-    this.watch = new GpuErrorWatch(renderer);
-
-    // storage buffer は BVH 側が 4 本使うので、自前は 2 本(入力 1 + 出力 1)に interleave して
-    // デフォルト上限(maxStorageBuffersPerShaderStage = 8)に収める。
-    // 入力 data(vec4 の並び): 先頭 SAMPLES 個がサンプル方向、以降がテクセルごとに
-    // [発射位置(BIAS 込み), 回転込みの接線 T, 従接線 B, 法線] の 4 個ずつ
-    const n = chunkTexels;
-    this.data = new Float32Array((SAMPLES + n * TEXEL_VEC4) * 4);
-    SAMPLE_DIRS.forEach((d, i) => {
-      this.data[i * 4] = d.x;
-      this.data[i * 4 + 1] = d.y;
-      this.data[i * 4 + 2] = d.z;
-    });
-    this.dataAttr = new StorageBufferAttribute(this.data, 4);
-    this.result = new StorageBufferAttribute(new Uint32Array(n), 1);
-    const dataNode = storage(
-      this.dataAttr,
-      "vec4",
-      SAMPLES + n * TEXEL_VEC4,
-    ).toReadOnly();
-    const resultNode = storage(this.result, "uint", n);
-
-    this.countUniform = uniform(0, "uint");
-
-    // 距離減衰つき AO: 裏面ヒットは valid から除外、有効レイが半分未満なら EMBEDDED、
-    // 有効ヒットは 1 - dist/MAX_DIST を積算。round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
-    // raycastFirstHit の side は sign(-dot(dir, geometricNormal)): +1 が表面、-1 が裏面
-    const kernelFn = wgslTagFn /* wgsl */`
-      // fn
-      fn bakeAO(
-        workgroupSize: vec3u,
-        workgroupId: vec3u,
-        localId: vec3u,
-        count: u32
-      ) -> void {
-
-        ${[bvhData.fns.raycastFirstHit]}
-
-        let i = workgroupSize.x * workgroupId.x + localId.x;
-        if ( i >= count ) {
-
-          return;
-
-        }
-
-        let base = ${SAMPLES}u + i * ${TEXEL_VEC4}u;
-        let origin = ${dataNode}[ base ].xyz;
-        let tangent = ${dataNode}[ base + 1u ].xyz;
-        let bitangent = ${dataNode}[ base + 2u ].xyz;
-        let normal = ${dataNode}[ base + 3u ].xyz;
-
-        var occlusion = 0.0;
-        var valid = 0u;
-        for ( var k = 0u; k < ${SAMPLES}u; k = k + 1u ) {
-
-          let d = ${dataNode}[ k ].xyz;
-          var ray: Ray;
-          ray.origin = origin;
-          ray.direction = tangent * d.x + bitangent * d.y + normal * d.z;
-          ray.maxDist = ${MAX_DIST};
-
-          var hit: IntersectionResult;
-          bvh_RaycastFirstHit( ray, &hit );
-
-          if ( hit.didHit && hit.side < 0.0 ) {
-
-            continue;
-
-          }
-
-          valid = valid + 1u;
-          if ( hit.didHit ) {
-
-            occlusion = occlusion + ( 1.0 - hit.dist / ${MAX_DIST} );
-
-          }
-
-        }
-
-        var ao = ${EMBEDDED}u;
-        if ( valid >= ${Math.ceil(SAMPLES / 2)}u ) {
-
-          ao = u32( min( 255.0, floor( ( 1.0 - occlusion / f32( valid ) ) * 255.0 + 0.5 ) ) );
-
-        }
-        ${resultNode}[ i ] = ao;
-
-      }
-    `;
-
-    this.kernel = kernelFn({
-      workgroupSize: uniform(new Vector3(WORKGROUP_SIZE, 1, 1)),
-      workgroupId,
-      localId,
-      count: this.countUniform,
-    }).computeKernel([WORKGROUP_SIZE]);
-  }
-
-  // チャンクの先頭から count 件を GPU で計算して AO(0..255 / EMBEDDED)を返す
-  private async dispatch(count: number): Promise<Uint32Array> {
-    const { renderer } = this;
-    this.dataAttr.needsUpdate = true;
-    this.countUniform.value = count;
-    return this.watch.run(async () => {
-      await renderer.computeAsync(this.kernel, [
-        Math.ceil(count / WORKGROUP_SIZE),
-        1,
-        1,
-      ]);
-      const buf = await renderer.getArrayBufferAsync(this.result);
-      return new Uint32Array(buf, 0, count);
-    });
+    this.kernel = new RayKernel(renderer, bvhData, SAMPLE_DIRS, chunkTexels);
   }
 
   /**
@@ -314,20 +102,7 @@ export class GpuAOBaker {
         visited++;
         if (!s) continue;
         rotatedFrame(s.nx, s.ny, s.nz, s.rot, frame);
-        const o = (SAMPLES + n * TEXEL_VEC4) * 4;
-        const d = this.data;
-        d[o] = s.ox + s.nx * BIAS;
-        d[o + 1] = s.oy + s.ny * BIAS;
-        d[o + 2] = s.oz + s.nz * BIAS;
-        d[o + 4] = frame[0] ?? 0;
-        d[o + 5] = frame[1] ?? 0;
-        d[o + 6] = frame[2] ?? 0;
-        d[o + 8] = frame[3] ?? 0;
-        d[o + 9] = frame[4] ?? 0;
-        d[o + 10] = frame[5] ?? 0;
-        d[o + 12] = s.nx;
-        d[o + 13] = s.ny;
-        d[o + 14] = s.nz;
+        this.kernel.setPoint(n, s.ox, s.oy, s.oz, s.nx, s.ny, s.nz, frame);
         chartOf[n] = c;
         texelOf[n] = t - 1;
         n++;
@@ -336,7 +111,7 @@ export class GpuAOBaker {
       if (n === 0) break;
 
       const tGpu = performance.now();
-      const ao = await this.dispatch(n);
+      const ao = await this.kernel.dispatch(n);
       stats.gpuMs += performance.now() - tGpu;
       stats.chunks++;
       if (stats.chunks === 1) checkFirstChunk("AO", ao, n);
@@ -351,7 +126,7 @@ export class GpuAOBaker {
   }
 }
 
-// ---------------------------------------------------------------- フェーズ1(隠れチャート判定)
+// ---------------------------------------------------------------- 隠れチャート判定
 
 const HIDDEN_POINTS = HIDDEN_UV.length * HIDDEN_UV.length; // チャートあたりのサンプル点
 
@@ -362,19 +137,35 @@ export type ProbeStats = {
   points: number;
 };
 
+// AO に加えて、同じ方向で距離無制限(maxDist = 0 は無制限)のレイを撃ち、裏面に当たった本数と何にも当たらなかった本数を数える
+const VISIBILITY: RayKernelExtra = {
+  results: 2,
+  decl: "var backHits = 0u; var misses = 0u;",
+  perRay: /* wgsl */ `
+          var farRay: Ray;
+          farRay.origin = origin;
+          farRay.direction = dir;
+          farRay.maxDist = 0.0;
+          var farHit: IntersectionResult;
+          bvh_RaycastFirstHit( farRay, &farHit );
+          if ( ! farHit.didHit ) {
+
+            misses = misses + 1u;
+
+          } else if ( farHit.side < 0.0 ) {
+
+            backHits = backHits + 1u;
+
+          }`,
+  write: "out[ 1 ] = backHits; out[ 2 ] = misses;",
+};
+
 // 隠れチャート判定のレイキャスト部分を GPU で回す。サンプル点(チャートごとの 3x3)ごとに
-// 本ベイクと同じ式の AO(HIDDEN_DIRS、MAX_DIST、シード chartId*4 + s*2 + 1)と、同じ方向で
-// 距離無制限のレイの「裏面ヒット数・非ヒット数」を撃つ。判定(frame.ts の decideHidden)は CPU で行う。
-// 移植元からの判定の変更点は frame.ts の isHiddenPoint のコメントを参照。
+// 本ベイクと同じ式の AO(HIDDEN_DIRS、シード chartId*4 + s*2 + 1)と VISIBILITY の本数を出し、
+// 判定(frame.ts の decideHidden)は CPU で行う。移植元からの判定の変更点は frame.ts の isHiddenPoint のコメントを参照。
 export class GpuHiddenProbe {
-  private readonly renderer: WebGPURenderer;
+  private readonly kernel: RayKernel;
   private readonly chunkPoints: number;
-  private readonly watch: GpuErrorWatch;
-  private readonly data: Float32Array;
-  private readonly dataAttr: StorageBufferAttribute;
-  private readonly result: StorageBufferAttribute;
-  private readonly countUniform: ReturnType<typeof uniform>;
-  private readonly kernel: ComputeNode;
   /** 直近の analyze の計測値 */
   stats: ProbeStats = { sampleMs: 0, gpuMs: 0, chunks: 0, points: 0 };
 
@@ -383,152 +174,14 @@ export class GpuHiddenProbe {
     bvhData: BVHComputeData,
     chunkPoints = CHUNK_TEXELS,
   ) {
-    this.renderer = renderer;
     this.chunkPoints = chunkPoints;
-    this.watch = new GpuErrorWatch(renderer);
-
-    // storage buffer は BVH 側が 4 本使うので、自前は入力 1 + 出力 1 に interleave する。
-    // 入力 data(vec4 の並び): 先頭 HIDDEN_RAYS 個がサンプル方向、以降が点ごとに
-    // [発射位置(BIAS 込み), 法線, 回転込みの接線, 回転込みの従接線] の 4 個ずつ。
-    // 出力 result: 点ごとに [ao, 裏面ヒット数, 非ヒット数] の 3 要素
-    const n = chunkPoints;
-    const rays = HIDDEN_DIRS.length;
-    this.data = new Float32Array((rays + n * PROBE_VEC4) * 4);
-    HIDDEN_DIRS.forEach((d, i) => {
-      this.data[i * 4] = d.x;
-      this.data[i * 4 + 1] = d.y;
-      this.data[i * 4 + 2] = d.z;
-    });
-    this.dataAttr = new StorageBufferAttribute(this.data, 4);
-    this.result = new StorageBufferAttribute(
-      new Uint32Array(n * PROBE_RESULTS),
-      1,
+    this.kernel = new RayKernel(
+      renderer,
+      bvhData,
+      HIDDEN_DIRS,
+      chunkPoints,
+      VISIBILITY,
     );
-    const dataNode = storage(
-      this.dataAttr,
-      "vec4",
-      rays + n * PROBE_VEC4,
-    ).toReadOnly();
-    const resultNode = storage(this.result, "uint", n * PROBE_RESULTS);
-
-    this.countUniform = uniform(0, "uint");
-
-    // 本ベイクと同じ式(距離減衰つき AO)。有効レイが HIDDEN_RAYS の半分未満なら EMBEDDED
-    const kernelFn = wgslTagFn /* wgsl */`
-      // fn
-      fn probeHidden(
-        workgroupSize: vec3u,
-        workgroupId: vec3u,
-        localId: vec3u,
-        count: u32
-      ) -> void {
-
-        ${[bvhData.fns.raycastFirstHit]}
-
-        let i = workgroupSize.x * workgroupId.x + localId.x;
-        if ( i >= count ) {
-
-          return;
-
-        }
-
-        let base = ${rays}u + i * ${PROBE_VEC4}u;
-        let origin = ${dataNode}[ base ].xyz;
-        let normal = ${dataNode}[ base + 1u ].xyz;
-        let tangent = ${dataNode}[ base + 2u ].xyz;
-        let bitangent = ${dataNode}[ base + 3u ].xyz;
-
-        var occlusion = 0.0;
-        var valid = 0u;
-        for ( var k = 0u; k < ${rays}u; k = k + 1u ) {
-
-          let d = ${dataNode}[ k ].xyz;
-          var ray: Ray;
-          ray.origin = origin;
-          ray.direction = tangent * d.x + bitangent * d.y + normal * d.z;
-          ray.maxDist = ${MAX_DIST};
-
-          var hit: IntersectionResult;
-          bvh_RaycastFirstHit( ray, &hit );
-
-          if ( hit.didHit && hit.side < 0.0 ) {
-
-            continue;
-
-          }
-
-          valid = valid + 1u;
-          if ( hit.didHit ) {
-
-            occlusion = occlusion + ( 1.0 - hit.dist / ${MAX_DIST} );
-
-          }
-
-        }
-
-        var ao = ${EMBEDDED}u;
-        if ( valid >= ${Math.ceil(rays / 2)}u ) {
-
-          ao = u32( min( 255.0, floor( ( 1.0 - occlusion / f32( valid ) ) * 255.0 + 0.5 ) ) );
-
-        }
-
-        // 距離無制限(maxDist = 0 は無制限)で、裏面に当たった本数と何にも当たらなかった本数
-        var backHits = 0u;
-        var misses = 0u;
-        for ( var k = 0u; k < ${rays}u; k = k + 1u ) {
-
-          let d = ${dataNode}[ k ].xyz;
-          var ray: Ray;
-          ray.origin = origin;
-          ray.direction = tangent * d.x + bitangent * d.y + normal * d.z;
-          ray.maxDist = 0.0;
-
-          var hit: IntersectionResult;
-          bvh_RaycastFirstHit( ray, &hit );
-          if ( ! hit.didHit ) {
-
-            misses = misses + 1u;
-
-          } else if ( hit.side < 0.0 ) {
-
-            backHits = backHits + 1u;
-
-          }
-
-        }
-
-        ${resultNode}[ i * ${PROBE_RESULTS}u ] = ao;
-        ${resultNode}[ i * ${PROBE_RESULTS}u + 1u ] = backHits;
-        ${resultNode}[ i * ${PROBE_RESULTS}u + 2u ] = misses;
-
-      }
-    `;
-
-    this.kernel = kernelFn({
-      workgroupSize: uniform(new Vector3(WORKGROUP_SIZE, 1, 1)),
-      workgroupId,
-      localId,
-      count: this.countUniform,
-    }).computeKernel([WORKGROUP_SIZE]);
-  }
-
-  private async dispatch(count: number): Promise<Uint32Array> {
-    const { renderer } = this;
-    this.dataAttr.needsUpdate = true;
-    this.countUniform.value = count;
-    return this.watch.run(async () => {
-      await renderer.computeAsync(this.kernel, [
-        Math.ceil(count / WORKGROUP_SIZE),
-        1,
-        1,
-      ]);
-      return new Uint32Array(
-        await renderer.getArrayBufferAsync(this.result),
-        0,
-        count * PROBE_RESULTS,
-      );
-    });
   }
 
   /**
@@ -544,8 +197,8 @@ export class GpuHiddenProbe {
     const hidden = new Uint8Array(chartCount);
     const stats: ProbeStats = { sampleMs: 0, gpuMs: 0, chunks: 0, points: 0 };
     this.stats = stats;
-    const data = this.data;
     const rays = HIDDEN_DIRS.length;
+    const stride = this.kernel.resultsPerPoint;
     const pointChart = new Uint32Array(this.chunkPoints);
     const pointNy = new Float32Array(this.chunkPoints);
     const frame = new Float64Array(6);
@@ -562,14 +215,7 @@ export class GpuHiddenProbe {
           for (const u of HIDDEN_UV) {
             const hit = queryChart(idx, u, v);
             if (hit) {
-              const pos = insetPosition(hit);
-              const o = (rays + n * PROBE_VEC4) * 4;
-              data[o] = pos[0] + hit.nx * BIAS;
-              data[o + 1] = pos[1] + hit.ny * BIAS;
-              data[o + 2] = pos[2] + hit.nz * BIAS;
-              data[o + 4] = hit.nx;
-              data[o + 5] = hit.ny;
-              data[o + 6] = hit.nz;
+              const [px, py, pz] = insetPosition(hit);
               // AO 用のシード(移植元と同じ c*4 + si*2 + 1)
               rotatedFrame(
                 hit.nx,
@@ -578,10 +224,16 @@ export class GpuHiddenProbe {
                 rotFor(c * 4 + si * 2 + 1),
                 frame,
               );
-              for (let k = 0; k < 3; k++) {
-                data[o + 8 + k] = frame[k] ?? 0;
-                data[o + 12 + k] = frame[3 + k] ?? 0;
-              }
+              this.kernel.setPoint(
+                n,
+                px,
+                py,
+                pz,
+                hit.nx,
+                hit.ny,
+                hit.nz,
+                frame,
+              );
               pointChart[n] = c;
               pointNy[n] = hit.ny;
               n++;
@@ -595,16 +247,16 @@ export class GpuHiddenProbe {
       if (n === 0) continue;
 
       const tGpu = performance.now();
-      const r = await this.dispatch(n);
+      const r = await this.kernel.dispatch(n);
       stats.gpuMs += performance.now() - tGpu;
       stats.chunks++;
       stats.points += n;
       const points: ProbePoint[] = [];
       for (let i = 0; i < n; i++) {
         points.push({
-          ao: r[i * PROBE_RESULTS] as number,
-          backHits: r[i * PROBE_RESULTS + 1] as number,
-          misses: r[i * PROBE_RESULTS + 2] as number,
+          ao: r[i * stride] as number,
+          backHits: r[i * stride + 1] as number,
+          misses: r[i * stride + 2] as number,
           ny: pointNy[i] as number,
         });
       }
