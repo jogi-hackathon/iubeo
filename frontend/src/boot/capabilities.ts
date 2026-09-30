@@ -19,10 +19,14 @@ const wantsWebGPU = (): boolean =>
   (import.meta.env.VITE_RENDERER ?? "webgpu") === "webgpu";
 
 const detectWebGPU = async (): Promise<boolean> => {
-  if (!wantsWebGPU()) return false;
+  if (!wantsWebGPU()) {
+    return false;
+  }
   try {
-    const gpu = (globalThis.navigator as { gpu?: GpuLike } | undefined)?.gpu;
-    if (!gpu) return false;
+    const gpu = (globalThis.navigator as {gpu?: GpuLike} | undefined)?.gpu;
+    if (!gpu) {
+      return false;
+    }
     return (await gpu.requestAdapter(ADAPTER_OPTIONS)) !== null;
   } catch {
     return false;
@@ -35,5 +39,5 @@ export const detectCapabilities = async (): Promise<Capabilities> => {
     : wantsWebGPU()
       ? "webgl2-fallback"
       : "webgl";
-  return { rendererBackend };
+  return {rendererBackend};
 };

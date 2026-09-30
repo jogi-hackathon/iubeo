@@ -1,13 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { afterRendererInit } from "./afterRendererInit";
-import { type BootProgress, type BootStep, runSteps } from "./boot";
-import { createBootStore } from "./bootStore";
-import { detectCapabilities } from "./capabilities";
-import type { AppContext } from "./context";
+import {afterEach, describe, expect, it, vi} from "vitest";
+
+import {afterRendererInit} from "./afterRendererInit";
+import {type BootProgress, type BootStep, runSteps} from "./boot";
+import {createBootStore} from "./bootStore";
+import {detectCapabilities} from "./capabilities";
+import type {AppContext} from "./context";
 
 const ctx: AppContext = {
-  settings: { resolutionScale: 1, fpsLimit: null },
-  capabilities: { rendererBackend: "webgl" },
+  settings: {resolutionScale: 1, fpsLimit: null},
+  capabilities: {rendererBackend: "webgl"},
   assets: {},
 };
 
@@ -42,9 +43,9 @@ describe("runSteps", () => {
     const result = await runSteps(completeSteps(log), (p) => progress.push(p));
     expect(log).toEqual(["a", "b", "c"]);
     expect(progress).toEqual([
-      { step: "a", index: 0, total: 3 },
-      { step: "b", index: 1, total: 3 },
-      { step: "c", index: 2, total: 3 },
+      {step: "a", index: 0, total: 3},
+      {step: "b", index: 1, total: 3},
+      {step: "c", index: 2, total: 3},
     ]);
     expect(result).toEqual(ctx);
   });
@@ -95,14 +96,14 @@ describe("detectCapabilities", () => {
   });
 
   const stubNavigator = (gpu: unknown) =>
-    vi.stubGlobal("navigator", gpu === undefined ? {} : { gpu });
+    vi.stubGlobal("navigator", gpu === undefined ? {} : {gpu});
 
   it("adapter があれば webgpu(three と同じ compatibility で要求する)", async () => {
     const requestAdapter = vi.fn(async () => ({}));
-    stubNavigator({ requestAdapter });
+    stubNavigator({requestAdapter});
     expect((await detectCapabilities()).rendererBackend).toBe("webgpu");
     expect(requestAdapter).toHaveBeenCalledWith(
-      expect.objectContaining({ featureLevel: "compatibility" }),
+      expect.objectContaining({featureLevel: "compatibility"}),
     );
   });
 
@@ -114,7 +115,7 @@ describe("detectCapabilities", () => {
   });
 
   it("adapter が null なら false", async () => {
-    stubNavigator({ requestAdapter: async () => null });
+    stubNavigator({requestAdapter: async () => null});
     expect((await detectCapabilities()).rendererBackend).toBe(
       "webgl2-fallback",
     );
@@ -133,7 +134,7 @@ describe("detectCapabilities", () => {
 
   it("VITE_RENDERER=webgl なら GPU があっても webgl", async () => {
     vi.stubEnv("VITE_RENDERER", "webgl");
-    stubNavigator({ requestAdapter: async () => ({}) });
+    stubNavigator({requestAdapter: async () => ({})});
     expect((await detectCapabilities()).rendererBackend).toBe("webgl");
   });
 });
@@ -141,18 +142,18 @@ describe("detectCapabilities", () => {
 describe("afterRendererInit", () => {
   const make = (): AppContext => ({
     ...ctx,
-    capabilities: { ...ctx.capabilities, rendererBackend: "webgpu" },
+    capabilities: {...ctx.capabilities, rendererBackend: "webgpu"},
   });
 
   it("実際のバックエンドを反映する", () => {
     const a = make();
-    afterRendererInit({ backend: { isWebGPUBackend: true } }, a);
+    afterRendererInit({backend: {isWebGPUBackend: true}}, a);
     expect(a.capabilities.rendererBackend).toBe("webgpu");
     const b = make();
-    afterRendererInit({ backend: {} }, b);
+    afterRendererInit({backend: {}}, b);
     expect(b.capabilities.rendererBackend).toBe("webgl2-fallback");
     const c = make();
-    afterRendererInit({ isWebGLRenderer: true }, c);
+    afterRendererInit({isWebGLRenderer: true}, c);
     expect(c.capabilities.rendererBackend).toBe("webgl");
   });
 });

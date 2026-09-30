@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
-import { BVHCollider } from "../core/bvh";
+import {useEffect, useMemo} from "react";
+import {CanvasTexture, RepeatWrapping, SRGBColorSpace} from "three";
+
+import {BVHCollider} from "../core/bvh";
 
 interface TiledFloorProps {
   size?: number;
@@ -34,12 +35,11 @@ export function TiledFloor({
   thickness = 1,
   tileSize = 2,
 }: TiledFloorProps) {
-  const [tiles, setTiles] = useState<CanvasTexture | null>(null);
-  useEffect(() => {
-    const texture = createTileTexture(size / tileSize);
-    setTiles(texture);
-    return () => texture.dispose();
-  }, [size, tileSize]);
+  const tiles = useMemo(
+    () => createTileTexture(size / tileSize),
+    [size, tileSize],
+  );
+  useEffect(() => () => tiles.dispose(), [tiles]);
 
   return (
     <BVHCollider>

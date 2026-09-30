@@ -1,6 +1,7 @@
-import { Vector3 } from "three";
-import { EYE_HEIGHT } from "./constants";
-import type { PlayerState } from "./types";
+import {Vector3} from "three";
+
+import {EYE_HEIGHT} from "./constants";
+import type {PlayerState} from "./types";
 
 export const createPlayerState = (
   x: number,

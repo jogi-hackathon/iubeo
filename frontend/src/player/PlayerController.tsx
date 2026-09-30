@@ -1,13 +1,14 @@
-import { useFrame } from "@react-three/fiber";
-import { listColliders } from "../core/bvh";
-import { useDebugFlags } from "../core/debug/flags";
-import { FRAME_PRIORITY } from "../core/frameOrder";
-import { consumeLookDelta, useKeys } from "../core/input";
-import { MAX_DELTA } from "../core/time";
-import { localPlayer } from "./local";
-import { applyLook } from "./look";
-import { stepPlayer } from "./physics";
-import type { MoveInput } from "./types";
+import {useFrame} from "@react-three/fiber";
+
+import {listColliders} from "../core/bvh";
+import {useDebugFlags} from "../core/debug/flags";
+import {FRAME_PRIORITY} from "../core/frameOrder";
+import {consumeLookDelta, useKeys} from "../core/input";
+import {MAX_DELTA} from "../core/time";
+import {localPlayer} from "./local";
+import {applyLook} from "./look";
+import {stepPlayer} from "./physics";
+import type {MoveInput} from "./types";
 
 const input: MoveInput = {
   forward: false,
@@ -19,12 +20,14 @@ const input: MoveInput = {
 
 /** ローカルプレイヤーの身体を更新する(視点入力・移動・物理)。カメラには触れない */
 export function PlayerController() {
-  const { freeCamera } = useDebugFlags();
+  const {freeCamera} = useDebugFlags();
   const keys = useKeys();
 
   useFrame((_, delta) => {
-    if (freeCamera) return;
-    const { dx, dy } = consumeLookDelta();
+    if (freeCamera) {
+      return;
+    }
+    const {dx, dy} = consumeLookDelta();
     applyLook(localPlayer, dx, dy);
     const k = keys.current;
     input.forward = k.has("KeyW");

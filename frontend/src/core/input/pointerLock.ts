@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import {useSyncExternalStore} from "react";
 
 export interface LookDelta {
   dx: number;
@@ -11,20 +11,24 @@ let dy = 0;
 const listeners = new Set<() => void>();
 
 const setLocked = (value: boolean): void => {
-  if (locked === value) return;
+  if (locked === value) {
+    return;
+  }
   locked = value;
   if (!value) {
     dx = 0;
     dy = 0;
   }
-  for (const l of listeners) l();
+  for (const l of listeners) {
+    l();
+  }
 };
 
 export const isPointerLocked = (): boolean => locked;
 
 /** 蓄積したマウス移動量(px)を取り出してゼロに戻す。フレームごとに 1 回、アクティブな制御側だけが呼ぶ */
 export const consumeLookDelta = (): LookDelta => {
-  const out = { dx, dy };
+  const out = {dx, dy};
   dx = 0;
   dy = 0;
   return out;
@@ -46,11 +50,13 @@ const warn = (e: unknown) =>
  * Esc 解除直後の再ロック制限(SecurityError 等)では再試行しない(制限明けに加速つきでロックされるのを防ぐ)
  */
 const requestLock = (target: HTMLElement): void => {
-  const result = target.requestPointerLock({ unadjustedMovement: true }) as
+  const result = target.requestPointerLock({unadjustedMovement: true}) as
     | Promise<void>
     | undefined;
   // Promise を返さない実装では unadjustedMovement は無視されているので何もしない
-  if (typeof result?.catch !== "function") return;
+  if (typeof result?.catch !== "function") {
+    return;
+  }
   result.catch((e: unknown) => {
     if (!(e instanceof Error && e.name === "NotSupportedError")) {
       warn(e);
@@ -64,10 +70,14 @@ const requestLock = (target: HTMLElement): void => {
 export const connectPointerLock = (target: HTMLElement): (() => void) => {
   const doc = target.ownerDocument;
   const onClick = () => {
-    if (doc.pointerLockElement !== target) requestLock(target);
+    if (doc.pointerLockElement !== target) {
+      requestLock(target);
+    }
   };
   const onMouseMove = (e: MouseEvent) => {
-    if (doc.pointerLockElement !== target) return;
+    if (doc.pointerLockElement !== target) {
+      return;
+    }
     dx += e.movementX;
     dy += e.movementY;
   };

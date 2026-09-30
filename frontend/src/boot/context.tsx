@@ -1,7 +1,8 @@
-import { createContext, type ReactNode, useContext } from "react";
-import type { GraphicsSettings } from "../core/graphics";
-import type { Assets } from "./assets";
-import type { Capabilities } from "./capabilities";
+import {createContext, type ReactNode, useContext} from "react";
+
+import type {GraphicsSettings} from "../core/graphics";
+import type {Assets} from "./assets";
+import type {Capabilities} from "./capabilities";
 
 /** 起動シーケンス(boot)の成果物。以降のアプリ全体から読み取り専用で参照する */
 export interface AppContext {
@@ -26,7 +27,8 @@ export function AppContextProvider({
 
 export const useAppContext = (): AppContext => {
   const ctx = useContext(Ctx);
-  if (!ctx)
+  if (!ctx) {
     throw new Error("useAppContext must be used within AppContextProvider");
+  }
   return ctx;
 };

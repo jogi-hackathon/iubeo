@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import {useSyncExternalStore} from "react";
 
 export type ToneMappingKind = "aces" | "agx" | "neutral" | "reinhard" | "none";
 
@@ -50,9 +50,9 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
   enabled: true,
   exposure: 1.2,
   toneMapping: "neutral",
-  bloom: { enabled: true, strength: 0.5, radius: 0.4, threshold: 1 },
-  pixelate: { enabled: false, pixelSize: 4 },
-  vignette: { enabled: true, intensity: 0.25, smoothness: 0.6 },
+  bloom: {enabled: true, strength: 0.5, radius: 0.4, threshold: 1},
+  pixelate: {enabled: false, pixelSize: 4},
+  vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
 };
 
 /** vignette の smoothness の下限。0 だと smoothstep の edge0 == edge1 になる */
@@ -75,12 +75,12 @@ const isGroup = (v: unknown): v is Record<string, unknown> =>
 
 /** 変更があったときだけ新しいオブジェクトに差し替えて購読者へ通知する(useSyncExternalStore の参照安定性のため) */
 export const updatePostProcessSettings = (patch: PostProcessPatch): void => {
-  const next: Record<string, unknown> = { ...settings };
+  const next: Record<string, unknown> = {...settings};
   let changed = false;
   for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
     const current = next[key];
     if (isGroup(current) && isGroup(value)) {
-      const merged: Record<string, unknown> = { ...current, ...value };
+      const merged: Record<string, unknown> = {...current, ...value};
       if (Object.keys(merged).some((k) => merged[k] !== current[k])) {
         next[key] = merged;
         changed = true;
@@ -90,15 +90,23 @@ export const updatePostProcessSettings = (patch: PostProcessPatch): void => {
       changed = true;
     }
   }
-  if (!changed) return;
+  if (!changed) {
+    return;
+  }
   settings = next as unknown as PostProcessSettings;
-  for (const l of listeners) l();
+  for (const l of listeners) {
+    l();
+  }
 };
 
 export const resetPostProcessSettings = (): void => {
-  if (settings === DEFAULT_POSTPROCESS_SETTINGS) return;
+  if (settings === DEFAULT_POSTPROCESS_SETTINGS) {
+    return;
+  }
   settings = DEFAULT_POSTPROCESS_SETTINGS;
-  for (const l of listeners) l();
+  for (const l of listeners) {
+    l();
+  }
 };
 
 export const subscribePostProcessSettings = (l: () => void) => {

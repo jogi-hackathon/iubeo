@@ -1,2 +1,2 @@
-export { FirstPersonCamera } from "./FirstPersonCamera";
-export { FlyCamera } from "./FlyCamera";
+export {FirstPersonCamera} from "./FirstPersonCamera";
+export {FlyCamera} from "./FlyCamera";

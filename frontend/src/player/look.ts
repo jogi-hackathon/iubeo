@@ -1,4 +1,4 @@
-import type { Look } from "./types";
+import type {Look} from "./types";
 
 /** マウス視点の感度(rad/px) */
 export const LOOK_SENSITIVITY = 0.002;

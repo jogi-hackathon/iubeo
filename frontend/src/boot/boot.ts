@@ -1,8 +1,8 @@
-import { loadGraphicsSettings } from "../core/graphics";
-import { loadAssets } from "./assets";
-import { detectCapabilities } from "./capabilities";
-import type { AppContext } from "./context";
-import { prepareData } from "./data";
+import {loadGraphicsSettings} from "../core/graphics";
+import {loadAssets} from "./assets";
+import {detectCapabilities} from "./capabilities";
+import type {AppContext} from "./context";
+import {prepareData} from "./data";
 
 export interface BootProgress {
   /** 実行中のステップの表示名 */
@@ -12,10 +12,10 @@ export interface BootProgress {
   total: number;
 }
 
-export type BootStep = {
+export interface BootStep {
   name: string;
   run: (draft: Partial<AppContext>) => Promise<void> | void;
-};
+}
 
 /** 起動シーケンス。上から順に実行される(各モジュールは自己登録せず、ここに明示的に列挙する) */
 export const BOOT_STEPS: BootStep[] = [
@@ -37,7 +37,7 @@ export const BOOT_STEPS: BootStep[] = [
       d.assets = await loadAssets();
     },
   },
-  { name: "data", run: () => prepareData() },
+  {name: "data", run: () => prepareData()},
 ];
 
 export const runSteps = async (
@@ -45,15 +45,15 @@ export const runSteps = async (
   onProgress: (p: BootProgress) => void,
 ): Promise<AppContext> => {
   const draft: Partial<AppContext> = {};
-  for (const [index, { name, run }] of steps.entries()) {
-    onProgress({ step: name, index, total: steps.length });
+  for (const [index, {name, run}] of steps.entries()) {
+    onProgress({step: name, index, total: steps.length});
     await run(draft);
   }
-  const { settings, capabilities, assets } = draft;
+  const {settings, capabilities, assets} = draft;
   if (!settings || !capabilities || !assets) {
     throw new Error("boot: AppContext が揃わないまま終了しました");
   }
-  return { settings, capabilities, assets };
+  return {settings, capabilities, assets};
 };
 
 export const boot = (

@@ -1,6 +1,7 @@
-import { addAfterEffect, useThree } from "@react-three/fiber";
-import { useEffect } from "react";
-import { useAppContext } from "../../boot/context";
+import {addAfterEffect, useThree} from "@react-three/fiber";
+import {useEffect} from "react";
+
+import {useAppContext} from "../../boot/context";
 
 const INTERVAL_MS = 500;
 
@@ -41,11 +42,13 @@ interface GpuAdapterInfo {
 }
 
 const backendLabel = (r: RendererLike): string => {
-  if (r.isWebGLRenderer) return "WebGL";
+  if (r.isWebGLRenderer) {
+    return "WebGL";
+  }
   return r.backend?.isWebGPUBackend ? "WebGPU" : "WebGL2 (fallback)";
 };
 
-const joinInfo = (parts: (string | undefined)[]): string =>
+const joinInfo = (parts: Array<string | undefined>): string =>
   parts.filter(Boolean).join(" ") || "-";
 
 const readGpuName = async (r: RendererLike): Promise<string> => {
@@ -54,7 +57,7 @@ const readGpuName = async (r: RendererLike): Promise<string> => {
       const gpu = (
         navigator as unknown as {
           gpu?: {
-            requestAdapter(): Promise<{ info?: GpuAdapterInfo } | null>;
+            requestAdapter(): Promise<{info?: GpuAdapterInfo} | null>;
           };
         }
       ).gpu;
@@ -65,7 +68,9 @@ const readGpuName = async (r: RendererLike): Promise<string> => {
     }
     const gl = r.getContext?.() ?? r.backend?.gl;
     const ext = gl?.getExtension("WEBGL_debug_renderer_info");
-    if (!gl || !ext) return "-";
+    if (!gl || !ext) {
+      return "-";
+    }
     return String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || "-";
   } catch {
     return "-";
@@ -81,7 +86,7 @@ const fmtMB = (bytes: number | undefined): string =>
 /** FPS・ドローコール・三角形数・GPU メモリ・GPU 処理時間などを 0.5 秒ごとに更新する DOM パネル */
 export function DebugInfo() {
   const gl = useThree((s) => s.gl);
-  const { settings } = useAppContext();
+  const {settings} = useAppContext();
 
   useEffect(() => {
     const r = gl as unknown as RendererLike;
@@ -103,12 +108,12 @@ export function DebugInfo() {
 
     let disposed = false;
     let gpuName = "-";
-    let gpuMs: string = "-";
+    let gpuMs = "-";
     // WebGPURenderer は独自の rAF で毎回 info.reset() を呼ぶため、描画直後に統計を退避する
     let frames = 0;
-    const snap = { drawCalls: 0, triangles: 0, lines: 0, points: 0 };
+    const snap = {drawCalls: 0, triangles: 0, lines: 0, points: 0};
     const stopSnapshot = addAfterEffect(() => {
-      const { render } = r.info;
+      const {render} = r.info;
       frames++;
       snap.drawCalls = render.drawCalls ?? render.calls;
       snap.triangles = render.triangles;
@@ -125,7 +130,9 @@ export function DebugInfo() {
     });
 
     const resolveGpuTime = async () => {
-      if (!r.backend?.trackTimestamp || !r.resolveTimestampsAsync) return;
+      if (!r.backend?.trackTimestamp || !r.resolveTimestampsAsync) {
+        return;
+      }
       resolving = true;
       try {
         const upTo = frames;
@@ -143,13 +150,15 @@ export function DebugInfo() {
     };
 
     const update = () => {
-      if (!resolving) void resolveGpuTime();
-      const { memory } = r.info;
+      if (!resolving) {
+        void resolveGpuTime();
+      }
+      const {memory} = r.info;
       const now = performance.now();
       const fps = ((frames - fpsFrame) * 1000) / (now - fpsTime);
       fpsFrame = frames;
       fpsTime = now;
-      const { fpsLimit, resolutionScale } = settings;
+      const {fpsLimit, resolutionScale} = settings;
       el.textContent = [
         `FPS      ${fps.toFixed(0)}`,
         `Backend  ${backendLabel(r)}`,

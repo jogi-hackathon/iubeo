@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
-import { useDebugFlags } from "../../core/debug/flags";
+import type {CSSProperties, ReactNode} from "react";
+
+import {useDebugFlags} from "../../core/debug/flags";
 import {
   resetPostProcessSettings,
   TONE_MAPPING_KINDS,
@@ -37,7 +38,7 @@ const headingStyle: CSSProperties = {
   fontWeight: "bold",
 };
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({title, children}: {title: string; children: ReactNode}) {
   return (
     <>
       <div style={headingStyle}>{title}</div>
@@ -58,7 +59,7 @@ function Check({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label style={{ ...rowStyle, opacity: disabled ? 0.4 : 1 }}>
+    <label style={{...rowStyle, opacity: disabled ? 0.4 : 1}}>
       <input
         type="checkbox"
         checked={checked}
@@ -88,11 +89,11 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   return (
-    <label style={{ ...rowStyle, opacity: disabled ? 0.4 : 1 }}>
-      <span style={{ width: 84 }}>{label}</span>
+    <label style={{...rowStyle, opacity: disabled ? 0.4 : 1}}>
+      <span style={{width: 84}}>{label}</span>
       <input
         type="range"
-        style={{ flex: 1, minWidth: 0 }}
+        style={{flex: 1, minWidth: 0}}
         value={value}
         min={min}
         max={max}
@@ -100,7 +101,7 @@ function Slider({
         disabled={disabled}
         onChange={(e) => onChange(e.target.valueAsNumber)}
       />
-      <span style={{ width: 38, textAlign: "right" }}>
+      <span style={{width: 38, textAlign: "right"}}>
         {value.toFixed(step < 1 ? 2 : 0)}
       </span>
     </label>
@@ -109,9 +110,11 @@ function Slider({
 
 /** F9 で開くポストプロセス調整パネル(VITE_ENABLE_DEBUG=true のときのみ)。設定 store を直接書き換える */
 export function PostProcessPanel() {
-  const { postfx } = useDebugFlags();
+  const {postfx} = useDebugFlags();
   const s = usePostProcessSettings();
-  if (!postfx) return null;
+  if (!postfx) {
+    return null;
+  }
 
   const set = updatePostProcessSettings;
   return (
@@ -119,7 +122,7 @@ export function PostProcessPanel() {
       <Check
         label="Post-processing"
         checked={s.enabled}
-        onChange={(enabled) => set({ enabled })}
+        onChange={(enabled) => set({enabled})}
       />
       <Section title="Output">
         <Slider
@@ -128,14 +131,14 @@ export function PostProcessPanel() {
           min={0.1}
           max={4}
           step={0.05}
-          onChange={(exposure) => set({ exposure })}
+          onChange={(exposure) => set({exposure})}
         />
         <label style={rowStyle}>
-          <span style={{ width: 84 }}>tone map</span>
+          <span style={{width: 84}}>tone map</span>
           <select
             value={s.toneMapping}
             onChange={(e) =>
-              set({ toneMapping: e.target.value as ToneMappingKind })
+              set({toneMapping: e.target.value as ToneMappingKind})
             }
           >
             {TONE_MAPPING_KINDS.map((k) => (
@@ -150,7 +153,7 @@ export function PostProcessPanel() {
         <Check
           label="enabled"
           checked={s.bloom.enabled}
-          onChange={(enabled) => set({ bloom: { enabled } })}
+          onChange={(enabled) => set({bloom: {enabled}})}
         />
         <Slider
           label="strength"
@@ -158,7 +161,7 @@ export function PostProcessPanel() {
           min={0}
           max={3}
           step={0.05}
-          onChange={(strength) => set({ bloom: { strength } })}
+          onChange={(strength) => set({bloom: {strength}})}
         />
         <Slider
           label="radius"
@@ -166,7 +169,7 @@ export function PostProcessPanel() {
           min={0}
           max={1}
           step={0.01}
-          onChange={(radius) => set({ bloom: { radius } })}
+          onChange={(radius) => set({bloom: {radius}})}
         />
         <Slider
           label="threshold"
@@ -174,14 +177,14 @@ export function PostProcessPanel() {
           min={0}
           max={4}
           step={0.05}
-          onChange={(threshold) => set({ bloom: { threshold } })}
+          onChange={(threshold) => set({bloom: {threshold}})}
         />
       </Section>
       <Section title="Pixelate">
         <Check
           label="enabled"
           checked={s.pixelate.enabled}
-          onChange={(enabled) => set({ pixelate: { enabled } })}
+          onChange={(enabled) => set({pixelate: {enabled}})}
         />
         <Slider
           label="pixel size"
@@ -189,14 +192,14 @@ export function PostProcessPanel() {
           min={1}
           max={32}
           step={1}
-          onChange={(pixelSize) => set({ pixelate: { pixelSize } })}
+          onChange={(pixelSize) => set({pixelate: {pixelSize}})}
         />
       </Section>
       <Section title="Vignette">
         <Check
           label="enabled"
           checked={s.vignette.enabled}
-          onChange={(enabled) => set({ vignette: { enabled } })}
+          onChange={(enabled) => set({vignette: {enabled}})}
         />
         <Slider
           label="intensity"
@@ -204,7 +207,7 @@ export function PostProcessPanel() {
           min={0}
           max={1}
           step={0.01}
-          onChange={(intensity) => set({ vignette: { intensity } })}
+          onChange={(intensity) => set({vignette: {intensity}})}
         />
         <Slider
           label="smoothness"
@@ -212,12 +215,12 @@ export function PostProcessPanel() {
           min={VIGNETTE_MIN_SMOOTHNESS}
           max={1}
           step={0.01}
-          onChange={(smoothness) => set({ vignette: { smoothness } })}
+          onChange={(smoothness) => set({vignette: {smoothness}})}
         />
       </Section>
       <button
         type="button"
-        style={{ marginTop: 8 }}
+        style={{marginTop: 8}}
         onClick={resetPostProcessSettings}
       >
         Reset

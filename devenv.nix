@@ -52,13 +52,13 @@
   scripts.fmt.exec = ''
     cd "$DEVENV_ROOT"
     gofmt -w backend
-    if [ -f frontend/package.json ]; then pnpm --dir frontend exec biome format --write .; fi
+    if [ -f frontend/package.json ]; then pnpm --dir frontend exec oxfmt --write .; fi
   '';
 
   scripts.lint.exec = ''
     cd "$DEVENV_ROOT"
     if [ -f backend/go.mod ]; then (cd backend && golangci-lint run ./...); fi
-    if [ -f frontend/package.json ]; then pnpm --dir frontend exec biome check .; fi
+    if [ -f frontend/package.json ]; then pnpm --dir frontend exec oxlint .; fi
   '';
 
   scripts.test-all.exec = ''
@@ -108,11 +108,21 @@
     };
 
     # Frontend(frontend/)
-    biome = {
+    oxfmt = {
       enable = true;
       files = "^frontend/";
-      entry = "pnpm --dir frontend exec biome check --write --no-errors-on-unmatched .";
-      pass_filenames = false;
+      settings = {
+        binPath = "./frontend/node_modules/.bin/oxfmt";
+        mode = "write";
+      };
+    };
+    oxlint = {
+      enable = true;
+      files = "^frontend/";
+      settings = {
+        binPath = "./frontend/node_modules/.bin/oxlint";
+        fix = [ "safe" ];
+      };
     };
 
     # Conventional Commits

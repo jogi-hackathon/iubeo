@@ -10,11 +10,12 @@ import {
   SRGBColorSpace,
   type ToneMapping,
 } from "three";
-import { bloom } from "three/addons/tsl/display/BloomNode.js";
-import { vignette } from "three/addons/tsl/display/CRT.js";
-import { pass, renderOutput, rtt, toneMapping, uniform, vec4 } from "three/tsl";
-import { type Node, type Renderer, RenderPipeline } from "three/webgpu";
-import { pixelateUV } from "./nodes/pixelate";
+import {bloom} from "three/addons/tsl/display/BloomNode.js";
+import {vignette} from "three/addons/tsl/display/CRT.js";
+import {pass, renderOutput, rtt, toneMapping, uniform, vec4} from "three/tsl";
+import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
+
+import {pixelateUV} from "./nodes/pixelate";
 import {
   type PostProcessSettings,
   type ToneMappingKind,
@@ -119,7 +120,9 @@ export const createPostProcessPipeline = (
       );
 
       const next = structureKey(s);
-      if (next === key) return;
+      if (next === key) {
+        return;
+      }
       key = next;
       pipeline.outputNode = build(s);
       pipeline.needsUpdate = true;

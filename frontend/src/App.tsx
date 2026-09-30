@@ -1,8 +1,8 @@
-import { FirstPersonCamera, FlyCamera } from "./camera";
-import { PostProcess, PostProcessPanel } from "./camera/postprocess";
-import { GameCanvas } from "./core/GameCanvas";
-import { PlayerController } from "./player";
-import { type SceneName, scenes } from "./scenes";
+import {FirstPersonCamera, FlyCamera} from "./camera";
+import {PostProcess, PostProcessPanel} from "./camera/postprocess";
+import {GameCanvas} from "./core/GameCanvas";
+import {PlayerController} from "./player";
+import {type SceneName, scenes} from "./scenes";
 
 const CURRENT_SCENE: SceneName = "test";
 

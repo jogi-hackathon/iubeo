@@ -1,21 +1,16 @@
-import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
-import type { Renderer } from "three/webgpu";
-import { FRAME_PRIORITY } from "../../core/frameOrder";
-import {
-  createPostProcessPipeline,
-  type PostProcessPipeline,
-} from "./pipeline";
-import {
-  getPostProcessSettings,
-  subscribePostProcessSettings,
-} from "./settings";
+import {useFrame, useThree} from "@react-three/fiber";
+import {useEffect, useRef} from "react";
+import type {Renderer} from "three/webgpu";
+
+import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
+import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
 
 const isWebGPURenderer = (gl: unknown): gl is Renderer =>
-  (gl as { isWebGPURenderer?: boolean }).isWebGPURenderer === true;
+  (gl as {isWebGPURenderer?: boolean}).isWebGPURenderer === true;
 
 /** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける */
-function WebGPUPostProcess({ gl }: { gl: Renderer }) {
+function WebGPUPostProcess({gl}: {gl: Renderer}) {
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
   const pipeline = useRef<PostProcessPipeline | null>(null);
