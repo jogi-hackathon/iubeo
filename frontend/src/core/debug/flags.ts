@@ -7,6 +7,8 @@ export interface DebugFlags {
   freeCamera: boolean;
   /** ポストプロセス調整パネル(camera/postprocess) */
   postfx: boolean;
+  /** シーン管理パネル(scenes/SceneDebugPanel) */
+  scene: boolean;
 }
 
 /** VITE_ENABLE_DEBUG=true のときだけデバッグ機能(?debug・ホットキー)が有効になる */
@@ -18,6 +20,7 @@ const ALL_OFF: DebugFlags = {
   bvh: false,
   freeCamera: false,
   postfx: false,
+  scene: false,
 };
 const ALL_ON: DebugFlags = {
   stats: true,
@@ -25,6 +28,7 @@ const ALL_ON: DebugFlags = {
   bvh: false,
   freeCamera: false,
   postfx: false,
+  scene: false,
 };
 
 const initial = (): DebugFlags => {

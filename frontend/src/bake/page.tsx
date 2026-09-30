@@ -3,7 +3,7 @@ import {type CSSProperties, Suspense, useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
-import {type SceneName, scenes} from "../scenes";
+import {type SceneName, sceneNames, scenes} from "../scenes";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
 
@@ -36,7 +36,8 @@ const allowSoftware = params.get("allowSoftware") === "1";
 const SOFTWARE_RE =
   /swiftshader|llvmpipe|lavapipe|softpipe|software|microsoft basic render|warp/i;
 
-const isSceneName = (name: string): name is SceneName => name in scenes;
+const isSceneName = (name: string): name is SceneName =>
+  (sceneNames as string[]).includes(name);
 
 /** WebGPU が使えないと WebGPURenderer は黙って WebGL2 に落ちるので、確認して止める */
 const createRenderer = async (props: object) => {
@@ -177,12 +178,12 @@ const statusStyle: CSSProperties = {
 function BakePage() {
   const [progress, setProgress] = useState<BakeProgress>({status: "起動中"});
 
-  if (!isSceneName(sceneName)) {
-    const error = `不明なシーンです: ${sceneName}(${Object.keys(scenes).join(" / ")})`;
+  const Scene = isSceneName(sceneName) ? scenes[sceneName] : undefined;
+  if (!Scene) {
+    const error = `不明なシーンです: ${sceneName}(${sceneNames.join(" / ")})`;
     window.__bakeResult = {ok: false, error};
     return <div style={statusStyle}>{error}</div>;
   }
-  const Scene = scenes[sceneName];
   const {done, total} = progress;
   return (
     <>

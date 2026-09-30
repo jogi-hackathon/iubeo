@@ -30,6 +30,9 @@ export const useDebugHotkeys = (): void => {
         case "F9":
           toggleDebugFlag("postfx");
           break;
+        case "F10":
+          toggleDebugFlag("scene");
+          break;
         default:
           return;
       }
