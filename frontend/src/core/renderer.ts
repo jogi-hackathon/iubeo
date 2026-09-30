@@ -1,29 +1,27 @@
-import {WebGLRenderer} from "three";
 import {WebGPURenderer} from "three/webgpu";
 
 import {afterRendererInit} from "../boot/afterRendererInit";
-import type {AppContext} from "../boot/context";
 import {DEBUG_AVAILABLE} from "./debug/flags";
 
+/** VITE_RENDERER=webgl のときは WebGL2 バックエンドを強制する。非対応なので、フォールバック時のエラー画面の確認に使う */
+const FORCE_WEBGL = import.meta.env.VITE_RENDERER === "webgl";
+
 /**
- * Canvas の gl に渡すファクトリを作る。バックエンドは ctx.capabilities.rendererBackend の予定値に従い、
- * WebGPU が使えないと判定済みなら forceWebGL で WebGPURenderer 内部の二重の初期化試行を避ける
+ * Canvas の gl に渡すファクトリ。WebGPU のみ対応で、WebGL2 へフォールバックしたら dispose して投げる
+ * (R3F は reject を Canvas 内で throw し直すので、上位の BootErrorBoundary が受ける)
  */
-export const createRenderer = (ctx: AppContext) => async (props: object) => {
-  const {rendererBackend} = ctx.capabilities;
-  if (rendererBackend === "webgl") {
-    const renderer = new WebGLRenderer(
-      props as ConstructorParameters<typeof WebGLRenderer>[0],
-    );
-    afterRendererInit(renderer, ctx);
-    return renderer;
-  }
+export const createRenderer = async (props: object) => {
   const renderer = new WebGPURenderer({
     ...(props as ConstructorParameters<typeof WebGPURenderer>[0]),
-    forceWebGL: rendererBackend === "webgl2-fallback",
+    forceWebGL: FORCE_WEBGL,
     trackTimestamp: DEBUG_AVAILABLE,
   });
   await renderer.init();
-  afterRendererInit(renderer, ctx);
+  try {
+    afterRendererInit(renderer);
+  } catch (e) {
+    renderer.dispose();
+    throw e;
+  }
   return renderer;
 };

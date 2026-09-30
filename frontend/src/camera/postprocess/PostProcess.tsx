@@ -6,11 +6,9 @@ import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
 import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
 
-const isWebGPURenderer = (gl: unknown): gl is Renderer =>
-  (gl as {isWebGPURenderer?: boolean}).isWebGPURenderer === true;
-
-/** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける */
-function WebGPUPostProcess({gl}: {gl: Renderer}) {
+/** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける。レンダラーは WebGPURenderer 固定(core/renderer.ts) */
+export function PostProcess() {
+  const gl = useThree((s) => s.gl) as unknown as Renderer;
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
   const pipeline = useRef<PostProcessPipeline | null>(null);
@@ -39,10 +37,4 @@ function WebGPUPostProcess({gl}: {gl: Renderer}) {
   }, FRAME_PRIORITY.render);
 
   return null;
-}
-
-/** WebGPURenderer(WebGL2 フォールバック含む)のときだけ RenderPipeline で描画する。WebGLRenderer では何もしない */
-export function PostProcess() {
-  const gl = useThree((s) => s.gl);
-  return isWebGPURenderer(gl) ? <WebGPUPostProcess gl={gl} /> : null;
 }

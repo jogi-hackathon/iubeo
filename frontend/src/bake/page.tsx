@@ -3,6 +3,7 @@ import {type CSSProperties, Suspense, useEffect, useState} from "react";
 import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
+import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
 import {type SceneName, sceneNames, scenes} from "../scenes";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
@@ -55,7 +56,7 @@ interface AdapterLike {
 }
 
 /**
- * WebGPUBackend は adapter を保持しないので、同じ条件(three の WebGPUBackend.init と core/capabilities.ts と同じ)で
+ * WebGPUBackend は adapter を保持しないので、同じ条件(ADAPTER_OPTIONS = three の WebGPUBackend.init と同じ)で
  * もう一度 adapter を取って中身を見る
  */
 const adapterInfo = async (): Promise<Record<string, unknown>> => {
@@ -64,10 +65,7 @@ const adapterInfo = async (): Promise<Record<string, unknown>> => {
       gpu?: {requestAdapter(o?: object): Promise<AdapterLike | null>};
     }
   ).gpu;
-  const adapter = await gpu?.requestAdapter({
-    featureLevel: "compatibility",
-    powerPreference: "high-performance",
-  });
+  const adapter = await gpu?.requestAdapter(ADAPTER_OPTIONS);
   const info = adapter?.info ?? {};
   return {
     vendor: info.vendor,
@@ -115,12 +113,7 @@ function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
   useEffect(() => {
     let adapter: Record<string, unknown> | undefined;
     (async () => {
-      const backend = gl.backend as unknown as {isWebGPUBackend?: boolean};
-      if (!backend.isWebGPUBackend) {
-        throw new Error(
-          "WebGPU バックエンドで初期化できませんでした(WebGL フォールバックではベイクしません)",
-        );
-      }
+      assertWebGPUBackend(gl);
       adapter = await adapterInfo();
       console.info(`[bake] adapter: ${JSON.stringify(adapter)}`);
       const text = Object.values(adapter).join(" ");

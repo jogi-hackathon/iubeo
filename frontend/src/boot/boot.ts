@@ -1,6 +1,6 @@
 import {loadGraphicsSettings} from "../core/graphics";
 import {loadAssets} from "./assets";
-import {detectCapabilities} from "./capabilities";
+import {assertWebGPUAvailable} from "./capabilities";
 import type {AppContext} from "./context";
 import {prepareData} from "./data";
 
@@ -26,10 +26,8 @@ export const BOOT_STEPS: BootStep[] = [
     },
   },
   {
-    name: "capabilities",
-    run: async (d) => {
-      d.capabilities = await detectCapabilities();
-    },
+    name: "webgpu",
+    run: () => assertWebGPUAvailable(),
   },
   {
     name: "assets",
@@ -49,11 +47,11 @@ export const runSteps = async (
     onProgress({step: name, index, total: steps.length});
     await run(draft);
   }
-  const {settings, capabilities, assets} = draft;
-  if (!settings || !capabilities || !assets) {
+  const {settings, assets} = draft;
+  if (!settings || !assets) {
     throw new Error("boot: AppContext が揃わないまま終了しました");
   }
-  return {settings, capabilities, assets};
+  return {settings, assets};
 };
 
 export const boot = (

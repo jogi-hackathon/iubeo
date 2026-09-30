@@ -1,14 +1,13 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {afterRendererInit} from "../afterRendererInit";
-import {type BootProgress, type BootStep, runSteps} from "../boot";
+import {BOOT_STEPS, type BootProgress, type BootStep, runSteps} from "../boot";
 import {createBootStore} from "../bootStore";
-import {detectCapabilities} from "../capabilities";
+import {assertWebGPUAvailable, WebGPUUnavailableError} from "../capabilities";
 import type {AppContext} from "../context";
 
 const ctx: AppContext = {
   settings: {resolutionScale: 1, fpsLimit: null},
-  capabilities: {rendererBackend: "webgl"},
   assets: {},
 };
 
@@ -22,9 +21,8 @@ const completeSteps = (log: string[]): BootStep[] => [
   },
   {
     name: "b",
-    run: (d) => {
+    run: () => {
       log.push("b");
-      d.capabilities = ctx.capabilities;
     },
   },
   {
@@ -89,71 +87,92 @@ describe("createBootStore", () => {
   });
 });
 
-describe("detectCapabilities", () => {
+describe("assertWebGPUAvailable", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   const stubNavigator = (gpu: unknown) =>
     vi.stubGlobal("navigator", gpu === undefined ? {} : {gpu});
 
-  it("adapter があれば webgpu(three と同じ compatibility で要求する)", async () => {
+  it("adapter があれば通る(three と同じ compatibility で要求する)", async () => {
     const requestAdapter = vi.fn(async () => ({}));
     stubNavigator({requestAdapter});
-    expect((await detectCapabilities()).rendererBackend).toBe("webgpu");
+    await expect(assertWebGPUAvailable()).resolves.toBeUndefined();
     expect(requestAdapter).toHaveBeenCalledWith(
       expect.objectContaining({featureLevel: "compatibility"}),
     );
   });
 
-  it("navigator.gpu がなければ webgl2-fallback", async () => {
+  it("navigator.gpu がなければ unsupported", async () => {
     stubNavigator(undefined);
-    expect((await detectCapabilities()).rendererBackend).toBe(
-      "webgl2-fallback",
-    );
+    await expect(assertWebGPUAvailable()).rejects.toMatchObject({
+      name: "WebGPUUnavailableError",
+      reason: "unsupported",
+    });
   });
 
-  it("adapter が null なら false", async () => {
+  it("adapter が null なら no-adapter", async () => {
     stubNavigator({requestAdapter: async () => null});
-    expect((await detectCapabilities()).rendererBackend).toBe(
-      "webgl2-fallback",
-    );
+    await expect(assertWebGPUAvailable()).rejects.toMatchObject({
+      reason: "no-adapter",
+    });
   });
 
-  it("requestAdapter が例外なら false", async () => {
+  it("requestAdapter が例外なら no-adapter", async () => {
     stubNavigator({
       requestAdapter: async () => {
         throw new Error("x");
       },
     });
-    expect((await detectCapabilities()).rendererBackend).toBe(
-      "webgl2-fallback",
-    );
+    await expect(assertWebGPUAvailable()).rejects.toMatchObject({
+      reason: "no-adapter",
+    });
   });
 
-  it("VITE_RENDERER=webgl なら GPU があっても webgl", async () => {
-    vi.stubEnv("VITE_RENDERER", "webgl");
+  it("boot のステップとして実行すると error 状態になる", async () => {
+    stubNavigator(undefined);
+    const webgpu = BOOT_STEPS.find((s) => s.name === "webgpu");
+    if (!webgpu) {
+      throw new Error("webgpu ステップが無い");
+    }
+    const store = createBootStore((onProgress) =>
+      runSteps([webgpu], onProgress),
+    );
+    store.start();
+    await vi.waitFor(() => expect(store.getState().status).toBe("error"));
+    const s = store.getState();
+    expect(s.status === "error" && s.error).toBeInstanceOf(
+      WebGPUUnavailableError,
+    );
+    expect(s.status === "error" && s.error.message).toContain("WebGPU");
+  });
+
+  it("使えるときは boot が ready まで進む", async () => {
     stubNavigator({requestAdapter: async () => ({})});
-    expect((await detectCapabilities()).rendererBackend).toBe("webgl");
+    const webgpu = BOOT_STEPS.find((s) => s.name === "webgpu");
+    if (!webgpu) {
+      throw new Error("webgpu ステップが無い");
+    }
+    const store = createBootStore((onProgress) =>
+      runSteps([...completeSteps([]), webgpu], onProgress),
+    );
+    store.start();
+    await vi.waitFor(() => expect(store.getState().status).toBe("ready"));
   });
 });
 
 describe("afterRendererInit", () => {
-  const make = (): AppContext => ({
-    ...ctx,
-    capabilities: {...ctx.capabilities, rendererBackend: "webgpu"},
+  it("WebGPU バックエンドなら通る", () => {
+    expect(() =>
+      afterRendererInit({backend: {isWebGPUBackend: true}}),
+    ).not.toThrow();
   });
 
-  it("実際のバックエンドを反映する", () => {
-    const a = make();
-    afterRendererInit({backend: {isWebGPUBackend: true}}, a);
-    expect(a.capabilities.rendererBackend).toBe("webgpu");
-    const b = make();
-    afterRendererInit({backend: {}}, b);
-    expect(b.capabilities.rendererBackend).toBe("webgl2-fallback");
-    const c = make();
-    afterRendererInit({isWebGLRenderer: true}, c);
-    expect(c.capabilities.rendererBackend).toBe("webgl");
+  it("WebGL2 へフォールバックしていたら init-failed", () => {
+    expect(() => afterRendererInit({backend: {}})).toThrow(
+      WebGPUUnavailableError,
+    );
+    expect(() => afterRendererInit({})).toThrow(WebGPUUnavailableError);
   });
 });

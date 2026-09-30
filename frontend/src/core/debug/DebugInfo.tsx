@@ -5,17 +5,14 @@ import {useAppContext} from "../../boot/context";
 
 const INTERVAL_MS = 500;
 
-/** WebGLRenderer / WebGPURenderer の差を吸収して読む項目だけを型付けする */
+/** WebGPURenderer から読む項目だけを型付けする */
 interface RendererLike {
-  isWebGLRenderer?: boolean;
   domElement: HTMLCanvasElement;
   getPixelRatio(): number;
-  getContext?(): WebGLRenderingContext | WebGL2RenderingContext;
   resolveTimestampsAsync?(type?: string): Promise<number | undefined>;
   backend?: {
     isWebGPUBackend?: boolean;
     trackTimestamp?: boolean;
-    gl?: WebGLRenderingContext | WebGL2RenderingContext;
   };
   info: {
     render: {
@@ -41,37 +38,22 @@ interface GpuAdapterInfo {
   description?: string;
 }
 
-const backendLabel = (r: RendererLike): string => {
-  if (r.isWebGLRenderer) {
-    return "WebGL";
-  }
-  return r.backend?.isWebGPUBackend ? "WebGPU" : "WebGL2 (fallback)";
-};
-
 const joinInfo = (parts: Array<string | undefined>): string =>
   parts.filter(Boolean).join(" ") || "-";
 
-const readGpuName = async (r: RendererLike): Promise<string> => {
+const readGpuName = async (): Promise<string> => {
   try {
-    if (r.backend?.isWebGPUBackend) {
-      const gpu = (
-        navigator as unknown as {
-          gpu?: {
-            requestAdapter(): Promise<{info?: GpuAdapterInfo} | null>;
-          };
-        }
-      ).gpu;
-      const info = (await gpu?.requestAdapter())?.info;
-      return info
-        ? joinInfo([info.vendor, info.architecture, info.description])
-        : "-";
-    }
-    const gl = r.getContext?.() ?? r.backend?.gl;
-    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
-    if (!gl || !ext) {
-      return "-";
-    }
-    return String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || "-";
+    const gpu = (
+      navigator as unknown as {
+        gpu?: {
+          requestAdapter(): Promise<{info?: GpuAdapterInfo} | null>;
+        };
+      }
+    ).gpu;
+    const info = (await gpu?.requestAdapter())?.info;
+    return info
+      ? joinInfo([info.vendor, info.architecture, info.description])
+      : "-";
   } catch {
     return "-";
   }
@@ -125,7 +107,7 @@ export function DebugInfo() {
     let fpsTime = performance.now();
     let resolving = false;
 
-    void readGpuName(r).then((name) => {
+    void readGpuName().then((name) => {
       gpuName = name;
     });
 
@@ -161,7 +143,7 @@ export function DebugInfo() {
       const {fpsLimit, resolutionScale} = settings;
       el.textContent = [
         `FPS      ${fps.toFixed(0)}`,
-        `Backend  ${backendLabel(r)}`,
+        "Backend  WebGPU",
         `GPU      ${gpuName}`,
         `Res      ${r.domElement.width}x${r.domElement.height} (dpr ${r.getPixelRatio().toFixed(2)}, scale ${resolutionScale})`,
         `FPS cap  ${fpsLimit ?? "none"}`,

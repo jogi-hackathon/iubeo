@@ -1,6 +1,8 @@
 import {useEffect} from "react";
 
 import {App} from "../App";
+import {BootError} from "./BootError";
+import {BootErrorBoundary} from "./BootErrorBoundary";
 import {startBoot, useBootState} from "./bootStore";
 import {AppContextProvider} from "./context";
 
@@ -14,18 +16,15 @@ export function BootScreen() {
 
   if (state.status === "ready") {
     return (
-      <AppContextProvider value={state.ctx}>
-        <App />
-      </AppContextProvider>
+      <BootErrorBoundary>
+        <AppContextProvider value={state.ctx}>
+          <App />
+        </AppContextProvider>
+      </BootErrorBoundary>
     );
   }
   if (state.status === "error") {
-    return (
-      <div className="boot-screen boot-error">
-        <p>起動に失敗しました</p>
-        <pre>{state.error.message}</pre>
-      </div>
-    );
+    return <BootError error={state.error} />;
   }
   const {progress} = state;
   return (

@@ -26,6 +26,13 @@ body,
   margin: 0;
 }
 
+.boot-screen pre {
+  max-width: 40em;
+  padding: 0 16px;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
 .boot-error {
   color: #f88;
 }
