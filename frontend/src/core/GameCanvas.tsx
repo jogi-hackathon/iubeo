@@ -17,7 +17,6 @@ export function GameCanvas({ children }: { children?: ReactNode }) {
       gl={gl}
       dpr={getDpr(ctx.settings)}
       frameloop={ctx.settings.fpsLimit === null ? "always" : "never"}
-      shadows="percentage"
       camera={CAMERA}
     >
       {children}
