@@ -1,6 +1,11 @@
 import { Group, Mesh } from "three";
 import { describe, expect, it } from "vitest";
-import { aoModeOf, aoModeUserData, DEFAULT_AO_MODE, skipsGTAO } from "./aoMode";
+import {
+  aoModeOf,
+  aoModeUserData,
+  DEFAULT_AO_MODE,
+  skipsGTAO,
+} from "../aoMode";
 
 describe("aoModeOf", () => {
   it("指定が無ければ既定値", () => {

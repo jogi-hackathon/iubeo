@@ -1,6 +1,6 @@
 import { BoxGeometry, Mesh } from "three";
 import { describe, expect, it } from "vitest";
-import { sortKey } from "./meshes";
+import { sortKey } from "../meshes";
 
 describe("sortKey", () => {
   it("同じ中心・同じ頂点数でもサイズが違えば別のキーになる(十字に置いた箱)", () => {
