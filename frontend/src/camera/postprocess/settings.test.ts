@@ -10,15 +10,15 @@ import {
 afterEach(resetPostProcessSettings);
 
 describe("postprocess settings", () => {
-  it("既定値: 全体 on・bloom on(threshold 1.0)・pixelate off・Reinhard・exposure 1.5", () => {
+  it("既定値: 全体 on・bloom on(threshold 1.0)・pixelate off・Neutral・exposure 1.2", () => {
     const s = getPostProcessSettings();
     expect(s.enabled).toBe(true);
     expect(s.bloom.enabled).toBe(true);
     expect(s.bloom.threshold).toBe(1);
     expect(s.pixelate.enabled).toBe(false);
     expect(s.vignette.enabled).toBe(true);
-    expect(s.toneMapping).toBe("reinhard");
-    expect(s.exposure).toBe(1.5);
+    expect(s.toneMapping).toBe("neutral");
+    expect(s.exposure).toBe(1.2);
   });
 
   it("トップレベルの項目を更新し、購読者へ通知する", () => {

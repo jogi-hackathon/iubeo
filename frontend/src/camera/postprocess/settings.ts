@@ -41,12 +41,15 @@ export interface PostProcessSettings {
  * 白い世界の背景・地面はリニア輝度が 1.0 以下(背景 #fff = 1.0、照らされた面は 0.5〜0.9 程度)なので、
  * bloom の threshold を 1.0 にして「世界全体が光る」のを避け、1.0 を超える発光・ハイライトだけを光らせる。
  * strength / radius は控えめ(効果が主張しすぎない値)。
- * vignette も控えめ(白い世界で端が沈みすぎない)。トーンマップ・露出は実機で見比べて決めた値(Reinhard + 1.5)
+ * vignette も控えめ(白い世界で端が沈みすぎない)。
+ * トーンマップは Neutral(Reinhard + 1.5 だと背景 1.0 が 0.6 = sRGB 203 まで落ちて灰色に見えたため)。
+ * exposure 1.2 は Neutral の式からの初期値: 背景 1.0 → sRGB 245(ほぼ白)、面 0.5〜0.9 → 197〜242。
+ * 1.5 だと背景 248 になるが面 0.8 と 0.9 の差が 2 段まで潰れる。最終値は実機で調整する
  */
 export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
   enabled: true,
-  exposure: 1.5,
-  toneMapping: "reinhard",
+  exposure: 1.2,
+  toneMapping: "neutral",
   bloom: { enabled: true, strength: 0.5, radius: 0.4, threshold: 1 },
   pixelate: { enabled: false, pixelSize: 4 },
   vignette: { enabled: true, intensity: 0.25, smoothness: 0.6 },
