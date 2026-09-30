@@ -1,5 +1,5 @@
 import { Canvas, useThree } from "@react-three/fiber";
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { WebGPURenderer } from "three/webgpu";
 import { type SceneName, scenes } from "../scenes";
@@ -199,8 +199,13 @@ function BakePage() {
         frameloop="never"
         style={{ width: 1, height: 1 }}
       >
-        <Scene />
-        <Runner onProgress={setProgress} />
+        {/* Runner をシーンと同じ Suspense 境界に入れる。Suspense で読み込む prop(useGLTF / useLoader など)が
+            すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
+            useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
+        <Suspense fallback={null}>
+          <Scene />
+          <Runner onProgress={setProgress} />
+        </Suspense>
       </Canvas>
     </>
   );

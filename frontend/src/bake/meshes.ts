@@ -8,15 +8,48 @@ import {
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { listColliders } from "../core/bvh";
 
+const _center = new Vector3();
+
+/** ワールド座標のバウンディングボックス中心 */
+const worldCenter = (mesh: Mesh): [number, number, number] => {
+  mesh.updateWorldMatrix(true, false);
+  const geometry = mesh.geometry;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  // computeBoundingBox の直後なので null ではない
+  const box = (geometry.boundingBox as NonNullable<typeof geometry.boundingBox>)
+    .clone()
+    .applyMatrix4(mesh.matrixWorld);
+  box.getCenter(_center);
+  return [_center.x, _center.y, _center.z];
+};
+
+/** 並べ替えのキー。f32 で保存したワールド中心と比べるので mm 単位に丸める */
+const sortKey = (mesh: Mesh): number[] => {
+  const [x, y, z] = worldCenter(mesh);
+  const mm = (v: number) => Math.round(v * 1000);
+  return [mm(x), mm(y), mm(z), mesh.geometry.getAttribute("position").count];
+};
+
+const compareKeys = (a: number[], b: number[]): number => {
+  for (let i = 0; i < a.length; i++) {
+    const d = (a[i] as number) - (b[i] as number);
+    if (d !== 0) return d;
+  }
+  return 0;
+};
+
 /**
  * AO をベイクする静的 mesh。BVHCollider 配下の mesh(= 動かないコライダー)をすべて対象にする。
- * 並びはコライダーの登録順(= シーンのマウント順)で、ベイクページとゲーム本体で同じシーンなら一致する。
- * 並びが食い違っていないかは、ベイク結果に残した頂点数とワールド中心で検証する(format.ts)
+ * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数の順に
+ * 並べ替えて、ベイクページとゲーム本体で同じ並びにする。並びと形が一致しているかは format.ts で検証する
  */
 export const listBakeMeshes = (): Mesh[] =>
   listColliders()
     .map((c) => c.mesh)
-    .filter((m) => m.geometry.getAttribute("uv") !== undefined);
+    .filter((m) => m.geometry.getAttribute("uv") !== undefined)
+    .map((mesh) => ({ mesh, key: sortKey(mesh) }))
+    .sort((a, b) => compareKeys(a.key, b.key))
+    .map(({ mesh }) => mesh);
 
 /**
  * geometry.groups(= マテリアルごとの面のまとまり。BoxGeometry なら6面)をそれぞれ1チャートとし、
@@ -76,23 +109,11 @@ export interface MeshSignature {
   center: [number, number, number];
 }
 
-const _center = new Vector3();
-
-export const meshSignature = (mesh: Mesh): MeshSignature => {
-  mesh.updateWorldMatrix(true, false);
-  const geometry = mesh.geometry;
-  if (!geometry.boundingBox) geometry.computeBoundingBox();
-  // computeBoundingBox の直後なので null ではない
-  const box = (geometry.boundingBox as NonNullable<typeof geometry.boundingBox>)
-    .clone()
-    .applyMatrix4(mesh.matrixWorld);
-  box.getCenter(_center);
-  return {
-    vertexCount: geometry.getAttribute("position").count,
-    chartCount: assignCharts(geometry).chartCount,
-    center: [_center.x, _center.y, _center.z],
-  };
-};
+export const meshSignature = (mesh: Mesh): MeshSignature => ({
+  vertexCount: mesh.geometry.getAttribute("position").count,
+  chartCount: assignCharts(mesh.geometry).chartCount,
+  center: worldCenter(mesh),
+});
 
 /**
  * ベイク用に、対象 mesh をワールド座標で1つに結合したジオメトリを作る。

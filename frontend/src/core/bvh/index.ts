@@ -6,4 +6,5 @@ export {
   type Collider,
   listColliders,
   removeCollider,
+  subscribeColliders,
 } from "./registry";
