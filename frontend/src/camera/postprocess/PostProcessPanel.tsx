@@ -146,17 +146,32 @@ export function PostProcessPanel() {
           </select>
         </label>
       </Section>
-      <Section title="AO (GTAO)">
-        <Check
-          label="enabled"
-          checked={s.ao.enabled}
-          onChange={(enabled) => set({ ao: { enabled } })}
-        />
+      <Section title="AO">
+        {/* ベイク AO と GTAO の分担は prop ごとの AO モード(src/bake/aoMode.ts)。show AO only は合成後の AO。
+            baked を外すと aoMap ごと外れ、baked モードの面も GTAO に戻る */}
         <Check
           label="show AO only"
           checked={s.ao.showOnly}
-          disabled={!s.ao.enabled}
           onChange={(showOnly) => set({ ao: { showOnly } })}
+        />
+        <Check
+          label="baked"
+          checked={s.bakedAO.enabled}
+          onChange={(enabled) => set({ bakedAO: { enabled } })}
+        />
+        <Slider
+          label="baked str."
+          value={s.bakedAO.intensity}
+          min={0}
+          max={1}
+          step={0.05}
+          disabled={!s.bakedAO.enabled}
+          onChange={(intensity) => set({ bakedAO: { intensity } })}
+        />
+        <Check
+          label="GTAO"
+          checked={s.ao.enabled}
+          onChange={(enabled) => set({ ao: { enabled } })}
         />
         <Check
           label="denoise"

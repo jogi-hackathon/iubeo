@@ -16,6 +16,7 @@ describe("postprocess settings", () => {
     expect(s.ao.enabled).toBe(true);
     expect(s.ao.showOnly).toBe(false);
     expect(s.ao.denoise).toBe(true);
+    expect(s.bakedAO).toEqual({ enabled: true, intensity: 1 });
     expect(s.bloom.enabled).toBe(true);
     expect(s.bloom.threshold).toBe(1);
     expect(s.pixelate.enabled).toBe(false);

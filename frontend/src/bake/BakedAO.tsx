@@ -10,7 +10,13 @@ import {
   type Texture,
   TextureLoader,
 } from "three";
+import {
+  getPostProcessSettings,
+  subscribePostProcessSettings,
+} from "../camera/postprocess/settings";
+import { SKIP_GTAO } from "../camera/postprocess/skipGTAO";
 import { subscribeColliders } from "../core/bvh";
+import { type AOMode, aoModeOf, skipsGTAO } from "./aoMode";
 import {
   atlasUV,
   type BakedAOLayout,
@@ -20,7 +26,10 @@ import {
 import { assignCharts, listBakeMeshes, meshSignature } from "./meshes";
 import { bakedAOFiles } from "./paths";
 
-type AOMaterial = Material & { aoMap: Texture | null };
+type AOMaterial = Material & {
+  aoMap: Texture | null;
+  aoMapIntensity: number;
+};
 
 const hasAOMap = (m: Material): m is AOMaterial => "aoMap" in m;
 
@@ -45,7 +54,7 @@ const applyAtlas = (
   root: Object3D,
   layout: BakedAOLayout,
   texture: Texture,
-): { undo: () => void } | { mismatch: string } => {
+): { undo: () => void; materials: AOMaterial[] } | { mismatch: string } => {
   const meshes = listBakeMeshes();
   const mismatch = findLayoutMismatch(layout, meshes.map(meshSignature));
   if (mismatch) return { mismatch };
@@ -59,8 +68,18 @@ const applyAtlas = (
     if (!mesh.isMesh || bakeSet.has(mesh)) return;
     for (const m of materialsOf(mesh)) sharedWithOthers.add(m);
   });
+  // GTAO を省けるかはマテリアル単位で決まるので、同じマテリアルを使う mesh の AO モードを集める
+  const modesByMaterial = new Map<Material, AOMode[]>();
+  for (const mesh of meshes) {
+    for (const m of materialsOf(mesh)) {
+      const modes = modesByMaterial.get(m) ?? [];
+      modes.push(aoModeOf(mesh));
+      modesByMaterial.set(m, modes);
+    }
+  }
 
   const undos: (() => void)[] = [];
+  const materials: AOMaterial[] = [];
   let chartOffset = 0;
   meshes.forEach((mesh, i) => {
     const geometry = mesh.geometry;
@@ -90,11 +109,22 @@ const applyAtlas = (
         );
         continue;
       }
+      // 同じマテリアルを複数の mesh が使うと、2つ目以降では貼り済み
+      if (material.aoMap === texture) continue;
       const prev = material.aoMap;
+      const prevIntensity = material.aoMapIntensity;
+      const prevSkip = material.userData[SKIP_GTAO];
       material.aoMap = texture;
+      material.userData[SKIP_GTAO] = skipsGTAO(
+        modesByMaterial.get(material) ?? [],
+      );
       material.needsUpdate = true;
+      materials.push(material);
       undos.push(() => {
         material.aoMap = prev;
+        material.aoMapIntensity = prevIntensity;
+        if (prevSkip === undefined) delete material.userData[SKIP_GTAO];
+        else material.userData[SKIP_GTAO] = prevSkip;
         material.needsUpdate = true;
       });
     }
@@ -103,12 +133,21 @@ const applyAtlas = (
     undo: () => {
       for (const u of undos.reverse()) u();
     },
+    materials,
   };
+};
+
+/** パネルのベイク AO の強さを aoMapIntensity に反映する(uniform なので再コンパイルは起きない) */
+const syncIntensity = (materials: readonly AOMaterial[]) => {
+  const { intensity } = getPostProcessSettings().bakedAO;
+  for (const m of materials) m.aoMapIntensity = intensity;
 };
 
 /**
  * 事前ベイクした AO(`pnpm bake:ao --scene=<name>` の出力)を、シーンの静的 mesh に aoMap として貼る。
- * aoMap は間接光だけを減衰させ、GTAO(ポストプロセス)の AO とは掛け算で重なる。
+ * aoMap は間接光だけを減衰させる。GTAO(ポストプロセス)との分担は mesh の AO モード(aoMode.ts)に従い、
+ * baked のマテリアルには SKIP_GTAO を立てて GTAO を掛けない。
+ * パネルでベイク AO を無効にすると貼ったものを外す(baked の面も GTAO に戻る)。
  * ベイク結果が無い・シーンと合わない場合は警告だけ出して何もしない(GTAO だけで描画される)。
  * コライダーの登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
  * 貼り直すので、シーンが揃った時点でベイク結果と一致すれば AO が付く
@@ -120,8 +159,32 @@ export function BakedAO({ scene }: { scene: string }) {
     let disposed = false;
     let texture: Texture | null = null;
     let undo: (() => void) | null = null;
+    let applied: AOMaterial[] = [];
     let unsubscribe: (() => void) | null = null;
+    let apply: (() => void) | null = null;
     let lastMessage = "";
+
+    // 1回のコミットで複数のコライダーが登録されるので、マイクロタスクでまとめて1回だけ貼り直す
+    let scheduled = false;
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      queueMicrotask(() => {
+        scheduled = false;
+        if (!disposed) apply?.();
+      });
+    };
+
+    let enabled = getPostProcessSettings().bakedAO.enabled;
+    const unsubscribeSettings = subscribePostProcessSettings(() => {
+      const next = getPostProcessSettings().bakedAO.enabled;
+      if (next !== enabled) {
+        enabled = next;
+        schedule();
+      } else {
+        syncIntensity(applied);
+      }
+    });
 
     const log = (level: "info" | "warn", message: string) => {
       // 貼り直しのたびに同じ内容を出さない
@@ -153,9 +216,14 @@ export function BakedAO({ scene }: { scene: string }) {
       }
       texture = atlas;
 
-      const apply = () => {
+      apply = () => {
         undo?.();
         undo = null;
+        applied = [];
+        if (!enabled) {
+          log("info", `${scene}: ベイク AO を外しました`);
+          return;
+        }
         const result = applyAtlas(root, layout, atlas);
         if ("mismatch" in result) {
           log(
@@ -165,21 +233,14 @@ export function BakedAO({ scene }: { scene: string }) {
           return;
         }
         undo = result.undo;
+        applied = result.materials;
+        syncIntensity(applied);
         log(
           "info",
           `${scene}: ${layout.meshes.length} mesh / ${layout.rects.length} チャート / アトラス ${layout.atlasW}x${layout.atlasH}`,
         );
       };
-      // 1回のコミットで複数のコライダーが登録されるので、マイクロタスクでまとめて1回だけ貼り直す
-      let scheduled = false;
-      unsubscribe = subscribeColliders(() => {
-        if (scheduled) return;
-        scheduled = true;
-        queueMicrotask(() => {
-          scheduled = false;
-          if (!disposed) apply();
-        });
-      });
+      unsubscribe = subscribeColliders(schedule);
       apply();
     })().catch((e: unknown) => {
       console.warn("[bakedAO] 読み込みに失敗しました", e);
@@ -188,6 +249,7 @@ export function BakedAO({ scene }: { scene: string }) {
     return () => {
       disposed = true;
       unsubscribe?.();
+      unsubscribeSettings();
       undo?.();
       texture?.dispose();
     };

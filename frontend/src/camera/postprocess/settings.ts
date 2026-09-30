@@ -35,10 +35,13 @@ export interface PostProcessSettings {
     intensity: number;
     smoothness: number;
   };
-  /** GTAO によるリアルタイム AO。間接光(ambient など)だけを減衰させる */
+  /**
+   * GTAO によるリアルタイム AO。間接光(ambient など)だけを減衰させる。
+   * ベイク AO(bakedAO)との分担は prop ごとの AO モード(src/bake/aoMode.ts)で決まる
+   */
   ao: {
     enabled: boolean;
-    /** AO の値だけを白黒で表示する(調整用) */
+    /** GTAO とベイク AO を合成した後の AO だけを白黒で表示する(調整用。GTAO が off でも使える) */
     showOnly: boolean;
     /** GTAO のノイズを深度・法線を見ながらぼかす(AO と同じ解像度のパスが1枚増える) */
     denoise: boolean;
@@ -51,6 +54,16 @@ export interface PostProcessSettings {
     samples: number;
     /** AO を計算する解像度(ドローイングバッファ比) */
     resolutionScale: number;
+  };
+  /** 事前ベイクした AO(src/bake/BakedAO.tsx が静的 mesh の aoMap に貼る) */
+  bakedAO: {
+    /**
+     * false で aoMap を外す。AO モード baked の面も GTAO に戻るので見比べられる
+     * (切り替えるたびに対象マテリアルが再コンパイルされる)
+     */
+    enabled: boolean;
+    /** aoMapIntensity(uniform なので再コンパイルは起きない) */
+    intensity: number;
   };
 }
 
@@ -80,6 +93,7 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     samples: 16,
     resolutionScale: 0.5,
   },
+  bakedAO: { enabled: true, intensity: 1 },
 };
 
 /** vignette の smoothness の下限。0 だと smoothstep の edge0 == edge1 になる */
