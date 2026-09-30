@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {isEditableTarget} from "./useKeys";
+import {isEditableTarget} from "../useKeys";
 
 describe("isEditableTarget", () => {
   it("input / select / textarea は true", () => {

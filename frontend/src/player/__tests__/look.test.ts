@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {applyLook, LOOK_SENSITIVITY} from "./look";
+import {applyLook, LOOK_SENSITIVITY} from "../look";
 
 const look = () => ({yaw: 0, pitch: 0});
 

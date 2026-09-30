@@ -1,10 +1,10 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 
-import {afterRendererInit} from "./afterRendererInit";
-import {type BootProgress, type BootStep, runSteps} from "./boot";
-import {createBootStore} from "./bootStore";
-import {detectCapabilities} from "./capabilities";
-import type {AppContext} from "./context";
+import {afterRendererInit} from "../afterRendererInit";
+import {type BootProgress, type BootStep, runSteps} from "../boot";
+import {createBootStore} from "../bootStore";
+import {detectCapabilities} from "../capabilities";
+import type {AppContext} from "../context";
 
 const ctx: AppContext = {
   settings: {resolutionScale: 1, fpsLimit: null},

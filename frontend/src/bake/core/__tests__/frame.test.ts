@@ -5,8 +5,8 @@ import {
   isHiddenPoint,
   type ProbePoint,
   rotatedFrame,
-} from "./frame";
-import {EMBEDDED, HIDDEN_AO_EPS} from "./params";
+} from "../frame";
+import {EMBEDDED, HIDDEN_AO_EPS} from "../params";
 
 const RAYS = 32;
 /** 上向きで空が見える明るい点(見える) */

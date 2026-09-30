@@ -6,7 +6,7 @@ import {
   resetPostProcessSettings,
   subscribePostProcessSettings,
   updatePostProcessSettings,
-} from "./settings";
+} from "../settings";
 
 afterEach(resetPostProcessSettings);
 

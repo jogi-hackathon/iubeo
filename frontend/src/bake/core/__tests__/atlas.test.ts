@@ -5,9 +5,9 @@ import {
   dilateChart,
   packAtlas,
   writeChartToAtlas,
-} from "./atlas";
-import {texelsFor} from "./charts";
-import {HIDDEN_TEXELS, PAD} from "./params";
+} from "../atlas";
+import {texelsFor} from "../charts";
+import {HIDDEN_TEXELS, PAD} from "../params";
 
 // PAD を含めた矩形どうしが重ならないこと
 const overlaps = (a: AtlasRect, b: AtlasRect): boolean => {

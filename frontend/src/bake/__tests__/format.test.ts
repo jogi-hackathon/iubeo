@@ -7,8 +7,8 @@ import {
   findLayoutMismatch,
   parseLayout,
   serializeLayout,
-} from "./format";
-import {assignCharts, meshSignature} from "./meshes";
+} from "../format";
+import {assignCharts, meshSignature} from "../meshes";
 
 const layout: BakedAOLayout = {
   atlasW: 64,

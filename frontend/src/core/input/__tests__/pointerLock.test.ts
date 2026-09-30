@@ -4,7 +4,7 @@ import {
   connectPointerLock,
   consumeLookDelta,
   isPointerLocked,
-} from "./pointerLock";
+} from "../pointerLock";
 
 type Handler = (e?: unknown) => void;
 
