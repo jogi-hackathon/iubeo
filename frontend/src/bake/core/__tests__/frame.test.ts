@@ -6,7 +6,14 @@ import {
   type ProbePoint,
   rotatedFrame,
 } from "../frame";
-import {EMBEDDED, HIDDEN_AO_EPS} from "../params";
+import {
+  EMBEDDED,
+  HIDDEN_AO_EPS,
+  HIDDEN_GRID_MAX,
+  HIDDEN_STEP,
+  HIDDEN_UV,
+  hiddenProbeUVs,
+} from "../params";
 
 const RAYS = 32;
 /** 上向きで空が見える明るい点(見える) */
@@ -82,5 +89,30 @@ describe("rotatedFrame", () => {
         expect(dot(t, b)).toBeCloseTo(0);
       }
     }
+  });
+});
+
+describe("hiddenProbeUVs", () => {
+  it("小さいチャートは、従来の 3 点", () => {
+    expect(hiddenProbeUVs(0)).toEqual(HIDDEN_UV);
+    expect(hiddenProbeUVs(0.02)).toEqual(HIDDEN_UV);
+    expect(hiddenProbeUVs(HIDDEN_STEP * 3)).toEqual(HIDDEN_UV);
+  });
+
+  it("大きいチャートは、間隔が HIDDEN_STEP 以下になるまで細かくし、端から端まで等間隔に置く", () => {
+    const size = 2.2;
+    const uvs = hiddenProbeUVs(size);
+    expect(uvs.length).toBeGreaterThan(HIDDEN_UV.length);
+    for (let i = 1; i < uvs.length; i++) {
+      const gap = ((uvs[i] as number) - (uvs[i - 1] as number)) * size;
+      expect(gap).toBeLessThanOrEqual(HIDDEN_STEP + 1e-9);
+    }
+    expect(uvs[0]).toBeGreaterThan(0);
+    expect((uvs[0] as number) * size).toBeLessThan(HIDDEN_STEP);
+    expect(uvs.at(-1)).toBeLessThan(1);
+  });
+
+  it("巨大なチャートでも、1 辺の点数は上限で頭打ち", () => {
+    expect(hiddenProbeUVs(1000)).toHaveLength(HIDDEN_GRID_MAX);
   });
 });

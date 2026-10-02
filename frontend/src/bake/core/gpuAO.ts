@@ -7,13 +7,21 @@ import type {WebGPURenderer} from "three/webgpu";
 
 import {
   buildChartIndex,
+  chartPhysicalSize,
   type ChartTri,
   insetPosition,
   queryChart,
 } from "./charts";
 import {decideHidden, type ProbePoint, rotatedFrame} from "./frame";
 import {checkFirstChunk} from "./gpuErrors";
-import {EMBEDDED, HIDDEN_DIRS, HIDDEN_UV, rotFor, SAMPLE_DIRS} from "./params";
+import {
+  EMBEDDED,
+  HIDDEN_DIRS,
+  HIDDEN_GRID_MAX,
+  hiddenProbeUVs,
+  rotFor,
+  SAMPLE_DIRS,
+} from "./params";
 import {RayKernel, type RayKernelExtra} from "./rayKernel";
 import {sampleTexel} from "./texels";
 
@@ -138,7 +146,7 @@ export class GpuAOBaker {
 
 // ---------------------------------------------------------------- 隠れチャート判定
 
-const HIDDEN_POINTS = HIDDEN_UV.length * HIDDEN_UV.length; // チャートあたりのサンプル点
+const HIDDEN_POINTS = HIDDEN_GRID_MAX * HIDDEN_GRID_MAX; // チャートあたりのサンプル点の上限
 
 export type ProbeStats = {
   sampleMs: number;
@@ -170,7 +178,7 @@ const VISIBILITY: RayKernelExtra = {
   write: "out[ 1 ] = backHits; out[ 2 ] = misses;",
 };
 
-// 隠れチャート判定のレイキャスト部分を GPU で回す。サンプル点(チャートごとの 3x3)ごとに
+// 隠れチャート判定のレイキャスト部分を GPU で回す。サンプル点(チャートごとの格子。物理サイズに応じて 3x3 から細かくする)ごとに
 // 本ベイクと同じ式の AO(HIDDEN_DIRS、シード chartId*4 + s*2 + 1)と VISIBILITY の本数を出し、
 // 判定(frame.ts の decideHidden)は CPU で行う。移植元からの判定の変更点は frame.ts の isHiddenPoint のコメントを参照。
 export class GpuHiddenProbe {
@@ -224,11 +232,18 @@ export class GpuHiddenProbe {
       // チャートのサンプル点は同じチャンクに収める(判定をチャンク内で完結させる)
       const tSample = performance.now();
       let n = 0;
-      while (c < chartCount && n + HIDDEN_POINTS <= this.chunkPoints) {
-        const idx = buildChartIndex(chartTris[c] ?? []);
+      while (c < chartCount) {
+        const tris = chartTris[c] ?? [];
+        const size = chartPhysicalSize(tris);
+        const us = hiddenProbeUVs(size.width);
+        const vs = hiddenProbeUVs(size.height);
+        if (n + us.length * vs.length > this.chunkPoints) {
+          break;
+        }
+        const idx = buildChartIndex(tris);
         let si = 0;
-        for (const v of HIDDEN_UV) {
-          for (const u of HIDDEN_UV) {
+        for (const v of vs) {
+          for (const u of us) {
             const hit = queryChart(idx, u, v);
             if (hit) {
               const [px, py, pz] = insetPosition(hit);
