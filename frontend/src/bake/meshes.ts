@@ -9,6 +9,7 @@ import {mergeGeometries} from "three/addons/utils/BufferGeometryUtils.js";
 
 import {listColliders} from "../core/bvh";
 import {aoModeOf} from "./aoMode";
+import {listBakeTargets} from "./targets";
 
 const _center = new Vector3();
 
@@ -66,14 +67,14 @@ const compareKeys = (a: number[], b: number[]): number => {
 };
 
 /**
- * AO をベイクする静的 mesh。BVHCollider 配下の mesh(= 動かないコライダー)のうち、AO モードが realtime でないもの。
+ * AO をベイクする静的 mesh。BVHCollider 配下の mesh(= 動かないコライダー)と、BakeTarget 配下の mesh
+ * (コライダーではない、見た目だけの mesh)のうち、AO モードが realtime でないもの。
  * realtime の mesh は遮蔽物としても使わない(動く物がベイクに焼き込まれないように)。
  * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数 → サイズの順に
  * 並べ替えて、ベイクページとゲーム本体で同じ並びにする。並びと形が一致しているかは format.ts で検証する
  */
 export const listBakeMeshes = (): Mesh[] =>
-  listColliders()
-    .map((c) => c.mesh)
+  [...new Set([...listColliders().map((c) => c.mesh), ...listBakeTargets()])]
     .filter(
       (m) =>
         aoModeOf(m) !== "realtime" &&

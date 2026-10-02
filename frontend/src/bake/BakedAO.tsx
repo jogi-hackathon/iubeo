@@ -26,6 +26,7 @@ import {
 } from "./format";
 import {assignCharts, listBakeMeshes, meshSignature} from "./meshes";
 import {bakedAOFiles} from "./paths";
+import {subscribeBakeTargets} from "./targets";
 
 type AOMaterial = Material & {
   aoMap: Texture | null;
@@ -169,7 +170,7 @@ const syncIntensity = (materials: readonly AOMaterial[]) => {
  * baked のマテリアルには skipGTAO を立てて GTAO を掛けない。
  * パネルでベイク AO を無効にすると貼ったものを外す(baked の面も GTAO に戻る)。
  * ベイク結果が無い・シーンと合わない場合は警告だけ出して何もしない(GTAO だけで描画される)。
- * コライダーの登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
+ * コライダー・ベイク対象(BakeTarget)の登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
  * 貼り直すので、シーンが揃った時点でベイク結果と一致すれば AO が付く
  */
 export function BakedAO({scene}: {scene: string}) {
@@ -272,7 +273,12 @@ export function BakedAO({scene}: {scene: string}) {
           `${scene}: ${layout.meshes.length} mesh / ${layout.rects.length} チャート / アトラス ${layout.atlasW}x${layout.atlasH}`,
         );
       };
-      unsubscribe = subscribeColliders(schedule);
+      const offColliders = subscribeColliders(schedule);
+      const offTargets = subscribeBakeTargets(schedule);
+      unsubscribe = () => {
+        offColliders();
+        offTargets();
+      };
       apply();
     })().catch((e: unknown) => {
       console.warn("[bakedAO] 読み込みに失敗しました", e);
