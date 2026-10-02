@@ -4,11 +4,14 @@ import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
+// ダミーのサーバー役。読み込むと、ゲーム本体(開発時)と同じ id・位置で、確認用のオブジェクト(ディレクトリなど)が置かれる
+import "../dev/authority";
+import {ManagedObjects} from "../objects";
 import {type SceneName, sceneNames, scenes} from "../scenes";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
 
-// dev 専用の AO ベイクページ(bake.html)。シーンを描画せずにマウントだけして、BVHCollider に登録された
+// dev 専用の AO ベイクページ(bake.html)。シーンを描画せずにマウントだけして、BVHCollider・BakeTarget に登録された
 // 静的 mesh の AO を WebGPU でベイクし、dev サーバー(scripts/bakeSavePlugin.ts)へ送って public/ao/ に保存する。
 // URL パラメータ: ?scene=<名前>(既定 test)&allowSoftware=1(ソフトウェア実装の adapter でも続行)
 // 終了時に window.__bakeResult を置く(scripts/bake-ao.ts が待つ)
@@ -200,6 +203,8 @@ function BakePage() {
             useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
         <Suspense fallback={null}>
           <Scene />
+          {/* サーバーが置くオブジェクトのうち、動かない物(ディレクトリ)もベイクする。ゲーム本体(App)と同じ並び */}
+          <ManagedObjects />
           <Runner onProgress={setProgress} />
         </Suspense>
       </Canvas>

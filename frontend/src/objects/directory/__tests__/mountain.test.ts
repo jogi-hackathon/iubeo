@@ -8,6 +8,7 @@ import {
   MOUNTAIN_HEIGHT_MAX,
   MOUNTAIN_REACH,
   OUTPUT_MAX,
+  PAPERS,
   VIEW_HEIGHT,
 } from "../mountain";
 
@@ -52,14 +53,14 @@ describe("buildMountain", () => {
     }
   });
 
-  it("全体で 6,000 三角形以内(板・はみ出し紙は箱 12 三角形、芯は段々の円柱)", () => {
+  it("全体で 10,000 三角形以内(板・はみ出し紙は箱 12 三角形、芯は段々の円柱)", () => {
     for (const seed of SEEDS) {
       const m = buildMountain(seed);
       const tris =
         (m.sheets.length + m.looseSheets.length + m.outputSheets.length) * 12 +
         m.core.indices.length / 3;
-      expect(tris).toBeLessThanOrEqual(6000);
-      expect(tris).toBeGreaterThan(1000);
+      expect(tris).toBeLessThanOrEqual(10000);
+      expect(tris).toBeGreaterThan(4000);
     }
   });
 
@@ -118,8 +119,46 @@ describe("buildMountain", () => {
     }
   });
 
+  it("束は、厚みの違う本を 4〜6 冊積み、隙間なく段の高さまで重なる", () => {
+    for (const seed of SEEDS) {
+      const m = buildMountain(seed);
+      // 板は束ごとに下から順に並ぶ。底が段の高さに乗る板が、束の始まり
+      const bundles: (typeof m.sheets)[] = [];
+      for (const s of m.sheets) {
+        const bottom = s.position[1] - s.size[1] / 2;
+        const onTier =
+          Math.abs(bottom / m.tierHeight - Math.round(bottom / m.tierHeight)) <
+          1e-6;
+        if (onTier) {
+          bundles.push([]);
+        }
+        bundles.at(-1)?.push(s);
+      }
+      const thicknesses = new Set<string>();
+      for (const b of bundles) {
+        expect(b.length).toBeGreaterThanOrEqual(4);
+        expect(b.length).toBeLessThanOrEqual(6);
+        for (let j = 1; j < b.length; j++) {
+          const lower = b[j - 1] as (typeof b)[number];
+          const upper = b[j] as (typeof b)[number];
+          expect(upper.position[1] - upper.size[1] / 2).toBeCloseTo(
+            lower.position[1] + lower.size[1] / 2,
+          );
+        }
+        expect(b.reduce((sum, s) => sum + s.size[1], 0)).toBeCloseTo(
+          m.tierHeight,
+        );
+        for (const s of b) {
+          expect(s.size[1]).toBeGreaterThan(0.04);
+          thicknesses.add(s.size[1].toFixed(3));
+        }
+      }
+      expect(thicknesses.size).toBeGreaterThan(20);
+    }
+  });
+
   describe("はみ出す紙", () => {
-    const PAPER = ["#f4f2ec", "#ece9e0", "#f7f6f2", "#e9e6dd"];
+    const PAPER: readonly string[] = PAPERS;
 
     it("薄い紙(数 mm〜1cm)が、64 枚ほど、斜めに傾いてはみ出す。傾きは垂れ下がりと立てかかりの両方", () => {
       const m = buildMountain("directory-1");

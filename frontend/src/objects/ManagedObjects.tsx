@@ -65,7 +65,7 @@ function ObjectRoot({object}: {object: GameObject}) {
 /**
  * objectManager のオブジェクトをシーンに描画する。kind ごとに描画コンポーネントを振り分ける。
  * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * (ディレクトリだけは動かないので、専用のコライダーを持つ。ワークスペースはモックなのでコライダーを持たない)
+ * (ディレクトリだけは動かないので、専用のコライダーを持ち、AO もベイクする。ワークスペースはモックなのでコライダーを持たない)
  */
 export function ManagedObjects() {
   const {objects} = useObjectsState();

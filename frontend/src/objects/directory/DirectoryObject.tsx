@@ -1,40 +1,23 @@
 import {useEffect, useLayoutEffect, useMemo, useRef} from "react";
-import {
-  BoxGeometry,
-  BufferGeometry,
-  Color,
-  Float32BufferAttribute,
-  type InstancedMesh,
-  Object3D,
-} from "three";
+import {BoxGeometry, Color, type InstancedMesh, Object3D} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
+import {BakeTarget} from "../../bake/BakeTarget";
+import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {BVHCollider} from "../../core/bvh";
 import type {GameObject} from "../types";
 import {parseDirectoryData} from "./data";
 import {DirectoryOverview} from "./DirectoryOverview";
-import {
-  buildMountain,
-  type CoreMesh,
-  type LooseSheet,
-  type Sheet,
-} from "./mountain";
+import {buildCoreGeometry, buildSheetsGeometry} from "./geometry";
+import {buildMountain, type Sheet} from "./mountain";
 import {overview, useIsOverviewing, useOverviewDirectoryId} from "./overview";
 import {createPaperMaterial, setSheetInfo} from "./paperMaterial";
 
 /** 芯の色。板より一段暗い紙色にして、散りばめた板が見分けられるようにする */
-const CORE_COLOR = "#d9d5c9";
+const CORE_COLOR = "#e4e4e1";
 
 const dummy = new Object3D();
 const color = new Color();
-
-const buildCoreGeometry = ({positions, indices}: CoreMesh): BufferGeometry => {
-  const g = new BufferGeometry();
-  g.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  g.setIndex(indices);
-  g.computeVertexNormals();
-  return g;
-};
 
 type StackProps = {
   sheets: readonly Sheet[];
@@ -43,19 +26,23 @@ type StackProps = {
 };
 
 /**
- * 山の束の板。板ごとの位置・向き・大きさ・色は、InstancedMesh のインスタンスで持つ(1 回の描画)。
- * 側面には、紙を重ねた小口の細い横縞を、マテリアルで描く(paperMaterial。三角形は増えない)
+ * 成果物の板(白い薄い本)。数が増減するので、ベイクには入れず、InstancedMesh で先頭から count 枚だけ見せる。
+ * 薄い板なので AO は付けない(GTAO も掛けない。山の他の面はベイク AO だけなので、ここだけ GTAO のノイズが乗るのを避ける)
  */
-function SheetStack({sheets, count}: StackProps) {
+function OutputSheets({sheets, count}: StackProps) {
   const ref = useRef<InstancedMesh>(null);
-  const material = useMemo(() => createPaperMaterial(), []);
+  const material = useMemo(() => {
+    const m = createPaperMaterial({merged: false});
+    setSkipGTAO(m, true);
+    return m;
+  }, []);
   useEffect(() => () => material.dispose(), [material]);
-  // 縞の間隔がワールド単位で一定になるよう、インスタンスごとの高さ(板の厚み)を属性で渡す
+  // 縞の間隔や表紙の厚みがワールド単位で一定になるよう、インスタンスごとの大きさを属性で渡す
   const geometry = useMemo(() => {
     const g = new BoxGeometry(1, 1, 1);
     setSheetInfo(
       g,
-      sheets.map((s) => s.size[1]),
+      sheets.map((s) => s.size),
     );
     return g;
   }, [sheets]);
@@ -86,48 +73,16 @@ function SheetStack({sheets, count}: StackProps) {
   return <instancedMesh ref={ref} args={[geometry, material, sheets.length]} />;
 }
 
-/** 束からはみ出す薄い紙(厚さ数 mm)。縞は要らないので、普通のマテリアルで描く。傾きは Euler(順序 YXZ) */
-function LooseSheets({sheets}: {sheets: readonly LooseSheet[]}) {
-  const ref = useRef<InstancedMesh>(null);
-
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) {
-      return;
-    }
-    dummy.rotation.order = "YXZ";
-    sheets.forEach((s, i) => {
-      dummy.position.set(...s.position);
-      dummy.rotation.set(...s.rotation);
-      dummy.scale.set(...s.size);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      mesh.setColorAt(i, color.set(s.color));
-    });
-    dummy.rotation.order = "XYZ";
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) {
-      mesh.instanceColor.needsUpdate = true;
-    }
-    mesh.computeBoundingSphere();
-  }, [sheets]);
-
-  return (
-    <instancedMesh ref={ref} args={[undefined, undefined, sheets.length]}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#ffffff" />
-    </instancedMesh>
-  );
-}
-
 /**
  * ディレクトリ: 書類の束を段々(テラス)に積んだ山(手続き生成)。上へ行くほど狭くなる段の外周の帯に、束(薄い板の小さな山積み)を
  * ずらし・回して並べる。IUBEO は白い世界なので、束は紙の白で、側面には紙の層の細い縞を描く。
  *   段の縁や束から、薄い紙がはみ出す(差し色は、このはみ出し紙のごく少数だけ)。
  *
- * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
- * - コライダーは、段々の芯(通常の Mesh)。束は InstancedMesh で BVH の対象にできないが、芯に載っているので、
- *   プレイヤーは芯に当たる(束のはみ出しは、コライダーの外)
+ * - AO はベイクだけ(baked。GTAO は掛けない)。ディレクトリは動かず、形は id から決まるので、シーンと一緒に焼ける
+ *   (`pnpm bake:ao`。ベイクページも同じ id・位置でディレクトリを置く)。id・位置・山の形を変えたら再ベイクが要る。
+ *   ベイク結果と合わない間は、シーン全体のベイク AO が外れる(BakedAO)
+ * - 束の本とはみ出す紙は、1 つにまとめた通常の mesh(1 回の描画)。コライダーにはせず、ベイク対象としてだけ登録する(BakeTarget)
+ * - コライダーは、段々の芯。束は芯に載っているので、プレイヤーは芯に当たる(束のはみ出しは、コライダーの外)
  * - 成果物(outputs)は、下の方の段の束の上に板が増える。位置は id から決まり、増えても既存の板は動かない
  * - 在庫のファイルは、山の束の 1 つ 1 つ。一人称では白いままで、手ぶらでインタラクトしたときの俯瞰ビュー
  *   (DirectoryOverview)で、割り当てられた束にだけ色の縁が付く
@@ -142,18 +97,27 @@ export function DirectoryObject({object}: {object: GameObject}) {
     () => buildCoreGeometry(mountain.core),
     [mountain],
   );
+  useEffect(() => () => coreGeometry.dispose(), [coreGeometry]);
+  const sheetsGeometry = useMemo(
+    () => buildSheetsGeometry(mountain.sheets, mountain.looseSheets),
+    [mountain],
+  );
+  useEffect(() => () => sheetsGeometry.dispose(), [sheetsGeometry]);
+  const paperMaterial = useMemo(() => createPaperMaterial({merged: true}), []);
+  useEffect(() => () => paperMaterial.dispose(), [paperMaterial]);
   const overviewing = useIsOverviewing(object.id);
 
   return (
-    <group userData={aoModeUserData("realtime")}>
+    <group userData={aoModeUserData("baked")}>
       <BVHCollider>
         <mesh geometry={coreGeometry}>
           <meshStandardMaterial color={CORE_COLOR} flatShading />
         </mesh>
       </BVHCollider>
-      <SheetStack sheets={mountain.sheets} count={mountain.sheets.length} />
-      <LooseSheets sheets={mountain.looseSheets} />
-      <SheetStack sheets={mountain.outputSheets} count={outputs} />
+      <BakeTarget>
+        <mesh geometry={sheetsGeometry} material={paperMaterial} />
+      </BakeTarget>
+      <OutputSheets sheets={mountain.outputSheets} count={outputs} />
       {overviewing && (
         <DirectoryOverview
           directoryId={object.id}

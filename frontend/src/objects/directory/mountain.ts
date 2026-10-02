@@ -20,8 +20,16 @@ export type LooseSheet = {
   color: string;
 };
 
-/** 芯の三角形メッシュ(足元中心が原点。y が上) */
-export type CoreMesh = {positions: number[]; indices: number[]};
+/**
+ * 芯の三角形メッシュ(足元中心が原点。y が上)。uvs は AO のベイク用で、チャート(段ごとの側面・上面)ごとに [0,1]²。
+ * groups は、チャートごとの indices の範囲(頂点はチャートをまたいで共有しない)
+ */
+export type CoreMesh = {
+  positions: number[];
+  uvs: number[];
+  indices: number[];
+  groups: Array<{start: number; count: number}>;
+};
 
 /**
  * 在庫ファイルを割り当てられる束。真上から見える束の上面で、
@@ -66,8 +74,10 @@ const TIERS = 7;
 /** 一番下の段と一番上の段の外側の半径(m)。段ごとに、同じ幅ずつ狭くなる */
 const RADIUS_BOTTOM = 3.6;
 const RADIUS_TOP = 0.6;
-/** 1 つの束(小さな山積み)の板の枚数 */
-const SHEETS_PER_BUNDLE = 2;
+/** 1 つの束(本の小さな山積み)の本の冊数の範囲。厚みは、束ごとに段の高さを不均等に分ける */
+const BOOKS_PER_BUNDLE: [number, number] = [4, 6];
+/** 束の中で、向きが大きくずれて、はみ出す本の割合 */
+const ASKEW_RATE = 0.15;
 /** 束の幅・奥行き(m)。奥行きは、段の帯の幅(半径方向)に収まる大きさ */
 const BUNDLE_WIDTH: [number, number] = [0.55, 0.75];
 const BUNDLE_DEPTH: [number, number] = [0.36, 0.44];
@@ -88,7 +98,7 @@ const CORE_DROP = 0.05;
 const CORE_SKIRT = 0.3;
 
 // 束は紙の白だけ(少し揺らす)。差し色は、薄いはみ出し紙の、ごく少数にだけ使う(大きな箱には使わない)
-const PAPERS = ["#f4f2ec", "#ece9e0", "#f7f6f2", "#e9e6dd"] as const;
+export const PAPERS = ["#ffffff", "#fafaf8", "#f5f5f2", "#fcfcfb"] as const;
 const ACCENTS = ["#c9a46a", "#8fa7a0", "#b98277", "#7f94b3"] as const;
 const ACCENT_RATE = 0.12;
 
@@ -97,35 +107,52 @@ const pick = <T>(list: readonly T[], r: number): T =>
 
 const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
   const positions: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
+  const groups: CoreMesh["groups"] = [];
   radii.forEach((outer, t) => {
     const r = outer - CORE_INSET;
     const y0 = t === 0 ? -CORE_SKIRT : t * tierHeight;
     const y1 = (t + 1) * tierHeight - CORE_DROP;
+    // 側面: 周を一周する帯(u が周方向、v が高さ)。継ぎ目の頂点は、uv が違うので重ねて持つ
     const bottom = positions.length / 3;
-    for (const y of [y0, y1]) {
-      for (let j = 0; j < CORE_SEGMENTS; j++) {
+    [y0, y1].forEach((y, v) => {
+      for (let j = 0; j <= CORE_SEGMENTS; j++) {
         const a = (j / CORE_SEGMENTS) * Math.PI * 2;
         positions.push(Math.cos(a) * r, y, Math.sin(a) * r);
+        uvs.push(j / CORE_SEGMENTS, v);
       }
-    }
-    const top = bottom + CORE_SEGMENTS;
-    const center = positions.length / 3;
-    positions.push(0, y1, 0);
+    });
+    const top = bottom + CORE_SEGMENTS + 1;
+    const sideStart = indices.length;
     // 面は外向き(側面は外、上面は上)
     for (let j = 0; j < CORE_SEGMENTS; j++) {
-      const j1 = (j + 1) % CORE_SEGMENTS;
-      indices.push(bottom + j, top + j1, bottom + j1);
-      indices.push(bottom + j, top + j, top + j1);
-      indices.push(center, top + j1, top + j);
+      indices.push(bottom + j, top + j + 1, bottom + j + 1);
+      indices.push(bottom + j, top + j, top + j + 1);
     }
+    groups.push({start: sideStart, count: indices.length - sideStart});
+    // 上面: 真上から見た平面の uv
+    const ring = positions.length / 3;
+    for (let j = 0; j < CORE_SEGMENTS; j++) {
+      const a = (j / CORE_SEGMENTS) * Math.PI * 2;
+      positions.push(Math.cos(a) * r, y1, Math.sin(a) * r);
+      uvs.push(0.5 + Math.cos(a) / 2, 0.5 + Math.sin(a) / 2);
+    }
+    const center = positions.length / 3;
+    positions.push(0, y1, 0);
+    uvs.push(0.5, 0.5);
+    const topStart = indices.length;
+    for (let j = 0; j < CORE_SEGMENTS; j++) {
+      indices.push(center, ring + ((j + 1) % CORE_SEGMENTS), ring + j);
+    }
+    groups.push({start: topStart, count: indices.length - topStart});
   });
-  return {positions, indices};
+  return {positions, uvs, indices, groups};
 };
 
 /**
  * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed(ディレクトリの id)から決まる。
- * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(薄い板を 2 枚重ねた小さな山積み)を並べる。
+ * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(厚みの違う白い本を 4〜6 冊重ねた小さな山積み)を並べる。
  * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める
  */
 export const buildMountain = (seed: string): Mountain => {
@@ -138,7 +165,6 @@ export const buildMountain = (seed: string): Mountain => {
     {length: TIERS},
     (_, t) => RADIUS_BOTTOM - t * step,
   );
-  const sheetHeight = tierHeight / SHEETS_PER_BUNDLE;
 
   const sheets: Sheet[] = [];
   const candidates: Candidate[] = [];
@@ -165,23 +191,37 @@ export const buildMountain = (seed: string): Mountain => {
         Math.atan2(-Math.cos(theta), -Math.sin(theta)) + (random() - 0.5) * 0.8;
       const cx = Math.cos(theta) * r;
       const cz = Math.sin(theta) * r;
-      const bundleColor = pick(PAPERS, random());
+      // 束は、厚みの違う本を 4〜6 冊積む。厚みは段の高さを不均等に分け、束の上面は段の高さにそろえる
+      const books =
+        BOOKS_PER_BUNDLE[0] +
+        Math.floor(random() * (BOOKS_PER_BUNDLE[1] - BOOKS_PER_BUNDLE[0] + 1));
+      const weights = Array.from({length: books}, () => 0.5 + random());
+      const total = weights.reduce((a, b) => a + b, 0);
+      let y = t * tierHeight;
       let top: Sheet | undefined;
-      for (let j = 0; j < SHEETS_PER_BUNDLE; j++) {
-        const w = width * (0.94 + random() * 0.12);
-        const d = depth * (0.94 + random() * 0.12);
+      for (let j = 0; j < books; j++) {
+        const thickness = ((weights[j] as number) / total) * tierHeight;
+        // 一番上の本は、在庫ファイルの候補の面になるので、大きさ・向きの崩しを控えめにする
+        const isTop = j === books - 1;
+        const askew = !isTop && random() < ASKEW_RATE;
+        const w =
+          width * (isTop ? 0.94 + random() * 0.12 : 0.8 + random() * 0.26);
+        const d =
+          depth * (isTop ? 0.94 + random() * 0.12 : 0.84 + random() * 0.22);
         top = {
           position: [
             cx + (random() - 0.5) * 0.12,
-            t * tierHeight + (j + 0.5) * sheetHeight,
+            y + thickness / 2,
             cz + (random() - 0.5) * 0.12,
           ],
-          yaw: yaw + (random() - 0.5) * 0.4,
-          size: [w, sheetHeight, d],
-          color: bundleColor,
+          yaw: yaw + (random() - 0.5) * (askew ? 1.3 : 0.4),
+          size: [w, thickness, d],
+          color: pick(PAPERS, random()),
         };
+        y += thickness;
         sheets.push(top);
       }
+      const sheetHeight = top ? top.size[1] : 0;
       if (t < CANDIDATE_TIERS && top) {
         const face: Candidate = {
           x: top.position[0],
