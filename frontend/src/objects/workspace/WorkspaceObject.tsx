@@ -80,7 +80,7 @@ export function WorkspaceActionAnimation() {
  *
  * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
  * - モックなので、コライダーは持たない
- * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは部品ごとに付く
+ * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは机全体の外周に 1 本付く
  */
 export function WorkspaceObject({object}: {object: GameObject}) {
   return (

@@ -2,6 +2,7 @@ import {
   ACESFilmicToneMapping,
   AgXToneMapping,
   type Camera,
+  Color,
   NearestFilter,
   NeutralToneMapping,
   NoToneMapping,
@@ -15,8 +16,10 @@ import {bloom} from "three/addons/tsl/display/BloomNode.js";
 import {vignette} from "three/addons/tsl/display/CRT.js";
 import {denoise} from "three/addons/tsl/display/DenoiseNode.js";
 import {ao} from "three/addons/tsl/display/GTAONode.js";
+import {outline} from "three/addons/tsl/display/OutlineNode.js";
 import {
   ambientOcclusion,
+  clamp,
   context,
   float,
   min,
@@ -36,12 +39,20 @@ import {
 import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 
 import {pixelateUV} from "./nodes/pixelate";
+import {outlineSelection} from "./outlineSelection";
 import {
   type PostProcessSettings,
   type ToneMappingKind,
   VIGNETTE_MIN_SMOOTHNESS,
 } from "./settings";
 import {isSkipGTAO} from "./skipGTAO";
+
+/** 狙ったオブジェクトのアウトラインの色。手元のアイテム・プレイヤーの骨格の反転ハルと同じ */
+const OUTLINE_COLOR = "#1a1a1a";
+/** アウトラインの太さ(OutlineNode の edgeThickness。ぼかしの半径で、大きいほど太くぼやける。細めの線にするので 1.5) */
+const OUTLINE_THICKNESS = 1.5;
+/** アウトラインの強さ(辺のマスクに掛ける倍率)。ぼかして薄まった縁をくっきりさせる。掛けた後は 0〜1 に収める */
+const OUTLINE_STRENGTH = 4;
 
 const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
   aces: ACESFilmicToneMapping,
@@ -101,8 +112,8 @@ const gtaoContext = (gtao: Node<"float">) =>
   });
 
 /**
- * AO の pre-pass(法線・深度)→ GTAO → scene pass(AO は間接光だけに掛かる。ベイク AO との分担は gtaoContext)→ Bloom 加算 → ピクセレート
- * → ビネット → 出力変換(最後に1回だけ)。
+ * AO の pre-pass(法線・深度)→ GTAO → scene pass(AO は間接光だけに掛かる。ベイク AO との分担は gtaoContext)→ Bloom 加算
+ * → アウトライン(狙ったオブジェクトの外周。他の物に隠れた部分は出さない)→ ピクセレート → ビネット → 出力変換(最後に1回だけ)。
  * outputColorTransform=false にして出力変換を自前で行う(Renderer の toneMapping / outputColorSpace は R3F が
  * ACES / sRGB に上書きしているが、RenderPipeline 内では使わない)
  */
@@ -162,6 +173,13 @@ export const createPostProcessPipeline = (
   // 使うグラフに含めたときだけ更新される。effect の on/off をまたいで使い回す。
   // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
   const bloomNode = bloom(sceneColor);
+  // 狙ったオブジェクト(outlineSelection)の外周。選択が空のあいだは OutlineNode が自分のパスを全部飛ばすので、グラフには常に入れておく
+  const outlinePass = outline(scene, camera, {
+    selectedObjects: outlineSelection,
+    edgeThickness: uniform(OUTLINE_THICKNESS),
+    edgeGlow: float(0),
+  });
+  const outlineColor = uniform(new Color(OUTLINE_COLOR));
 
   let pixelated: ReturnType<typeof rtt> | null = null;
   let key = "";
@@ -195,6 +213,16 @@ export const createPostProcessPipeline = (
     let color: Node<"vec4"> = s.bloom.enabled
       ? sceneColor.add(bloomNode)
       : sceneColor;
+
+    // ピクセレートの前に合成して、線もブロックに揃える。hiddenEdge(隠れた部分)は使わない
+    color = vec4(
+      mix(
+        color.rgb,
+        outlineColor,
+        clamp(outlinePass.visibleEdge.mul(OUTLINE_STRENGTH), 0, 1),
+      ),
+      color.a,
+    );
 
     if (s.pixelate.enabled) {
       // Bloom 合成後の画像を最近傍のテクスチャに落とし、量子化した UV でサンプルする。
@@ -256,6 +284,7 @@ export const createPostProcessPipeline = (
       pipeline.dispose();
       pixelated?.dispose();
       bloomNode.dispose();
+      outlinePass.dispose();
       denoised.dispose();
       denoiseNode.dispose();
       aoPass.dispose();

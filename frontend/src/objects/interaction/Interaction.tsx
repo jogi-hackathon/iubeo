@@ -2,17 +2,16 @@ import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect, useMemo, useRef} from "react";
 import {type Intersection, type Object3D, Raycaster, Vector2} from "three";
 
+import {setOutlineSelection} from "../../camera/postprocess/outlineSelection";
 import {type Collider, listColliders, subscribeColliders} from "../../core/bvh";
 import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {usePointerLocked} from "../../core/input";
 import {isPlayerControlLocked} from "../../core/playerControl";
 import {objectManager} from "../objectStore";
-import {useObjectsState} from "../useObjects";
 import {type AimHit, INTERACT_DISTANCE, resolveAim} from "./aim";
 import {getAimedObjectId, setAimedObjectId, useAimedObjectId} from "./aimStore";
 import {dispatchInteraction} from "./handlers";
-import {applyOutline} from "./outline";
 import {
   getTarget,
   listTargets,
@@ -138,19 +137,15 @@ export function Interaction() {
   return <AimOutline />;
 }
 
-/** 狙っているオブジェクトに、アウトラインを付ける */
+/** 狙っているオブジェクトを、ポストプロセスのアウトラインの対象にする(外周に 1 本。camera/postprocess/pipeline) */
 function AimOutline() {
   const aimed = useAimedObjectId();
-  // 見た目(インスタンスの数など)が変わったら付け直す
-  const {objects} = useObjectsState();
 
   useEffect(() => {
     const root = aimed === null ? undefined : getTarget(aimed);
-    if (!root) {
-      return;
-    }
-    return applyOutline(root);
-  }, [aimed, objects]);
+    setOutlineSelection(root ? [root] : []);
+    return () => setOutlineSelection([]);
+  }, [aimed]);
 
   return null;
 }
