@@ -1,7 +1,8 @@
 import {
+  type CreatedStatus,
   FILE_KIND,
-  type FileOrigin,
   type ItemManager,
+  isCreatedStatus,
   parseFileData,
 } from "../items";
 import type {
@@ -23,15 +24,14 @@ import type {Vec3} from "../props/types";
 export const DUMMY_OBJECT_KIND = "dummy";
 export const DUMMY_ITEM_KIND = "dummy_item";
 
-/** 在庫から取った物ではなく、新しく作ったファイルの由来 */
-export type NewFileOrigin = Exclude<FileOrigin, "stock">;
-
 type Deps = {
   localPlayerId: PlayerId;
   objects: Pick<ObjectManager, "getObject" | "apply">;
   items: Pick<ItemManager, "getHeld" | "apply">;
   /** 他プレイヤーが借りるファイルを選ぶ乱数([0, 1))。テストで固定する用 */
   random?: () => number;
+  /** 新しいファイルの id を採番する。テストで固定する用。既定は crypto.randomUUID */
+  newId?: () => string;
 };
 
 /**
@@ -42,8 +42,8 @@ type Deps = {
  *   unavailable で拒否。通れば、そのプレイヤーを users に出し入れする(personal は本人だけ、shared は複数人)
  * - ディレクトリ(kind "directory")の interact は、users の出し入れはせず、手持ちで決める:
  *   - 手ぶら + target: 在庫にあれば取り除き、そのファイルを手に持たせる(先着。無ければ not_found)。target が無ければ missing_item
- *   - ファイルを持って: 手持ちを消して、由来と編集済みかで行き先を決める
- *     編集した在庫のファイル → 在庫に戻り達成 +1、編集していない在庫のファイル → 在庫に戻るだけ、新しく作ったファイル → 成果物 +1
+ *   - ファイルを持って: 手持ちを消して、status で行き先を決める
+ *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
  *   - ファイル以外を持って: missing_item
  */
 export const createDummyAuthority = ({
@@ -51,12 +51,13 @@ export const createDummyAuthority = ({
   objects,
   items,
   random = Math.random,
+  newId = () => crypto.randomUUID(),
 }: Deps) => {
   let nextObject = 1;
   let nextItem = 1;
-  let nextNewFile = 1;
-  // 達成の数(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)
-  let achieved = 0;
+  // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
+  // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
+  const achievedIds = new Set<string>();
   // 他のプレイヤーが借りているファイル(貸出方式。ディレクトリの在庫からは外れている)
   const borrowed: Array<{directoryId: string; file: StockFile}> = [];
 
@@ -91,7 +92,7 @@ export const createDummyAuthority = ({
         item: {
           id: file.id,
           kind: FILE_KIND,
-          data: {origin: "stock", color: file.color, edited: file.edited},
+          data: {status: file.status, color: file.color},
         },
       });
       return;
@@ -107,21 +108,30 @@ export const createDummyAuthority = ({
       reject(object.id, "missing_item");
       return;
     }
-    if (file.origin === "stock") {
+    if (isCreatedStatus(file.status)) {
+      setDirectory(object, {...data, outputs: data.outputs + 1});
+    } else {
       // 貸出方式: 取り出し元のファイルは、編集の有無によらず在庫に戻る
       const back: StockFile = {
         id: held.id,
         color: file.color ?? "#ffffff",
-        edited: file.edited,
+        status: file.status,
       };
-      if (file.edited) {
-        achieved++;
+      if (file.status === "edited") {
+        achievedIds.add(held.id);
       }
       setDirectory(object, {...data, stock: [...data.stock, back]});
-    } else {
-      setDirectory(object, {...data, outputs: data.outputs + 1});
     }
     items.apply({type: "delete", id: held.id});
+  };
+
+  const spawnNew = (status: CreatedStatus): string => {
+    const id = newId();
+    items.apply({
+      type: "spawn",
+      item: {id, kind: FILE_KIND, data: {status}},
+    });
+    return id;
   };
 
   return {
@@ -193,8 +203,8 @@ export const createDummyAuthority = ({
       objects.apply({type: "upsert", object});
       return object.id;
     },
-    /** 達成の数(編集した在庫のファイルが、ディレクトリに入った回数) */
-    getAchieved: (): number => achieved,
+    /** 達成の数(編集した在庫のファイルが、ディレクトリに入ったファイルの数。同じファイルは 1 回) */
+    getAchieved: (): number => achievedIds.size,
     /** 他のプレイヤーが借りているファイルの数 */
     getBorrowedCount: (): number => borrowed.length,
     /** 他のプレイヤーとして、ディレクトリの在庫からランダムに 1 つ借りる。借りた id を返す(在庫が空なら null) */
@@ -236,25 +246,20 @@ export const createDummyAuthority = ({
       return id;
     },
     /** 新しく作ったファイル(ワークスペースで作る物の代わり)を手に持たせる。取り出し元ではなく、色も無い */
-    spawnNewFile: (origin: NewFileOrigin = "write"): string => {
-      const id = `${FILE_KIND}-new-${nextNewFile++}`;
-      items.apply({
-        type: "spawn",
-        item: {id, kind: FILE_KIND, data: {origin, edited: false}},
-      });
-      return id;
-    },
-    /** 手持ちのファイルを編集済みにする(同じ id で data を更新する。ワークスペースの編集の代わり)。編集できたら true */
+    spawnNewFile: (status: CreatedStatus = "file_created"): string =>
+      spawnNew(status),
+    /** 手持ちのファイルを編集済みにする(同じ id で status を "edited" に更新する。ワークスペースの編集の代わり)。作成したファイルは編集できず、編集できたら true */
     editHeldFile: (): boolean => {
       const held = items.getHeld();
       const file =
         held && held.kind === FILE_KIND ? parseFileData(held.data) : null;
-      if (!held || !file) {
+      // 作成したファイルは編集しない
+      if (!held || !file || isCreatedStatus(file.status)) {
         return false;
       }
       items.apply({
         type: "spawn",
-        item: {...held, data: {...file, edited: true}},
+        item: {...held, data: {...file, status: "edited"}},
       });
       return true;
     },

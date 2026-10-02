@@ -1,4 +1,11 @@
-export {FILE_KIND, type FileData, type FileOrigin, parseFileData} from "./file";
+export {
+  type CreatedStatus,
+  FILE_KIND,
+  type FileData,
+  type FileStatus,
+  isCreatedStatus,
+  parseFileData,
+} from "./file";
 export {HeldItem} from "./HeldItem";
 export {createItemManager, type ItemManager} from "./itemManager";
 export {itemManager} from "./itemStore";

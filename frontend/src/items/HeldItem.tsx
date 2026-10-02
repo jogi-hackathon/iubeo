@@ -14,7 +14,7 @@ const OUTLINE_MATERIAL = new MeshBasicMaterial({
 setSkipGTAO(FILL_MATERIAL, true);
 setSkipGTAO(OUTLINE_MATERIAL, true);
 
-// ファイルは、縁の色で識別する(色は取り出し元のファイルだけが持つ)。色の数は有限なので、色ごとに使い回す
+// ファイルは、縁の色で識別する(色はディレクトリから取り出したファイルだけが持つ)。色の数は有限なので、色ごとに使い回す
 const fileOutlines = new Map<string, MeshBasicMaterial>();
 const fileOutline = (color: string): MeshBasicMaterial => {
   let material = fileOutlines.get(color);

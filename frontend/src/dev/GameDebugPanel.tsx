@@ -116,7 +116,7 @@ export function GameDebugPanel() {
       </div>
       <div style={rowStyle}>
         <button type="button" onClick={() => dummyAuthority.spawnNewFile()}>
-          new file (write)
+          new file
         </button>
         <button type="button" onClick={() => dummyAuthority.editHeldFile()}>
           edit held file

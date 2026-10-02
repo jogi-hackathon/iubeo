@@ -2,8 +2,12 @@ import type {JsonValue} from "../../core/json";
 
 export const DIRECTORY_KIND = "directory";
 
-/** 在庫の 1 ファイル。ファイル自体に色は付けず、color はアウトラインの色 */
-export type StockFile = {id: string; color: string; edited: boolean};
+/** 在庫の 1 ファイル。ファイル自体に色は付けず、color はアウトラインの色。status は編集前か編集済みか */
+export type StockFile = {
+  id: string;
+  color: string;
+  status: "unedited" | "edited";
+};
 
 /**
  * ディレクトリの data。stock は「今ディレクトリの中にある」取り出し元のファイルだけ
@@ -15,11 +19,15 @@ const parseStockFile = (value: JsonValue): StockFile | null => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const {id, color, edited} = value;
-  if (typeof id !== "string" || typeof color !== "string") {
+  const {id, color, status} = value;
+  if (
+    typeof id !== "string" ||
+    typeof color !== "string" ||
+    (status !== "unedited" && status !== "edited")
+  ) {
     return null;
   }
-  return {id, color, edited: edited === true};
+  return {id, color, status};
 };
 
 /**
