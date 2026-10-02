@@ -52,8 +52,16 @@ const DEV_DIRECTORY_STOCK: readonly StockFile[] = [
   },
 ];
 
+/**
+ * ワークスペースの置き場所。机(1.6m x 0.8m)は x 13.2〜14.8・z -5.4〜-4.6 を占める。ディレクトリ(中心 (14,1))の山は
+ * 束の端まで MOUNTAIN_REACH(4.4m)なので -Z 側は z=-3.4 付近までで、机とは約 1.2m 空く。TestScene の壁(x=8 の壁は x<=8.25)・
+ * 球(x<=5)・ダミープレイヤーの歩く円(x<=5.5)とは 5m 以上離れている
+ */
+const DEV_WORKSPACE_POSITION = [14, 0, -5] as const;
+
 // 確認用のオブジェクト(スポーン地点から見て -Z 方向)
 dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
 dummyAuthority.spawnObject([1.5, 1, -4], "shared");
 dummyAuthority.spawnObject([0, 1, -4], "personal", "unavailable");
 dummyAuthority.spawnDirectory([...DEV_DIRECTORY_POSITION], DEV_DIRECTORY_STOCK);
+dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);

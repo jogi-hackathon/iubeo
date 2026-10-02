@@ -18,6 +18,7 @@ import {
   type StockFile,
   parseDirectoryData,
 } from "../objects/directory/data";
+import {WORKSPACE_ACTION_MS, WORKSPACE_KIND} from "../objects/workspace/data";
 import type {PlayerId} from "../player/types";
 import type {Vec3} from "../props/types";
 
@@ -30,8 +31,14 @@ type Deps = {
   items: Pick<ItemManager, "getHeld" | "apply">;
   /** 他プレイヤーが借りるファイルを選ぶ乱数([0, 1))。テストで固定する用 */
   random?: () => number;
+  /** ms 後に fn を呼ぶ(ワークスペースのアニメーション待ち)。テストで時間を進める用。既定は setTimeout */
+  schedule?: (fn: () => void, ms: number) => void;
   /** 新しいファイルの id を採番する。テストで固定する用。既定は crypto.randomUUID */
   newId?: () => string;
+};
+
+const defaultSchedule = (fn: () => void, ms: number): void => {
+  setTimeout(fn, ms);
 };
 
 /**
@@ -45,12 +52,19 @@ type Deps = {
  *   - ファイルを持って: 手持ちを消して、status で行き先を決める
  *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
  *   - ファイル以外を持って: missing_item
+ * - ワークスペース(kind "workspace")の interact は、アニメーション(WORKSPACE_ACTION_MS)を待って結果を返す:
+ *   - 作業中(users に誰かいる)なら unavailable
+ *   - ディレクトリから取り出した編集前のファイル(status "unedited")を持って: 受理して users に入り、終わったら同じ id・同じ color で status を "edited" にして users から出る
+ *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "file_created"、色なし)を手に持たせて users から出る
+ *   - 編集済みのファイル / 作成したファイル(作成系。作成したファイルは編集しない) / ファイル以外を持って: missing_item(アニメーションは始めない)
+ *   - 終わる時点で手持ちが変わって条件を外れていたら、結果は適用せず users から出るだけ。作業中にワークスペースが消えたら、結果は適用しない
  */
 export const createDummyAuthority = ({
   localPlayerId,
   objects,
   items,
   random = Math.random,
+  schedule = defaultSchedule,
   newId = () => crypto.randomUUID(),
 }: Deps) => {
   let nextObject = 1;
@@ -134,6 +148,64 @@ export const createDummyAuthority = ({
     return id;
   };
 
+  const setUsers = (id: string, users: readonly PlayerId[]) => {
+    const object = objects.getObject(id);
+    if (object) {
+      objects.apply({type: "upsert", object: {...object, users}});
+    }
+  };
+
+  /** 手持ちが、ディレクトリから取り出した編集前のファイルで、id が合っているか(合っていれば、そのファイルの data を返す)。作成したファイルは編集できない */
+  const heldUnedited = (id: string) => {
+    const held = items.getHeld();
+    const file =
+      held && held.id === id && held.kind === FILE_KIND
+        ? parseFileData(held.data)
+        : null;
+    return held && file && file.status === "unedited" ? {held, file} : null;
+  };
+
+  const handleWorkspace = (object: GameObject, request: InteractRequest) => {
+    if (object.users.length > 0) {
+      reject(object.id, "unavailable");
+      return;
+    }
+    // 要求の手持ちの主張ではなく、実際の手持ちで決める(要求の主張と実際が食い違えば拒否)
+    const held = items.getHeld();
+    if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    if (held && !heldUnedited(held.id)) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    const editingId = held?.id ?? null;
+
+    // 受理: 即 users に入る(作業中)。結果はアニメーションの後に、手持ちを確かめ直して適用する
+    setUsers(object.id, [request.by]);
+    schedule(() => {
+      // 作業中に机が消えたら、結果は適用しない
+      if (!objects.getObject(object.id)) {
+        return;
+      }
+      if (editingId === null) {
+        if (items.getHeld() === null) {
+          spawnNew("file_created");
+        }
+      } else {
+        const current = heldUnedited(editingId);
+        if (current) {
+          items.apply({
+            type: "spawn",
+            item: {...current.held, data: {...current.file, status: "edited"}},
+          });
+        }
+      }
+      setUsers(object.id, []);
+    }, WORKSPACE_ACTION_MS);
+  };
+
   return {
     handle: (request: InteractRequest): void => {
       const object = objects.getObject(request.objectId);
@@ -151,6 +223,10 @@ export const createDummyAuthority = ({
       }
       if (object.kind === DIRECTORY_KIND) {
         handleDirectory(object, request);
+        return;
+      }
+      if (object.kind === WORKSPACE_KIND) {
+        handleWorkspace(object, request);
         return;
       }
       const using = object.users.includes(request.by);
@@ -199,6 +275,21 @@ export const createDummyAuthority = ({
         users: [],
         availability: "available",
         data: {stock: stock.map((f) => ({...f})), outputs: 0},
+      };
+      objects.apply({type: "upsert", object});
+      return object.id;
+    },
+    /** ワークスペースを置き(personal、owner は自分)、その id を返す */
+    spawnWorkspace: (position: Vec3): string => {
+      const object: GameObject = {
+        id: `${WORKSPACE_KIND}-${nextObject++}`,
+        kind: WORKSPACE_KIND,
+        scope: "personal",
+        owner: localPlayerId,
+        position,
+        users: [],
+        availability: "available",
+        data: null,
       };
       objects.apply({type: "upsert", object});
       return object.id;

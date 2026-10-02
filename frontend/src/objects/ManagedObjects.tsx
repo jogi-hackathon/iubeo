@@ -8,6 +8,9 @@ import {registerDirectoryInteraction} from "./directory/interaction";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
+import {useWorkspaceControlLock} from "./workspace/controlLock";
+import {WORKSPACE_KIND} from "./workspace/data";
+import {WorkspaceObject} from "./workspace/WorkspaceObject";
 
 // テスト用のダミー描画。白い世界で見分けがつくよう、状態ごとに色を変える
 const COLOR_IDLE = "#5b9bff";
@@ -34,6 +37,7 @@ function DummyObject({object}: {object: GameObject}) {
 /** kind ごとの見た目。ここに無い kind は、ダミーの箱で描く。座標は object.position を原点とした相対 */
 const renderers: Record<string, ComponentType<{object: GameObject}>> = {
   [DIRECTORY_KIND]: DirectoryObject,
+  [WORKSPACE_KIND]: WorkspaceObject,
 };
 
 // kind ごとに固有のインタラクトの処理(クライアント側で完結する分)を、汎用のインタラクト基盤に登録する
@@ -61,11 +65,12 @@ function ObjectRoot({object}: {object: GameObject}) {
 /**
  * objectManager のオブジェクトをシーンに描画する。kind ごとに描画コンポーネントを振り分ける。
  * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * (ディレクトリだけは動かないので、専用のコライダーを持つ)
+ * (ディレクトリだけは動かないので、専用のコライダーを持つ。ワークスペースはモックなのでコライダーを持たない)
  */
 export function ManagedObjects() {
   const {objects} = useObjectsState();
   useOverviewGuard(objects);
+  useWorkspaceControlLock(objects);
   return (
     <>
       {objects.map((o) => (

@@ -4,6 +4,7 @@ import {createItemManager} from "../../items/itemManager";
 import {parseDirectoryData, type StockFile} from "../../objects/directory/data";
 import {createObjectManager} from "../../objects/objectManager";
 import type {InteractRequest} from "../../objects/types";
+import {WORKSPACE_ACTION_MS} from "../../objects/workspace/data";
 import {createDummyAuthority, DUMMY_ITEM_KIND} from "../dummyAuthority";
 
 // ファイルの id は意味を持たない不透明な値(状態や色を混ぜない)。読みやすいよう定数にする
@@ -16,8 +17,19 @@ const newIdOf = (n: number) =>
 
 // マネージャーとダミーのサーバー役をつないだ、実際の配線と同じ形
 const setup = (random?: () => number) => {
+  // 時間は進めたときだけ進む。ワークスペースのアニメーション待ちを、テストで制御する
+  let now = 0;
   // 新規ファイルの id は呼ぶたびに別の固定値(UUID 風)になる
   let newIdCount = 0;
+  const timers: Array<{at: number; fn: () => void}> = [];
+  const advance = (ms: number) => {
+    now += ms;
+    for (const t of timers.filter((t) => t.at <= now)) {
+      timers.splice(timers.indexOf(t), 1);
+      t.fn();
+    }
+  };
+
   const items = createItemManager();
   const requests: InteractRequest[] = [];
   let handle: (r: InteractRequest) => void = () => {};
@@ -37,10 +49,13 @@ const setup = (random?: () => number) => {
     objects,
     items,
     random,
+    schedule: (fn, ms) => {
+      timers.push({at: now + ms, fn});
+    },
     newId: () => newIdOf(++newIdCount),
   });
   handle = authority.handle;
-  return {objects, items, authority, requests};
+  return {objects, items, authority, requests, advance};
 };
 
 describe("createDummyAuthority", () => {
@@ -447,6 +462,335 @@ describe("createDummyAuthority", () => {
         authority.spawnItem("lighter");
         expect(authority.editHeldFile()).toBe(false);
       });
+    });
+  });
+
+  describe("ワークスペース", () => {
+    it("編集前のファイルを持って interact すると、2 秒後に同じ id・同じ color で edited になり、users が空に戻る", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      items.apply({
+        type: "spawn",
+        item: {
+          id: F1,
+          kind: "file",
+          data: {status: "unedited", color: "#e63946"},
+        },
+      });
+
+      objects.interact(id);
+
+      // 受理した時点で作業中(結果はまだ)
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+      advance(WORKSPACE_ACTION_MS - 1);
+      expect(items.getHeld()?.data).toEqual({
+        status: "unedited",
+        color: "#e63946",
+      });
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(1);
+      expect(items.getHeld()).toEqual({
+        id: F1,
+        kind: "file",
+        data: {status: "edited", color: "#e63946"},
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("手ぶらで interact すると、2 秒後に新規ファイル(file_created・色なし・id は newId の値)を持ち、users が空に戻る", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+
+      objects.interact(id);
+
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+      advance(WORKSPACE_ACTION_MS - 1);
+      expect(items.getHeld()).toBeNull();
+
+      advance(1);
+      expect(items.getHeld()).toEqual({
+        id: newIdOf(1),
+        kind: "file",
+        data: {status: "file_created"},
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("新規ファイルの id は spawnNewFile と重ならず、newId で採番される", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      const first = authority.spawnNewFile();
+      authority.deleteHeldItem();
+
+      objects.interact(id);
+      advance(WORKSPACE_ACTION_MS);
+
+      expect(first).toBe(newIdOf(1));
+      expect(items.getHeld()?.id).toBe(newIdOf(2));
+    });
+
+    it("newId を渡さなければ、crypto.randomUUID の UUID で採番される", () => {
+      const items = createItemManager();
+      const objects = createObjectManager({
+        localPlayerId: "me",
+        getHeldItem: () => null,
+        send: () => {},
+      });
+      const authority = createDummyAuthority({
+        localPlayerId: "me",
+        objects,
+        items,
+      });
+
+      const id = authority.spawnNewFile();
+
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+      expect(items.getHeld()?.id).toBe(id);
+    });
+
+    it.each([
+      [
+        "編集済みのファイル",
+        {
+          id: F1,
+          kind: "file",
+          data: {status: "edited", color: "#e63946"},
+        },
+      ],
+      [
+        "作成したファイル(file_created。作成したファイルは編集しない)",
+        {id: F2, kind: "file", data: {status: "file_created"}},
+      ],
+      [
+        "作成したファイル(search_created)",
+        {id: F2, kind: "file", data: {status: "search_created"}},
+      ],
+      [
+        "作成したファイル(image_created)",
+        {id: F2, kind: "file", data: {status: "image_created"}},
+      ],
+      ["ファイル以外のアイテム", {id: "l", kind: "lighter", data: null}],
+      [
+        "status が読めないファイル",
+        {id: F3, kind: "file", data: {status: "bogus"}},
+      ],
+    ])(
+      "%sを持っていると missing_item で拒否し、アニメーションを始めない",
+      (_, item) => {
+        const {objects, items, authority, advance} = setup();
+        const onRejected = vi.fn();
+        objects.on("interactRejected", onRejected);
+        const id = authority.spawnWorkspace([0, 0, -3]);
+        items.apply({type: "spawn", item});
+
+        objects.interact(id);
+
+        expect(onRejected).toHaveBeenCalledWith({
+          objectId: id,
+          reason: "missing_item",
+        });
+        expect(objects.getObject(id)?.users).toEqual([]);
+        advance(WORKSPACE_ACTION_MS);
+        expect(items.getHeld()).toEqual(item);
+      },
+    );
+
+    it("作業中の再 interact は unavailable で拒否し、結果は 1 回だけ適用される", () => {
+      const {objects, items, authority, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnWorkspace([0, 0, -3]);
+
+      objects.interact(id);
+      advance(500);
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "unavailable",
+      });
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(WORKSPACE_ACTION_MS);
+      expect(items.getHeld()?.data).toEqual({status: "file_created"});
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("作成したファイルを持ったまま続けて interact しても、編集はされず missing_item で拒否する", () => {
+      const {objects, authority, items, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      objects.interact(id);
+      advance(WORKSPACE_ACTION_MS);
+      expect(items.getHeld()?.data).toEqual({status: "file_created"});
+
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "missing_item",
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+      advance(WORKSPACE_ACTION_MS);
+      expect(items.getHeld()?.data).toEqual({status: "file_created"});
+    });
+
+    it("編集済みになったファイルは、もう編集できない", () => {
+      const {objects, authority, items, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      items.apply({
+        type: "spawn",
+        item: {
+          id: F1,
+          kind: "file",
+          data: {status: "unedited", color: "#e63946"},
+        },
+      });
+      objects.interact(id);
+      advance(WORKSPACE_ACTION_MS);
+      expect(items.getHeld()?.data).toMatchObject({status: "edited"});
+
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "missing_item",
+      });
+    });
+
+    it("2 秒の間に手持ちが変わっていたら、結果は適用せず users だけ外す(編集)", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      items.apply({
+        type: "spawn",
+        item: {id: F1, kind: "file", data: {status: "unedited"}},
+      });
+      objects.interact(id);
+
+      authority.spawnItem("lighter");
+      advance(WORKSPACE_ACTION_MS);
+
+      expect(items.getHeld()?.kind).toBe("lighter");
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("2 秒の間に手持ちが変わっていたら、結果は適用せず users だけ外す(新規作成)", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      objects.interact(id);
+
+      const lighter = authority.spawnItem("lighter");
+      advance(WORKSPACE_ACTION_MS);
+
+      expect(items.getHeld()?.id).toBe(lighter);
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("2 秒の間に編集済みに変わっていたら、再度の編集はしない(同じ data のまま)", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      items.apply({
+        type: "spawn",
+        item: {id: F1, kind: "file", data: {status: "unedited"}},
+      });
+      objects.interact(id);
+
+      authority.editHeldFile();
+      const onSpawn = vi.fn();
+      items.on("spawn", onSpawn);
+      advance(WORKSPACE_ACTION_MS);
+
+      expect(onSpawn).not.toHaveBeenCalled();
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("2 秒の間にワークスペースが消えたら、落ちずに結果は適用しない", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace([0, 0, -3]);
+      objects.interact(id);
+
+      authority.removeObject(id);
+
+      expect(() => advance(WORKSPACE_ACTION_MS)).not.toThrow();
+      expect(objects.getObject(id)).toBeUndefined();
+      expect(items.getHeld()).toBeNull();
+    });
+
+    it("要求の手持ちの主張が実際の手持ちと食い違えば、missing_item で拒否する", () => {
+      const {objects, authority, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnWorkspace([0, 0, -3]);
+
+      authority.handle({
+        type: "interact",
+        objectId: id,
+        by: "me",
+        heldItem: {id: "fake", kind: "file"},
+      });
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "missing_item",
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+      advance(WORKSPACE_ACTION_MS);
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("owner 以外の interact は not_owner で拒否し、アニメーションを始めない", () => {
+      const {objects, authority, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnWorkspace([0, 0, -3]);
+
+      authority.handle({
+        type: "interact",
+        objectId: id,
+        by: "other",
+        heldItem: null,
+      });
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "not_owner",
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+      advance(WORKSPACE_ACTION_MS);
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("既定のタイマーは setTimeout(schedule を渡さなくても動く)", () => {
+      vi.useFakeTimers();
+      try {
+        const items = createItemManager();
+        const objects = createObjectManager({
+          localPlayerId: "me",
+          getHeldItem: () => null,
+          send: (r) => authority.handle(r),
+        });
+        const authority = createDummyAuthority({
+          localPlayerId: "me",
+          objects,
+          items,
+        });
+        const id = authority.spawnWorkspace([0, 0, -3]);
+
+        objects.interact(id);
+        vi.advanceTimersByTime(WORKSPACE_ACTION_MS - 1);
+        expect(items.getHeld()).toBeNull();
+        vi.advanceTimersByTime(1);
+
+        expect(items.getHeld()?.kind).toBe("file");
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
