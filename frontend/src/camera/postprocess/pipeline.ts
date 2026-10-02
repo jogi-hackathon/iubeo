@@ -153,7 +153,7 @@ export const createPostProcessPipeline = (
   // 調整用の「AO だけ表示」専用のパス。マテリアルが実際に使う AO(ベイク AO と GTAO の合成後)を MRT で書き出す。
   // scene pass の MRT を切り替えると、外したあとも描画先のアタッチメント数が戻らず WebGPU の検証エラーになるので、
   // 別のパスにしてある(表示中だけグラフに入るので、普段は描かれない)。
-  // ambientOcclusion は AO の無いマテリアルでは既定値 1。g は「何か描かれた」印(背景はクリア値のまま)
+  // ambientOcclusion は AO の無いマテリアルでは既定値 1。g は「何か描かれた」印(背景がクリア色なら 0 のまま。backgroundNode の空は球として描かれ g=1・AO=1 になるので、どちらでも白)
   const aoOnlyPass = pass(scene, camera, {samples: 0});
   aoOnlyPass.setMRT(mrt({output, ao: vec4(ambientOcclusion, 1, 0, 1)}));
 

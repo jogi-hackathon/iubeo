@@ -11,7 +11,7 @@ import {
 afterEach(resetPostProcessSettings);
 
 describe("postprocess settings", () => {
-  it("既定値: 全体 on・AO on・bloom on(threshold 1.0)・pixelate off・Neutral・exposure 1.2", () => {
+  it("既定値: 全体 on・AO on・bloom on(threshold 1.0)・pixelate off・skyNoise on・Neutral・exposure 1.2", () => {
     const s = getPostProcessSettings();
     expect(s.enabled).toBe(true);
     expect(s.ao.enabled).toBe(true);
@@ -21,6 +21,7 @@ describe("postprocess settings", () => {
     expect(s.bloom.enabled).toBe(true);
     expect(s.bloom.threshold).toBe(1);
     expect(s.pixelate.enabled).toBe(false);
+    expect(s.skyNoise.enabled).toBe(true);
     expect(s.vignette.enabled).toBe(true);
     expect(s.toneMapping).toBe("neutral");
     expect(s.exposure).toBe(1.2);

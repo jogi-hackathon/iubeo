@@ -29,6 +29,27 @@ export interface PostProcessSettings {
     /** ブロック1辺(ドローイングバッファの px) */
     pixelSize: number;
   };
+  /**
+   * 空(scenes/environment/skybox.ts)の画像圧縮のブロックノイズを模した劣化。見上げるほど強い。
+   * 「“彼ら”(空の頂点付近)に近づくほど認識から外れる」の表現。ポストプロセスではなく背景のシェーダーで描くので、
+   * Post-processing を off にしても効く(調整をこのパネルにまとめるためここに置く)
+   */
+  skyNoise: {
+    enabled: boolean;
+    /** 崩れの振幅(1 が既定)。層の受け渡しの位置(仰角で決まる)は変えない */
+    intensity: number;
+    /**
+     * ブロックの大きさの倍率。1 で第1〜3層が 8 / 20 / 44px(ドローイングバッファの px)。
+     * pixelate が on のときは各層を pixelSize の倍数に切り上げる
+     */
+    blockScale: number;
+    /** 崩れ始める仰角(度) */
+    elevationStart: number;
+    /** 崩れが最大になる仰角(度) */
+    elevationEnd: number;
+    /** 第1層の模様を更新する頻度(回/秒)。第2層は 1/2、第3層は 1/4 */
+    updateRate: number;
+  };
   vignette: {
     enabled: boolean;
     /** 画面端の暗さ(0〜1) */
@@ -82,6 +103,14 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
   toneMapping: "neutral",
   bloom: {enabled: true, strength: 0.5, radius: 0.4, threshold: 1},
   pixelate: {enabled: false, pixelSize: 4},
+  skyNoise: {
+    enabled: true,
+    intensity: 1,
+    blockScale: 1,
+    elevationStart: 20,
+    elevationEnd: 80,
+    updateRate: 2,
+  },
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
   ao: {
     enabled: true,

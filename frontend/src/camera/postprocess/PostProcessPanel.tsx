@@ -269,6 +269,54 @@ export function PostProcessPanel() {
           onChange={(pixelSize) => set({pixelate: {pixelSize}})}
         />
       </Section>
+      <Section title="Sky noise">
+        {/* 空の背景シェーダーの劣化(skybox.ts)。見上げるほど崩れる。Post-processing が off でも効く */}
+        <Check
+          label="enabled"
+          checked={s.skyNoise.enabled}
+          onChange={(enabled) => set({skyNoise: {enabled}})}
+        />
+        <Slider
+          label="intensity"
+          value={s.skyNoise.intensity}
+          min={0}
+          max={2}
+          step={0.01}
+          onChange={(intensity) => set({skyNoise: {intensity}})}
+        />
+        <Slider
+          label="block scale"
+          value={s.skyNoise.blockScale}
+          min={0.25}
+          max={3}
+          step={0.05}
+          onChange={(blockScale) => set({skyNoise: {blockScale}})}
+        />
+        <Slider
+          label="elev. start"
+          value={s.skyNoise.elevationStart}
+          min={-30}
+          max={89}
+          step={1}
+          onChange={(elevationStart) => set({skyNoise: {elevationStart}})}
+        />
+        <Slider
+          label="elev. end"
+          value={s.skyNoise.elevationEnd}
+          min={-29}
+          max={90}
+          step={1}
+          onChange={(elevationEnd) => set({skyNoise: {elevationEnd}})}
+        />
+        <Slider
+          label="update fps"
+          value={s.skyNoise.updateRate}
+          min={0.5}
+          max={30}
+          step={0.5}
+          onChange={(updateRate) => set({skyNoise: {updateRate}})}
+        />
+      </Section>
       <Section title="Vignette">
         <Check
           label="enabled"
