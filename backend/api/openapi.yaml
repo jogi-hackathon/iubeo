@@ -716,7 +716,7 @@ components:
         session:
           $ref: "#/components/schemas/SessionSnapshot"
     TransformsMessage:
-      description: 全プレイヤーの最新の位置と向き。20Hz で全員に送る。seq を持たない
+      description: 前回の配信から動いたプレイヤーの位置と向き。最大 20Hz で全員に送り、誰も動いていなければ送らない。seq を持たない
       type: object
       required: [type, serverTime, players]
       properties:
