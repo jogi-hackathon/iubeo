@@ -1,0 +1,890 @@
+# IUBEO バックエンド API 定義
+# 背景・ルール・内部状態は docs/backend/state-schema.md を参照。
+# oapi-codegen が 3.1 に未対応のため 3.0.3 で書く(null は nullable、固定値は単一要素の enum で表す)。
+openapi: 3.0.3
+info:
+  title: IUBEO Backend API
+  version: 0.2.0
+  description: |
+    IUBEO のゲームバックエンドの HTTP API と、WebSocket のメッセージ型。
+
+    - HTTP: プレイヤーの発行、自動マッチング、セッションの取得、WebSocket への切り替え
+    - WebSocket: `GET /api/v1/sessions/{sessionId}/ws` で切り替えた後のメッセージ。
+      型は `components/schemas` の `ClientMessage`(クライアント → サーバー)と
+      `ServerMessage`(サーバー → クライアント)。すべて JSON で、`type` で種類を見分ける。
+
+    プレイヤーは HttpOnly Cookie(`iubeo_player`)で識別する。
+    状態の正はサーバーで、クライアントは一切判定しない。
+servers:
+  - url: /
+security:
+  - playerCookie: []
+tags:
+  - name: system
+  - name: players
+  - name: matchmaking
+  - name: sessions
+
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: ヘルスチェック
+      security: []
+      responses:
+        "200":
+          description: 稼働中
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+
+  /api/v1/players:
+    post:
+      tags: [players]
+      operationId: createPlayer
+      summary: 匿名プレイヤーを作り、Cookie を発行する
+      description: 既に有効な Cookie があれば、新しく作らずにそのプレイヤーを返す。
+      security: []
+      responses:
+        "200":
+          description: 既存のプレイヤー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "201":
+          description: 新しく作ったプレイヤー
+          headers:
+            Set-Cookie:
+              description: "`iubeo_player=<token>; HttpOnly; Secure; SameSite=Lax; Path=/`"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+
+  /api/v1/players/me:
+    get:
+      tags: [players]
+      operationId: getMe
+      summary: 自分の ID と、参加中のセッション
+      responses:
+        "200":
+          description: 自分
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/matchmaking:
+    post:
+      tags: [matchmaking]
+      operationId: joinMatchmaking
+      summary: 自動マッチングの待機列に入る
+      description: 既に待機中なら今の状況を返す。セッションに参加中なら 409。
+      responses:
+        "200":
+          description: 待機状況
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchmakingStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      tags: [matchmaking]
+      operationId: getMatchmaking
+      summary: 自分のマッチング状況(ポーリング用)
+      responses:
+        "200":
+          description: 待機状況
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchmakingStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [matchmaking]
+      operationId: leaveMatchmaking
+      summary: 待機をやめる
+      responses:
+        "204":
+          description: 待機列から外れた
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: 既にマッチングが成立している
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/sessions:
+    post:
+      tags: [sessions]
+      operationId: createSession
+      summary: シングルモードのセッションを作る
+      description: マルチプレイのセッションは自動マッチングでのみ作られる。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: 作ったセッション
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSnapshot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      tags: [sessions]
+      operationId: getSession
+      summary: セッションのスナップショット(参加者のみ)
+      responses:
+        "200":
+          description: スナップショット
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSnapshot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/sessions/{sessionId}/ws:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      tags: [sessions]
+      operationId: connectSession
+      summary: WebSocket に切り替える(参加者のみ)
+      description: |
+        切り替え後、サーバーはまず `snapshot` を送る。以降のメッセージは
+        `ClientMessage` / `ServerMessage` を参照。再接続も同じエンドポイントで行う。
+      responses:
+        "101":
+          description: WebSocket に切り替えた
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    playerCookie:
+      type: apiKey
+      in: cookie
+      name: iubeo_player
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/SessionId"
+
+  responses:
+    Unauthorized:
+      description: Cookie が無い、または無効
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: セッションの参加者ではない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: 見つからない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: 今の状態ではできない(既にセッションに参加中など)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    # ---------- 基本の型 ----------
+    PlayerId:
+      type: string
+      example: p1
+    SessionId:
+      type: string
+      example: sess-abc123
+    Seq:
+      description: セッション内の確定状態の更新順序。単調に増える
+      type: integer
+      format: int64
+      minimum: 0
+    Vec3:
+      description: "[x, y, z]。ワールド座標(Y-up)"
+      type: array
+      items:
+        type: number
+        format: double
+      minItems: 3
+      maxItems: 3
+      example: [1.25, 0, -2.5]
+    JsonValue:
+      description: kind ごとに中身が決まる自由な JSON
+      nullable: true
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+
+    # ---------- 列挙値 ----------
+    SessionMode:
+      type: string
+      enum: [single, multiplayer]
+    SessionStatus:
+      type: string
+      enum: [waiting, playing, intermission, finished]
+    PlayerKind:
+      type: string
+      enum: [human, cpu]
+    ConnectionStatus:
+      type: string
+      enum: [connecting, connected, disconnected]
+    LifeStatus:
+      type: string
+      enum: [alive, eliminated]
+    PhaseStatus:
+      type: string
+      enum: [active, intermission, completed]
+    TaskType:
+      type: string
+      enum: [read_edit, write, web_search, image_generation]
+    TaskStatus:
+      type: string
+      enum: [pending, completed]
+    ItemKind:
+      type: string
+      enum: [file, lighter]
+    FileOrigin:
+      description: stock はディレクトリの在庫(read_edit の取り出し元)。他は新しく作ったもの
+      type: string
+      enum: [stock, write, web_search, image_generation]
+    ObjectKind:
+      description: directory 以外は暫定の名前
+      type: string
+      enum: [directory, workspace, canvas, pc, lighter_stand]
+    ObjectScope:
+      description: personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ)
+      type: string
+      enum: [personal, shared]
+    ObjectAvailability:
+      type: string
+      enum: [available, unavailable]
+    RejectReason:
+      type: string
+      enum: [not_found, not_owner, unavailable, too_far, missing_item]
+    Outcome:
+      type: string
+      enum: [victory, defeat]
+
+    # ---------- HTTP ----------
+    Me:
+      type: object
+      required: [playerId, sessionId]
+      properties:
+        playerId:
+          $ref: "#/components/schemas/PlayerId"
+        sessionId:
+          description: 参加中のセッション。無ければ null
+          type: string
+          nullable: true
+    MatchmakingStatus:
+      type: object
+      required: [status, queuedAt]
+      properties:
+        status:
+          type: string
+          enum: [queued, matched]
+        queuedAt:
+          type: string
+          format: date-time
+        sessionId:
+          description: status が matched のときだけ
+          type: string
+    CreateSessionRequest:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [single]
+
+    # ---------- アイテム・オブジェクト ----------
+    Item:
+      description: 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個
+      type: object
+      required: [id, kind, data]
+      properties:
+        id:
+          type: string
+          example: file-02
+        kind:
+          $ref: "#/components/schemas/ItemKind"
+        data:
+          description: kind が file なら FileItemData、lighter なら null
+          allOf:
+            - $ref: "#/components/schemas/JsonValue"
+    FileItemData:
+      type: object
+      required: [origin, edited]
+      properties:
+        origin:
+          $ref: "#/components/schemas/FileOrigin"
+        color:
+          description: アウトラインの色。在庫のファイル(origin が stock)だけ持つ
+          type: string
+          example: "#ffd60a"
+        edited:
+          type: boolean
+    HeldItemRef:
+      description: インタラクト時の手持ちの主張。識別に足りる分だけ
+      type: object
+      required: [id, kind]
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ItemKind"
+
+    GameObject:
+      description: ワールドに置かれた、機能を持つ物体
+      type: object
+      required: [id, kind, scope, position, users, availability, data]
+      properties:
+        id:
+          type: string
+          example: directory-1
+        kind:
+          $ref: "#/components/schemas/ObjectKind"
+        scope:
+          $ref: "#/components/schemas/ObjectScope"
+        owner:
+          description: scope が personal のときだけ
+          allOf:
+            - $ref: "#/components/schemas/PlayerId"
+        position:
+          $ref: "#/components/schemas/Vec3"
+        users:
+          description: 今触っているプレイヤー。personal は最大 1 人、shared は複数人
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerId"
+        availability:
+          $ref: "#/components/schemas/ObjectAvailability"
+        data:
+          description: kind が directory なら DirectoryData。他は未定(null)
+          allOf:
+            - $ref: "#/components/schemas/JsonValue"
+    StockFile:
+      type: object
+      required: [id, color, edited]
+      properties:
+        id:
+          type: string
+        color:
+          type: string
+        edited:
+          type: boolean
+    DirectoryData:
+      type: object
+      required: [stock, outputs]
+      properties:
+        stock:
+          description: 今ディレクトリの中にある在庫のファイル(誰かが持っている間は含まれない)
+          type: array
+          items:
+            $ref: "#/components/schemas/StockFile"
+        outputs:
+          description: このフェーズで入れられた成果物(新しく作ったファイル)の数
+          type: integer
+          minimum: 0
+
+    # ---------- プレイヤー ----------
+    Transform:
+      type: object
+      required: [position, yaw, pitch, seq]
+      properties:
+        position:
+          description: 足元の位置
+          allOf:
+            - $ref: "#/components/schemas/Vec3"
+        yaw:
+          description: ラジアン。0 で -Z を向く
+          type: number
+          format: double
+        pitch:
+          description: ラジアン。上向きが正
+          type: number
+          format: double
+        seq:
+          description: そのプレイヤーの更新ごとに増やす。増えない更新は捨てる
+          type: integer
+          format: int64
+          minimum: 0
+    PlayerStatus:
+      description: transform を除くプレイヤー情報(player.updated で配る)
+      type: object
+      required: [playerId, kind, seat, connection, life, heldItem]
+      properties:
+        playerId:
+          $ref: "#/components/schemas/PlayerId"
+        kind:
+          $ref: "#/components/schemas/PlayerKind"
+        seat:
+          description: サンドボックスの区画の番号
+          type: integer
+          minimum: 1
+          maximum: 3
+        connection:
+          $ref: "#/components/schemas/ConnectionStatus"
+        life:
+          $ref: "#/components/schemas/LifeStatus"
+        heldItem:
+          allOf:
+            - $ref: "#/components/schemas/Item"
+          type: object
+          nullable: true
+    Player:
+      allOf:
+        - $ref: "#/components/schemas/PlayerStatus"
+        - type: object
+          required: [transform]
+          properties:
+            transform:
+              $ref: "#/components/schemas/Transform"
+
+    # ---------- ゲーム進行 ----------
+    Task:
+      type: object
+      required: [taskId, type, assigneePlayerId, targetFileId, status, completedAt]
+      properties:
+        taskId:
+          type: string
+        type:
+          $ref: "#/components/schemas/TaskType"
+        assigneePlayerId:
+          $ref: "#/components/schemas/PlayerId"
+        targetFileId:
+          description: read_edit のときだけ。対象の在庫ファイルの id
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        completedAt:
+          description: サーバーが完了を受け付けた時刻
+          type: string
+          format: date-time
+          nullable: true
+    Phase:
+      type: object
+      required: [number, status, startedAt, deadlineAt, tasks]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/PhaseStatus"
+        startedAt:
+          type: string
+          format: date-time
+        deadlineAt:
+          description: 残り時間はこれと serverTime から算出する
+          type: string
+          format: date-time
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+    Team:
+      description: チーム共有の勝利条件フラグ
+      type: object
+      required: [bypassPermission, fireStarted]
+      properties:
+        bypassPermission:
+          type: boolean
+        fireStarted:
+          type: boolean
+    Result:
+      type: object
+      required: [outcome, decidedAt]
+      properties:
+        outcome:
+          $ref: "#/components/schemas/Outcome"
+        decidedAt:
+          type: string
+          format: date-time
+    Game:
+      type: object
+      required: [phase, team, result]
+      properties:
+        phase:
+          description: 開始前は null
+          allOf:
+            - $ref: "#/components/schemas/Phase"
+          type: object
+          nullable: true
+        team:
+          $ref: "#/components/schemas/Team"
+        result:
+          description: 決着前は null
+          allOf:
+            - $ref: "#/components/schemas/Result"
+          type: object
+          nullable: true
+
+    SessionSnapshot:
+      type: object
+      required: [schemaVersion, sessionId, mode, status, createdAt, serverTime, seq, players, objects, game]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [2]
+        sessionId:
+          $ref: "#/components/schemas/SessionId"
+        mode:
+          $ref: "#/components/schemas/SessionMode"
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        createdAt:
+          type: string
+          format: date-time
+        serverTime:
+          description: 送信時のサーバー時刻。クライアントは時計のずれの補正に使う
+          type: string
+          format: date-time
+        seq:
+          $ref: "#/components/schemas/Seq"
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+        objects:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameObject"
+        game:
+          $ref: "#/components/schemas/Game"
+
+    # ---------- WebSocket: クライアント → サーバー ----------
+    ClientMessage:
+      oneOf:
+        - $ref: "#/components/schemas/TransformMessage"
+        - $ref: "#/components/schemas/InteractMessage"
+      discriminator:
+        propertyName: type
+        mapping:
+          transform: "#/components/schemas/TransformMessage"
+          interact: "#/components/schemas/InteractMessage"
+    TransformMessage:
+      description: 自分の位置と向き。20Hz で送る(止まっている間は送らなくてよい)
+      type: object
+      required: [type, position, yaw, pitch, seq]
+      properties:
+        type:
+          type: string
+          enum: [transform]
+        position:
+          $ref: "#/components/schemas/Vec3"
+        yaw:
+          type: number
+          format: double
+        pitch:
+          type: number
+          format: double
+        seq:
+          type: integer
+          format: int64
+          minimum: 0
+    InteractMessage:
+      description: オブジェクトへの操作の要求。送信者は接続から決まる
+      type: object
+      required: [type, objectId, heldItem]
+      properties:
+        type:
+          type: string
+          enum: [interact]
+        objectId:
+          type: string
+        heldItem:
+          description: 手持ちの主張(サーバーは実際の手持ちで判定する)。手ぶらなら null
+          allOf:
+            - $ref: "#/components/schemas/HeldItemRef"
+          type: object
+          nullable: true
+        target:
+          description: "対象の中から 1 つ選ぶときの指定(例: 取り出すファイルの id)"
+          type: string
+
+    # ---------- WebSocket: サーバー → クライアント ----------
+    ServerMessage:
+      oneOf:
+        - $ref: "#/components/schemas/SnapshotMessage"
+        - $ref: "#/components/schemas/TransformsMessage"
+        - $ref: "#/components/schemas/SessionStartedMessage"
+        - $ref: "#/components/schemas/SessionFinishedMessage"
+        - $ref: "#/components/schemas/PhaseStartedMessage"
+        - $ref: "#/components/schemas/PhaseEndedMessage"
+        - $ref: "#/components/schemas/TaskCompletedMessage"
+        - $ref: "#/components/schemas/ObjectUpsertMessage"
+        - $ref: "#/components/schemas/ObjectRemoveMessage"
+        - $ref: "#/components/schemas/InteractRejectedMessage"
+        - $ref: "#/components/schemas/PlayerUpdatedMessage"
+        - $ref: "#/components/schemas/TeamUpdatedMessage"
+        - $ref: "#/components/schemas/EffectMessage"
+        - $ref: "#/components/schemas/ErrorMessage"
+      discriminator:
+        propertyName: type
+        mapping:
+          snapshot: "#/components/schemas/SnapshotMessage"
+          transforms: "#/components/schemas/TransformsMessage"
+          session.started: "#/components/schemas/SessionStartedMessage"
+          session.finished: "#/components/schemas/SessionFinishedMessage"
+          phase.started: "#/components/schemas/PhaseStartedMessage"
+          phase.ended: "#/components/schemas/PhaseEndedMessage"
+          task.completed: "#/components/schemas/TaskCompletedMessage"
+          object.upsert: "#/components/schemas/ObjectUpsertMessage"
+          object.remove: "#/components/schemas/ObjectRemoveMessage"
+          object.interactRejected: "#/components/schemas/InteractRejectedMessage"
+          player.updated: "#/components/schemas/PlayerUpdatedMessage"
+          team.updated: "#/components/schemas/TeamUpdatedMessage"
+          effect: "#/components/schemas/EffectMessage"
+          error: "#/components/schemas/ErrorMessage"
+
+    SnapshotMessage:
+      description: 接続・再接続した本人に、最初に送る
+      type: object
+      required: [type, session]
+      properties:
+        type:
+          type: string
+          enum: [snapshot]
+        session:
+          $ref: "#/components/schemas/SessionSnapshot"
+    TransformsMessage:
+      description: 全プレイヤーの最新の位置と向き。20Hz で全員に送る。seq を持たない
+      type: object
+      required: [type, serverTime, players]
+      properties:
+        type:
+          type: string
+          enum: [transforms]
+        serverTime:
+          type: string
+          format: date-time
+        players:
+          type: array
+          items:
+            type: object
+            required: [playerId, transform]
+            properties:
+              playerId:
+                $ref: "#/components/schemas/PlayerId"
+              transform:
+                $ref: "#/components/schemas/Transform"
+    SessionStartedMessage:
+      type: object
+      required: [type, seq, startedAt]
+      properties:
+        type:
+          type: string
+          enum: [session.started]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        startedAt:
+          type: string
+          format: date-time
+    SessionFinishedMessage:
+      type: object
+      required: [type, seq, result]
+      properties:
+        type:
+          type: string
+          enum: [session.finished]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        result:
+          $ref: "#/components/schemas/Result"
+    PhaseStartedMessage:
+      type: object
+      required: [type, seq, serverTime, phase]
+      properties:
+        type:
+          type: string
+          enum: [phase.started]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        serverTime:
+          type: string
+          format: date-time
+        phase:
+          $ref: "#/components/schemas/Phase"
+    PhaseEndedMessage:
+      type: object
+      required: [type, seq, phaseNumber, eliminatedPlayerIds, next]
+      properties:
+        type:
+          type: string
+          enum: [phase.ended]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        phaseNumber:
+          type: integer
+          minimum: 1
+        eliminatedPlayerIds:
+          description: このフェーズの締切で脱落したプレイヤー
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerId"
+        next:
+          description: intermission なら次のフェーズがある。completed なら最後のフェーズだった
+          type: string
+          enum: [intermission, completed]
+    TaskCompletedMessage:
+      type: object
+      required: [type, seq, taskId, completedAt]
+      properties:
+        type:
+          type: string
+          enum: [task.completed]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        taskId:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+    ObjectUpsertMessage:
+      type: object
+      required: [type, seq, object]
+      properties:
+        type:
+          type: string
+          enum: [object.upsert]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        object:
+          $ref: "#/components/schemas/GameObject"
+    ObjectRemoveMessage:
+      type: object
+      required: [type, seq, id]
+      properties:
+        type:
+          type: string
+          enum: [object.remove]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        id:
+          type: string
+    InteractRejectedMessage:
+      description: 要求した本人にだけ送る。画面上は何も起きない。seq を持たない
+      type: object
+      required: [type, objectId, reason]
+      properties:
+        type:
+          type: string
+          enum: [object.interactRejected]
+        objectId:
+          type: string
+        reason:
+          $ref: "#/components/schemas/RejectReason"
+    PlayerUpdatedMessage:
+      description: 接続状態・生死・手持ちの変化
+      type: object
+      required: [type, seq, player]
+      properties:
+        type:
+          type: string
+          enum: [player.updated]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        player:
+          $ref: "#/components/schemas/PlayerStatus"
+    TeamUpdatedMessage:
+      type: object
+      required: [type, seq, team]
+      properties:
+        type:
+          type: string
+          enum: [team.updated]
+        seq:
+          $ref: "#/components/schemas/Seq"
+        team:
+          $ref: "#/components/schemas/Team"
+    EffectMessage:
+      description: 一時的な演出。確定状態ではなく、再接続時に再生しない。seq を持たない
+      type: object
+      required: [type, name]
+      properties:
+        type:
+          type: string
+          enum: [effect]
+        name:
+          type: string
+          enum: [fall, fire, conflict]
+        playerId:
+          $ref: "#/components/schemas/PlayerId"
+        objectId:
+          type: string
+    ErrorMessage:
+      description: 不正なメッセージなど。本人にだけ送る
+      type: object
+      required: [type, code, message]
+      properties:
+        type:
+          type: string
+          enum: [error]
+        code:
+          type: string
+        message:
+          type: string
