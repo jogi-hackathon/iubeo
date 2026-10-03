@@ -2,7 +2,7 @@
 
 - 日付: 2026-10-03
 - ステータス: Accepted
-- 関連: [ADR-0001](ADR-0001-frontend-libraries-selection.md) / [ADR-0003](ADR-0003-backend-state-and-communication.md) / [docs/backend/state-schema.md](../backend/state-schema.md)
+- 関連: [ADR-0001](ADR-0001-frontend-libraries-selection.md) / [ADR-0003](ADR-0003-backend-state-and-communication.md) / [ADR-0004](ADR-0004-backend-session-runtime.md) / [docs/backend/state-schema.md](../backend/state-schema.md)
 
 ## 背景
 
