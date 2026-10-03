@@ -67,6 +67,13 @@
     if [ -f frontend/package.json ]; then pnpm --dir frontend test --if-present; fi
   '';
 
+  # backend/api/openapi.yaml を Swagger UI で見る(http://localhost:8090/docs/)
+  scripts.swagger.exec = ''
+    cd "$DEVENV_ROOT"
+    echo "Swagger UI: http://localhost:8090/docs/"
+    ${pkgs.python3}/bin/python3 -m http.server 8090 --directory backend/api
+  '';
+
   enterShell = ''
     echo "go:   $(go version)"
     echo "node: $(node --version)  pnpm: $(pnpm --version)"
