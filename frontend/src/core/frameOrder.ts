@@ -10,6 +10,8 @@ export const FRAME_PRIORITY = {
   skeleton: 0,
   /** カメラの反映後に、その視線でオブジェクトを狙う */
   interact: 0,
+  /** 描画の直前に、起動時のウォームアップでカリングを切り替える(ShaderWarmup) */
+  warmup: 0,
   /** 描画(ポストプロセス)。正の値なので R3F の自動レンダーの代わりにこちらが描画する */
   render: 1,
 } as const;

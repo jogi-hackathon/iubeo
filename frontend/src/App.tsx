@@ -4,6 +4,7 @@ import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {GameCanvas} from "./core/GameCanvas";
+import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
 import {Interaction, ManagedObjects, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
@@ -22,6 +23,7 @@ export function App() {
   const sceneName =
     sceneState.status === "idle" ? sceneState.current : sceneState.from;
   const Scene = scenes[sceneName];
+  const warmedUp = useShaderWarmupDone();
   return (
     <>
       <GameCanvas>
@@ -34,7 +36,14 @@ export function App() {
         <FirstPersonCamera />
         <FlyCamera />
         <PostProcess />
+        <ShaderWarmup />
       </GameCanvas>
+      {!warmedUp && (
+        <div className="boot-screen boot-overlay">
+          <p>Loading...</p>
+          <p>shaders</p>
+        </div>
+      )}
       <Reticle />
       <OverviewCursor />
       <PostProcessPanel />

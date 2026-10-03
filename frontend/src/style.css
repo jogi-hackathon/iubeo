@@ -33,6 +33,14 @@ body,
   white-space: pre-wrap;
 }
 
+/* Canvas の上に被せる(ShaderWarmup の間)。下のシーンは描画を続ける */
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  background: #111;
+}
+
 .boot-error {
   color: #f88;
 }

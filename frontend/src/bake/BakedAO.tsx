@@ -17,6 +17,7 @@ import {
 } from "../camera/postprocess/settings";
 import {getSkipGTAO, setSkipGTAO} from "../camera/postprocess/skipGTAO";
 import {subscribeColliders} from "../core/bvh";
+import {holdShaderWarmup} from "../core/ShaderWarmup";
 import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
 import {
   atlasUV,
@@ -178,6 +179,8 @@ export function BakedAO({scene}: {scene: string}) {
 
   useEffect(() => {
     let disposed = false;
+    // 最初の貼り付け(または貼らないと決まる)までシェーダーのウォームアップを待たせる。aoMap を貼るとマテリアルが再コンパイルされるため
+    const releaseWarmup = holdShaderWarmup();
     let texture: Texture | null = null;
     let undo: (() => void) | null = null;
     let applied: AOMaterial[] = [];
@@ -280,12 +283,15 @@ export function BakedAO({scene}: {scene: string}) {
         offTargets();
       };
       apply();
-    })().catch((e: unknown) => {
-      console.warn("[bakedAO] 読み込みに失敗しました", e);
-    });
+    })()
+      .catch((e: unknown) => {
+        console.warn("[bakedAO] 読み込みに失敗しました", e);
+      })
+      .finally(releaseWarmup);
 
     return () => {
       disposed = true;
+      releaseWarmup();
       unsubscribe?.();
       unsubscribeSettings();
       undo?.();
