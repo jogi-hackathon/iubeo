@@ -1,0 +1,10 @@
+extends:
+  - recommended
+rules:
+  # WebSocket のメッセージ型(ClientMessage / ServerMessage など)は paths から参照されない
+  no-unused-components: off
+  # JsonValue は任意の JSON(null を含む)なので type を持たない
+  nullable-type-sibling: off
+  info-license: off
+  tag-description: off
+  operation-4xx-response: off
