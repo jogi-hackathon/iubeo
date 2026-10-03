@@ -11,7 +11,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 |---|---|---|
 | フィールド名 | snake_case | **camelCase**(フロントの型に合わせる) |
 | タスク種別 | `read` / `edit` / `web_search` / `write` | **`read_edit`** / `write` / `web_search` / **`image_generation`**(IDEA.md の Tool Call に合わせる) |
-| ファイル | `fileId` と `location` のみ | 内部は `items[]`(`origin`・`edited` を持つ)。配信はフロントの形(ディレクトリの `stock`/`outputs`、手持ち `heldItem`)に組み立てる(→ §3) |
+| ファイル | `fileId` と `location` のみ | 内部は `items[]`(ファイルの状態 `status` を持つ)。配信はフロントの形(ディレクトリの `stock`/`outputs`、手持ち `heldItem`)に組み立てる(→ §3) |
 | ライター | `players[].hasLighter` | **アイテム**(`kind: "lighter"`)。置き場はオブジェクトで、拾うと手持ちになる。ファイルとは同時に持てない |
 | 向き | yaw / pitch / roll + `rotationOrder` | **yaw / pitch のみ**(フロントの `Look` と同じ規約) |
 | オブジェクト | なし | `objects[]`(フロントの `GameObject` と同じ形) |
@@ -40,8 +40,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `TaskType` | `read_edit` / `write` / `web_search` / `image_generation` |
 | `TaskStatus` | `pending` / `completed` |
 | `ItemKind` | `file` / `lighter` |
-| `FileOrigin` | `stock`(ディレクトリの在庫)/ `write` / `web_search` / `image_generation`(新しく作ったもの) |
-| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ directory 以外はフロント未実装。名前は暫定) |
+| `FileStatus` | `unedited` / `edited`(ディレクトリの在庫から取り出したもの)/ `file_created` / `search_created` / `image_created`(新しく作ったもの。編集はしない) |
+| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ directory・workspace 以外はフロント未実装。名前は暫定) |
 | `ObjectScope` | `personal` / `shared` |
 | `ObjectAvailability` | `available` / `unavailable` |
 | `RejectReason` | `not_found` / `not_owner` / `unavailable` / `too_far` / `missing_item` |
@@ -58,11 +58,11 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 ```json
 {
   "items": [
-    { "itemId": "file-02", "kind": "file",    "file": { "origin": "stock", "color": "#ffd60a", "edited": true },
+    { "itemId": "file-02", "kind": "file",    "file": { "status": "edited", "color": "#ffd60a" },
       "location": { "kind": "held_by", "playerId": "p1" } },
-    { "itemId": "file-01", "kind": "file",    "file": { "origin": "stock", "color": "#e63946", "edited": false },
+    { "itemId": "file-01", "kind": "file",    "file": { "status": "unedited", "color": "#e63946" },
       "location": { "kind": "directory", "objectId": "directory-1" } },
-    { "itemId": "file-n1", "kind": "file",    "file": { "origin": "write", "edited": false },
+    { "itemId": "6f1c0d2e-…", "kind": "file", "file": { "status": "file_created" },
       "location": { "kind": "directory", "objectId": "directory-1" } },
     { "itemId": "lighter-1", "kind": "lighter",
       "location": { "kind": "object", "objectId": "lighter_stand-p2" } }
@@ -74,16 +74,15 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 - `directory`: ディレクトリの中(`objectId`)
 - `held_by`: プレイヤーが手に持っている(`playerId`)。1人1個まで
-- `workspace`: ワークスペースに置かれている(`objectId`)。※ワークスペースの操作フローは未確定
 - `object`: その他のオブジェクト上の置き場(ライターの置き場など)
 
 ### 3.2 配る形(投影ルール)
 
 | 配る形 | 内部状態からの組み立て |
 |---|---|
-| ディレクトリの `data.stock` | `kind=file`・`origin=stock`・`location=directory(そのディレクトリ)` のファイル → `{id, color, edited}` |
-| ディレクトリの `data.outputs` | `kind=file`・`origin≠stock`・`location=directory(そのディレクトリ)` のファイルの数 |
-| `players[].heldItem` | `location=held_by(その人)` のアイテム → `Item{id, kind, data}`。ファイルの `data` は `{origin, color?, edited}`、ライターは `null` |
+| ディレクトリの `data.stock` | `kind=file`・`status` が `unedited` / `edited`・`location=directory(そのディレクトリ)` のファイル → `{id, color, status}` |
+| ディレクトリの `data.outputs` | `kind=file`・`status` が作成系・`location=directory(そのディレクトリ)` のファイルの数 |
+| `players[].heldItem` | `location=held_by(その人)` のアイテム → `Item{id, kind, data}`。ファイルの `data` は `{status, color?}`、ライターは `null` |
 
 これにより、死亡・切断時の返却やフェーズのリセットは内部の `location` を書き換えるだけで済み、フロントは現在の `GameObject`・`Item` の型をそのまま使える。
 
@@ -104,7 +103,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
     {
       "playerId": "p1", "kind": "human", "seat": 1,
       "connection": "connected", "life": "alive",
-      "heldItem": { "id": "file-02", "kind": "file", "data": { "origin": "stock", "color": "#ffd60a", "edited": true } },
+      "heldItem": { "id": "file-02", "kind": "file", "data": { "status": "edited", "color": "#ffd60a" } },
       "transform": { "position": [1.25, 0.0, -2.5], "yaw": 1.57, "pitch": -0.35, "seq": 128 }
     },
     {
@@ -126,8 +125,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
       "position": [0, 0, 0], "users": [], "availability": "available",
       "data": {
         "stock": [
-          { "id": "file-01", "color": "#e63946", "edited": false },
-          { "id": "file-03", "color": "#2a9d5c", "edited": false }
+          { "id": "file-01", "color": "#e63946", "status": "unedited" },
+          { "id": "file-03", "color": "#2a9d5c", "status": "unedited" }
         ],
         "outputs": 1
       }
@@ -168,12 +167,13 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 | `type` | 完了条件 |
 |---|---|
-| `read_edit` | 担当者が、`targetFileId` の在庫ファイルを **編集済み(`edited=true`)で** ディレクトリに入れた |
-| `write` / `web_search` / `image_generation` | 担当者が、同じ `origin` の新しいファイルをディレクトリに入れた |
+| `read_edit` | 担当者が、`targetFileId` の在庫ファイルを **編集済み(`status=edited`)で** ディレクトリに入れた |
+| `write` / `web_search` / `image_generation` | 担当者が、対応する作成系の新しいファイル(`file_created` / `search_created` / `image_created`)をディレクトリに入れた |
 
 - 完了時刻はクライアントの送信時刻ではなく、**サーバーが受け付けた時刻**(`serverAcceptedAt`)とする。
 - `serverAcceptedAt < deadlineAt` なら締切内、`>=` なら締切後。締切処理と完了処理はセッションごとに単一の順序で処理する。
-- ファイルが「編集済み」になる操作(ワークスペース)、新しいファイルが作られる操作(ワークスペース/PC/キャンバス)の具体的な要求の形は未確定(§9)。
+- 同じファイルの達成は1回だけ数える(取り出して入れ直しても増えない)。
+- 検索(PC)・画像生成(キャンバス)で新しいファイルが作られる操作の要求の形は未確定(§9)。
 
 ### 5.2 フェーズ進行
 
@@ -194,7 +194,17 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 手持ちでのインタラクトでは、要求の `heldItem` は識別用の主張にすぎず、サーバーは自分が持つ実際の手持ちで判定する。
 
-### 5.4 切断・死亡
+### 5.4 ワークスペース(編集・新規作成)
+
+ワークスペースは各プレイヤーの区画にある personal のオブジェクト。アクションは共通で 2 秒(`WORKSPACE_ACTION_MS`)かかり、結果はその後に反映する。
+
+- `unedited` のファイルを持って `interact` → 2 秒後に、手持ちのファイルが `edited` になる
+- 手ぶらで `interact` → 2 秒後に、新しいファイル(`file_created`)を手に持つ。id はサーバーが UUID で採番する
+- `edited`・作成系・ファイル以外を持っていると `missing_item`、作業中は `unavailable` で拒否する
+- 作業中はそのプレイヤーを `users` に入れ、終わったら外す(フロントは `users` から外れたら移動とカメラのロックを解く)
+- 作業中にワークスペースが消えたら、結果は適用しない
+
+### 5.5 切断・死亡
 
 - 手持ちのファイルはディレクトリに戻し、ライターは元の置き場に戻す。
 - 切断中も `life` は維持する(締切で未達なら脱落する)。再接続すれば同じプレイヤーとして復帰する。
@@ -265,7 +275,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 ## 9. 未確定の項目
 
 - `Bypass Permission` を有効にする正確な条件(チーム共有であることは決定済み)と、`fireStarted`(ライターで火をつける)の条件・効果
-- ワークスペース・PC・キャンバスの操作の要求の形(編集・作成・検索・画像生成)
+- PC・キャンバスの操作の要求の形(検索・画像生成)
 - フェーズ間の `intermission` の長さ、フェーズ数、勝利条件
 - 生存者へのタスク再分配のルール(均等配分、端数の扱い、種別の制約)
 - シングルモードでの CPU の参加・行動ルール

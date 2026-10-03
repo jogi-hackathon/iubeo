@@ -306,10 +306,16 @@ components:
     ItemKind:
       type: string
       enum: [file, lighter]
-    FileOrigin:
-      description: stock はディレクトリの在庫(read_edit の取り出し元)。他は新しく作ったもの
+    FileStatus:
+      description: |
+        ファイルの状態。unedited / edited はディレクトリの在庫から取り出したもの。
+        file_created / search_created / image_created は新しく作ったもの(編集はしない)
       type: string
-      enum: [stock, write, web_search, image_generation]
+      enum: [unedited, edited, file_created, search_created, image_created]
+    StockFileStatus:
+      description: 在庫のファイルの状態(編集前か編集済みか)
+      type: string
+      enum: [unedited, edited]
     ObjectKind:
       description: directory 以外は暫定の名前
       type: string
@@ -377,16 +383,14 @@ components:
             - $ref: "#/components/schemas/JsonValue"
     FileItemData:
       type: object
-      required: [origin, edited]
+      required: [status]
       properties:
-        origin:
-          $ref: "#/components/schemas/FileOrigin"
+        status:
+          $ref: "#/components/schemas/FileStatus"
         color:
-          description: アウトラインの色。在庫のファイル(origin が stock)だけ持つ
+          description: アウトラインの色。在庫から取り出したファイルだけ持つ
           type: string
           example: "#ffd60a"
-        edited:
-          type: boolean
     HeldItemRef:
       description: インタラクト時の手持ちの主張。識別に足りる分だけ
       type: object
@@ -428,14 +432,14 @@ components:
             - $ref: "#/components/schemas/JsonValue"
     StockFile:
       type: object
-      required: [id, color, edited]
+      required: [id, color, status]
       properties:
         id:
           type: string
         color:
           type: string
-        edited:
-          type: boolean
+        status:
+          $ref: "#/components/schemas/StockFileStatus"
     DirectoryData:
       type: object
       required: [stock, outputs]
