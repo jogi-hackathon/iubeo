@@ -2,46 +2,14 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
 
-	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 	"github.com/jogi-hackathon/iubeo/backend/internal/config"
+	"github.com/jogi-hackathon/iubeo/backend/internal/player"
+	"github.com/jogi-hackathon/iubeo/backend/internal/server"
 )
-
-// server は api.ServerInterface の実装。各エンドポイントは実装するまで 501 を返す
-type server struct{}
-
-var _ api.ServerInterface = server{}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func notImplemented(w http.ResponseWriter) {
-	writeJSON(w, http.StatusNotImplemented, api.Error{Code: "not_implemented", Message: "not implemented"})
-}
-
-func (server) GetHealth(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-func (server) CreatePlayer(w http.ResponseWriter, _ *http.Request)     { notImplemented(w) }
-func (server) GetMe(w http.ResponseWriter, _ *http.Request)            { notImplemented(w) }
-func (server) JoinMatchmaking(w http.ResponseWriter, _ *http.Request)  { notImplemented(w) }
-func (server) GetMatchmaking(w http.ResponseWriter, _ *http.Request)   { notImplemented(w) }
-func (server) LeaveMatchmaking(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-func (server) CreateSession(w http.ResponseWriter, _ *http.Request)    { notImplemented(w) }
-func (server) GetSession(w http.ResponseWriter, _ *http.Request, _ api.SessionId) {
-	notImplemented(w)
-}
-func (server) ConnectSession(w http.ResponseWriter, _ *http.Request, _ api.SessionId) {
-	notImplemented(w)
-}
 
 func main() {
 	cfg, err := config.Load(os.Getenv)
@@ -49,8 +17,9 @@ func main() {
 		slog.Error("invalid config", "err", err)
 		os.Exit(1)
 	}
+	srv := server.New(player.NewSigner(cfg.SigningKey))
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins)
-	if err := http.ListenAndServe(cfg.Addr, api.Handler(server{})); err != nil {
+	if err := http.ListenAndServe(cfg.Addr, srv.Handler()); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
