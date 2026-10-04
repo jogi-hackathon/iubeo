@@ -33,7 +33,7 @@
     https://github.com/Redocly/redocly-cli
 
 WebSocket のメッセージ型も、OpenAPI の `components/schemas` に `ClientMessage` / `ServerMessage` としてまとめて定義する。メッセージ自体は JSON で送る。
-WebSocket のライブラリは実装時に決める(候補: coder/websocket)。
+WebSocket のライブラリは coder/websocket を使う(context に対応し API が小さく、`net/http` のハンドラーからそのまま使え、Origin の検証も組み込み。gorilla/websocket は API がやや古く、書き込みの並行制御を自分で行う必要があるため見送った)。
 
 理由:
 
