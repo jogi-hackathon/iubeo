@@ -31,10 +31,13 @@ type ClientTransform struct {
 	Msg      api.TransformMessage
 }
 
-// ClientInteract はプレイヤーから届いた interact
+// ClientInteract はプレイヤーから届いた interact。Now と NewID はセッションの goroutine が受け取ったときに入れる
 type ClientInteract struct {
 	PlayerID string
 	Msg      api.InteractMessage
+	Now      time.Time
+	// NewID は新しいファイルを作るときに使う id(Step を純粋に保つため、採番は外で行う)
+	NewID string
 }
 
 // Tick は時間の経過(transforms の配信と、開始・破棄の期限の確認)。最大 20Hz
@@ -162,7 +165,8 @@ func (st *State) connect(in Connect) []Output {
 	return out
 }
 
-// disconnect: 今の接続が切れたときだけ disconnected にする(置き換えられた古い接続は無視する)
+// disconnect: 今の接続が切れたときだけ disconnected にする(置き換えられた古い接続は無視する)。
+// 作業を取りやめ、手持ちのファイルはディレクトリに戻す
 func (st *State) disconnect(in Disconnect) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil || p.ConnID != in.ConnID {
@@ -170,7 +174,8 @@ func (st *State) disconnect(in Disconnect) []Output {
 	}
 	p.ConnID = 0
 	p.Connection = api.Disconnected
-	out := []Output{Broadcast{Msg: st.playerUpdated(p)}}
+	out := st.releasePlayer(p)
+	out = append(out, Broadcast{Msg: st.playerUpdated(p)})
 	if st.humans(func(p PlayerState) bool { return p.Connection != api.Connected }) {
 		st.AllDisconnectedAt = in.Now
 	}
@@ -199,15 +204,7 @@ func (st *State) transform(in ClientTransform) []Output {
 	return nil
 }
 
-// interact: オブジェクトの操作は次の段で実装する
-func (st *State) interact(in ClientInteract) []Output {
-	if st.player(in.PlayerID) == nil {
-		return nil
-	}
-	return []Output{Send{To: in.PlayerID, Msg: errorMessage("not_implemented", "interact is not implemented yet")}}
-}
-
-// tick: 開始と破棄の期限を確かめ、前回から動いたプレイヤーの transforms を配る
+// tick: 開始と破棄の期限を確かめ、期限が来たワークスペースのアクションを終え、前回から動いたプレイヤーの transforms を配る
 func (st *State) tick(in Tick) []Output {
 	if st.Status == api.SessionStatusWaiting && !in.Now.Before(st.CreatedAt.Add(st.StartTimeout)) {
 		st.Ended = true
@@ -217,6 +214,8 @@ func (st *State) tick(in Tick) []Output {
 		st.Ended = true
 		return []Output{End{Reason: ReasonAbandoned}}
 	}
+
+	out := st.finishWorkspaceActions(in.Now)
 
 	msg := api.TransformsMessage{Type: api.Transforms, ServerTime: in.Now}
 	for i := range st.Players {
@@ -230,8 +229,8 @@ func (st *State) tick(in Tick) []Output {
 			Transform api.Transform `json:"transform"`
 		}{PlayerId: p.ID, Transform: cloneTransform(p.Transform)})
 	}
-	if len(msg.Players) == 0 {
-		return nil
+	if len(msg.Players) > 0 {
+		out = append(out, Broadcast{Msg: msg})
 	}
-	return []Output{Broadcast{Msg: msg}}
+	return out
 }

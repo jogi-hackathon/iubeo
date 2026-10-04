@@ -13,6 +13,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
@@ -153,6 +155,10 @@ func (s *Session) run(st State, cfg Config, now func() time.Time, onEnd func()) 
 			case snapshotReq:
 				v.reply <- rt.state.Snapshot(now())
 				continue
+			case ClientInteract:
+				v.Now = now()
+				v.NewID = uuid.NewString()
+				in = v
 			case Input:
 				in = v
 			}

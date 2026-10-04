@@ -220,10 +220,18 @@ func TestWebSocketSession(t *testing.T) {
 		t.Errorf("transforms = %+v", tr)
 	}
 
-	// interact はまだ実装していない
-	write(t, ws1, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1"})
-	if m := readType[api.ErrorMessage](t, ws1, "error"); m.Code != "not_implemented" {
-		t.Errorf("interact: error = %+v", m)
+	// ディレクトリからファイルを取ると、全員に object.upsert と player.updated が届く。後から同じファイルを取ろうとした人は拒否される
+	file := snap1.Objects[0].Data.(map[string]any)["stock"].([]any)[0].(map[string]any)["id"].(string)
+	write(t, ws1, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", Target: &file})
+	for _, ws := range []*websocket.Conn{ws1, ws2} {
+		readType[api.ObjectUpsertMessage](t, ws, "object.upsert")
+		if m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated"); m.Player.PlayerId != p1.id || m.Player.HeldItem == nil || m.Player.HeldItem.Id != file {
+			t.Errorf("player.updated after take = %+v", m)
+		}
+	}
+	write(t, ws2, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", Target: &file})
+	if m := readType[api.InteractRejectedMessage](t, ws2, "object.interactRejected"); m.Reason != api.RejectReasonNotFound {
+		t.Errorf("second take: %+v, want not_found", m)
 	}
 	// 不正なメッセージには error を返す
 	write(t, ws1, map[string]string{"type": "dance"})
@@ -279,5 +287,34 @@ func TestSessionDissolves(t *testing.T) {
 	}
 	if res := do(t, h, http.MethodGet, "/api/v1/matchmaking", players[1].cookie); res.StatusCode != http.StatusNotFound {
 		t.Errorf("GET matchmaking after dissolve: status = %d, want 404", res.StatusCode)
+	}
+}
+
+func TestWorkspaceOverWebSocket(t *testing.T) {
+	h := newTestServerSize(t, 1)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+	readType[api.SessionStartedMessage](t, ws, "session.started")
+
+	start := time.Now()
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1"})
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); len(m.Object.Users) != 1 {
+		t.Fatalf("accept: users = %v", m.Object.Users)
+	}
+	m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+	if elapsed := time.Since(start); elapsed < session.WorkspaceActionDuration {
+		t.Errorf("result after %s, want at least %s", elapsed, session.WorkspaceActionDuration)
+	}
+	held := m.Player.HeldItem
+	if held == nil || held.Kind != api.File || len(held.Id) != 36 {
+		t.Fatalf("held = %+v, want a new file with a UUID", held)
+	}
+	if status := held.Data.(map[string]any)["status"]; status != string(api.FileStatusFileCreated) {
+		t.Errorf("status = %v", status)
+	}
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); len(m.Object.Users) != 0 {
+		t.Errorf("finish: users = %v", m.Object.Users)
 	}
 }
