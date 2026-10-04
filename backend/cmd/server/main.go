@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
+	"github.com/jogi-hackathon/iubeo/backend/internal/config"
 )
 
 // server は api.ServerInterface の実装。各エンドポイントは実装するまで 501 を返す
@@ -43,12 +44,13 @@ func (server) ConnectSession(w http.ResponseWriter, _ *http.Request, _ api.Sessi
 }
 
 func main() {
-	addr := os.Getenv("IUBEO_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		slog.Error("invalid config", "err", err)
+		os.Exit(1)
 	}
-	slog.Info("listening", "addr", addr)
-	if err := http.ListenAndServe(addr, api.Handler(server{})); err != nil {
+	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins)
+	if err := http.ListenAndServe(cfg.Addr, api.Handler(server{})); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
