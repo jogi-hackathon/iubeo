@@ -8,7 +8,7 @@ import (
 func TestManagerAndStore(t *testing.T) {
 	store := NewMemoryStore()
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	m := NewManager(store, func() time.Time { return now })
+	m := NewManager(store, func() time.Time { return now }, DefaultConfig)
 
 	s := m.CreateMultiplayer([]string{"p1", "p2"})
 	if s.ID == "" || !s.CreatedAt.Equal(now) || !s.HasPlayer("p1") || s.HasPlayer("p3") {

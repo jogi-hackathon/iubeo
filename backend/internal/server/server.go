@@ -16,13 +16,15 @@ type Server struct {
 	signer     *player.Signer
 	sessions   *session.Manager
 	matchmaker *matchmaking.Matchmaker
+	// allowedOrigins は WebSocket の接続を許すオリジン(完全一致)
+	allowedOrigins []string
 }
 
 var _ api.ServerInterface = (*Server)(nil)
 
 // New は Server を作る
-func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker) *Server {
-	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker}
+func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker, allowedOrigins []string) *Server {
+	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker, allowedOrigins: allowedOrigins}
 }
 
 // Handler は Server の HTTP ハンドラーを返す
@@ -57,10 +59,5 @@ func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// CreateSession(シングルモード)は未実装
 func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-func (s *Server) GetSession(w http.ResponseWriter, _ *http.Request, _ api.SessionId) {
-	notImplemented(w)
-}
-func (s *Server) ConnectSession(w http.ResponseWriter, _ *http.Request, _ api.SessionId) {
-	notImplemented(w)
-}
