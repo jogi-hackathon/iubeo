@@ -265,8 +265,7 @@ components:
       maxItems: 3
       example: [1.25, 0, -2.5]
     JsonValue:
-      description: kind ごとに中身が決まる自由な JSON
-      nullable: true
+      description: kind ごとに中身が決まる自由な JSON(null を含む何でも)
 
     Error:
       type: object

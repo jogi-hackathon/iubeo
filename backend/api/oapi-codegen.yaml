@@ -4,3 +4,6 @@ output: api.gen.go
 generate:
   models: true
   std-http-server: true
+output-options:
+  # WebSocket のメッセージ型(ClientMessage / ServerMessage など)は paths から参照されないが、生成する
+  skip-prune: true

@@ -6,6 +6,8 @@
 package api
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -43,6 +45,114 @@ const (
 func (e CreateSessionRequestMode) Valid() bool {
 	switch e {
 	case CreateSessionRequestModeSingle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectMessageName.
+const (
+	EffectMessageNameConflict EffectMessageName = "conflict"
+	EffectMessageNameFall     EffectMessageName = "fall"
+	EffectMessageNameFire     EffectMessageName = "fire"
+)
+
+// Valid indicates whether the value is a known member of the EffectMessageName enum.
+func (e EffectMessageName) Valid() bool {
+	switch e {
+	case EffectMessageNameConflict:
+		return true
+	case EffectMessageNameFall:
+		return true
+	case EffectMessageNameFire:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EffectMessageType.
+const (
+	Effect EffectMessageType = "effect"
+)
+
+// Valid indicates whether the value is a known member of the EffectMessageType enum.
+func (e EffectMessageType) Valid() bool {
+	switch e {
+	case Effect:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ErrorMessageType.
+const (
+	ErrorMessageTypeError ErrorMessageType = "error"
+)
+
+// Valid indicates whether the value is a known member of the ErrorMessageType enum.
+func (e ErrorMessageType) Valid() bool {
+	switch e {
+	case ErrorMessageTypeError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileStatus.
+const (
+	FileStatusEdited        FileStatus = "edited"
+	FileStatusFileCreated   FileStatus = "file_created"
+	FileStatusImageCreated  FileStatus = "image_created"
+	FileStatusSearchCreated FileStatus = "search_created"
+	FileStatusUnedited      FileStatus = "unedited"
+)
+
+// Valid indicates whether the value is a known member of the FileStatus enum.
+func (e FileStatus) Valid() bool {
+	switch e {
+	case FileStatusEdited:
+		return true
+	case FileStatusFileCreated:
+		return true
+	case FileStatusImageCreated:
+		return true
+	case FileStatusSearchCreated:
+		return true
+	case FileStatusUnedited:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InteractMessageType.
+const (
+	Interact InteractMessageType = "interact"
+)
+
+// Valid indicates whether the value is a known member of the InteractMessageType enum.
+func (e InteractMessageType) Valid() bool {
+	switch e {
+	case Interact:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InteractRejectedMessageType.
+const (
+	ObjectInteractRejected InteractRejectedMessageType = "object.interactRejected"
+)
+
+// Valid indicates whether the value is a known member of the InteractRejectedMessageType enum.
+func (e InteractRejectedMessageType) Valid() bool {
+	switch e {
+	case ObjectInteractRejected:
 		return true
 	default:
 		return false
@@ -105,16 +215,16 @@ func (e MatchmakingStatusStatus) Valid() bool {
 
 // Defines values for ObjectAvailability.
 const (
-	Available   ObjectAvailability = "available"
-	Unavailable ObjectAvailability = "unavailable"
+	ObjectAvailabilityAvailable   ObjectAvailability = "available"
+	ObjectAvailabilityUnavailable ObjectAvailability = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the ObjectAvailability enum.
 func (e ObjectAvailability) Valid() bool {
 	switch e {
-	case Available:
+	case ObjectAvailabilityAvailable:
 		return true
-	case Unavailable:
+	case ObjectAvailabilityUnavailable:
 		return true
 	default:
 		return false
@@ -148,6 +258,21 @@ func (e ObjectKind) Valid() bool {
 	}
 }
 
+// Defines values for ObjectRemoveMessageType.
+const (
+	ObjectRemove ObjectRemoveMessageType = "object.remove"
+)
+
+// Valid indicates whether the value is a known member of the ObjectRemoveMessageType enum.
+func (e ObjectRemoveMessageType) Valid() bool {
+	switch e {
+	case ObjectRemove:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ObjectScope.
 const (
 	Personal ObjectScope = "personal"
@@ -166,6 +291,21 @@ func (e ObjectScope) Valid() bool {
 	}
 }
 
+// Defines values for ObjectUpsertMessageType.
+const (
+	ObjectUpsert ObjectUpsertMessageType = "object.upsert"
+)
+
+// Valid indicates whether the value is a known member of the ObjectUpsertMessageType enum.
+func (e ObjectUpsertMessageType) Valid() bool {
+	switch e {
+	case ObjectUpsert:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Outcome.
 const (
 	Defeat  Outcome = "defeat"
@@ -178,6 +318,54 @@ func (e Outcome) Valid() bool {
 	case Defeat:
 		return true
 	case Victory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PhaseEndedMessageNext.
+const (
+	PhaseEndedMessageNextCompleted    PhaseEndedMessageNext = "completed"
+	PhaseEndedMessageNextIntermission PhaseEndedMessageNext = "intermission"
+)
+
+// Valid indicates whether the value is a known member of the PhaseEndedMessageNext enum.
+func (e PhaseEndedMessageNext) Valid() bool {
+	switch e {
+	case PhaseEndedMessageNextCompleted:
+		return true
+	case PhaseEndedMessageNextIntermission:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PhaseEndedMessageType.
+const (
+	PhaseEnded PhaseEndedMessageType = "phase.ended"
+)
+
+// Valid indicates whether the value is a known member of the PhaseEndedMessageType enum.
+func (e PhaseEndedMessageType) Valid() bool {
+	switch e {
+	case PhaseEnded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PhaseStartedMessageType.
+const (
+	PhaseStarted PhaseStartedMessageType = "phase.started"
+)
+
+// Valid indicates whether the value is a known member of the PhaseStartedMessageType enum.
+func (e PhaseStartedMessageType) Valid() bool {
+	switch e {
+	case PhaseStarted:
 		return true
 	default:
 		return false
@@ -223,6 +411,63 @@ func (e PlayerKind) Valid() bool {
 	}
 }
 
+// Defines values for PlayerUpdatedMessageType.
+const (
+	PlayerUpdated PlayerUpdatedMessageType = "player.updated"
+)
+
+// Valid indicates whether the value is a known member of the PlayerUpdatedMessageType enum.
+func (e PlayerUpdatedMessageType) Valid() bool {
+	switch e {
+	case PlayerUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RejectReason.
+const (
+	RejectReasonMissingItem RejectReason = "missing_item"
+	RejectReasonNotFound    RejectReason = "not_found"
+	RejectReasonNotOwner    RejectReason = "not_owner"
+	RejectReasonTooFar      RejectReason = "too_far"
+	RejectReasonUnavailable RejectReason = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the RejectReason enum.
+func (e RejectReason) Valid() bool {
+	switch e {
+	case RejectReasonMissingItem:
+		return true
+	case RejectReasonNotFound:
+		return true
+	case RejectReasonNotOwner:
+		return true
+	case RejectReasonTooFar:
+		return true
+	case RejectReasonUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionFinishedMessageType.
+const (
+	SessionFinished SessionFinishedMessageType = "session.finished"
+)
+
+// Valid indicates whether the value is a known member of the SessionFinishedMessageType enum.
+func (e SessionFinishedMessageType) Valid() bool {
+	switch e {
+	case SessionFinished:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionMode.
 const (
 	SessionModeMultiplayer SessionMode = "multiplayer"
@@ -256,6 +501,21 @@ func (e SessionSnapshotSchemaVersion) Valid() bool {
 	}
 }
 
+// Defines values for SessionStartedMessageType.
+const (
+	SessionStarted SessionStartedMessageType = "session.started"
+)
+
+// Valid indicates whether the value is a known member of the SessionStartedMessageType enum.
+func (e SessionStartedMessageType) Valid() bool {
+	switch e {
+	case SessionStarted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStatus.
 const (
 	SessionStatusFinished     SessionStatus = "finished"
@@ -274,6 +534,54 @@ func (e SessionStatus) Valid() bool {
 	case SessionStatusPlaying:
 		return true
 	case SessionStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SnapshotMessageType.
+const (
+	Snapshot SnapshotMessageType = "snapshot"
+)
+
+// Valid indicates whether the value is a known member of the SnapshotMessageType enum.
+func (e SnapshotMessageType) Valid() bool {
+	switch e {
+	case Snapshot:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StockFileStatus.
+const (
+	StockFileStatusEdited   StockFileStatus = "edited"
+	StockFileStatusUnedited StockFileStatus = "unedited"
+)
+
+// Valid indicates whether the value is a known member of the StockFileStatus enum.
+func (e StockFileStatus) Valid() bool {
+	switch e {
+	case StockFileStatusEdited:
+		return true
+	case StockFileStatusUnedited:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskCompletedMessageType.
+const (
+	TaskCompleted TaskCompletedMessageType = "task.completed"
+)
+
+// Valid indicates whether the value is a known member of the TaskCompletedMessageType enum.
+func (e TaskCompletedMessageType) Valid() bool {
+	switch e {
+	case TaskCompleted:
 		return true
 	default:
 		return false
@@ -322,6 +630,51 @@ func (e TaskType) Valid() bool {
 	}
 }
 
+// Defines values for TeamUpdatedMessageType.
+const (
+	TeamUpdated TeamUpdatedMessageType = "team.updated"
+)
+
+// Valid indicates whether the value is a known member of the TeamUpdatedMessageType enum.
+func (e TeamUpdatedMessageType) Valid() bool {
+	switch e {
+	case TeamUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TransformMessageType.
+const (
+	TransformMessageTypeTransform TransformMessageType = "transform"
+)
+
+// Valid indicates whether the value is a known member of the TransformMessageType enum.
+func (e TransformMessageType) Valid() bool {
+	switch e {
+	case TransformMessageTypeTransform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TransformsMessageType.
+const (
+	Transforms TransformsMessageType = "transforms"
+)
+
+// Valid indicates whether the value is a known member of the TransformsMessageType enum.
+func (e TransformsMessageType) Valid() bool {
+	switch e {
+	case Transforms:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetHealth200JSONResponseBodyStatus.
 const (
 	Ok GetHealth200JSONResponseBodyStatus = "ok"
@@ -337,6 +690,11 @@ func (e GetHealth200JSONResponseBodyStatus) Valid() bool {
 	}
 }
 
+// ClientMessage defines model for ClientMessage.
+type ClientMessage struct {
+	union json.RawMessage
+}
+
 // ConnectionStatus defines model for ConnectionStatus.
 type ConnectionStatus string
 
@@ -348,12 +706,63 @@ type CreateSessionRequest struct {
 // CreateSessionRequestMode defines model for CreateSessionRequest.Mode.
 type CreateSessionRequestMode string
 
+// DirectoryData defines model for DirectoryData.
+type DirectoryData struct {
+	// Outputs このフェーズで入れられた成果物(新しく作ったファイル)の数
+	Outputs int `json:"outputs"`
+
+	// Stock 今ディレクトリの中にある在庫のファイル(誰かが持っている間は含まれない)
+	Stock []StockFile `json:"stock"`
+}
+
+// EffectMessage 一時的な演出。確定状態ではなく、再接続時に再生しない。seq を持たない
+type EffectMessage struct {
+	Name     EffectMessageName `json:"name"`
+	ObjectId *string           `json:"objectId,omitempty"`
+
+	// PlayerId Example: p1
+	PlayerId *PlayerId         `json:"playerId,omitempty"`
+	Type     EffectMessageType `json:"type"`
+}
+
+// EffectMessageName defines model for EffectMessage.Name.
+type EffectMessageName string
+
+// EffectMessageType defines model for EffectMessage.Type.
+type EffectMessageType string
+
 // Error defines model for Error.
 type Error struct {
 	// Code Example: not_found
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// ErrorMessage 不正なメッセージなど。本人にだけ送る
+type ErrorMessage struct {
+	Code    string           `json:"code"`
+	Message string           `json:"message"`
+	Type    ErrorMessageType `json:"type"`
+}
+
+// ErrorMessageType defines model for ErrorMessage.Type.
+type ErrorMessageType string
+
+// FileItemData defines model for FileItemData.
+type FileItemData struct {
+	// Color アウトラインの色。在庫から取り出したファイルだけ持つ
+	//
+	// Example: #ffd60a
+	Color *string `json:"color,omitempty"`
+
+	// Status ファイルの状態。unedited / edited はディレクトリの在庫から取り出したもの。
+	// file_created / search_created / image_created は新しく作ったもの(編集はしない)
+	Status FileStatus `json:"status"`
+}
+
+// FileStatus ファイルの状態。unedited / edited はディレクトリの在庫から取り出したもの。
+// file_created / search_created / image_created は新しく作ったもの(編集はしない)
+type FileStatus string
 
 // Game defines model for Game.
 type Game struct {
@@ -372,7 +781,7 @@ type GameObject struct {
 	Availability ObjectAvailability `json:"availability"`
 
 	// Data kind が directory なら DirectoryData。他は未定(null)
-	Data *JsonValue `json:"data"`
+	Data JsonValue `json:"data"`
 
 	// Id Example: directory-1
 	Id string `json:"id"`
@@ -395,10 +804,40 @@ type GameObject struct {
 	Users []PlayerId `json:"users"`
 }
 
+// HeldItemRef インタラクト時の手持ちの主張。識別に足りる分だけ
+type HeldItemRef struct {
+	Id   string   `json:"id"`
+	Kind ItemKind `json:"kind"`
+}
+
+// InteractMessage オブジェクトへの操作の要求。送信者は接続から決まる
+type InteractMessage struct {
+	// HeldItem 手持ちの主張(サーバーは実際の手持ちで判定する)。手ぶらなら null
+	HeldItem *HeldItemRef `json:"heldItem"`
+	ObjectId string       `json:"objectId"`
+
+	// Target 対象の中から 1 つ選ぶときの指定(例: 取り出すファイルの id)
+	Target *string             `json:"target,omitempty"`
+	Type   InteractMessageType `json:"type"`
+}
+
+// InteractMessageType defines model for InteractMessage.Type.
+type InteractMessageType string
+
+// InteractRejectedMessage 要求した本人にだけ送る。画面上は何も起きない。seq を持たない
+type InteractRejectedMessage struct {
+	ObjectId string                      `json:"objectId"`
+	Reason   RejectReason                `json:"reason"`
+	Type     InteractRejectedMessageType `json:"type"`
+}
+
+// InteractRejectedMessageType defines model for InteractRejectedMessage.Type.
+type InteractRejectedMessageType string
+
 // Item 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個
 type Item struct {
 	// Data kind が file なら FileItemData、lighter なら null
-	Data *JsonValue `json:"data"`
+	Data JsonValue `json:"data"`
 
 	// Id Example: file-02
 	Id   string   `json:"id"`
@@ -408,7 +847,7 @@ type Item struct {
 // ItemKind defines model for ItemKind.
 type ItemKind string
 
-// JsonValue kind ごとに中身が決まる自由な JSON
+// JsonValue kind ごとに中身が決まる自由な JSON(null を含む何でも)
 type JsonValue = interface{}
 
 // LifeStatus defines model for LifeStatus.
@@ -441,8 +880,33 @@ type ObjectAvailability string
 // ObjectKind directory 以外は暫定の名前
 type ObjectKind string
 
+// ObjectRemoveMessage defines model for ObjectRemoveMessage.
+type ObjectRemoveMessage struct {
+	Id string `json:"id"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq  Seq                     `json:"seq"`
+	Type ObjectRemoveMessageType `json:"type"`
+}
+
+// ObjectRemoveMessageType defines model for ObjectRemoveMessage.Type.
+type ObjectRemoveMessageType string
+
 // ObjectScope personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ)
 type ObjectScope string
+
+// ObjectUpsertMessage defines model for ObjectUpsertMessage.
+type ObjectUpsertMessage struct {
+	// Object ワールドに置かれた、機能を持つ物体
+	Object GameObject `json:"object"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq  Seq                     `json:"seq"`
+	Type ObjectUpsertMessageType `json:"type"`
+}
+
+// ObjectUpsertMessageType defines model for ObjectUpsertMessage.Type.
+type ObjectUpsertMessageType string
 
 // Outcome defines model for Outcome.
 type Outcome string
@@ -456,6 +920,39 @@ type Phase struct {
 	Status     PhaseStatus `json:"status"`
 	Tasks      []Task      `json:"tasks"`
 }
+
+// PhaseEndedMessage defines model for PhaseEndedMessage.
+type PhaseEndedMessage struct {
+	// EliminatedPlayerIds このフェーズの締切で脱落したプレイヤー
+	EliminatedPlayerIds []PlayerId `json:"eliminatedPlayerIds"`
+
+	// Next intermission なら次のフェーズがある。completed なら最後のフェーズだった
+	Next        PhaseEndedMessageNext `json:"next"`
+	PhaseNumber int                   `json:"phaseNumber"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq  Seq                   `json:"seq"`
+	Type PhaseEndedMessageType `json:"type"`
+}
+
+// PhaseEndedMessageNext intermission なら次のフェーズがある。completed なら最後のフェーズだった
+type PhaseEndedMessageNext string
+
+// PhaseEndedMessageType defines model for PhaseEndedMessage.Type.
+type PhaseEndedMessageType string
+
+// PhaseStartedMessage defines model for PhaseStartedMessage.
+type PhaseStartedMessage struct {
+	Phase Phase `json:"phase"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq        Seq                     `json:"seq"`
+	ServerTime time.Time               `json:"serverTime"`
+	Type       PhaseStartedMessageType `json:"type"`
+}
+
+// PhaseStartedMessageType defines model for PhaseStartedMessage.Type.
+type PhaseStartedMessageType string
 
 // PhaseStatus defines model for PhaseStatus.
 type PhaseStatus string
@@ -495,6 +992,22 @@ type PlayerStatus struct {
 	Seat int `json:"seat"`
 }
 
+// PlayerUpdatedMessage 接続状態・生死・手持ちの変化
+type PlayerUpdatedMessage struct {
+	// Player transform を除くプレイヤー情報(player.updated で配る)
+	Player PlayerStatus `json:"player"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq  Seq                      `json:"seq"`
+	Type PlayerUpdatedMessageType `json:"type"`
+}
+
+// PlayerUpdatedMessageType defines model for PlayerUpdatedMessage.Type.
+type PlayerUpdatedMessageType string
+
+// RejectReason defines model for RejectReason.
+type RejectReason string
+
 // Result defines model for Result.
 type Result struct {
 	DecidedAt time.Time `json:"decidedAt"`
@@ -503,6 +1016,23 @@ type Result struct {
 
 // Seq セッション内の確定状態の更新順序。単調に増える
 type Seq = int64
+
+// ServerMessage defines model for ServerMessage.
+type ServerMessage struct {
+	union json.RawMessage
+}
+
+// SessionFinishedMessage defines model for SessionFinishedMessage.
+type SessionFinishedMessage struct {
+	Result Result `json:"result"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq  Seq                        `json:"seq"`
+	Type SessionFinishedMessageType `json:"type"`
+}
+
+// SessionFinishedMessageType defines model for SessionFinishedMessage.Type.
+type SessionFinishedMessageType string
 
 // SessionId Example: sess-abc123
 type SessionId = string
@@ -533,8 +1063,40 @@ type SessionSnapshot struct {
 // SessionSnapshotSchemaVersion defines model for SessionSnapshot.SchemaVersion.
 type SessionSnapshotSchemaVersion int
 
+// SessionStartedMessage defines model for SessionStartedMessage.
+type SessionStartedMessage struct {
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq       Seq                       `json:"seq"`
+	StartedAt time.Time                 `json:"startedAt"`
+	Type      SessionStartedMessageType `json:"type"`
+}
+
+// SessionStartedMessageType defines model for SessionStartedMessage.Type.
+type SessionStartedMessageType string
+
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
+
+// SnapshotMessage 接続・再接続した本人に、最初に送る
+type SnapshotMessage struct {
+	Session SessionSnapshot     `json:"session"`
+	Type    SnapshotMessageType `json:"type"`
+}
+
+// SnapshotMessageType defines model for SnapshotMessage.Type.
+type SnapshotMessageType string
+
+// StockFile defines model for StockFile.
+type StockFile struct {
+	Color string `json:"color"`
+	Id    string `json:"id"`
+
+	// Status 在庫のファイルの状態(編集前か編集済みか)
+	Status StockFileStatus `json:"status"`
+}
+
+// StockFileStatus 在庫のファイルの状態(編集前か編集済みか)
+type StockFileStatus string
 
 // Task defines model for Task.
 type Task struct {
@@ -551,6 +1113,19 @@ type Task struct {
 	Type         TaskType `json:"type"`
 }
 
+// TaskCompletedMessage defines model for TaskCompletedMessage.
+type TaskCompletedMessage struct {
+	CompletedAt time.Time `json:"completedAt"`
+
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq    Seq                      `json:"seq"`
+	TaskId string                   `json:"taskId"`
+	Type   TaskCompletedMessageType `json:"type"`
+}
+
+// TaskCompletedMessageType defines model for TaskCompletedMessage.Type.
+type TaskCompletedMessageType string
+
 // TaskStatus defines model for TaskStatus.
 type TaskStatus string
 
@@ -562,6 +1137,19 @@ type Team struct {
 	BypassPermission bool `json:"bypassPermission"`
 	FireStarted      bool `json:"fireStarted"`
 }
+
+// TeamUpdatedMessage defines model for TeamUpdatedMessage.
+type TeamUpdatedMessage struct {
+	// Seq セッション内の確定状態の更新順序。単調に増える
+	Seq Seq `json:"seq"`
+
+	// Team チーム共有の勝利条件フラグ
+	Team Team                   `json:"team"`
+	Type TeamUpdatedMessageType `json:"type"`
+}
+
+// TeamUpdatedMessageType defines model for TeamUpdatedMessage.Type.
+type TeamUpdatedMessageType string
 
 // Transform defines model for Transform.
 type Transform struct {
@@ -577,6 +1165,36 @@ type Transform struct {
 	// Yaw ラジアン。0 で -Z を向く
 	Yaw float64 `json:"yaw"`
 }
+
+// TransformMessage 自分の位置と向き。20Hz で送る(止まっている間は送らなくてよい)
+type TransformMessage struct {
+	Pitch float64 `json:"pitch"`
+
+	// Position [x, y, z]。ワールド座標(Y-up)
+	//
+	// Example: [1.25,0,-2.5]
+	Position Vec3                 `json:"position"`
+	Seq      int64                `json:"seq"`
+	Type     TransformMessageType `json:"type"`
+	Yaw      float64              `json:"yaw"`
+}
+
+// TransformMessageType defines model for TransformMessage.Type.
+type TransformMessageType string
+
+// TransformsMessage 前回の配信から動いたプレイヤーの位置と向き。最大 20Hz で全員に送り、誰も動いていなければ送らない。seq を持たない
+type TransformsMessage struct {
+	Players []struct {
+		// PlayerId Example: p1
+		PlayerId  PlayerId  `json:"playerId"`
+		Transform Transform `json:"transform"`
+	} `json:"players"`
+	ServerTime time.Time             `json:"serverTime"`
+	Type       TransformsMessageType `json:"type"`
+}
+
+// TransformsMessageType defines model for TransformsMessage.Type.
+type TransformsMessageType string
 
 // Vec3 [x, y, z]。ワールド座標(Y-up)
 //
@@ -600,6 +1218,640 @@ type GetHealth200JSONResponseBodyStatus string
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
 type CreateSessionJSONRequestBody = CreateSessionRequest
+
+// AsTransformMessage returns the union data inside the ClientMessage as a TransformMessage
+func (t ClientMessage) AsTransformMessage() (TransformMessage, error) {
+	var body TransformMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTransformMessage overwrites any union data inside the ClientMessage as the provided TransformMessage
+func (t *ClientMessage) FromTransformMessage(v TransformMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transform"}`))
+	t.union = b
+	return err
+}
+
+// MergeTransformMessage performs a merge with any union data inside the ClientMessage, using the provided TransformMessage
+func (t *ClientMessage) MergeTransformMessage(v TransformMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transform"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInteractMessage returns the union data inside the ClientMessage as a InteractMessage
+func (t ClientMessage) AsInteractMessage() (InteractMessage, error) {
+	var body InteractMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInteractMessage overwrites any union data inside the ClientMessage as the provided InteractMessage
+func (t *ClientMessage) FromInteractMessage(v InteractMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"interact"}`))
+	t.union = b
+	return err
+}
+
+// MergeInteractMessage performs a merge with any union data inside the ClientMessage, using the provided InteractMessage
+func (t *ClientMessage) MergeInteractMessage(v InteractMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"interact"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ClientMessage) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ClientMessage) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "interact":
+		return t.AsInteractMessage()
+	case "transform":
+		return t.AsTransformMessage()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ClientMessage) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ClientMessage) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsSnapshotMessage returns the union data inside the ServerMessage as a SnapshotMessage
+func (t ServerMessage) AsSnapshotMessage() (SnapshotMessage, error) {
+	var body SnapshotMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSnapshotMessage overwrites any union data inside the ServerMessage as the provided SnapshotMessage
+func (t *ServerMessage) FromSnapshotMessage(v SnapshotMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"snapshot"}`))
+	t.union = b
+	return err
+}
+
+// MergeSnapshotMessage performs a merge with any union data inside the ServerMessage, using the provided SnapshotMessage
+func (t *ServerMessage) MergeSnapshotMessage(v SnapshotMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"snapshot"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTransformsMessage returns the union data inside the ServerMessage as a TransformsMessage
+func (t ServerMessage) AsTransformsMessage() (TransformsMessage, error) {
+	var body TransformsMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTransformsMessage overwrites any union data inside the ServerMessage as the provided TransformsMessage
+func (t *ServerMessage) FromTransformsMessage(v TransformsMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transforms"}`))
+	t.union = b
+	return err
+}
+
+// MergeTransformsMessage performs a merge with any union data inside the ServerMessage, using the provided TransformsMessage
+func (t *ServerMessage) MergeTransformsMessage(v TransformsMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transforms"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionStartedMessage returns the union data inside the ServerMessage as a SessionStartedMessage
+func (t ServerMessage) AsSessionStartedMessage() (SessionStartedMessage, error) {
+	var body SessionStartedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionStartedMessage overwrites any union data inside the ServerMessage as the provided SessionStartedMessage
+func (t *ServerMessage) FromSessionStartedMessage(v SessionStartedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session.started"}`))
+	t.union = b
+	return err
+}
+
+// MergeSessionStartedMessage performs a merge with any union data inside the ServerMessage, using the provided SessionStartedMessage
+func (t *ServerMessage) MergeSessionStartedMessage(v SessionStartedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session.started"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionFinishedMessage returns the union data inside the ServerMessage as a SessionFinishedMessage
+func (t ServerMessage) AsSessionFinishedMessage() (SessionFinishedMessage, error) {
+	var body SessionFinishedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionFinishedMessage overwrites any union data inside the ServerMessage as the provided SessionFinishedMessage
+func (t *ServerMessage) FromSessionFinishedMessage(v SessionFinishedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session.finished"}`))
+	t.union = b
+	return err
+}
+
+// MergeSessionFinishedMessage performs a merge with any union data inside the ServerMessage, using the provided SessionFinishedMessage
+func (t *ServerMessage) MergeSessionFinishedMessage(v SessionFinishedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session.finished"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPhaseStartedMessage returns the union data inside the ServerMessage as a PhaseStartedMessage
+func (t ServerMessage) AsPhaseStartedMessage() (PhaseStartedMessage, error) {
+	var body PhaseStartedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPhaseStartedMessage overwrites any union data inside the ServerMessage as the provided PhaseStartedMessage
+func (t *ServerMessage) FromPhaseStartedMessage(v PhaseStartedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"phase.started"}`))
+	t.union = b
+	return err
+}
+
+// MergePhaseStartedMessage performs a merge with any union data inside the ServerMessage, using the provided PhaseStartedMessage
+func (t *ServerMessage) MergePhaseStartedMessage(v PhaseStartedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"phase.started"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPhaseEndedMessage returns the union data inside the ServerMessage as a PhaseEndedMessage
+func (t ServerMessage) AsPhaseEndedMessage() (PhaseEndedMessage, error) {
+	var body PhaseEndedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPhaseEndedMessage overwrites any union data inside the ServerMessage as the provided PhaseEndedMessage
+func (t *ServerMessage) FromPhaseEndedMessage(v PhaseEndedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"phase.ended"}`))
+	t.union = b
+	return err
+}
+
+// MergePhaseEndedMessage performs a merge with any union data inside the ServerMessage, using the provided PhaseEndedMessage
+func (t *ServerMessage) MergePhaseEndedMessage(v PhaseEndedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"phase.ended"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskCompletedMessage returns the union data inside the ServerMessage as a TaskCompletedMessage
+func (t ServerMessage) AsTaskCompletedMessage() (TaskCompletedMessage, error) {
+	var body TaskCompletedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskCompletedMessage overwrites any union data inside the ServerMessage as the provided TaskCompletedMessage
+func (t *ServerMessage) FromTaskCompletedMessage(v TaskCompletedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.completed"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskCompletedMessage performs a merge with any union data inside the ServerMessage, using the provided TaskCompletedMessage
+func (t *ServerMessage) MergeTaskCompletedMessage(v TaskCompletedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.completed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsObjectUpsertMessage returns the union data inside the ServerMessage as a ObjectUpsertMessage
+func (t ServerMessage) AsObjectUpsertMessage() (ObjectUpsertMessage, error) {
+	var body ObjectUpsertMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromObjectUpsertMessage overwrites any union data inside the ServerMessage as the provided ObjectUpsertMessage
+func (t *ServerMessage) FromObjectUpsertMessage(v ObjectUpsertMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.upsert"}`))
+	t.union = b
+	return err
+}
+
+// MergeObjectUpsertMessage performs a merge with any union data inside the ServerMessage, using the provided ObjectUpsertMessage
+func (t *ServerMessage) MergeObjectUpsertMessage(v ObjectUpsertMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.upsert"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsObjectRemoveMessage returns the union data inside the ServerMessage as a ObjectRemoveMessage
+func (t ServerMessage) AsObjectRemoveMessage() (ObjectRemoveMessage, error) {
+	var body ObjectRemoveMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromObjectRemoveMessage overwrites any union data inside the ServerMessage as the provided ObjectRemoveMessage
+func (t *ServerMessage) FromObjectRemoveMessage(v ObjectRemoveMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.remove"}`))
+	t.union = b
+	return err
+}
+
+// MergeObjectRemoveMessage performs a merge with any union data inside the ServerMessage, using the provided ObjectRemoveMessage
+func (t *ServerMessage) MergeObjectRemoveMessage(v ObjectRemoveMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.remove"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInteractRejectedMessage returns the union data inside the ServerMessage as a InteractRejectedMessage
+func (t ServerMessage) AsInteractRejectedMessage() (InteractRejectedMessage, error) {
+	var body InteractRejectedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInteractRejectedMessage overwrites any union data inside the ServerMessage as the provided InteractRejectedMessage
+func (t *ServerMessage) FromInteractRejectedMessage(v InteractRejectedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.interactRejected"}`))
+	t.union = b
+	return err
+}
+
+// MergeInteractRejectedMessage performs a merge with any union data inside the ServerMessage, using the provided InteractRejectedMessage
+func (t *ServerMessage) MergeInteractRejectedMessage(v InteractRejectedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"object.interactRejected"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPlayerUpdatedMessage returns the union data inside the ServerMessage as a PlayerUpdatedMessage
+func (t ServerMessage) AsPlayerUpdatedMessage() (PlayerUpdatedMessage, error) {
+	var body PlayerUpdatedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPlayerUpdatedMessage overwrites any union data inside the ServerMessage as the provided PlayerUpdatedMessage
+func (t *ServerMessage) FromPlayerUpdatedMessage(v PlayerUpdatedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"player.updated"}`))
+	t.union = b
+	return err
+}
+
+// MergePlayerUpdatedMessage performs a merge with any union data inside the ServerMessage, using the provided PlayerUpdatedMessage
+func (t *ServerMessage) MergePlayerUpdatedMessage(v PlayerUpdatedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"player.updated"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTeamUpdatedMessage returns the union data inside the ServerMessage as a TeamUpdatedMessage
+func (t ServerMessage) AsTeamUpdatedMessage() (TeamUpdatedMessage, error) {
+	var body TeamUpdatedMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTeamUpdatedMessage overwrites any union data inside the ServerMessage as the provided TeamUpdatedMessage
+func (t *ServerMessage) FromTeamUpdatedMessage(v TeamUpdatedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"team.updated"}`))
+	t.union = b
+	return err
+}
+
+// MergeTeamUpdatedMessage performs a merge with any union data inside the ServerMessage, using the provided TeamUpdatedMessage
+func (t *ServerMessage) MergeTeamUpdatedMessage(v TeamUpdatedMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"team.updated"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEffectMessage returns the union data inside the ServerMessage as a EffectMessage
+func (t ServerMessage) AsEffectMessage() (EffectMessage, error) {
+	var body EffectMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEffectMessage overwrites any union data inside the ServerMessage as the provided EffectMessage
+func (t *ServerMessage) FromEffectMessage(v EffectMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"effect"}`))
+	t.union = b
+	return err
+}
+
+// MergeEffectMessage performs a merge with any union data inside the ServerMessage, using the provided EffectMessage
+func (t *ServerMessage) MergeEffectMessage(v EffectMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"effect"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsErrorMessage returns the union data inside the ServerMessage as a ErrorMessage
+func (t ServerMessage) AsErrorMessage() (ErrorMessage, error) {
+	var body ErrorMessage
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromErrorMessage overwrites any union data inside the ServerMessage as the provided ErrorMessage
+func (t *ServerMessage) FromErrorMessage(v ErrorMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"error"}`))
+	t.union = b
+	return err
+}
+
+// MergeErrorMessage performs a merge with any union data inside the ServerMessage, using the provided ErrorMessage
+func (t *ServerMessage) MergeErrorMessage(v ErrorMessage) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"error"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ServerMessage) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ServerMessage) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "effect":
+		return t.AsEffectMessage()
+	case "error":
+		return t.AsErrorMessage()
+	case "object.interactRejected":
+		return t.AsInteractRejectedMessage()
+	case "object.remove":
+		return t.AsObjectRemoveMessage()
+	case "object.upsert":
+		return t.AsObjectUpsertMessage()
+	case "phase.ended":
+		return t.AsPhaseEndedMessage()
+	case "phase.started":
+		return t.AsPhaseStartedMessage()
+	case "player.updated":
+		return t.AsPlayerUpdatedMessage()
+	case "session.finished":
+		return t.AsSessionFinishedMessage()
+	case "session.started":
+		return t.AsSessionStartedMessage()
+	case "snapshot":
+		return t.AsSnapshotMessage()
+	case "task.completed":
+		return t.AsTaskCompletedMessage()
+	case "team.updated":
+		return t.AsTeamUpdatedMessage()
+	case "transforms":
+		return t.AsTransformsMessage()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ServerMessage) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ServerMessage) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
