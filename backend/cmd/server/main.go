@@ -5,10 +5,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/config"
+	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/server"
+	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 )
 
 func main() {
@@ -17,7 +20,12 @@ func main() {
 		slog.Error("invalid config", "err", err)
 		os.Exit(1)
 	}
-	srv := server.New(player.NewSigner(cfg.SigningKey))
+	sessions := session.NewManager(session.NewMemoryStore(), time.Now)
+	srv := server.New(
+		player.NewSigner(cfg.SigningKey),
+		sessions,
+		matchmaking.New(cfg.MatchSize, sessions, time.Now),
+	)
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins)
 	if err := http.ListenAndServe(cfg.Addr, srv.Handler()); err != nil {
 		slog.Error("server stopped", "err", err)

@@ -5,16 +5,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
+	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
+	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 )
 
 var testKey = []byte("0123456789abcdef0123456789abcdef")
 
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
-	return New(player.NewSigner(testKey)).Handler()
+	return newTestServerSize(t, 3)
+}
+
+func newTestServerSize(t *testing.T, size int) http.Handler {
+	t.Helper()
+	sessions := session.NewManager(session.NewMemoryStore(), time.Now)
+	return New(player.NewSigner(testKey), sessions, matchmaking.New(size, sessions, time.Now)).Handler()
 }
 
 func do(t *testing.T, h http.Handler, method, path string, cookies ...*http.Cookie) *http.Response {

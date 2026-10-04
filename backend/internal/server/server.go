@@ -6,19 +6,23 @@ import (
 	"net/http"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
+	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
+	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 )
 
 // Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
 type Server struct {
-	signer *player.Signer
+	signer     *player.Signer
+	sessions   *session.Manager
+	matchmaker *matchmaking.Matchmaker
 }
 
 var _ api.ServerInterface = (*Server)(nil)
 
 // New は Server を作る
-func New(signer *player.Signer) *Server {
-	return &Server{signer: signer}
+func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker) *Server {
+	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker}
 }
 
 // Handler は Server の HTTP ハンドラーを返す
@@ -53,10 +57,7 @@ func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-func (s *Server) JoinMatchmaking(w http.ResponseWriter, _ *http.Request)  { notImplemented(w) }
-func (s *Server) GetMatchmaking(w http.ResponseWriter, _ *http.Request)   { notImplemented(w) }
-func (s *Server) LeaveMatchmaking(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request)    { notImplemented(w) }
+func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
 func (s *Server) GetSession(w http.ResponseWriter, _ *http.Request, _ api.SessionId) {
 	notImplemented(w)
 }
