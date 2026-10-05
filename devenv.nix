@@ -10,6 +10,16 @@
   # https://devenv.sh/basics/
   dotenv.enable = true;
 
+  # バックエンドの設定(backend/internal/config)。開発用の値。.env で上書きできる
+  env = {
+    IUBEO_ADDR = ":8080";
+    # 開発専用の署名鍵。本番では必ず別の秘密の値(32 バイト以上)を渡す
+    IUBEO_SIGNING_KEY = "iubeo-dev-only-signing-key-do-not-use-in-prod";
+    # カンマ区切り。Vite の dev サーバー
+    IUBEO_ALLOWED_ORIGINS = "http://localhost:5173";
+    IUBEO_MATCH_SIZE = "3";
+  };
+
   # https://devenv.sh/packages/
   packages = [
     pkgs.git
@@ -38,11 +48,10 @@
   languages.typescript.enable = true;
 
   # https://devenv.sh/processes/
-  # backend の雛形ができたら有効化する
-  # processes.backend = {
-  #   cwd = "backend";
-  #   exec = "air";
-  # };
+  processes.backend = {
+    cwd = "backend";
+    exec = "air";
+  };
   processes.frontend = {
     cwd = "frontend";
     exec = "pnpm dev";

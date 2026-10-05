@@ -8,3 +8,9 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Env
+.env
+
+# air(backend のホットリロード)のビルド出力
+backend/tmp
