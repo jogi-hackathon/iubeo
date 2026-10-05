@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
+package: api
+output: api.gen.go
+generate:
+  models: true
+  std-http-server: true
+output-options:
+  # WebSocket のメッセージ型(ClientMessage / ServerMessage など)は paths から参照されないが、生成する
+  skip-prune: true
