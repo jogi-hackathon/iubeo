@@ -40,6 +40,20 @@ resource "aws_iam_role_policy" "control" {
         Resource = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}"
       },
       {
+        # 起動待ちで状態を見るために要る。DescribeInstances は
+        # リソース単位の制限が効かないので "*" にする
+        Effect   = "Allow"
+        Action   = "ec2:DescribeInstances"
+        Resource = "*"
+      },
+      {
+        # ヘルスチェックは Lambda から 8080 に届かない(SG が Cloudflare の
+        # IP しか許していない)ので、SSM でインスタンスの中から curl する
+        Effect   = "Allow"
+        Action   = ["ssm:SendCommand", "ssm:GetCommandInvocation"]
+        Resource = "*"
+      },
+      {
         # 自動停止の 1 回スケジュールを作り直せるようにする
         Effect   = "Allow"
         Action   = ["scheduler:CreateSchedule", "scheduler:DeleteSchedule", "scheduler:GetSchedule"]

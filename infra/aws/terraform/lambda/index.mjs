@@ -23,6 +23,7 @@ import {createPublicKey, verify} from "node:crypto";
 import {DescribeInstancesCommand, EC2Client, StartInstancesCommand, StopInstancesCommand} from "@aws-sdk/client-ec2";
 import {InvokeCommand, LambdaClient} from "@aws-sdk/client-lambda";
 import {CreateScheduleCommand, DeleteScheduleCommand, SchedulerClient} from "@aws-sdk/client-scheduler";
+import {GetCommandInvocationCommand, SendCommandCommand, SSMClient} from "@aws-sdk/client-ssm";
 
 const {
   INSTANCE_ID,
@@ -104,6 +105,7 @@ const verifyDiscordSignature = (headers, body) => {
 const ec2 = new EC2Client({region: AWS_REGION});
 const sched = new SchedulerClient({region: AWS_REGION});
 const lambdaClient = new LambdaClient({region: AWS_REGION});
+const ssm = new SSMClient({region: AWS_REGION});
 
 /** Discord のチャンネルに投稿する。Webhook 未設定なら何もしない */
 const notifyDiscord = async (content) => {
@@ -174,6 +176,8 @@ const setBackendTarget = async (target) => {
 
 /** 「N 時間後に自分を stop で呼ぶ」を 1 回だけ登録する */
 const scheduleAutoStop = async (hours) => {
+  // 同じ名前が残っていると ConflictException になるので、先に消してから作る
+  await cancelAutoStop();
   const at = new Date(Date.now() + Number(hours) * 3600 * 1000);
   await sched.send(
     new CreateScheduleCommand({
@@ -215,23 +219,42 @@ const waitUntilRunning = async (timeoutMs) => {
   return false;
 };
 
-/** Go サーバーが応答するまで待つ */
+/**
+ * Go サーバーが応答するまで待つ。
+ *
+ * Lambda から 8080 には到達できない(セキュリティグループが Cloudflare の IP しか
+ * 許していない)。SG を開けずに済むよう、SSM でインスタンスの中から curl する。
+ */
 const waitUntilHealthy = async (timeoutMs) => {
-  if (!EC2_ORIGIN) {
-    return false;
-  }
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${EC2_ORIGIN}/healthz`, {signal: AbortSignal.timeout(5000)});
-      await res.body?.cancel();
-      if (res.ok) {
-        return true;
+      const {Command} = await ssm.send(
+        new SendCommandCommand({
+          InstanceIds: [INSTANCE_ID],
+          DocumentName: "AWS-RunShellScript",
+          Parameters: {commands: ["curl -sf -m 3 http://localhost:8080/healthz"]},
+        }),
+      );
+      for (let i = 0; i < 8; i++) {
+        await sleep(1500);
+        const inv = await ssm.send(
+          new GetCommandInvocationCommand({
+            CommandId: Command.CommandId,
+            InstanceId: INSTANCE_ID,
+          }),
+        );
+        if (inv.Status === "Success") {
+          return true;
+        }
+        if (["Failed", "TimedOut", "Cancelled"].includes(inv.Status)) {
+          break;
+        }
       }
-    } catch {
-      // まだ起きていない
+    } catch (e) {
+      console.error("ssm health check error", e);
     }
-    await sleep(5000);
+    await sleep(3000);
   }
   return false;
 };
