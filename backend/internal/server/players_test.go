@@ -15,6 +15,8 @@ import (
 
 var testKey = []byte("0123456789abcdef0123456789abcdef")
 
+const testOrigin = "http://localhost:5173"
+
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
 	return newTestServerSize(t, 3)
@@ -22,8 +24,13 @@ func newTestServer(t *testing.T) http.Handler {
 
 func newTestServerSize(t *testing.T, size int) http.Handler {
 	t.Helper()
-	sessions := session.NewManager(session.NewMemoryStore(), time.Now)
-	return New(player.NewSigner(testKey), sessions, matchmaking.New(size, sessions, time.Now)).Handler()
+	return newTestServerWith(t, size, session.DefaultConfig)
+}
+
+func newTestServerWith(t *testing.T, size int, cfg session.Config) http.Handler {
+	t.Helper()
+	sessions := session.NewManager(session.NewMemoryStore(), time.Now, cfg)
+	return New(player.NewSigner(testKey), sessions, matchmaking.New(size, sessions, time.Now), []string{testOrigin}).Handler()
 }
 
 func do(t *testing.T, h http.Handler, method, path string, cookies ...*http.Cookie) *http.Response {

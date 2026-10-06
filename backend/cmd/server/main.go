@@ -20,11 +20,12 @@ func main() {
 		slog.Error("invalid config", "err", err)
 		os.Exit(1)
 	}
-	sessions := session.NewManager(session.NewMemoryStore(), time.Now)
+	sessions := session.NewManager(session.NewMemoryStore(), time.Now, session.DefaultConfig)
 	srv := server.New(
 		player.NewSigner(cfg.SigningKey),
 		sessions,
 		matchmaking.New(cfg.MatchSize, sessions, time.Now),
+		cfg.AllowedOrigins,
 	)
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins)
 	if err := http.ListenAndServe(cfg.Addr, srv.Handler()); err != nil {
