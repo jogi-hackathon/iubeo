@@ -86,3 +86,22 @@ variable "discord_webhook_url" {
   type        = string
   default     = ""
 }
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with Workers KV Storage: Edit. Used to switch /api and /ws routing on start and stop. Leave empty for manual switching."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID that owns the KV namespace."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_kv_namespace_id" {
+  description = "KV namespace ID holding the \"target\" key that selects the backend."
+  type        = string
+  default     = ""
+}

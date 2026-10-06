@@ -97,7 +97,7 @@ resource "aws_lambda_function" "control" {
   handler          = "index.handler"
   runtime          = "nodejs22.x"
   architectures    = ["arm64"]
-  timeout          = 30
+  timeout          = 350
   memory_size      = 256
   filename         = data.archive_file.control.output_path
   source_code_hash = data.archive_file.control.output_base64sha256
@@ -109,9 +109,13 @@ resource "aws_lambda_function" "control" {
       SCHEDULE_NAME     = "${local.name}-autostop"
       SCHEDULE_ROLE_ARN = aws_iam_role.scheduler.arn
       # 自分の ARN は自分の中で参照できない(自己参照)ので組み立てる
-      LAMBDA_ARN          = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
-      DISCORD_PUBLIC_KEY  = var.discord_public_key
-      DISCORD_WEBHOOK_URL = var.discord_webhook_url
+      LAMBDA_ARN                 = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
+      DISCORD_PUBLIC_KEY         = var.discord_public_key
+      DISCORD_WEBHOOK_URL        = var.discord_webhook_url
+      CLOUDFLARE_API_TOKEN       = var.cloudflare_api_token
+      CLOUDFLARE_ACCOUNT_ID      = var.cloudflare_account_id
+      CLOUDFLARE_KV_NAMESPACE_ID = var.cloudflare_kv_namespace_id
+      EC2_ORIGIN                 = "http://${aws_eip.backend.public_ip}:8080"
     }
   }
 
@@ -131,6 +135,21 @@ resource "aws_lambda_permission" "function_url" {
   function_name          = aws_lambda_function.control.function_name
   principal              = "*"
   function_url_auth_type = "NONE"
+}
+
+# Discord の 3 秒制限を避けるため、自分を非同期で呼んで実処理を任せる
+resource "aws_iam_role_policy" "control_self_invoke" {
+  name = "${local.name}-control-self-invoke"
+  role = aws_iam_role.control.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "lambda:InvokeFunction"
+      Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
+    }]
+  })
 }
 
 # EC2 の状態変化で Lambda を呼ぶ。
