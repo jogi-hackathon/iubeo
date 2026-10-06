@@ -21,6 +21,8 @@ type State struct {
 	Objects []ObjectState
 	Items   []ItemState
 	Team    api.Team
+	// Actions は作業中のワークスペースのアクション
+	Actions []WorkspaceAction
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -154,6 +156,7 @@ func (st State) clone() State {
 		c.Objects[i].Users = slices.Clone(st.Objects[i].Users)
 	}
 	c.Items = slices.Clone(st.Items)
+	c.Actions = slices.Clone(st.Actions)
 	return c
 }
 

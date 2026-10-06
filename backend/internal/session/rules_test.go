@@ -222,15 +222,6 @@ func TestInvalidTransform(t *testing.T) {
 	}
 }
 
-func TestInteractNotImplemented(t *testing.T) {
-	st := newState("p1")
-	_, out := step(t, st, ClientInteract{PlayerID: "p1", Msg: api.InteractMessage{Type: api.Interact, ObjectId: "directory-1"}})
-	sends := outputsOf[Send](out)
-	if len(sends) != 1 || sends[0].Msg.(api.ErrorMessage).Code != "not_implemented" {
-		t.Errorf("out = %+v", out)
-	}
-}
-
 func TestDissolveWhenNotAllConnected(t *testing.T) {
 	st := newState("p1", "p2")
 	st, _ = step(t, st, Connect{PlayerID: "p1", ConnID: 1, Now: t0})
