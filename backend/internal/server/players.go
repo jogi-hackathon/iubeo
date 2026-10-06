@@ -9,8 +9,11 @@ import (
 
 // me は playerId のプレイヤーの Me を組み立てる
 func (s *Server) me(playerID string) api.Me {
-	// 参加中のセッションは、セッションを実装するまで常に無し
-	return api.Me{PlayerId: playerID, SessionId: nil}
+	me := api.Me{PlayerId: playerID}
+	if id, ok := s.sessions.SessionOf(playerID); ok {
+		me.SessionId = &id
+	}
+	return me
 }
 
 // CreatePlayer は匿名プレイヤーを作り Cookie を発行する。有効な Cookie があればそのプレイヤーを返す
