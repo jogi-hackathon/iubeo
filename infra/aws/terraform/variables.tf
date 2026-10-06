@@ -68,3 +68,15 @@ variable "tags" {
     ManagedBy   = "terraform"
   }
 }
+
+variable "auto_stop_hours" {
+  description = "Hours after /start before the instance is stopped automatically. This is the safety net that stops the $0.67/day leak."
+  type        = number
+  default     = 3
+}
+
+variable "discord_public_key" {
+  description = "Discord application public key (hex) used to verify interaction signatures. Leave empty until the Discord app exists; the Function URL returns 401 and only direct invoke works."
+  type        = string
+  default     = ""
+}

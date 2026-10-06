@@ -11,6 +11,11 @@ terraform {
       source  = "hashicorp/http"
       version = "~> 3.4"
     }
+    # Lambda のコードを zip にする
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.7"
+    }
   }
 }
 

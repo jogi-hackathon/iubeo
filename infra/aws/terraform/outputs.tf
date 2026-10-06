@@ -17,3 +17,13 @@ output "deploy_command" {
   description = "Command that pulls the current image tag on the instance and restarts the server. Run it after pushing a new image."
   value       = "aws ssm send-command --region ${var.aws_region} --document-name AWS-RunShellScript --targets Key=instanceids,Values=${aws_instance.backend.id} --parameters commands=/usr/local/bin/iubeo-deploy"
 }
+
+output "control_function_url" {
+  description = "Set this as the Discord application's interactions endpoint URL."
+  value       = aws_lambda_function_url.control.function_url
+}
+
+output "control_function_name" {
+  description = "Lambda that starts and stops the instance. Invoke it directly with {\"action\": \"start\"} or {\"action\": \"stop\"}."
+  value       = aws_lambda_function.control.function_name
+}
