@@ -22,11 +22,42 @@ const {
   SCHEDULE_ROLE_ARN,
   LAMBDA_ARN,
   DISCORD_PUBLIC_KEY = "",
+  DISCORD_WEBHOOK_URL = "",
   AWS_REGION = "ap-northeast-1",
 } = process.env;
 
 /** 署名の時刻がこれ以上ずれていたら拒否する(Discord の推奨) */
 const MAX_SIGNATURE_AGE_SEC = 300;
+
+/** Discord のコマンド名 → 実行する action。旧名も受け付ける */
+const COMMANDS = {
+  ec2start: "start",
+  ec2stop: "stop",
+  start: "start",
+  stop: "stop",
+};
+
+/** Discord のチャンネルに投稿する。Webhook 未設定なら何もしない */
+const notifyDiscord = async (content) => {
+  if (!DISCORD_WEBHOOK_URL) {
+    console.log("DISCORD_WEBHOOK_URL is not set; skipping:", content);
+    return false;
+  }
+  try {
+    const res = await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({content}),
+    });
+    if (!res.ok) {
+      console.error("webhook failed", res.status, await res.text());
+    }
+    return res.ok;
+  } catch (e) {
+    console.error("webhook error", e);
+    return false;
+  }
+};
 
 const INTERACTION_PING = 1;
 const INTERACTION_APPLICATION_COMMAND = 2;
@@ -144,7 +175,8 @@ const runAction = async (action) => {
   if (action === "stop") {
     await stopInstance();
     await cancelAutoStop();
-    return "EC2 を停止しました。";
+    // 実際に止まったら EC2 の状態変化イベントが Discord へ投稿する
+    return "EC2 を停止しています…（止まったらここに投稿します）";
   }
   throw new Error(`unknown action: ${action}`);
 };
@@ -156,6 +188,26 @@ const json = (statusCode, body) => ({
 });
 
 export const handler = async (event) => {
+  // --- EventBridge: EC2 の状態変化 ---
+  // 停止は「コマンドを実行した時点」ではなく「実際に止まった時点」で投稿したいので、
+  // 状態変化イベントで受ける。CLI から止めた場合も拾える。
+  if (event?.["detail-type"] === "EC2 Instance State-change Notification") {
+    const state = event.detail?.state;
+    const instanceId = event.detail?.["instance-id"];
+    if (instanceId === INSTANCE_ID) {
+      const message =
+        state === "stopped"
+          ? "🛑 EC2 を停止しました"
+          : state === "running"
+            ? "🚀 EC2 が起動しました"
+            : null;
+      if (message) {
+        await notifyDiscord(message);
+      }
+    }
+    return {ok: true, state, instanceId};
+  }
+
   // --- 直接 invoke（Function URL ではない）---
   // 運用・検証用。IAM でしか叩けないので署名検証は不要
   if (!event?.requestContext?.http) {
@@ -197,8 +249,15 @@ export const handler = async (event) => {
 
   if (interaction.type === INTERACTION_APPLICATION_COMMAND) {
     const name = interaction.data?.name;
+    const action = COMMANDS[name];
+    if (!action) {
+      return json(200, {
+        type: RESPONSE_CHANNEL_MESSAGE,
+        data: {content: `未対応のコマンドです: ${name}`},
+      });
+    }
     try {
-      const message = await runAction(name);
+      const message = await runAction(action);
       return json(200, {type: RESPONSE_CHANNEL_MESSAGE, data: {content: message}});
     } catch (e) {
       console.error("command failed", {name, e});

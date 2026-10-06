@@ -80,3 +80,9 @@ variable "discord_public_key" {
   type        = string
   default     = ""
 }
+
+variable "discord_webhook_url" {
+  description = "Discord channel webhook URL. The Lambda posts here when the instance actually starts or stops (driven by EC2 state-change events). Leave empty to disable notifications."
+  type        = string
+  default     = ""
+}

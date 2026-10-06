@@ -109,8 +109,9 @@ resource "aws_lambda_function" "control" {
       SCHEDULE_NAME     = "${local.name}-autostop"
       SCHEDULE_ROLE_ARN = aws_iam_role.scheduler.arn
       # 自分の ARN は自分の中で参照できない(自己参照)ので組み立てる
-      LAMBDA_ARN         = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
-      DISCORD_PUBLIC_KEY = var.discord_public_key
+      LAMBDA_ARN          = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
+      DISCORD_PUBLIC_KEY  = var.discord_public_key
+      DISCORD_WEBHOOK_URL = var.discord_webhook_url
     }
   }
 
@@ -130,4 +131,36 @@ resource "aws_lambda_permission" "function_url" {
   function_name          = aws_lambda_function.control.function_name
   principal              = "*"
   function_url_auth_type = "NONE"
+}
+
+# EC2 の状態変化で Lambda を呼ぶ。
+# 「コマンドを実行した時点」ではなく「実際に止まった時点」で Discord に投稿したいので、
+# ポーリングではなくイベントで受ける。CLI から止めた場合も拾える。
+resource "aws_cloudwatch_event_rule" "instance_state" {
+  name        = "${local.name}-instance-state"
+  description = "Notify Discord when the backend instance starts or stops."
+
+  event_pattern = jsonencode({
+    source        = ["aws.ec2"]
+    "detail-type" = ["EC2 Instance State-change Notification"]
+    detail = {
+      "instance-id" = [aws_instance.backend.id]
+      state         = ["running", "stopped"]
+    }
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_event_target" "instance_state" {
+  rule = aws_cloudwatch_event_rule.instance_state.name
+  arn  = aws_lambda_function.control.arn
+}
+
+resource "aws_lambda_permission" "eventbridge" {
+  statement_id  = "AllowEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.control.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.instance_state.arn
 }
