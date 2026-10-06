@@ -56,6 +56,10 @@ const worker = defineWorker({
     // Go サーバーの IUBEO_SIGNING_KEY。値は secrets file か
     // `cf workers secrets` で登録する
     IUBEO_SIGNING_KEY: bindings.secret(),
+    // /api と /ws の転送先。key "target" が "ec2" なら本番相当(EC2 + EIP)へ、
+    // それ以外なら Cloudflare Containers へ流す。
+    // Lambda(Discord の /start /stop)がこの値を書き換える
+    TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
   },
 });
 
