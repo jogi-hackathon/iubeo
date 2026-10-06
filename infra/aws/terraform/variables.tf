@@ -31,54 +31,33 @@ variable "allowed_origins" {
   }
 }
 
-variable "signing_key_secret_arn" {
-  description = "ARN of a Secrets Manager secret containing the IUBEO_SIGNING_KEY value (32+ bytes)."
-  type        = string
-}
-
-variable "acm_certificate_arn" {
-  description = "ACM certificate ARN in this region for the backend API and WebSocket hostname."
-  type        = string
-}
-
 variable "image_tag" {
   description = "Immutable image tag to deploy. Set to a Git SHA in release automation."
   type        = string
   default     = "bootstrap"
 }
 
-variable "desired_count" {
-  description = "Number of backend tasks. Use 1 only for prototype; shared session state is required before scaling above one."
-  type        = number
-  default     = 1
+variable "instance_type" {
+  description = "EC2 instance type. t4g.small is burstable, run in unlimited mode so credits never throttle latency."
+  type        = string
+  default     = "t4g.small"
 
   validation {
-    condition     = var.desired_count >= 1 && floor(var.desired_count) == var.desired_count
-    error_message = "desired_count must be a positive integer."
+    condition     = can(regex("^[a-z][0-9][a-z]?\\.", var.instance_type))
+    error_message = "instance_type must look like a valid EC2 instance type (for example t4g.small)."
   }
 }
 
-variable "task_cpu" {
-  description = "Fargate task CPU units."
+variable "root_volume_gb" {
+  description = "Root EBS volume size in GiB. This keeps being billed while the instance is stopped."
   type        = number
-  default     = 512
+  default     = 8
 }
 
-variable "task_memory" {
-  description = "Fargate task memory in MiB."
+variable "container_memory_mib" {
+  description = "Memory limit for the container in MiB. Keep it below the instance memory."
   type        = number
   default     = 1024
-}
-
-variable "cpu_architecture" {
-  description = "Fargate CPU architecture. ARM64 (Graviton) costs about 20% less per vCPU-hour and per GB-hour than X86_64. The image platform must match."
-  type        = string
-  default     = "ARM64"
-
-  validation {
-    condition     = contains(["ARM64", "X86_64"], var.cpu_architecture)
-    error_message = "cpu_architecture must be ARM64 or X86_64."
-  }
 }
 
 variable "tags" {

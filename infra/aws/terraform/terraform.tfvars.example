@@ -3,17 +3,8 @@ aws_region    = "ap-northeast-1"
 project_name  = "iubeo"
 environment   = "prototype"
 image_tag     = "bootstrap"
-desired_count = 1
+instance_type = "t4g.small"
 
-# ARM64 (Graviton) は x86_64 より約 2 割安い。比べるときは X86_64 にして測る。
-# イメージの --platform と必ず合わせる(ARM64 なら linux/arm64)
-cpu_architecture = "ARM64"
-
-# Set to the exact browser origin after configuring frontend API/WSS calls.
-allowed_origins = ["https://your-worker-name.workers.dev"]
-
-# Create the secret in AWS Secrets Manager separately, then provide its ARN.
-signing_key_secret_arn = "arn:aws:secretsmanager:ap-northeast-1:000000000000:secret:iubeo/prototype/signing-key-CHANGE_ME"
-
-# Request/validate an ACM certificate in ap-northeast-1 for the backend hostname.
-acm_certificate_arn = "arn:aws:acm:ap-northeast-1:000000000000:certificate/CHANGE_ME"
+# 画面と API は同じ Worker から配信するので、そのオリジンを許可する。
+# サーバーは起動時にこれを検証し、空だと終了する。
+allowed_origins = ["https://iubeo.thirdlf03.com"]

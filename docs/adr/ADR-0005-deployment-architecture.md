@@ -31,8 +31,11 @@
    - 停止中の固定費は **$4.57/月**(EBS + EIP)で、ECS の $25.64/月 と比べて圧倒的に安い
    - ALB が要らないので **ACM 証明書も不要**になり、TLS は Cloudflare の Origin 証明書で受ける
    - 起動は `ec2:StartInstances` の 1 回(立ち上がり 40 秒ほど)。自動停止は EventBridge Scheduler に「N 時間後の 1 回」を登録して行う
-1. **AWS の ECS/Fargate 構成は休眠させる**
-   - `infra/aws/terraform/` は検証済みのまま残す。EC2 + EIP に書き換える前の記録として、また常時起動が必要になった場合のために残す
+1. **AWS 側は EC2 + EIP だけにする(ALB / ECS / NAT / ACM は使わない)**
+   - `infra/aws/terraform/` がその実体。ALB を置かないので ACM 証明書も不要
+   - リソースは 15 個だけ(VPC / サブネット1 / IGW / SG / EC2 / EIP / IAM / ECR)
+   - セキュリティグループは 8080 を **Cloudflare の IP 帯のみ**許可し、SSH は開けず SSM Session Manager で操作する
+   - 署名鍵は初回起動時にインスタンス上で生成する。Secrets Manager を使わないので state に秘密が入らない
 
 ```text
 ブラウザ ──▶ iubeo-frontend Workers Static Assets(SPA)
