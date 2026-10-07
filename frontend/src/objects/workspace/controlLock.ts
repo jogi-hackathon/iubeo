@@ -4,7 +4,7 @@ import {useEffect} from "react";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {consumeLookDelta} from "../../core/input";
 import {lockPlayerControl} from "../../core/playerControl";
-import {LOCAL_PLAYER_ID} from "../../player/local";
+import {getLocalPlayerId} from "../../player/local";
 import type {PlayerId} from "../../player/types";
 import type {GameObject} from "../types";
 import {WORKSPACE_KIND} from "./data";
@@ -31,7 +31,7 @@ export const controlLockEffect = (
  * 預かり中は PlayerController が視点入力を消費しないので、解除後に向きが飛ばないよう、ここで捨てる
  */
 export function useWorkspaceControlLock(objects: readonly GameObject[]): void {
-  const working = isWorkingInWorkspace(objects, LOCAL_PLAYER_ID);
+  const working = isWorkingInWorkspace(objects, getLocalPlayerId());
   useEffect(() => controlLockEffect(working), [working]);
   useFrame(() => {
     if (working) {
