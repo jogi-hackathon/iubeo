@@ -1,0 +1,10 @@
+# Terraform のローカル状態と環境ごとの変数はコミットしない
+.terraform/
+.terraform.tfstate.lock.info
+*.tfstate
+*.tfstate.*
+crash.log
+
+# 環境ごとの値(署名鍵の ARN や証明書の ARN を含む)。例は *.tfvars.example
+terraform.tfvars
+*.auto.tfvars
