@@ -77,6 +77,16 @@ export const ROOM_WALLS: readonly WallSpec[] = [
   },
 ];
 
+/** 窓を非表示にしたときに、窓の空洞をふさぐ壁板(空洞とちょうど同じ大きさ) */
+export const WINDOW_PLUG: WallSpec = {
+  position: [
+    -WALL_CENTER,
+    WINDOW_SILL_HEIGHT + WINDOW_SIZE / 2,
+    WINDOW_CENTER_Z,
+  ],
+  size: [WALL_THICKNESS, WINDOW_SIZE, WINDOW_SIZE],
+};
+
 // オブジェクトの置き場所(足元の位置)。スケッチどおり、ディレクトリは奥の壁、キャンバスは奥の右隅、
 // 机は部屋の中央、イスは机の手前(+Z 側)で机の方(-Z)を向く。
 // ディレクトリは山の半分が壁に埋まるよう、奥の壁の室内側の面に中心を置く(半径 3.6m の山が室内に張り出す)。

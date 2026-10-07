@@ -17,6 +17,7 @@ import {
   ROOM_SIZE,
   ROOM_WALLS,
   WINDOW_CENTER_Z,
+  WINDOW_PLUG,
   WINDOW_SILL_HEIGHT,
   WINDOW_SIZE,
   WORKSPACE_POSITION,
@@ -95,6 +96,19 @@ describe("room layout", () => {
         expect(insideWall(-ROOM_INNER_X - 0.1, y, z)).toBe(!inWindow);
       }
     }
+  });
+
+  it("窓をふさぐ壁板は、窓の空洞とちょうど同じ大きさ", () => {
+    const plug = wallBox(WINDOW_PLUG);
+    const windowZ0 = WINDOW_CENTER_Z - WINDOW_SIZE / 2;
+    expect(plug.min.y).toBeCloseTo(WINDOW_SILL_HEIGHT);
+    expect(plug.max.y).toBeCloseTo(WINDOW_SILL_HEIGHT + WINDOW_SIZE);
+    expect(plug.min.z).toBeCloseTo(windowZ0);
+    expect(plug.max.z).toBeCloseTo(windowZ0 + WINDOW_SIZE);
+    expect(plug.max.x).toBeCloseTo(-ROOM_INNER_X);
+    // 周りの壁と重ならない(内側の点はどの壁にも入らない)
+    const c = plug.getCenter(new Vector3());
+    expect(insideWall(c.x, c.y, c.z)).toBe(false);
   });
 
   it("窓の下端は目の高さより低く、上端は目の高さより高い(立って外が見える)", () => {
