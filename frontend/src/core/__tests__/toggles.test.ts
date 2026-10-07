@@ -1,6 +1,11 @@
-import {describe, expect, it, vi} from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
 
-import {createToggleStore} from "../toggles";
+import {
+  createToggleStore,
+  getActiveToggles,
+  registerActiveToggles,
+  subscribeActiveToggles,
+} from "../toggles";
 
 describe("createToggleStore", () => {
   it("初期状態は、どのキーも表示・機能 ON", () => {
@@ -97,5 +102,83 @@ describe("createToggleStore", () => {
     expect(bad).toHaveBeenCalledTimes(2);
     expect(good).toHaveBeenCalledTimes(1);
     error.mockRestore();
+  });
+});
+
+describe("アクティブなトグルの登録簿", () => {
+  const offs: (() => void)[] = [];
+  const register = (store: ReturnType<typeof createToggleStore>) => {
+    const off = registerActiveToggles(store);
+    offs.push(off);
+    return off;
+  };
+
+  afterEach(() => {
+    for (const off of offs.splice(0)) {
+      off();
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("登録が無ければ null", () => {
+    expect(getActiveToggles()).toBeNull();
+  });
+
+  it("登録したストアが今のシーンのトグルになり、解除すると null に戻る", () => {
+    const store = createToggleStore();
+    const off = register(store);
+    expect(getActiveToggles()).toBe(store);
+
+    off();
+    expect(getActiveToggles()).toBeNull();
+  });
+
+  it("登録・解除のたびに購読へ通知する。解除関数を二重に呼んでも通知は 1 回", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeActiveToggles(listener);
+    const off = register(createToggleStore());
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    off();
+    off();
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    register(createToggleStore());
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("シーンの入れ替えで新旧が重なっても、最後に登録された物が今のシーン。旧シーンの解除は新しい方に影響しない", () => {
+    const oldStore = createToggleStore();
+    const newStore = createToggleStore();
+    const offOld = register(oldStore);
+    register(newStore);
+    expect(getActiveToggles()).toBe(newStore);
+
+    offOld();
+    expect(getActiveToggles()).toBe(newStore);
+  });
+
+  it("ストアの操作は、登録簿から引いたストアにも反映される(同じ物)", () => {
+    const store = createToggleStore();
+    register(store);
+    getActiveToggles()?.setVisible("directory", false);
+    expect(store.isVisible("directory")).toBe(false);
+  });
+
+  it("購読のコールバックが例外を投げても、他のコールバックは呼ぶ", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const good = vi.fn();
+    const off1 = subscribeActiveToggles(() => {
+      throw new Error("boom");
+    });
+    const off2 = subscribeActiveToggles(good);
+
+    register(createToggleStore());
+
+    expect(good).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledTimes(1);
+    off1();
+    off2();
   });
 });

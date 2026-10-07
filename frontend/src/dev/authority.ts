@@ -9,7 +9,7 @@ import {
   PC_POSITION,
   WORKSPACE_POSITION,
 } from "../scenes/RoomScene/layout";
-import {sceneManager} from "../scenes/sceneStore";
+import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
 import {createDummyAuthority} from "./dummyAuthority";
 
 /** 開発時のダミーのサーバー役。読み込むと、オブジェクトの要求の送り先として登録され、確認用のオブジェクトを置く */
@@ -96,7 +96,7 @@ const spawnRoomObjects = () => {
 
 /**
  * 置いてあるオブジェクトを全部片付けて(id の採番も戻る)、シーンに合わせた確認用のオブジェクトを置き直す。
- * シーンが切り替わるたびに呼ばれる(下の購読)。ベイクページはシーンを切り替えず直接マウントするので、自分で呼ぶ
+ * シーンの切り替えのたびに、新しいシーンが描かれる直前に呼ばれる(下の onPrepare)。ベイクページはシーンを切り替えず直接マウントするので、自分で呼ぶ
  */
 export const applyDevLayout = (scene: SceneName): void => {
   dummyAuthority.clearObjects();
@@ -107,10 +107,6 @@ export const applyDevLayout = (scene: SceneName): void => {
   }
 };
 
-const currentScene = (): SceneName => {
-  const state = sceneManager.getState();
-  return state.status === "idle" ? state.current : state.from;
-};
-
-applyDevLayout(currentScene());
-sceneManager.on("transitionEnd", ({to}) => applyDevLayout(to));
+applyDevLayout(sceneManager.getState().current);
+// 新しいシーンの commit と同じ同期区間で置き直す(シーンの再描画が 1 回で済み、新しいシーンに前のシーンのオブジェクトが出ない)
+sceneTransitionManager.onPrepare(({to}) => applyDevLayout(to));

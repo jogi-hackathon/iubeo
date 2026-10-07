@@ -7,8 +7,7 @@ import {WORKSPACE_KIND} from "../../objects/workspace/data";
 export const CHAIR_KEY = "chair";
 
 /**
- * room の各オブジェクト・プロップの、表示・非表示のキー。`toggles.setVisible(key, false)` で消し、`toggles.setEnabled(key, false)` で機能を止める
- * (core/toggles)。消している間は、見た目だけでなく当たり判定・インタラクトも無効になる。機能 OFF は、見た目と当たり判定を残して、狙い・インタラクトだけ無効にする
+ * room の各オブジェクト・プロップの、表示・非表示のキー。シーンのトグル(`getActiveToggles()` など。core/toggles)の `setVisible(key, false)` で消し、`setEnabled(key, false)` で機能を止める。消している間は、見た目だけでなく当たり判定・インタラクトも無効になる。機能 OFF は、見た目と当たり判定を残して、狙い・インタラクトだけ無効にする
  */
 export const ROOM_PROP_KEYS = [
   CHAIR_KEY,

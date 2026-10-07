@@ -1,7 +1,7 @@
 import {type ComponentType, useCallback, useMemo} from "react";
 import type {Object3D} from "three";
 
-import {aoModeUserData} from "../bake/aoMode";
+import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {useIsEnabled, useIsVisible, useToggleState} from "../core/toggles";
 import {CanvasObject} from "./canvas/CanvasObject";
 import {CANVAS_KIND} from "./canvas/data";
@@ -51,7 +51,7 @@ const renderers: Record<string, ComponentType<{object: GameObject}>> = {
 registerDirectoryInteraction();
 
 /** 見た目の根。狙いの判定(interaction)が、当たった物からオブジェクトを引けるように、id を持たせて登録する */
-function ObjectRoot({object}: {object: GameObject}) {
+function ObjectRoot({object, ao}: {object: GameObject; ao?: AOMode}) {
   const {id} = object;
   const visible = useIsVisible(object.kind);
   const enabled = useIsEnabled(object.kind);
@@ -65,7 +65,7 @@ function ObjectRoot({object}: {object: GameObject}) {
   return (
     <group
       ref={register}
-      userData={{[OBJECT_ID_KEY]: id}}
+      userData={{[OBJECT_ID_KEY]: id, ...aoModeUserData(ao)}}
       position={object.position}
       visible={visible}
     >
@@ -80,7 +80,7 @@ function ObjectRoot({object}: {object: GameObject}) {
  * kind ごとに、core/toggles で表示・非表示と機能の ON・OFF を切り替えられる(非表示でも mesh は外さない。非表示は見た目・当たり判定・インタラクトを、機能 OFF はインタラクトだけを無効にする)。
  * (ディレクトリだけは動かないので、専用のコライダーを持ち、AO もベイクする。ワークスペースはモックなのでコライダーを持たない。キャンバスも動かないので、コライダーは持たずに AO だけベイクする)
  */
-export function ManagedObjects() {
+export function ManagedObjects({ao}: {ao?: AOMode}) {
   const {objects} = useObjectsState();
   const {hidden, disabled} = useToggleState();
   // 非表示・機能 OFF のオブジェクトは、俯瞰・作業中のロックの判定では無いものとして扱う(切った時点で俯瞰やロックが外れる)
@@ -93,7 +93,7 @@ export function ManagedObjects() {
   return (
     <>
       {objects.map((o) => (
-        <ObjectRoot key={o.id} object={o} />
+        <ObjectRoot key={o.id} object={o} ao={ao} />
       ))}
     </>
   );
