@@ -97,7 +97,8 @@ func (st *State) interact(in ClientInteract) []Output {
 }
 
 // interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。
-// ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)
+// ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)。
+// 入れたファイルで担当のタスクが達成になれば task.completed も送る
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
 	if !claimMatches(in.Msg.HeldItem, held) {
@@ -120,10 +121,14 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 		held.Location = Location{Kind: InDirectory, ObjectID: o.ID}
 	}
-	return []Output{
+	out := []Output{
 		Broadcast{Msg: st.objectUpsert(o)},
 		Broadcast{Msg: st.playerUpdated(p)},
 	}
+	if held != nil {
+		out = append(out, st.completeTask(p.ID, held, in.Now)...)
+	}
+	return out
 }
 
 // interactWorkspace: 編集前のファイルを持っていれば編集、手ぶらなら新規作成を始める。
@@ -193,7 +198,8 @@ func (st *State) finishWorkspaceAction(a WorkspaceAction) []Output {
 }
 
 // releasePlayer は切断・脱落したプレイヤーの作業を取りやめ、手持ちのファイルをディレクトリに戻す
-// (在庫のファイルは在庫に、作ったファイルは成果物に。state-schema.md §5.5)
+// (在庫のファイルは在庫に、作ったファイルは成果物に。state-schema.md §5.5)。
+// 本人が入れたのではないので、タスクの達成には数えない
 func (st *State) releasePlayer(p *PlayerState) []Output {
 	var out []Output
 	var rest []WorkspaceAction

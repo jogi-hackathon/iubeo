@@ -20,14 +20,17 @@ func main() {
 		slog.Error("invalid config", "err", err)
 		os.Exit(1)
 	}
-	sessions := session.NewManager(session.NewMemoryStore(), time.Now, session.DefaultConfig)
+	sessionConfig := session.DefaultConfig
+	sessionConfig.Phases = session.PhaseRules{Count: cfg.PhaseCount, Duration: cfg.PhaseDuration, Intermission: cfg.IntermissionDuration}
+	sessions := session.NewManager(session.NewMemoryStore(), time.Now, sessionConfig)
 	srv := server.New(
 		player.NewSigner(cfg.SigningKey),
 		sessions,
 		matchmaking.New(cfg.MatchSize, sessions, time.Now),
 		cfg.AllowedOrigins,
 	)
-	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins)
+	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
+		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration)
 	if err := http.ListenAndServe(cfg.Addr, srv.Handler()); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)

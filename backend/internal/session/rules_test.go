@@ -12,7 +12,7 @@ import (
 var t0 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
 func newState(players ...string) State {
-	return NewMultiplayerState("sess-1", players, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second})
+	return NewMultiplayerState("sess-1", players, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
 }
 
 // step は Step を呼び、元の状態が書き換わっていないことも確かめる
@@ -107,16 +107,20 @@ func TestConnectStartsWhenAllHumansConnected(t *testing.T) {
 	if st.Status != api.SessionStatusPlaying || !st.StartedAt.Equal(at(2*time.Second)) {
 		t.Fatalf("status = %s, startedAt = %s", st.Status, st.StartedAt)
 	}
-	// 本人には開始前の snapshot、その後で全員に session.started
-	if _, ok := out[len(out)-2].(Send); !ok {
+	// 本人には開始前の snapshot、その後で全員に session.started と phase.started
+	if _, ok := out[len(out)-3].(Send); !ok {
 		t.Errorf("snapshot should come before session.started: %+v", out)
 	}
-	last, ok := out[len(out)-1].(Broadcast)
+	started, ok := out[len(out)-2].(Broadcast)
 	if !ok {
-		t.Fatalf("last output = %+v", out[len(out)-1])
+		t.Fatalf("output = %+v", out[len(out)-2])
 	}
-	if m := last.Msg.(api.SessionStartedMessage); m.Seq != 3 || !m.StartedAt.Equal(at(2*time.Second)) || last.Except != "" {
-		t.Errorf("session.started = %+v", last)
+	if m := started.Msg.(api.SessionStartedMessage); m.Seq != 3 || !m.StartedAt.Equal(at(2*time.Second)) || started.Except != "" {
+		t.Errorf("session.started = %+v", started)
+	}
+	last := out[len(out)-1].(Broadcast)
+	if m := last.Msg.(api.PhaseStartedMessage); m.Seq != 4 || m.Phase.Number != 1 || !m.ServerTime.Equal(at(2*time.Second)) {
+		t.Errorf("phase.started = %+v", last)
 	}
 }
 
