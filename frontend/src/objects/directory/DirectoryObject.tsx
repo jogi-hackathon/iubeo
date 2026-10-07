@@ -2,9 +2,9 @@ import {useEffect, useLayoutEffect, useMemo, useRef} from "react";
 import {BoxGeometry, Color, type InstancedMesh, Object3D} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
-import {BakeTarget} from "../../bake/BakeTarget";
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {BVHCollider} from "../../core/bvh";
+import {useIsVisible} from "../../core/toggles";
 import type {GameObject} from "../types";
 import {parseDirectoryData} from "./data";
 import {DirectoryOverview} from "./DirectoryOverview";
@@ -78,10 +78,9 @@ function OutputSheets({sheets, count}: StackProps) {
  * ずらし・回して並べる。IUBEO は白い世界なので、束は紙の白で、側面には紙の層の細い縞を描く。
  *   段の縁や束から、薄い紙がはみ出す(差し色は、このはみ出し紙のごく少数だけ)。
  *
- * - AO はベイクだけ(baked。GTAO は掛けない)。ディレクトリは動かず、形は id から決まるので、シーンと一緒に焼ける
- *   (`pnpm bake:ao`。ベイクページも同じ id・位置でディレクトリを置く)。id・位置・山の形を変えたら再ベイクが要る。
- *   ベイク結果と合わない間は、シーン全体のベイク AO が外れる(BakedAO)
- * - 束の本とはみ出す紙は、1 つにまとめた通常の mesh(1 回の描画)。コライダーにはせず、ベイク対象としてだけ登録する(BakeTarget)
+ * - AO は GTAO だけ(realtime。ベイクしない)。core/toggles で出し入れされるので、ベイクすると隠したあとも影が壁・床に残ってしまう
+ *   (ベイク対象外の物は、他の面の AO の遮蔽物にもならない)
+ * - 束の本とはみ出す紙は、1 つにまとめた通常の mesh(1 回の描画)
  * - コライダーは、段々の芯。束は芯に載っているので、プレイヤーは芯に当たる(束のはみ出しは、コライダーの外)
  * - 成果物(outputs)は、下の方の段の束の上に板が増える。位置は id から決まり、増えても既存の板は動かない
  * - 在庫のファイルは、山の束の 1 つ 1 つ。一人称では白いままで、手ぶらでインタラクトしたときの俯瞰ビュー
@@ -106,17 +105,17 @@ export function DirectoryObject({object}: {object: GameObject}) {
   const paperMaterial = useMemo(() => createPaperMaterial({merged: true}), []);
   useEffect(() => () => paperMaterial.dispose(), [paperMaterial]);
   const overviewing = useIsOverviewing(object.id);
+  // 非表示の間は、見た目(ObjectRoot が消す)だけでなく、山にぶつからないようにコライダーも無効にする
+  const visible = useIsVisible(object.kind);
 
   return (
-    <group userData={aoModeUserData("baked")}>
-      <BVHCollider>
+    <group userData={aoModeUserData("realtime")}>
+      <BVHCollider enabled={visible}>
         <mesh geometry={coreGeometry}>
           <meshStandardMaterial color={CORE_COLOR} flatShading />
         </mesh>
       </BVHCollider>
-      <BakeTarget>
-        <mesh geometry={sheetsGeometry} material={paperMaterial} />
-      </BakeTarget>
+      <mesh geometry={sheetsGeometry} material={paperMaterial} />
       <OutputSheets sheets={mountain.outputSheets} count={outputs} />
       {overviewing && (
         <DirectoryOverview

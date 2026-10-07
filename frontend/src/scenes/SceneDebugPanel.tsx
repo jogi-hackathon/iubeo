@@ -2,6 +2,8 @@ import type {CSSProperties} from "react";
 
 import {sceneNames} from ".";
 import {useDebugFlags} from "../core/debug/flags";
+import {toggles, useToggleState} from "../core/toggles";
+import {ROOM_PROP_KEYS} from "./RoomScene/props";
 import {sceneManager} from "./sceneStore";
 import {useSceneState} from "./useScene";
 
@@ -25,6 +27,7 @@ const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
 export function SceneDebugPanel() {
   const {scene} = useDebugFlags();
   const state = useSceneState();
+  const {hidden, disabled} = useToggleState();
   if (!scene) {
     return null;
   }
@@ -52,6 +55,29 @@ export function SceneDebugPanel() {
           </button>
         ))}
       </div>
+      {state.status === "idle" && state.current === "room" && (
+        <div style={{marginTop: 6}}>
+          <div>room: 表示 / 機能</div>
+          {ROOM_PROP_KEYS.map((key) => (
+            <div key={key}>
+              <input
+                type="checkbox"
+                aria-label={`${key} 表示`}
+                checked={!hidden.has(key)}
+                onChange={(e) => toggles.setVisible(key, e.target.checked)}
+              />
+              <input
+                type="checkbox"
+                aria-label={`${key} 機能`}
+                checked={!disabled.has(key)}
+                disabled={hidden.has(key)}
+                onChange={(e) => toggles.setEnabled(key, e.target.checked)}
+              />{" "}
+              {key}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

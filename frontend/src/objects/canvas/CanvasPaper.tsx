@@ -17,8 +17,7 @@ const PULSE_HZ = 2;
  * - テクスチャは、呼び出し側が持ち、破棄も呼び出し側が行う(ここでは dispose しない)。縦横比は PAPER_SIZE。
  *   色のテクスチャなら colorSpace は SRGBColorSpace にしておく。中身を描き換えたら、呼び出し側が needsUpdate を立てる
  * - 演出は紙自身の emissive で出すので、板は増えない
- * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)。
- *   テクスチャの有無で mesh を出し入れせず、material.map だけを切り替える
+ * - テクスチャの有無で mesh を出し入れせず、material.map だけを切り替える
  * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap が、それぞれに付くため)
  */
 export function CanvasPaper({

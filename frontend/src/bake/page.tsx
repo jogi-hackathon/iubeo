@@ -4,8 +4,8 @@ import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
-// ダミーのサーバー役。読み込むと、ゲーム本体(開発時)と同じ id・位置で、確認用のオブジェクト(ディレクトリなど)が置かれる
-import "../dev/authority";
+// ダミーのサーバー役。ゲーム本体(開発時)と同じ位置に、確認用のオブジェクト(ディレクトリなど)を置く
+import {applyDevLayout} from "../dev/authority";
 import {ManagedObjects} from "../objects";
 import {type SceneName, sceneNames, scenes} from "../scenes";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
@@ -42,6 +42,11 @@ const SOFTWARE_RE =
 
 const isSceneName = (name: string): name is SceneName =>
   (sceneNames as string[]).includes(name);
+
+// ダミーのサーバー役のオブジェクトを、ベイクするシーンの配置に合わせる(ゲーム本体はシーン切替で置き直す)
+if (isSceneName(sceneName)) {
+  applyDevLayout(sceneName);
+}
 
 /** WebGPU が使えないと WebGPURenderer は黙って WebGL2 に落ちるので、確認して止める */
 const createRenderer = async (props: object) => {

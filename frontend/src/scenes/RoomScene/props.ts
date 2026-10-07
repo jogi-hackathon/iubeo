@@ -1,0 +1,21 @@
+import {CANVAS_KIND} from "../../objects/canvas/data";
+import {DIRECTORY_KIND} from "../../objects/directory/data";
+import {PC_KIND} from "../../objects/pc/data";
+import {WORKSPACE_KIND} from "../../objects/workspace/data";
+
+/** イスの表示・非表示のキー(オブジェクトは kind がそのままキー) */
+export const CHAIR_KEY = "chair";
+
+/**
+ * room の各オブジェクト・プロップの、表示・非表示のキー。`toggles.setVisible(key, false)` で消し、`toggles.setEnabled(key, false)` で機能を止める
+ * (core/toggles)。消している間は、見た目だけでなく当たり判定・インタラクトも無効になる。機能 OFF は、見た目と当たり判定を残して、狙い・インタラクトだけ無効にする
+ */
+export const ROOM_PROP_KEYS = [
+  CHAIR_KEY,
+  DIRECTORY_KIND,
+  WORKSPACE_KIND,
+  CANVAS_KIND,
+  PC_KIND,
+] as const;
+
+export type RoomPropKey = (typeof ROOM_PROP_KEYS)[number];

@@ -35,14 +35,11 @@ const ALL_ON: DebugFlags = {
   game: false,
 };
 
-const initial = (): DebugFlags => {
-  if (!DEBUG_AVAILABLE) {
-    return ALL_OFF;
-  }
-  return new URLSearchParams(window.location.search).has("debug")
-    ? ALL_ON
-    : ALL_OFF;
-};
+/** デバッグ機能が有効で、URL に ?debug が付いているか(デバッグ用の既定シーン・stats・grid の ON の条件) */
+export const DEBUG_REQUESTED =
+  DEBUG_AVAILABLE && new URLSearchParams(window.location.search).has("debug");
+
+const initial = (): DebugFlags => (DEBUG_REQUESTED ? ALL_ON : ALL_OFF);
 
 let flags: DebugFlags = initial();
 const listeners = new Set<() => void>();

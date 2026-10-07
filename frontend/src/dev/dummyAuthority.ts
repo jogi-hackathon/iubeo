@@ -19,6 +19,7 @@ import {
   type StockFile,
   parseDirectoryData,
 } from "../objects/directory/data";
+import {PC_KIND} from "../objects/pc/data";
 import {WORKSPACE_ACTION_MS, WORKSPACE_KIND} from "../objects/workspace/data";
 import type {PlayerId} from "../player/types";
 import type {Vec3} from "../props/types";
@@ -28,7 +29,7 @@ export const DUMMY_ITEM_KIND = "dummy_item";
 
 type Deps = {
   localPlayerId: PlayerId;
-  objects: Pick<ObjectManager, "getObject" | "apply">;
+  objects: Pick<ObjectManager, "getObject" | "getState" | "apply">;
   items: Pick<ItemManager, "getHeld" | "apply">;
   /** 他プレイヤーが借りるファイルを選ぶ乱数([0, 1))。テストで固定する用 */
   random?: () => number;
@@ -295,6 +296,16 @@ export const createDummyAuthority = ({
     removeObject: (id: string): void => {
       objects.apply({type: "remove", id});
     },
+    /**
+     * 置いてあるオブジェクトを全部片付け、id の採番も最初に戻す。同じ配置を何度置いても同じ id になる
+     * (ディレクトリの山の形は id で決まるので、ベイクページとゲーム本体で配置が同じ id でないと、ベイク AO が合わなくなる)
+     */
+    clearObjects: (): void => {
+      for (const o of objects.getState().objects) {
+        objects.apply({type: "remove", id: o.id});
+      }
+      nextObject = 1;
+    },
     setAvailability: (id: string, availability: ObjectAvailability): void => {
       const object = objects.getObject(id);
       if (object) {
@@ -336,6 +347,21 @@ export const createDummyAuthority = ({
       const object: GameObject = {
         id: `${CANVAS_KIND}-${nextObject++}`,
         kind: CANVAS_KIND,
+        scope: "personal",
+        owner: localPlayerId,
+        position,
+        users: [],
+        availability: "available",
+        data: null,
+      };
+      objects.apply({type: "upsert", object});
+      return object.id;
+    },
+    /** PC を置き(personal、owner は自分)、その id を返す。見た目はまだ無く、データだけ */
+    spawnPc: (position: Vec3): string => {
+      const object: GameObject = {
+        id: `${PC_KIND}-${nextObject++}`,
+        kind: PC_KIND,
         scope: "personal",
         owner: localPlayerId,
         position,

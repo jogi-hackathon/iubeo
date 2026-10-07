@@ -2,6 +2,14 @@ import {itemManager} from "../items";
 import {objectManager, setRequestHandler} from "../objects";
 import type {StockFile} from "../objects/directory/data";
 import {LOCAL_PLAYER_ID} from "../player/local";
+import type {SceneName} from "../scenes";
+import {
+  CANVAS_POSITION,
+  DIRECTORY_POSITION,
+  PC_POSITION,
+  WORKSPACE_POSITION,
+} from "../scenes/RoomScene/layout";
+import {sceneManager} from "../scenes/sceneStore";
 import {createDummyAuthority} from "./dummyAuthority";
 
 /** 開発時のダミーのサーバー役。読み込むと、オブジェクトの要求の送り先として登録され、確認用のオブジェクトを置く */
@@ -65,10 +73,44 @@ const DEV_WORKSPACE_POSITION = [14, 0, -5] as const;
  */
 const DEV_CANVAS_POSITION = [11.5, 0, -5] as const;
 
-// 確認用のオブジェクト(スポーン地点から見て -Z 方向)
-dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
-dummyAuthority.spawnObject([1.5, 1, -4], "shared");
-dummyAuthority.spawnObject([0, 1, -4], "personal", "unavailable");
-dummyAuthority.spawnDirectory([...DEV_DIRECTORY_POSITION], DEV_DIRECTORY_STOCK);
-dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);
-dummyAuthority.spawnCanvas([...DEV_CANVAS_POSITION]);
+/** room 以外(test など)のシーンの確認用のオブジェクト(スポーン地点から見て -Z 方向) */
+const spawnTestObjects = () => {
+  dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
+  dummyAuthority.spawnObject([1.5, 1, -4], "shared");
+  dummyAuthority.spawnObject([0, 1, -4], "personal", "unavailable");
+  dummyAuthority.spawnDirectory(
+    [...DEV_DIRECTORY_POSITION],
+    DEV_DIRECTORY_STOCK,
+  );
+  dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);
+  dummyAuthority.spawnCanvas([...DEV_CANVAS_POSITION]);
+};
+
+/** room の確認用のオブジェクト。置き場所は scenes/RoomScene/layout(本番ではサーバーが置く) */
+const spawnRoomObjects = () => {
+  dummyAuthority.spawnDirectory([...DIRECTORY_POSITION], DEV_DIRECTORY_STOCK);
+  dummyAuthority.spawnWorkspace([...WORKSPACE_POSITION]);
+  dummyAuthority.spawnCanvas([...CANVAS_POSITION]);
+  dummyAuthority.spawnPc([...PC_POSITION]);
+};
+
+/**
+ * 置いてあるオブジェクトを全部片付けて(id の採番も戻る)、シーンに合わせた確認用のオブジェクトを置き直す。
+ * シーンが切り替わるたびに呼ばれる(下の購読)。ベイクページはシーンを切り替えず直接マウントするので、自分で呼ぶ
+ */
+export const applyDevLayout = (scene: SceneName): void => {
+  dummyAuthority.clearObjects();
+  if (scene === "room") {
+    spawnRoomObjects();
+  } else {
+    spawnTestObjects();
+  }
+};
+
+const currentScene = (): SceneName => {
+  const state = sceneManager.getState();
+  return state.status === "idle" ? state.current : state.from;
+};
+
+applyDevLayout(currentScene());
+sceneManager.on("transitionEnd", ({to}) => applyDevLayout(to));
