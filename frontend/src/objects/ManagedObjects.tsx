@@ -4,13 +4,13 @@ import type {Object3D} from "three";
 import {aoModeUserData} from "../bake/aoMode";
 import {CanvasObject} from "./canvas/CanvasObject";
 import {CANVAS_KIND} from "./canvas/data";
+import {useObjectControlLock} from "./controlLock";
 import {DIRECTORY_KIND} from "./directory/data";
 import {DirectoryObject, useOverviewGuard} from "./directory/DirectoryObject";
 import {registerDirectoryInteraction} from "./directory/interaction";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
-import {useWorkspaceControlLock} from "./workspace/controlLock";
 import {WORKSPACE_KIND} from "./workspace/data";
 import {WorkspaceObject} from "./workspace/WorkspaceObject";
 
@@ -73,7 +73,7 @@ function ObjectRoot({object}: {object: GameObject}) {
 export function ManagedObjects() {
   const {objects} = useObjectsState();
   useOverviewGuard(objects);
-  useWorkspaceControlLock(objects);
+  useObjectControlLock(objects);
   return (
     <>
       {objects.map((o) => (
