@@ -4,7 +4,7 @@
 
 | ファイル | きっかけ | 内容 |
 | --- | --- | --- |
-| `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | backend の gofmt/build/vet/test、frontend の typecheck/lint/test/build、terraform の fmt/validate |
+| `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | まず `changes` で変更パスを見て、関係するジョブだけ走らせる。backend の gofmt/build/vet/test（`backend/**`）、frontend の lint/test/build（`frontend/**`）、terraform の fmt/validate（`infra/**`） |
 | `preview.yml` | **main に向けた PR**（`frontend/**` の変更） | Worker Preview を作り、URL を PR にコメント |
 | `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
 | `deploy-backend.yml` | main への push（`backend/**`）、手動実行 | CI → arm64 のイメージを ECR へ push し、デプロイ対象のタグを更新 |
@@ -17,6 +17,8 @@ CI が赤なら、その run ではデプロイされません。
 main への push で CI を単独で走らせることはしていません（デプロイの run の中で走る）。
 そのため、デプロイ対象外のパスだけを変えた push では main 上の CI は走りません。
 変更は PR の段階で CI を通す前提です。
+
+`ci.yml` か `.github/scripts/` が変わった run では、判定を信用せず全ジョブを走らせます。
 
 ### 必須にする設定（リポジトリの Settings 側・未設定）
 
