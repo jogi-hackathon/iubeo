@@ -1,12 +1,12 @@
 import {describe, expect, it, vi} from "vitest";
 
-import {isPlayerControlLocked} from "../../../core/playerControl";
-import {createDummyAuthority} from "../../../dev/dummyAuthority";
-import {createItemManager} from "../../../items/itemManager";
-import {createObjectManager} from "../../objectManager";
-import {controlLockEffect, isWorkingInWorkspace} from "../controlLock";
+import {isPlayerControlLocked} from "../../core/playerControl";
+import {createDummyAuthority} from "../../dev/dummyAuthority";
+import {createItemManager} from "../../items/itemManager";
+import {controlLockEffect, isWorkingAtObject} from "../controlLock";
+import {createObjectManager} from "../objectManager";
 
-// useWorkspaceControlLock と同じ導出(状態 → 作業中か → 預かり)を、objectManager とつないで確かめる。
+// useObjectControlLock と同じ導出(状態 → 作業中か → 預かり)を、objectManager とつないで確かめる。
 // 預かり自体は実物(core/playerControl)で数える
 const setup = () => {
   const items = createItemManager();
@@ -29,7 +29,7 @@ const setup = () => {
     },
   });
   handle = authority.handle;
-  const working = () => isWorkingInWorkspace(objects.getState().objects, "me");
+  const working = () => isWorkingAtObject(objects.getState().objects, "me");
   return {
     objects,
     items,
@@ -39,7 +39,7 @@ const setup = () => {
   };
 };
 
-describe("isWorkingInWorkspace", () => {
+describe("isWorkingAtObject", () => {
   it("ワークスペースの users に自分が入っている間だけ true", () => {
     const {objects, authority, working, finish} = setup();
     const id = authority.spawnWorkspace([0, 0, -3]);
@@ -52,7 +52,19 @@ describe("isWorkingInWorkspace", () => {
     expect(working()).toBe(false);
   });
 
-  it("ワークスペース以外のオブジェクトの users や、他のプレイヤーの作業では true にならない", () => {
+  it("キャンバスの users に自分が入っている間も true", () => {
+    const {objects, authority, working, finish} = setup();
+    const id = authority.spawnCanvas([0, 0, -3]);
+    expect(working()).toBe(false);
+
+    objects.interact(id);
+    expect(working()).toBe(true);
+
+    finish();
+    expect(working()).toBe(false);
+  });
+
+  it("ワークスペース・キャンバス以外のオブジェクトの users や、他のプレイヤーの作業では true にならない", () => {
     const {objects, authority, working} = setup();
     const dummy = authority.spawnObject([0, 1, -3], "personal");
     objects.interact(dummy);

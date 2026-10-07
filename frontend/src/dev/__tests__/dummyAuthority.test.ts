@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from "vitest";
 
 import {createItemManager} from "../../items/itemManager";
+import {CANVAS_ACTION_MS} from "../../objects/canvas/data";
 import {parseDirectoryData, type StockFile} from "../../objects/directory/data";
 import {createObjectManager} from "../../objects/objectManager";
 import type {InteractRequest} from "../../objects/types";
@@ -461,6 +462,144 @@ describe("createDummyAuthority", () => {
         expect(authority.editHeldFile()).toBe(false);
         authority.spawnItem("lighter");
         expect(authority.editHeldFile()).toBe(false);
+      });
+    });
+  });
+
+  describe("キャンバス", () => {
+    it("手ぶらで interact すると、2 秒後に新しいファイル(image_created、色なし)を手に持ち、users が空に戻る", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnCanvas([0, 0, -3]);
+
+      objects.interact(id);
+
+      // 受理した直後から作業中。結果はまだ出ない
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+      expect(items.getHeld()).toBeNull();
+      advance(CANVAS_ACTION_MS - 1);
+      expect(items.getHeld()).toBeNull();
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(1);
+      expect(items.getHeld()).toEqual({
+        id: newIdOf(1),
+        kind: "file",
+        data: {status: "image_created"},
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("作ったファイルをディレクトリに入れると、成果物になる", () => {
+      const {objects, items, authority, advance} = setup();
+      const dir = authority.spawnDirectory([0, 0, 0], []);
+      const id = authority.spawnCanvas([0, 0, -3]);
+      objects.interact(id);
+      advance(CANVAS_ACTION_MS);
+
+      objects.interact(dir);
+
+      expect(items.getHeld()).toBeNull();
+      expect(
+        parseDirectoryData(objects.getObject(dir)?.data ?? null).outputs,
+      ).toBe(1);
+    });
+
+    it.each([
+      [
+        "編集前のファイル",
+        {id: F1, kind: "file", data: {status: "unedited", color: "#e63946"}},
+      ],
+      [
+        "作成したファイル(image_created)",
+        {id: F2, kind: "file", data: {status: "image_created"}},
+      ],
+      ["ファイル以外のアイテム", {id: "l", kind: "lighter", data: null}],
+    ])(
+      "%sを持っていると missing_item で拒否し、アニメーションを始めない",
+      (_, item) => {
+        const {objects, items, authority, advance} = setup();
+        const onRejected = vi.fn();
+        objects.on("interactRejected", onRejected);
+        const id = authority.spawnCanvas([0, 0, -3]);
+        items.apply({type: "spawn", item});
+
+        objects.interact(id);
+
+        expect(onRejected).toHaveBeenCalledWith({
+          objectId: id,
+          reason: "missing_item",
+        });
+        expect(objects.getObject(id)?.users).toEqual([]);
+        advance(CANVAS_ACTION_MS);
+        expect(items.getHeld()).toEqual(item);
+      },
+    );
+
+    it("作業中の再 interact は unavailable で拒否し、結果は 1 回だけ適用される", () => {
+      const {objects, items, authority, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnCanvas([0, 0, -3]);
+
+      objects.interact(id);
+      advance(500);
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "unavailable",
+      });
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(CANVAS_ACTION_MS);
+      expect(items.getHeld()?.data).toEqual({status: "image_created"});
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("生成中に手が塞がったら、結果は適用せず users から出るだけ", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnCanvas([0, 0, -3]);
+      objects.interact(id);
+      advance(500);
+      const file = {
+        id: F1,
+        kind: "file",
+        data: {status: "unedited", color: "#e63946"},
+      };
+      items.apply({type: "spawn", item: file});
+
+      advance(CANVAS_ACTION_MS);
+
+      expect(items.getHeld()).toEqual(file);
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("生成中にキャンバスが消えたら、結果は適用しない", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnCanvas([0, 0, -3]);
+      objects.interact(id);
+
+      authority.removeObject(id);
+      advance(CANVAS_ACTION_MS);
+
+      expect(items.getHeld()).toBeNull();
+    });
+
+    it("他のプレイヤーのキャンバスは not_owner で拒否する", () => {
+      const {objects, authority} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnCanvas([0, 0, -3]);
+      objects.apply({
+        type: "upsert",
+        object: {...objects.getObject(id)!, owner: "other"},
+      });
+
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "not_owner",
       });
     });
   });

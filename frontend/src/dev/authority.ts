@@ -59,9 +59,16 @@ const DEV_DIRECTORY_STOCK: readonly StockFile[] = [
  */
 const DEV_WORKSPACE_POSITION = [14, 0, -5] as const;
 
+/**
+ * キャンバス(イーゼル)の置き場所。足元は x ±0.49・z -0.62〜0.32 を占める。机(x>=13.2)とは 1.2m 以上、
+ * ディレクトリ(中心 (14,1))の山(束の端まで 4.4m)とは約 6.5m 離れている
+ */
+const DEV_CANVAS_POSITION = [11.5, 0, -5] as const;
+
 // 確認用のオブジェクト(スポーン地点から見て -Z 方向)
 dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
 dummyAuthority.spawnObject([1.5, 1, -4], "shared");
 dummyAuthority.spawnObject([0, 1, -4], "personal", "unavailable");
 dummyAuthority.spawnDirectory([...DEV_DIRECTORY_POSITION], DEV_DIRECTORY_STOCK);
 dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);
+dummyAuthority.spawnCanvas([...DEV_CANVAS_POSITION]);
