@@ -2,31 +2,46 @@ name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  # deploy-*.yml から呼ばれる。main へデプロイする前に必ずここを通し、
+  # CI が赤ならデプロイしない
+  workflow_call:
 
 # 検証だけなので AWS の資格情報は要らない
 permissions:
   contents: read
 
+concurrency:
+  # PR は新しい push で古い実行を止める。
+  # main 側は止めずに待たせる(デプロイ側の run から呼ばれるため途中で切らない)
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: ビルドとテスト
+      - name: 整形・ビルド・テスト
         working-directory: backend
         run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:"
+            echo "$unformatted"
+            exit 1
+          fi
           go build ./...
           go vet ./...
           go test ./...
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -50,6 +65,7 @@ jobs:
 
   terraform:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

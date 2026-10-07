@@ -18,8 +18,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # CI が通ったときだけデプロイする(同じ run の中で呼ぶので、CI が赤なら deploy は走らない)
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 

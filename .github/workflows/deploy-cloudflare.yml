@@ -21,10 +21,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # CI が通ったときだけデプロイする
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 今回の push で backend が変わったかを before..sha の差分で見るため、全履歴が要る
+          fetch-depth: 0
+
+      - name: バックエンドの変更有無を判定
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          # 判定できないときは安全側(再デプロイする)に倒す:
+          # 手動実行、初回 push(before が 0)、force push で before が履歴に無い場合
+          backend=true
+          if [ "$EVENT_NAME" = "push" ] \
+            && [ -n "$BEFORE" ] \
+            && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # backend か、この workflow 自体が変わっていなければ再デプロイしない。
+            # frontend だけの変更でコンテナを作り直すと、メモリ上のセッションが消えるため
+            if git diff --quiet "$BEFORE" "$SHA" -- backend .github/workflows/deploy-cloudflare.yml; then
+              backend=false
+            fi
+          fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "バックエンドを再デプロイ: $backend"
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -36,9 +69,11 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+
       # バックエンドを先にデプロイする。サービスバインディングは
       # 相手の Worker が存在しないと解決できないため
       - name: バックエンド Worker をデプロイ
+        if: steps.changes.outputs.backend == 'true'
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

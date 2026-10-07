@@ -8,9 +8,9 @@ name: preview
 on:
   pull_request:
     branches: [main]
+    # プレビューされるのは frontend だけなので、backend の変更では作らない
     paths:
       - "frontend/**"
-      - "backend/**"
       - ".github/workflows/preview.yml"
 
 permissions:
