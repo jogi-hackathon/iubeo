@@ -24,7 +24,9 @@ type PhaseState struct {
 	Status     api.PhaseStatus
 	StartedAt  time.Time
 	DeadlineAt time.Time
-	Tasks      []TaskState
+	// EndedAt はフェーズが終わった時刻(締切、または全員が完了した時刻)。ここから intermission を数える
+	EndedAt time.Time
+	Tasks   []TaskState
 }
 
 // TaskState はタスクの内部状態
@@ -49,7 +51,12 @@ func taskID(phase, n int) string {
 // 全体の件数は number × セッション開始時の人数。生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。
 // 種類は read_edit と write から乱数で選ぶ。read_edit の対象は在庫のファイルで重複させず、
 // 在庫が尽きたら write にする
+// 第2フェーズからは、先にアイテムを初期状態に戻す
 func (st *State) startPhase(number int, now time.Time) []Output {
+	var out []Output
+	if number > 1 {
+		out = st.resetItems()
+	}
 	r := rand.New(&st.rng)
 
 	var alive []string
@@ -90,7 +97,120 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		DeadlineAt: now.Add(st.Phases.Duration),
 		Tasks:      tasks,
 	}
-	return []Output{Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}}}
+	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
+}
+
+// resetItems はアイテムを初期状態に戻す(ディレクトリの在庫を初期化し、成果物・手持ちは消す。state-schema.md §5.2)
+func (st *State) resetItems() []Output {
+	var holders []string
+	for _, it := range st.Items {
+		if it.Location.Kind == HeldBy {
+			holders = append(holders, it.Location.PlayerID)
+		}
+	}
+	st.Items = initialItems()
+	var out []Output
+	if o := st.object(directoryID); o != nil {
+		out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+	}
+	for _, id := range holders {
+		if p := st.player(id); p != nil {
+			out = append(out, Broadcast{Msg: st.playerUpdated(p)})
+		}
+	}
+	return out
+}
+
+// advance は時刻が進んだことで起きるフェーズの切り替えを行う。Step は時刻を持つ入力を処理する前に、まずこれを呼ぶ。
+// こうして締切を過ぎた後の入力は、締切の処理の後で扱う(締切と完了の順序。state-schema.md §5.1)
+func (st *State) advance(now time.Time) []Output {
+	switch {
+	case st.Status == api.SessionStatusPlaying && st.Phase.Status == api.PhaseStatusActive && !now.Before(st.Phase.DeadlineAt):
+		return st.endPhase(st.Phase.DeadlineAt)
+	case st.Status == api.SessionStatusIntermission && !now.Before(st.Phase.EndedAt.Add(st.Phases.Intermission)):
+		return st.startPhase(st.Phase.Number+1, now)
+	}
+	return nil
+}
+
+// allTasksDone は生存者全員が担当のタスクを完了したか
+func (st *State) allTasksDone() bool {
+	for _, t := range st.Phase.Tasks {
+		if t.CompletedAt.IsZero() && st.player(t.Assignee).Life == api.Alive {
+			return false
+		}
+	}
+	return true
+}
+
+func (st *State) hasPendingTask(playerID string) bool {
+	for _, t := range st.Phase.Tasks {
+		if t.Assignee == playerID && t.CompletedAt.IsZero() {
+			return true
+		}
+	}
+	return false
+}
+
+// endPhase はフェーズを終える。未達の生存者を脱落させ(player.updated と effect の fall)、作業中のアクションを取りやめ、
+// phase.ended を送る。最後のフェーズだったか生存者がいなければ、決着をつける
+func (st *State) endPhase(at time.Time) []Output {
+	var out []Output
+	eliminated := []string{}
+	for i := range st.Players {
+		p := &st.Players[i]
+		if p.Life != api.Alive || !st.hasPendingTask(p.ID) {
+			continue
+		}
+		p.Life = api.Eliminated
+		out = append(out, st.releasePlayer(p)...)
+		id := p.ID
+		out = append(out,
+			Broadcast{Msg: st.playerUpdated(p)},
+			Broadcast{Msg: api.EffectMessage{Type: api.Effect, Name: api.EffectMessageNameFall, PlayerId: &id}},
+		)
+		eliminated = append(eliminated, p.ID)
+	}
+	out = append(out, st.cancelActions()...)
+
+	survivors := 0
+	for _, p := range st.Players {
+		if p.Life == api.Alive {
+			survivors++
+		}
+	}
+	st.Phase.EndedAt = at
+	next := api.PhaseEndedMessageNextIntermission
+	if survivors == 0 || st.Phase.Number >= st.Phases.Count {
+		next = api.PhaseEndedMessageNextCompleted
+		st.Phase.Status = api.PhaseStatusCompleted
+	} else {
+		st.Phase.Status = api.PhaseStatusIntermission
+		st.Status = api.SessionStatusIntermission
+	}
+	out = append(out, Broadcast{Msg: api.PhaseEndedMessage{
+		Type: api.PhaseEnded, Seq: st.nextSeq(), PhaseNumber: st.Phase.Number, EliminatedPlayerIds: eliminated, Next: next,
+	}})
+	if next == api.PhaseEndedMessageNextCompleted {
+		// 決着は仮: 最後のフェーズを生存者が 1 人以上で終えれば victory、途中で全員脱落したら defeat
+		outcome := api.Victory
+		if survivors == 0 {
+			outcome = api.Defeat
+		}
+		out = append(out, st.finish(outcome, at)...)
+	}
+	return out
+}
+
+// finish は決着をつけ、session.finished を送ってからセッションを終える(ADR-0004)
+func (st *State) finish(outcome api.Outcome, at time.Time) []Output {
+	st.Status = api.SessionStatusFinished
+	st.Result = api.Result{Outcome: outcome, DecidedAt: at}
+	st.Ended = true
+	return []Output{
+		Broadcast{Msg: api.SessionFinishedMessage{Type: api.SessionFinished, Seq: st.nextSeq(), Result: st.Result}},
+		End{Reason: ReasonFinished},
+	}
 }
 
 // stockFileIDs はディレクトリの在庫のファイルの id を、初期在庫の並びで返す

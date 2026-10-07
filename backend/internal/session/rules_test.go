@@ -246,6 +246,8 @@ func TestDissolveWhenNotAllConnected(t *testing.T) {
 
 func TestNoDissolveAfterStart(t *testing.T) {
 	st := newState("p1")
+	// フェーズの締切で決着しないよう、長くしておく
+	st.Phases.Duration = 24 * time.Hour
 	st, _ = step(t, st, Connect{PlayerID: "p1", ConnID: 1, Now: t0})
 	if _, out := step(t, st, Tick{Now: at(time.Hour)}); len(outputsOf[End](out)) != 0 {
 		t.Errorf("playing session ended: %+v", out)
@@ -254,6 +256,7 @@ func TestNoDissolveAfterStart(t *testing.T) {
 
 func TestAbandonWhenAllHumansGone(t *testing.T) {
 	st := newState("p1", "p2")
+	st.Phases.Duration = 24 * time.Hour
 	st, _ = step(t, st, Connect{PlayerID: "p1", ConnID: 1, Now: t0})
 	st, _ = step(t, st, Connect{PlayerID: "p2", ConnID: 2, Now: t0})
 	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: at(10 * time.Second)})

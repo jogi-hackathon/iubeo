@@ -200,7 +200,7 @@ func (rt *runtime) step(in Input) bool {
 			}
 		case End:
 			for _, c := range rt.conns {
-				c.Close(CloseSessionEnded, string(o.Reason))
+				c.CloseAfterFlush(CloseSessionEnded, string(o.Reason))
 			}
 			slog.Info("session ended", "session", rt.state.ID, "reason", o.Reason)
 			return true

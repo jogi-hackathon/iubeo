@@ -27,6 +27,8 @@ type State struct {
 	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
 	Phases PhaseRules
 	Phase  PhaseState
+	// Result は決着。決着前は Outcome が空
+	Result api.Result
 	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
 	rng rand.PCG
 
@@ -36,7 +38,7 @@ type State struct {
 	AbandonTimeout time.Duration
 	// AllDisconnectedAt は人間が全員切断した時刻。誰かが接続していればゼロ
 	AllDisconnectedAt time.Time
-	// Ended は終わった(解散・破棄)。以降の入力は無視する
+	// Ended は終わった(決着・解散・破棄)。以降の入力は無視する
 	Ended bool
 }
 
@@ -119,15 +121,7 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
-	for _, f := range directoryStock {
-		st.Items = append(st.Items, ItemState{
-			ID:       f.id,
-			Kind:     api.File,
-			Status:   api.FileStatusUnedited,
-			Color:    f.color,
-			Location: Location{Kind: InDirectory, ObjectID: directoryID},
-		})
-	}
+	st.Items = initialItems()
 	for i, pid := range playerIDs {
 		seat := i + 1
 		st.Players = append(st.Players, PlayerState{
@@ -149,6 +143,21 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		})
 	}
 	return st
+}
+
+// initialItems はアイテムの初期状態(ディレクトリの初期在庫)を返す
+func initialItems() []ItemState {
+	items := make([]ItemState, 0, len(directoryStock))
+	for _, f := range directoryStock {
+		items = append(items, ItemState{
+			ID:       f.id,
+			Kind:     api.File,
+			Status:   api.FileStatusUnedited,
+			Color:    f.color,
+			Location: Location{Kind: InDirectory, ObjectID: directoryID},
+		})
+	}
+	return items
 }
 
 // clone は State の深いコピーを返す。Step は受け取った State を書き換えずに、コピーを変えて返す
@@ -283,6 +292,10 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 	if st.Phase.Number > 0 {
 		ph := st.apiPhase()
 		snap.Game.Phase = &ph
+	}
+	if st.Result.Outcome != "" {
+		result := st.Result
+		snap.Game.Result = &result
 	}
 	return snap
 }
