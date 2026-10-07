@@ -7,6 +7,7 @@
 | `ci.yml` | PR と main への push | backend の build/vet/test、frontend の typecheck/lint/test/build、terraform の fmt/validate |
 | `deploy-frontend.yml` | main への push（`frontend/**`） | Cloudflare へデプロイ（`cf deploy`） |
 | `deploy-backend.yml` | main への push（`backend/**`） | arm64 のイメージを ECR へ push し、デプロイ対象のタグを更新 |
+| `preview.yml` | **main に向けた PR** | Worker Preview を作り、URL を PR にコメント |
 
 **AWS の長期アクセスキーは使いません。** `deploy-backend.yml` は GitHub OIDC で
 一時資格情報を受け取ります。信頼ポリシーは **main への push だけ**に絞ってあります。

@@ -1,0 +1,69 @@
+name: preview
+
+# main に向けた PR で Worker Preview を作り、URL を PR にコメントする。
+#
+# コンテナを持つ iubeo-backend は Previews に対応していないので、
+# プレビューできるのは iubeo-frontend だけ。プレビューはサービスバインディングで
+# 本番の iubeo-backend を呼ぶ(セッションはメモリ上にしか無いので実害はない)。
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - ".github/workflows/preview.yml"
+
+permissions:
+  contents: read
+  # PR にコメントするため
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    # フォークからの PR では secrets が渡らないので、そもそも動かさない。
+    # if で false にすると job ごと skip されるので、チェックは失敗しない
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: 依存をインストール
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Preview をデプロイ
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          pnpm exec cf previews deploy "pr-${{ github.event.pull_request.number }}" \
+            | tee /tmp/preview.log
+
+      # 失敗してもログは残したいので always()
+      - name: PR に URL をコメント
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1)
+          if [ -n "$url" ]; then
+            gh pr comment "$PR_NUMBER" --body "🔍 Preview: $url"
+            echo "コメントしました: $url"
+          else
+            echo "URL が取れませんでした。ログを確認してください。"
+            tail -20 /tmp/preview.log || true
+          fi
