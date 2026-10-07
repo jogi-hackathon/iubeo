@@ -6,8 +6,8 @@
 | --- | --- | --- |
 | `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | まず `changes` で変更パスを見て、関係するジョブだけ走らせる。backend の gofmt/build/vet/test（`backend/**`）、frontend の lint/test/build（`frontend/**`）、terraform の fmt/validate（`infra/**`） |
 | `preview.yml` | **main に向けた PR**（`frontend/**` の変更） | Worker Preview を作り、URL を PR にコメント |
-| `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
-| `deploy-backend.yml` | main への push（`backend/**`）、手動実行 | CI → arm64 のイメージを ECR へ push し、デプロイ対象のタグを更新 |
+| `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**` か `.github/workflows/deploy-cloudflare.yml`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
+| `deploy-backend.yml` | main への push（`backend/**` または `.github/workflows/deploy-backend.yml`）、手動実行 | CI → arm64 のイメージを ECR へ push（同じ sha のタグが既にあれば push は飛ばす）→ デプロイ対象のタグを更新 |
 
 ### デプロイは CI の成功が前提
 
@@ -28,10 +28,15 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 
 ### `deploy-cloudflare` の backend 判定
 
-`backend/**` も `.github/workflows/deploy-cloudflare.yml` も変わっていない push では、
-バックエンド Worker を再デプロイしません。frontend だけの変更でコンテナを作り直すと、
-メモリ上のセッションが消えるためです。手動実行（`workflow_dispatch`）と判定できない push では、
-安全側に倒して再デプロイします。
+比較の基準は **main で直近に成功した deploy-cloudflare の sha** です（直前の push ではありません）。
+そのため、前回の backend デプロイが失敗していても、次の push でまとめて載ります。
+
+`backend/**` も `.github/workflows/deploy-cloudflare.yml` も基準から変わっていなければ、
+バックエンド Worker は再デプロイしません。frontend だけの変更でコンテナを作り直すと、
+メモリ上のセッションが消えるためです。直近の成功が無いとき、手動実行（`workflow_dispatch`）、
+判定できない push では、安全側に倒して再デプロイします。
+
+`workflow_dispatch` は main 以外のブランチから実行しても、本番へのデプロイ（`deploy` ジョブ）は skip されます。
 
 ## 最初に設定するもの
 

@@ -11,9 +11,10 @@ permissions:
   contents: read
 
 concurrency:
-  # PR は新しい push で古い実行を止める。
-  # main 側は止めずに待たせる(デプロイ側の run から呼ばれるため途中で切らない)
-  group: ci-${{ github.event_name }}-${{ github.ref }}
+  # PR は同じ ref の古い実行を止める。
+  # 呼び出し元(deploy-*)から呼ばれた run は、呼び出し元の run ごとに別の group にする。
+  # 同じ group を共有すると、別 workflow の run が pending を奪い合って cancel されうるため
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.ref) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -43,7 +44,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -67,7 +68,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -81,6 +82,12 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # backend の OpenAPI から生成した型(コミット済み)が、スキーマとずれていないか確かめる
+      - name: API 型の生成物がずれていないか
+        working-directory: frontend
+        run: |
+          pnpm gen:api
+          git diff --exit-code -- src/net/schema.gen.ts
       # pnpm build は先頭で型検査(typecheck)を走らせるので、ここでは改めて呼ばない
       - name: 型検査・lint・テスト・ビルド
         working-directory: frontend

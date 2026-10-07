@@ -31,10 +31,18 @@ fi
 
 # PR は merge-base からの差分(...)、push は before から sha までの差分(..)
 if [ "$EVENT_NAME" = "pull_request" ]; then
-  files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA") || run_all
+  range=("$BASE_SHA...$HEAD_SHA")
 else
-  files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA") || run_all
+  range=("$BASE_SHA" "$HEAD_SHA")
 fi
+
+# 非 ASCII のパスは引用符で囲まれて出るので、-z で NUL 区切りにして一時ファイルへ書く。
+# --no-renames は、移動元(backend から消えたファイル)も含めるため。
+# NUL をシェル変数に入れると bash が捨ててしまうので、変数は経由させない
+tmp=$(mktemp)
+git diff --name-only -z --no-renames "${range[@]}" > "$tmp" || run_all
+files=$(tr '\0' '\n' < "$tmp")
+rm -f "$tmp"
 
 echo "変更されたファイル:"
 echo "${files:-(なし)}"
@@ -55,5 +63,6 @@ emit_if_changed() {
 }
 
 emit_if_changed backend '^backend/'
-emit_if_changed frontend '^frontend/'
+# frontend の型は backend/api/openapi.yaml から生成するので、そちらの変更でも frontend を検査する
+emit_if_changed frontend '^frontend/|^backend/api/'
 emit_if_changed infra '^infra/'

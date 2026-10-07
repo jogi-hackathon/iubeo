@@ -25,7 +25,7 @@ jobs:
   deploy:
     needs: ci
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -39,16 +39,35 @@ jobs:
 
       - uses: aws-actions/amazon-ecr-login@v2
 
-      # レイヤーは GitHub Actions のキャッシュに載せ、次回以降のビルドを速くする
+      # タグは ECR で immutable なので、同じ sha の再実行で push すると「already exists」で落ちる。
+      # 既にあれば build と push は飛ばし、SSM の更新だけを進める(失敗したジョブの再実行に備える)
+      - name: 同じタグのイメージが既にあるか確認
+        id: exists
+        env:
+          IMAGE: ${{ vars.ECR_REPOSITORY }}:release-${{ github.sha }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "既にあるので build と push は飛ばす: $IMAGE"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: arm64 のイメージをビルドして push
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          platforms: linux/arm64
-          push: true
-          tags: ${{ vars.ECR_REPOSITORY }}:release-${{ github.sha }}
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: release-${{ github.sha }}
+        # GitHub Actions のレイヤーキャッシュは実測で効果が出なかったので使わない
+        # (Dockerfile は COPY . . の後で go build するため、ソースが変わると build 層が必ず作り直される)。
+        # attestation は ECR に untagged の manifest を増やすので作らない
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --provenance=false \
+            --tag "$REPOSITORY:$TAG" \
+            --push \
+            ./backend
 
       # インスタンスは停止していることが多いので触らない。
       # どのイメージを動かすかだけを書き換え、次の起動時に引かせる。
