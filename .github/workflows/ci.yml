@@ -17,7 +17,31 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # 変更されたパスを見て、走らせるジョブを決める。
+  # 関係の無いジョブは skip する(課金分と待ち時間が減る)
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      infra: ${{ steps.detect.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 差分を取るため全履歴が要る
+          fetch-depth: 0
+      - id: detect
+        name: 変更されたパスを判定
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/scripts/detect-changes.sh
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -40,6 +64,8 @@ jobs:
           go test ./...
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -64,6 +90,8 @@ jobs:
           pnpm build
 
   terraform:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
