@@ -1,4 +1,4 @@
-name: deploy-frontend
+name: deploy-cloudflare
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       # ビルドするので、backend の変更でも再デプロイが要る。
       # これが無いと開発用のコンテナだけ古いままになる
       - "backend/**"
-      - ".github/workflows/deploy-frontend.yml"
+      - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   # 同時に 2 つ走るとデプロイが競合するので直列化する
-  group: deploy-frontend
+  group: deploy-cloudflare
   cancel-in-progress: false
 
 jobs:
@@ -36,10 +36,20 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Cloudflare へデプロイ
+      # バックエンドを先にデプロイする。サービスバインディングは
+      # 相手の Worker が存在しないと解決できないため
+      - name: バックエンド Worker をデプロイ
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        # 型検査も走る。署名鍵は既に Worker にあるので secrets file は要らない
+        # 署名鍵は既に Worker に保存されているので secrets file は要らない
+        run: pnpm exec cf deploy --mode backend
+
+      - name: フロント Worker をデプロイ
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        # 型検査も走る
         run: pnpm deploy
