@@ -1,4 +1,4 @@
-# ADR-0005: TypeScript 7 のもとで openapi-typescript を動かす
+# ADR-0006: TypeScript 7 のもとで openapi-typescript を動かす
 
 - 日付: 2026-10-07
 - ステータス: Proposed

@@ -18,5 +18,8 @@
   "insertFinalNewline": true,
   "sortImports": true,
   "sortPackageJson": false,
-  "ignorePatterns": []
+  // Markdown は mdformat(pre-commit)が担当する。oxfmt と表のパディング規則が
+  // 逆(mdformat は削る / oxfmt は揃える)なので、両方を満たすことはできない。
+  // pre-commit 側に合わせて、oxfmt からは Markdown を外す
+  "ignorePatterns": ["**/*.md"]
 }

@@ -1,0 +1,10 @@
+# Replace placeholders before provisioning. This file is safe to commit; do not put credentials here.
+aws_region    = "ap-northeast-1"
+project_name  = "iubeo"
+environment   = "prototype"
+image_tag     = "bootstrap"
+instance_type = "t4g.small"
+
+# 画面と API は同じ Worker から配信するので、そのオリジンを許可する。
+# サーバーは起動時にこれを検証し、空だと終了する。
+allowed_origins = ["https://iubeo.thirdlf03.com"]
