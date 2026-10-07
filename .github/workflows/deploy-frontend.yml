@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      # Cloudflare Containers のイメージは cf が ../backend/Dockerfile から
+      # ビルドするので、backend の変更でも再デプロイが要る。
+      # これが無いと開発用のコンテナだけ古いままになる
+      - "backend/**"
       - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 

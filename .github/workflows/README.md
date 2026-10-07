@@ -57,3 +57,19 @@ aws ssm send-command --region ap-northeast-1 \
 ブランチから `deploy-backend.yml` を試すと OIDC の引き受けに失敗します。
 試したい場合は `infra/aws/terraform/ci.tf` の `sub` を `repo:<owner>/<repo>:*` に
 緩めて `terraform apply` してください。
+
+## Worker Previews は使えない
+
+`cf previews deploy` は **DO 管理のコンテナに対応していません**。
+
+```text
+Preview deployments do not support Durable Object-managed Containers
+(schedulingPolicy: "durable-object").
+```
+
+実機で確認済み（2026-10-07）。私たちの Worker は署名鍵をコンテナへ渡すために
+`schedulingPolicy: "durable-object"` が必須なので、この制限に当たります。
+
+プレビューが要るなら、**コンテナを持つ Worker と、静的アセットだけの Worker を
+分ける**必要があります（フロントだけならプレビューできる）。分けた場合は
+フロントの Worker がサービスバインディングでコンテナの Worker を呼びます。
