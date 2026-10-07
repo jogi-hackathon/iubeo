@@ -1,0 +1,58 @@
+name: deploy-backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # OIDC で AWS の一時資格情報を受けるために要る
+  id-token: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 長期のアクセスキーは置かず、OIDC で一時資格情報を受ける
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: arm64 のイメージをビルドして push
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: release-${{ github.sha }}
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --tag "$REPOSITORY:$TAG" \
+            --push \
+            ./backend
+
+      # インスタンスは停止していることが多いので触らない。
+      # どのイメージを動かすかだけを書き換え、次の起動時に引かせる。
+      - name: デプロイ対象のタグを更新
+        env:
+          TAG: release-${{ github.sha }}
+        run: |
+          aws ssm put-parameter \
+            --name /iubeo-prototype/image-tag \
+            --value "$TAG" \
+            --type String \
+            --overwrite
+          echo "次に EC2 を起動したとき $TAG が動きます"
