@@ -2,6 +2,8 @@ import {type ComponentType, useCallback} from "react";
 import type {Object3D} from "three";
 
 import {aoModeUserData} from "../bake/aoMode";
+import {CanvasObject} from "./canvas/CanvasObject";
+import {CANVAS_KIND} from "./canvas/data";
 import {DIRECTORY_KIND} from "./directory/data";
 import {DirectoryObject, useOverviewGuard} from "./directory/DirectoryObject";
 import {registerDirectoryInteraction} from "./directory/interaction";
@@ -38,6 +40,7 @@ function DummyObject({object}: {object: GameObject}) {
 const renderers: Record<string, ComponentType<{object: GameObject}>> = {
   [DIRECTORY_KIND]: DirectoryObject,
   [WORKSPACE_KIND]: WorkspaceObject,
+  [CANVAS_KIND]: CanvasObject,
 };
 
 // kind ごとに固有のインタラクトの処理(クライアント側で完結する分)を、汎用のインタラクト基盤に登録する
@@ -65,7 +68,7 @@ function ObjectRoot({object}: {object: GameObject}) {
 /**
  * objectManager のオブジェクトをシーンに描画する。kind ごとに描画コンポーネントを振り分ける。
  * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * (ディレクトリだけは動かないので、専用のコライダーを持ち、AO もベイクする。ワークスペースはモックなのでコライダーを持たない)
+ * (ディレクトリだけは動かないので、専用のコライダーを持ち、AO もベイクする。ワークスペースはモックなのでコライダーを持たない。キャンバスも動かないので、コライダーは持たずに AO だけベイクする)
  */
 export function ManagedObjects() {
   const {objects} = useObjectsState();

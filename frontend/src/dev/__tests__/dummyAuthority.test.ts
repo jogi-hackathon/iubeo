@@ -465,6 +465,24 @@ describe("createDummyAuthority", () => {
     });
   });
 
+  describe("キャンバス", () => {
+    it("interact は、実サーバーと同じく unavailable で拒否し、状態は変えない", () => {
+      const {objects, authority} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnCanvas([0, 0, -3]);
+      const before = objects.getState();
+
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "unavailable",
+      });
+      expect(objects.getState()).toBe(before);
+    });
+  });
+
   describe("ワークスペース", () => {
     it("編集前のファイルを持って interact すると、2 秒後に同じ id・同じ color で edited になり、users が空に戻る", () => {
       const {objects, items, authority, advance} = setup();

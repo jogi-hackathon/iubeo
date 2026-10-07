@@ -13,6 +13,7 @@ import type {
   ObjectScope,
   RejectReason,
 } from "../objects";
+import {CANVAS_KIND} from "../objects/canvas/data";
 import {
   DIRECTORY_KIND,
   type StockFile,
@@ -52,6 +53,7 @@ const defaultSchedule = (fn: () => void, ms: number): void => {
  *   - ファイルを持って: 手持ちを消して、status で行き先を決める
  *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
  *   - ファイル以外を持って: missing_item
+ * - キャンバス(kind "canvas")の interact は、機能ができるまで、実サーバーと同じく unavailable で拒否する(状態は変えない)
  * - ワークスペース(kind "workspace")の interact は、アニメーション(WORKSPACE_ACTION_MS)を待って結果を返す:
  *   - 作業中(users に誰かいる)なら unavailable
  *   - ディレクトリから取り出した編集前のファイル(status "unedited")を持って: 受理して users に入り、終わったら同じ id・同じ color で status を "edited" にして users から出る
@@ -229,6 +231,12 @@ export const createDummyAuthority = ({
         handleWorkspace(object, request);
         return;
       }
+      // 実サーバー(backend/internal/session/interact.go)は、機能のある kind だけ処理し、他は unavailable で拒否する。
+      // キャンバスは機能ができるまで、これに合わせる
+      if (object.kind === CANVAS_KIND) {
+        reject(object.id, "unavailable");
+        return;
+      }
       const using = object.users.includes(request.by);
       const users = using
         ? object.users.filter((u) => u !== request.by)
@@ -284,6 +292,21 @@ export const createDummyAuthority = ({
       const object: GameObject = {
         id: `${WORKSPACE_KIND}-${nextObject++}`,
         kind: WORKSPACE_KIND,
+        scope: "personal",
+        owner: localPlayerId,
+        position,
+        users: [],
+        availability: "available",
+        data: null,
+      };
+      objects.apply({type: "upsert", object});
+      return object.id;
+    },
+    /** キャンバスを置き(personal、owner は自分)、その id を返す。見た目だけで、interact は実サーバーと同じく unavailable で拒否する */
+    spawnCanvas: (position: Vec3): string => {
+      const object: GameObject = {
+        id: `${CANVAS_KIND}-${nextObject++}`,
+        kind: CANVAS_KIND,
         scope: "personal",
         owner: localPlayerId,
         position,
