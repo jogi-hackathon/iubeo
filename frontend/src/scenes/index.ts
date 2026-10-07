@@ -1,13 +1,17 @@
 import type {ComponentType} from "react";
 
+import {MultiplayerTestScene} from "./MultiplayerTestScene";
 import {RoomScene} from "./RoomScene";
 import {SandboxScene} from "./SandboxScene";
 import {TestScene} from "./TestScene";
 
 const coreScenes = {room: RoomScene, sandbox: SandboxScene} as const;
 // 開発時のみ加えるシーン(package.json の devDependencies と同じ考え方)。
-// 本番では登録されず、TestScene 以下はバンドルからも落ちる
-const devScenes = {test: TestScene} as const;
+// 本番では登録されず、TestScene・MultiplayerTestScene 以下はバンドルからも落ちる
+const devScenes = {
+  test: TestScene,
+  multiplayer: MultiplayerTestScene,
+} as const;
 
 export type SceneName = keyof typeof coreScenes | keyof typeof devScenes;
 
