@@ -67,6 +67,7 @@ function ObjectRoot({object, ao}: {object: GameObject; ao?: AOMode}) {
       ref={register}
       userData={{[OBJECT_ID_KEY]: id, ...aoModeUserData(ao)}}
       position={object.position}
+      rotation={[0, object.yaw ?? 0, 0]}
       visible={visible}
     >
       <Renderer object={object} />

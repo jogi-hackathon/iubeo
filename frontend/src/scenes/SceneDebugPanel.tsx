@@ -7,7 +7,7 @@ import {
   useActiveToggles,
   useToggleStoreState,
 } from "../core/toggles";
-import {ROOM_PROP_KEYS} from "./RoomScene/props";
+import {ROOM_FEATURE_KEYS, ROOM_PROP_KEYS} from "./RoomScene/props";
 import {sceneTransitionManager} from "./sceneStore";
 import {useSceneState, useTransitionState} from "./useScene";
 
@@ -46,6 +46,18 @@ function ToggleRows({store}: {store: ToggleStore}) {
             aria-label={`${key} 機能`}
             checked={!disabled.has(key)}
             disabled={hidden.has(key)}
+            onChange={(e) => store.setEnabled(key, e.target.checked)}
+          />{" "}
+          {key}
+        </div>
+      ))}
+      <div style={{marginTop: 4}}>room: 機能のみ</div>
+      {ROOM_FEATURE_KEYS.map((key) => (
+        <div key={key}>
+          <input
+            type="checkbox"
+            aria-label={`${key} 機能`}
+            checked={!disabled.has(key)}
             onChange={(e) => store.setEnabled(key, e.target.checked)}
           />{" "}
           {key}

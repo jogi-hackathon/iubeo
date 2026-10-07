@@ -14,6 +14,37 @@ describe("createToggleStore", () => {
     expect(store.isEnabled("chair")).toBe(true);
   });
 
+  it("初期状態を渡すと、そのキーだけ最初から非表示・機能 OFF。他のキーは表示・機能 ON", () => {
+    const store = createToggleStore({
+      hidden: ["window"],
+      disabled: ["directory:overview"],
+    });
+    expect(store.isVisible("window")).toBe(false);
+    expect(store.isEnabled("window")).toBe(false);
+    expect(store.isVisible("directory:overview")).toBe(true);
+    expect(store.isEnabled("directory:overview")).toBe(false);
+    expect(store.isEnabled("chair")).toBe(true);
+    expect(store.isVisible("chair")).toBe(true);
+  });
+
+  it("初期状態で機能 OFF にしたキーは、あとから ON にできる。ストアごとに独立していて、渡した配列は変わらない", () => {
+    const disabled = ["directory:overview"];
+    const store = createToggleStore({disabled});
+    const other = createToggleStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.setEnabled("directory:overview", true);
+
+    expect(store.isEnabled("directory:overview")).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(disabled).toEqual(["directory:overview"]);
+    expect(other.isEnabled("directory:overview")).toBe(true);
+    expect(createToggleStore({disabled}).isEnabled("directory:overview")).toBe(
+      false,
+    );
+  });
+
   it("setVisible(key, false) で非表示、true で表示に戻る。他のキーは変わらない", () => {
     const store = createToggleStore();
 

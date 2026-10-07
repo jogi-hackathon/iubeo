@@ -7,6 +7,12 @@ export type ToggleState = {
   disabled: ReadonlySet<string>;
 };
 
+/** ストアの初期状態。ここに挙げたキーだけ、最初から非表示・機能 OFF にする(省略は全部表示・全部機能 ON) */
+export type ToggleInitial = {
+  hidden?: readonly string[];
+  disabled?: readonly string[];
+};
+
 /**
  * キーごとの「表示・非表示」と「機能の ON・OFF」。クライアント内部だけの状態で、サーバーのオブジェクトの状態(users・data など)は変えない。
  * チュートリアルが、進行に応じて各オブジェクトの出し入れ・使えるかどうかを切り替えるために使う
@@ -20,9 +26,12 @@ export type ToggleState = {
  *
  * ストアはシーンが所有する(シーンのマウントで作り、TogglesProvider で配下に配る)。シーンを出ればストアごと捨てられるので、リセット処理は要らない
  */
-export const createToggleStore = () => {
+export const createToggleStore = (initial: ToggleInitial = {}) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
-  let state: ToggleState = {hidden: new Set(), disabled: new Set()};
+  let state: ToggleState = {
+    hidden: new Set(initial.hidden),
+    disabled: new Set(initial.disabled),
+  };
   const listeners = new Set<() => void>();
 
   const notify = () => {

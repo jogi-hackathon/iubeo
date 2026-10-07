@@ -1,5 +1,8 @@
 import {CANVAS_KIND} from "../../objects/canvas/data";
-import {DIRECTORY_KIND} from "../../objects/directory/data";
+import {
+  DIRECTORY_KIND,
+  DIRECTORY_OVERVIEW_KEY,
+} from "../../objects/directory/data";
 import {PC_KIND} from "../../objects/pc/data";
 import {WORKSPACE_KIND} from "../../objects/workspace/data";
 
@@ -19,5 +22,8 @@ export const ROOM_PROP_KEYS = [
   CANVAS_KIND,
   PC_KIND,
 ] as const;
+
+/** room の、プロップとは別の機能のキー(表示・非表示は持たず、機能の ON・OFF だけ見る) */
+export const ROOM_FEATURE_KEYS = [DIRECTORY_OVERVIEW_KEY] as const;
 
 export type RoomPropKey = (typeof ROOM_PROP_KEYS)[number];

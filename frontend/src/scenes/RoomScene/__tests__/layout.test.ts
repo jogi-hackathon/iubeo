@@ -1,12 +1,11 @@
 import {Box3, BoxGeometry, Mesh, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
-import {MOUNTAIN_REACH} from "../../../objects/directory/mountain";
-import {OVERVIEW_HEIGHT} from "../../../objects/directory/overviewPose";
-import {START_POSITION} from "../../../player/constants";
+import {mountainReach} from "../../../objects/directory/mountain";
 import {CHAIR_PARTS} from "../../../props/chairParts";
 import {
   CANVAS_POSITION,
+  CANVAS_YAW,
   CHAIR_POSITION,
   DIRECTORY_POSITION,
   PC_POSITION,
@@ -15,6 +14,7 @@ import {
   ROOM_FLOOR,
   ROOM_INNER_Z_SOUTH,
   ROOM_SIZE,
+  ROOM_SPAWN_POSITION,
   ROOM_WALLS,
   WINDOW_CENTER_Z,
   WINDOW_PLUG,
@@ -34,10 +34,9 @@ const insideWall = (x: number, y: number, z: number) =>
   ROOM_WALLS.some((w) => wallBox(w).containsPoint(new Vector3(x, y, z)));
 
 describe("room layout", () => {
-  it("室内は一辺 ROOM_SIZE の立方体で、俯瞰カメラが天井の内側に収まる", () => {
+  it("室内は一辺 ROOM_SIZE の立方体", () => {
     expect(ROOM_INNER_X * 2).toBe(ROOM_SIZE);
     expect(ROOM_INNER_Z_SOUTH - ROOM_INNER_Z_NORTH).toBe(ROOM_SIZE);
-    expect(OVERVIEW_HEIGHT).toBeLessThan(ROOM_SIZE);
   });
 
   it("床は上面が y=0 で、室内全体と壁の下を覆う", () => {
@@ -118,12 +117,11 @@ describe("room layout", () => {
 
   it("オブジェクトはみな室内の床の上にあり、スポーン地点も室内", () => {
     for (const [x, , z] of [
-      DIRECTORY_POSITION,
       WORKSPACE_POSITION,
       CANVAS_POSITION,
       CHAIR_POSITION,
       PC_POSITION,
-      [START_POSITION[0], 0, START_POSITION[2]],
+      ROOM_SPAWN_POSITION,
     ] as const) {
       expect(Math.abs(x)).toBeLessThanOrEqual(ROOM_INNER_X);
       expect(z).toBeGreaterThanOrEqual(ROOM_INNER_Z_NORTH);
@@ -131,22 +129,52 @@ describe("room layout", () => {
     }
   });
 
-  it("キャンバスの足元(x ±0.49・z -0.62〜0.32)は、壁・山・机にめり込まない", () => {
-    const [cx, , cz] = CANVAS_POSITION;
-    expect(cx + 0.49).toBeLessThan(ROOM_INNER_X);
-    expect(cz - 0.62).toBeGreaterThan(ROOM_INNER_Z_NORTH);
-    // 山の中心からキャンバスの一番近い足元までの距離が、束の端までの半径より外
-    const nearest = Math.hypot(
-      cx - 0.49 - DIRECTORY_POSITION[0],
-      cz + 0.32 - DIRECTORY_POSITION[2],
-    );
-    expect(nearest).toBeGreaterThan(MOUNTAIN_REACH - 0.5);
+  it("ディレクトリは、奥の壁の向こうに中心を置き、室内への張り出しは 2m 未満", () => {
+    const [x, , z] = DIRECTORY_POSITION;
+    expect(x).toBe(0);
+    expect(z).toBeLessThanOrEqual(ROOM_INNER_Z_NORTH);
+    // 山の端(束の端まで)と、奥の壁の室内側の面の間
+    expect(z + mountainReach("small") - ROOM_INNER_Z_NORTH).toBeLessThan(2);
   });
 
-  it("机(1.6m x 0.8m)と山(束の端まで MOUNTAIN_REACH)の間は 1m 以上空く", () => {
+  it("キャンバスの足元(x ±0.49・z -0.62〜0.32 を CANVAS_YAW で回したもの)は、壁にめり込まず、山の端より外", () => {
+    const [cx, , cz] = CANVAS_POSITION;
+    const cos = Math.cos(CANVAS_YAW);
+    const sin = Math.sin(CANVAS_YAW);
+    // rotation.y で回した足元の四隅(ワールド座標)
+    const corners = [
+      [-0.49, -0.62],
+      [0.49, -0.62],
+      [-0.49, 0.32],
+      [0.49, 0.32],
+    ].map(([x, z]) => [
+      cx + (x as number) * cos + (z as number) * sin,
+      cz - (x as number) * sin + (z as number) * cos,
+    ]);
+    for (const [x, z] of corners as [number, number][]) {
+      expect(Math.abs(x)).toBeLessThan(ROOM_INNER_X);
+      expect(z).toBeGreaterThan(ROOM_INNER_Z_NORTH);
+      expect(
+        Math.hypot(x - DIRECTORY_POSITION[0], z - DIRECTORY_POSITION[2]),
+      ).toBeGreaterThan(mountainReach("small"));
+    }
+  });
+
+  it("キャンバスの絵の面(既定は +Z)は、スポーン地点を向く", () => {
+    const facing = [Math.sin(CANVAS_YAW), Math.cos(CANVAS_YAW)];
+    const toSpawn = [
+      ROOM_SPAWN_POSITION[0] - CANVAS_POSITION[0],
+      ROOM_SPAWN_POSITION[2] - CANVAS_POSITION[2],
+    ];
+    const len = Math.hypot(toSpawn[0] as number, toSpawn[1] as number);
+    expect(facing[0]).toBeCloseTo((toSpawn[0] as number) / len);
+    expect(facing[1]).toBeCloseTo((toSpawn[1] as number) / len);
+  });
+
+  it("机(1.6m x 0.8m)の奥の縁と山の端(束の端まで mountainReach(small))の間は 0.5m 以上空く", () => {
     const deskBackZ = WORKSPACE_POSITION[2] - 0.4;
-    const mountainFrontZ = DIRECTORY_POSITION[2] + MOUNTAIN_REACH;
-    expect(deskBackZ - mountainFrontZ).toBeGreaterThanOrEqual(1);
+    const mountainFrontZ = DIRECTORY_POSITION[2] + mountainReach("small");
+    expect(deskBackZ - mountainFrontZ).toBeGreaterThanOrEqual(0.5);
   });
 
   it("イスは机の手前に座り、机に重ならず、人が引いて座れる間がある", () => {

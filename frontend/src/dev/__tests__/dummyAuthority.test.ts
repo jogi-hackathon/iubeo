@@ -236,7 +236,20 @@ describe("createDummyAuthority", () => {
         users: [],
         availability: "available",
       });
-      expect(data()).toEqual({stock: STOCK, outputs: 0});
+      expect(data()).toEqual({stock: STOCK, outputs: 0, size: "large"});
+    });
+
+    it("spawnDirectory に size を渡すと、data に入る(省略は large)。在庫の出し入れでも変わらない", () => {
+      const {authority, objects, items} = setup();
+      const id = authority.spawnDirectory([0, 0, -5.5], STOCK, "small");
+      const data = () =>
+        parseDirectoryData(objects.getObject(id)?.data ?? null);
+      expect(data().size).toBe("small");
+
+      objects.interact(id, {target: F2});
+      expect(items.getHeld()?.id).toBe(F2);
+      expect(data().stock.map((f) => f.id)).toEqual([F1, F3]);
+      expect(data().size).toBe("small");
     });
 
     describe("手ぶらで取り出す", () => {

@@ -7,6 +7,10 @@ import {
   LOOSE_COUNT,
   MOUNTAIN_HEIGHT_MAX,
   MOUNTAIN_REACH,
+  MOUNTAIN_SIZES,
+  mountainHeightMax,
+  mountainReach,
+  mountainViewHeight,
   OUTPUT_MAX,
   PAPERS,
   VIEW_HEIGHT,
@@ -265,6 +269,137 @@ describe("buildMountain", () => {
         expect(o.position[1]).toBeLessThan(4 * m.tierHeight + 0.1);
       }
     });
+  });
+});
+
+describe("山の大きさ", () => {
+  it("large は既定の大きさで、後方互換の定数と同じ値", () => {
+    expect(MOUNTAIN_SIZES.large).toEqual({
+      tiers: 7,
+      radiusBottom: 3.6,
+      radiusTop: 0.6,
+      heightMin: 4.6,
+      heightMax: 5.4,
+    });
+    expect(mountainReach("large")).toBe(MOUNTAIN_REACH);
+    expect(mountainHeightMax("large")).toBe(MOUNTAIN_HEIGHT_MAX);
+    expect(mountainViewHeight("large")).toBe(VIEW_HEIGHT);
+    for (const seed of SEEDS) {
+      expect(buildMountain(seed, "large")).toEqual(buildMountain(seed));
+    }
+  });
+
+  it("small は large より小さい(半径・高さ・俯瞰に要る高さ)", () => {
+    expect(mountainReach("small")).toBeLessThan(mountainReach("large"));
+    expect(mountainHeightMax("small")).toBeLessThan(mountainHeightMax("large"));
+    expect(mountainViewHeight("small")).toBe(mountainHeightMax("small") * 2);
+    expect(buildMountain("directory-1", "small")).not.toEqual(
+      buildMountain("directory-1"),
+    );
+  });
+});
+
+describe("buildMountain(small)", () => {
+  // 山の端を保証するので、SEEDS より多くの seed で確かめる
+  const MANY = Array.from({length: 200}, (_, i) => `seed-${i}`);
+  const reach = mountainReach("small");
+
+  it("同じ seed なら毎回同じ形", () => {
+    expect(buildMountain("directory-1", "small")).toEqual(
+      buildMountain("directory-1", "small"),
+    );
+  });
+
+  it("段は 3 段で、上の段ほど狭く、高さは 1.9〜2.2m", () => {
+    for (const seed of MANY) {
+      const m = buildMountain(seed, "small");
+      expect(m.tierRadii).toHaveLength(3);
+      expect(m.tierRadii[0]).toBeCloseTo(1.6);
+      expect(m.tierRadii[2]).toBeCloseTo(0.6);
+      for (let t = 1; t < m.tierRadii.length; t++) {
+        expect(m.tierRadii[t]).toBeLessThan(m.tierRadii[t - 1] as number);
+      }
+      expect(m.height).toBeGreaterThanOrEqual(1.9);
+      expect(m.height).toBeLessThanOrEqual(mountainHeightMax("small"));
+      expect(m.tierHeight * m.tierRadii.length).toBeCloseTo(m.height);
+    }
+  });
+
+  it("芯・束・成果物の板・はみ出す紙の全体が、山の半径(mountainReach)に収まる", () => {
+    for (const seed of MANY) {
+      const m = buildMountain(seed, "small");
+      for (let i = 0; i < m.core.positions.length; i += 3) {
+        expect(
+          Math.hypot(
+            m.core.positions[i] as number,
+            m.core.positions[i + 2] as number,
+          ),
+        ).toBeLessThanOrEqual(reach);
+      }
+      for (const s of [...m.sheets, ...m.outputSheets]) {
+        for (const c of corners(s)) {
+          expect(Math.hypot(c.x, c.z)).toBeLessThanOrEqual(reach);
+        }
+      }
+      for (const l of m.looseSheets) {
+        const half = Math.hypot(l.size[0], l.size[2]) / 2;
+        expect(
+          Math.hypot(l.position[0], l.position[2]) + half,
+        ).toBeLessThanOrEqual(reach);
+        expect(l.position[1]).toBeLessThan(m.height + 0.6);
+        expect(l.position[1]).toBeGreaterThan(-0.2);
+      }
+    }
+  });
+
+  it("束の板は頂上の高さの近くまで積まれ、はみ出す紙の枚数は large と同じ", () => {
+    for (const seed of SEEDS) {
+      const m = buildMountain(seed, "small");
+      const top = Math.max(
+        ...m.sheets.map((s) => s.position[1] + s.size[1] / 2),
+      );
+      expect(top).toBeGreaterThan(m.height - 0.05);
+      expect(top).toBeLessThan(m.height + 0.05);
+      expect(m.looseSheets).toHaveLength(LOOSE_COUNT);
+    }
+  });
+
+  describe("在庫ファイルの候補", () => {
+    // 低くて狭い山は、俯瞰の高さが山の高さの 2 倍だと、一番下の段が上の段に隠れやすく、候補が減る
+    it("どの seed でも 2 個以上あり、room に置く id(directory-1)は在庫 6 個以上ある", () => {
+      for (const seed of MANY) {
+        expect(
+          buildMountain(seed, "small").candidates.length,
+        ).toBeGreaterThanOrEqual(2);
+      }
+      expect(
+        buildMountain("directory-1", "small").candidates.length,
+      ).toBeGreaterThanOrEqual(6);
+    });
+
+    it("真上のカメラ(mountainViewHeight)から、面の中心が上の段の縁に隠れずに見える", () => {
+      for (const seed of MANY) {
+        const m = buildMountain(seed, "small");
+        for (const c of m.candidates) {
+          expect(
+            isVisibleFromAbove(
+              c,
+              m.tierRadii,
+              m.tierHeight,
+              mountainViewHeight("small"),
+            ),
+          ).toBe(true);
+        }
+      }
+    });
+  });
+
+  it("成果物の板は、置き場の数(large の上限より少ない)だけ用意される", () => {
+    for (const seed of SEEDS) {
+      const m = buildMountain(seed, "small");
+      expect(m.outputSheets.length).toBeGreaterThan(0);
+      expect(m.outputSheets.length).toBeLessThanOrEqual(OUTPUT_MAX);
+    }
   });
 });
 

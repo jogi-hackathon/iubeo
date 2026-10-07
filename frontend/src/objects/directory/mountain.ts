@@ -61,19 +61,61 @@ export type Mountain = {
   candidates: Candidate[];
 };
 
-/** 山の高さの上限(m) */
-export const MOUNTAIN_HEIGHT_MAX = 5.4;
-/** 山(芯と、束の端まで)が収まる、足元中心からの半径(m) */
-export const MOUNTAIN_REACH = 4.4;
-/** 俯瞰のカメラの、地面からの高さの下限(m)。真上からは、上の段が下の段の縁を隠すので、山の高さの約 2 倍から見て、下の段の上面を見えるようにする */
-export const VIEW_HEIGHT = MOUNTAIN_HEIGHT_MAX * 2;
+/**
+ * 山の大きさを決める値。段数・段の外側の半径(下の段と上の段。間の段は、同じ幅ずつ狭くなる)・高さの範囲(m)。
+ * 束の大きさ・本の積み方・はみ出す紙などは、大きさによらず共通
+ */
+export type MountainSize = {
+  tiers: number;
+  radiusBottom: number;
+  radiusTop: number;
+  heightMin: number;
+  heightMax: number;
+};
 
-const HEIGHT_MIN = 4.6;
-const HEIGHT_RANGE = MOUNTAIN_HEIGHT_MAX - HEIGHT_MIN;
-const TIERS = 7;
-/** 一番下の段と一番上の段の外側の半径(m)。段ごとに、同じ幅ずつ狭くなる */
-const RADIUS_BOTTOM = 3.6;
-const RADIUS_TOP = 0.6;
+export type MountainSizeName = "large" | "small";
+
+/** large は既定(test など)。small は room のような狭い部屋用 */
+export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
+  large: {
+    tiers: 7,
+    radiusBottom: 3.6,
+    radiusTop: 0.6,
+    heightMin: 4.6,
+    heightMax: 5.4,
+  },
+  small: {
+    tiers: 3,
+    radiusBottom: 1.6,
+    radiusTop: 0.6,
+    heightMin: 1.9,
+    heightMax: 2.2,
+  },
+};
+
+/** 一番下の段の外側の半径から、束・はみ出す紙の端までの余裕(m) */
+const REACH_MARGIN = 0.8;
+
+/** 山(芯と、束の端まで)が収まる、足元中心からの半径(m) */
+export const mountainReach = (size: MountainSizeName): number =>
+  MOUNTAIN_SIZES[size].radiusBottom + REACH_MARGIN;
+
+/** 山の高さの上限(m) */
+export const mountainHeightMax = (size: MountainSizeName): number =>
+  MOUNTAIN_SIZES[size].heightMax;
+
+/**
+ * 俯瞰のカメラの、地面からの高さの下限(m)。真上からは、上の段が下の段の縁を隠すので、
+ * 山の高さの約 2 倍から見て、下の段の上面を見えるようにする
+ */
+export const mountainViewHeight = (size: MountainSizeName): number =>
+  mountainHeightMax(size) * 2;
+
+/** large の値(後方互換) */
+export const MOUNTAIN_HEIGHT_MAX = mountainHeightMax("large");
+export const MOUNTAIN_REACH = mountainReach("large");
+export const VIEW_HEIGHT = mountainViewHeight("large");
+
 /** 1 つの束(本の小さな山積み)の本の冊数の範囲。厚みは、束ごとに段の高さを不均等に分ける */
 const BOOKS_PER_BUNDLE: [number, number] = [4, 6];
 /** 束の中で、向きが大きくずれて、はみ出す本の割合 */
@@ -153,17 +195,23 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
 /**
  * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed(ディレクトリの id)から決まる。
  * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(厚みの違う白い本を 4〜6 冊重ねた小さな山積み)を並べる。
- * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める
+ * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める。
+ * 段数・半径・高さは sizeName(MOUNTAIN_SIZES)で決まる(既定の large)
  */
-export const buildMountain = (seed: string): Mountain => {
+export const buildMountain = (
+  seed: string,
+  sizeName: MountainSizeName = "large",
+): Mountain => {
+  const size = MOUNTAIN_SIZES[sizeName];
+  const {tiers, radiusBottom, radiusTop} = size;
   const random = createRandom(hashString(`mountain:${seed}`));
   const range = ([a, b]: [number, number]) => a + random() * (b - a);
-  const height = HEIGHT_MIN + random() * HEIGHT_RANGE;
-  const tierHeight = height / TIERS;
-  const step = (RADIUS_BOTTOM - RADIUS_TOP) / (TIERS - 1);
+  const height = size.heightMin + random() * (size.heightMax - size.heightMin);
+  const tierHeight = height / tiers;
+  const step = (radiusBottom - radiusTop) / (tiers - 1);
   const tierRadii = Array.from(
-    {length: TIERS},
-    (_, t) => RADIUS_BOTTOM - t * step,
+    {length: tiers},
+    (_, t) => radiusBottom - t * step,
   );
 
   const sheets: Sheet[] = [];
@@ -173,7 +221,7 @@ export const buildMountain = (seed: string): Mountain => {
   // はみ出す紙の起点になる束(在庫ファイルの候補の束の上面は、真上から見えるようにしておくので除く)
   const looseSlots: Array<Candidate & {drop: number}> = [];
 
-  for (let t = 0; t < TIERS; t++) {
+  for (let t = 0; t < tiers; t++) {
     const outer = tierRadii[t] as number;
     const inner = tierRadii[t + 1] ?? 0;
     const band = outer - inner;
@@ -321,7 +369,12 @@ export const buildMountain = (seed: string): Mountain => {
     looseSheets,
     outputSheets,
     candidates: candidates.filter((c) =>
-      isVisibleFromAbove(c, tierRadii, tierHeight, VIEW_HEIGHT),
+      isVisibleFromAbove(
+        c,
+        tierRadii,
+        tierHeight,
+        mountainViewHeight(sizeName),
+      ),
     ),
   };
 };

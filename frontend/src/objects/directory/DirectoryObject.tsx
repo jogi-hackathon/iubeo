@@ -84,16 +84,20 @@ function OutputSheets({sheets, count}: StackProps) {
  *   AO の出し方は、置かれたシーンが決める(既定は baked。room のように出し入れするシーンは、影が残らないよう ManagedObjects の ao で realtime にする)
  * - 束の本とはみ出す紙は、1 つにまとめた通常の mesh(1 回の描画)。コライダーにはせず、ベイク対象としてだけ登録する(BakeTarget)
  * - コライダーは、段々の芯。束は芯に載っているので、プレイヤーは芯に当たる(束のはみ出しは、コライダーの外)
+ * - 山の大きさ(data の size)で段数・半径・高さが変わる(large は既定、small は room のような狭い部屋用)。大きさが変わると山の形が変わるので、ベイクするシーンの置き方と合わせる
  * - 成果物(outputs)は、下の方の段の束の上に板が増える。位置は id から決まり、増えても既存の板は動かない
  * - 在庫のファイルは、山の束の 1 つ 1 つ。一人称では白いままで、手ぶらでインタラクトしたときの俯瞰ビュー
  *   (DirectoryOverview)で、割り当てられた束にだけ色の縁が付く
  */
 export function DirectoryObject({object}: {object: GameObject}) {
-  const {stock, outputs} = useMemo(
+  const {stock, outputs, size} = useMemo(
     () => parseDirectoryData(object.data),
     [object.data],
   );
-  const mountain = useMemo(() => buildMountain(object.id), [object.id]);
+  const mountain = useMemo(
+    () => buildMountain(object.id, size),
+    [object.id, size],
+  );
   const coreGeometry = useMemo(
     () => buildCoreGeometry(mountain.core),
     [mountain],
@@ -126,6 +130,7 @@ export function DirectoryObject({object}: {object: GameObject}) {
           directoryId={object.id}
           position={object.position}
           candidates={mountain.candidates}
+          size={size}
           stock={stock}
         />
       )}

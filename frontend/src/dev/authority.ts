@@ -5,6 +5,7 @@ import {LOCAL_PLAYER_ID} from "../player/local";
 import type {SceneName} from "../scenes";
 import {
   CANVAS_POSITION,
+  CANVAS_YAW,
   DIRECTORY_POSITION,
   PC_POSITION,
   WORKSPACE_POSITION,
@@ -88,9 +89,13 @@ const spawnTestObjects = () => {
 
 /** room の確認用のオブジェクト。置き場所は scenes/RoomScene/layout(本番ではサーバーが置く) */
 const spawnRoomObjects = () => {
-  dummyAuthority.spawnDirectory([...DIRECTORY_POSITION], DEV_DIRECTORY_STOCK);
+  dummyAuthority.spawnDirectory(
+    [...DIRECTORY_POSITION],
+    DEV_DIRECTORY_STOCK,
+    "small",
+  );
   dummyAuthority.spawnWorkspace([...WORKSPACE_POSITION]);
-  dummyAuthority.spawnCanvas([...CANVAS_POSITION]);
+  dummyAuthority.spawnCanvas([...CANVAS_POSITION], CANVAS_YAW);
   dummyAuthority.spawnPc([...PC_POSITION]);
 };
 

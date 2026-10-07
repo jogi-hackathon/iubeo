@@ -20,6 +20,11 @@ export type GameObject = {
   /** personal のときだけ */
   owner?: PlayerId;
   position: Vec3;
+  /**
+   * Y 軸まわりの向き(ラジアン。three の rotation.y と同じ向き)。省略時は 0 で、各 kind の既定の向き(キャンバスなら絵の面が +Z)。
+   * ObjectRoot が見た目ごと回す。俯瞰ビューなど、ワールド座標を自前で計算する kind(ディレクトリ)は 0 のまま使う
+   */
+  yaw?: number;
   /** 今触っているプレイヤー。personal は最大 1 人、shared は複数人 */
   users: readonly PlayerId[];
   availability: ObjectAvailability;

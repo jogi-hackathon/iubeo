@@ -16,9 +16,11 @@ import type {
 import {CANVAS_ACTION_MS, CANVAS_KIND} from "../objects/canvas/data";
 import {
   DIRECTORY_KIND,
+  type DirectoryData,
   type StockFile,
   parseDirectoryData,
 } from "../objects/directory/data";
+import type {MountainSizeName} from "../objects/directory/mountain";
 import {PC_KIND} from "../objects/pc/data";
 import {WORKSPACE_ACTION_MS, WORKSPACE_KIND} from "../objects/workspace/data";
 import type {PlayerId} from "../player/types";
@@ -86,10 +88,8 @@ export const createDummyAuthority = ({
   const reject = (objectId: string, reason: RejectReason) =>
     objects.apply({type: "interactRejected", objectId, reason});
 
-  const setDirectory = (
-    object: GameObject,
-    data: {stock: StockFile[]; outputs: number},
-  ) => objects.apply({type: "upsert", object: {...object, data}});
+  const setDirectory = (object: GameObject, data: DirectoryData) =>
+    objects.apply({type: "upsert", object: {...object, data}});
 
   const handleDirectory = (object: GameObject, request: InteractRequest) => {
     const data = parseDirectoryData(object.data);
@@ -313,8 +313,12 @@ export const createDummyAuthority = ({
       }
     },
 
-    /** ディレクトリを置き(shared)、その id を返す。stock は今ディレクトリの中にあるファイル */
-    spawnDirectory: (position: Vec3, stock: readonly StockFile[]): string => {
+    /** ディレクトリを置き(shared)、その id を返す。stock は今ディレクトリの中にあるファイル。size は山の大きさ(省略は large) */
+    spawnDirectory: (
+      position: Vec3,
+      stock: readonly StockFile[],
+      size: MountainSizeName = "large",
+    ): string => {
       const object: GameObject = {
         id: `${DIRECTORY_KIND}-${nextObject++}`,
         kind: DIRECTORY_KIND,
@@ -322,7 +326,7 @@ export const createDummyAuthority = ({
         position,
         users: [],
         availability: "available",
-        data: {stock: stock.map((f) => ({...f})), outputs: 0},
+        data: {stock: stock.map((f) => ({...f})), outputs: 0, size},
       };
       objects.apply({type: "upsert", object});
       return object.id;
@@ -343,13 +347,14 @@ export const createDummyAuthority = ({
       return object.id;
     },
     /** キャンバスを置き(personal、owner は自分)、その id を返す */
-    spawnCanvas: (position: Vec3): string => {
+    spawnCanvas: (position: Vec3, yaw?: number): string => {
       const object: GameObject = {
         id: `${CANVAS_KIND}-${nextObject++}`,
         kind: CANVAS_KIND,
         scope: "personal",
         owner: localPlayerId,
         position,
+        ...(yaw !== undefined && {yaw}),
         users: [],
         availability: "available",
         data: null,

@@ -1,11 +1,11 @@
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
-// 部屋は一辺 12m の立方体の空洞。ディレクトリの俯瞰カメラ(山の真上 10.8m 以上)が天井の内側に収まる高さ。
+// 部屋は一辺 6m の立方体の空洞(人の背丈に合わせた 1 人用の部屋の大きさ。ディレクトリの山の大きさは基準にしない)。
 // x は 0 を中心に、z は ROOM_CENTER_Z を中心にして、スポーン地点(0, 0)が部屋の手前の壁際になるようにする(正面は -Z)
-export const ROOM_SIZE = 12;
-export const WALL_THICKNESS = 0.5;
-export const ROOM_CENTER_Z = -4;
+export const ROOM_SIZE = 6;
+export const WALL_THICKNESS = 0.25;
+export const ROOM_CENTER_Z = -2;
 
 const HALF = ROOM_SIZE / 2;
 const WALL_CENTER = HALF + WALL_THICKNESS / 2;
@@ -15,7 +15,7 @@ export const ROOM_INNER_Z_NORTH = ROOM_CENTER_Z - HALF;
 export const ROOM_INNER_Z_SOUTH = ROOM_CENTER_Z + HALF;
 
 /** 左(-X)の壁の窓。専用のジオメトリを別で作るので、今は何もはめない正方形の空洞 */
-export const WINDOW_SIZE = 4;
+export const WINDOW_SIZE = 2;
 export const WINDOW_SILL_HEIGHT = 1;
 export const WINDOW_CENTER_Z = ROOM_CENTER_Z;
 
@@ -87,14 +87,28 @@ export const WINDOW_PLUG: WallSpec = {
   size: [WALL_THICKNESS, WINDOW_SIZE, WINDOW_SIZE],
 };
 
-// オブジェクトの置き場所(足元の位置)。スケッチどおり、ディレクトリは奥の壁、キャンバスは奥の右隅、
+// オブジェクトの置き場所(足元の位置)。スケッチどおり、ディレクトリは奥の壁、キャンバスは右の壁際(スポーン地点を向く)、
 // 机は部屋の中央、イスは机の手前(+Z 側)で机の方(-Z)を向く。
-// ディレクトリは山の半分が壁に埋まるよう、奥の壁の室内側の面に中心を置く(半径 3.6m の山が室内に張り出す)。
-// 机の奥の縁(z=-4.4)と山の端(束の端まで 4.4m)は 1m 以上空く
-export const DIRECTORY_POSITION: Vec3 = [0, 0, ROOM_INNER_Z_NORTH];
+// ディレクトリは small の山を、奥の壁の室内の面から DIRECTORY_SINK 奥(壁の向こう)に中心を置く。
+// 山(束の端まで mountainReach("small") = 2.4m)は、室内には 1.9m だけ張り出す。
+// 机の奥の縁(z=-2.4)と山の端(z=-3.1)は 0.5m 以上空く
+const DIRECTORY_SINK = 0.5;
+export const DIRECTORY_POSITION: Vec3 = [
+  0,
+  0,
+  ROOM_INNER_Z_NORTH - DIRECTORY_SINK,
+];
 export const WORKSPACE_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z];
-export const CANVAS_POSITION: Vec3 = [4.8, 0, -8.2];
-export const CHAIR_POSITION: Vec3 = [0, 0, -3.05];
+// キャンバスは斜めに向けるので、隅に寄せると右の壁と山の裾にはみ出す。両方から離れる、右の壁際の机寄りに置く
+export const CANVAS_POSITION: Vec3 = [2.1, 0, -3.2];
+/** スポーン地点(足元)。正面は -Z */
+export const ROOM_SPAWN_POSITION: Vec3 = [0, 0.05, 0];
+/** キャンバスの向き。壁に正対させず、絵の面(既定は +Z)をスポーン地点へ向ける */
+export const CANVAS_YAW = Math.atan2(
+  ROOM_SPAWN_POSITION[0] - CANVAS_POSITION[0],
+  ROOM_SPAWN_POSITION[2] - CANVAS_POSITION[2],
+);
+export const CHAIR_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z + 0.95];
 /** PC は机の上の奥側(作業スペースの外)。今は見た目が無く、データだけ */
 export const PC_POSITION: Vec3 = [
   WORKSPACE_POSITION[0],
