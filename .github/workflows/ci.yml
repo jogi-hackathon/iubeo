@@ -99,16 +99,8 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.16.3"
-      # provider(aws だけで約 8 秒)を毎回ダウンロードしないよう、プラグインキャッシュを使う
-      - uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/tf-plugin-cache
-          # ロックファイルの版が変わったときだけ作り直す
-          key: tf-plugins-${{ runner.os }}-${{ hashFiles('infra/aws/terraform/.terraform.lock.hcl') }}
       - name: 整形と検証
         working-directory: infra/aws/terraform
-        env:
-          TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/tf-plugin-cache
         run: |
           terraform fmt -check -recursive
           terraform init -backend=false
