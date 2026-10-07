@@ -29,6 +29,9 @@ type State struct {
 	Phase  PhaseState
 	// Result は決着。決着前は Outcome が空
 	Result api.Result
+	// BypassAt は最後のフェーズを生き残って bypassPermission を立てた時刻、FireAt は火をつけた時刻。まだならゼロ
+	BypassAt time.Time
+	FireAt   time.Time
 	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
 	rng rand.PCG
 
@@ -92,6 +95,8 @@ type ItemState struct {
 	Status   api.FileStatus // kind が file のときだけ
 	Color    string         // 在庫から取り出したファイルだけ
 	Location Location
+	// Home はライターの置き場(lighter_stand)の id。切断・脱落したらここに戻す
+	Home string
 }
 
 // Timeouts はセッションの時間の決まり
@@ -121,7 +126,6 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
-	st.Items = initialItems()
 	for i, pid := range playerIDs {
 		seat := i + 1
 		st.Players = append(st.Players, PlayerState{
@@ -141,13 +145,24 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityAvailable,
 		})
+		// ライターの置き場。bypassPermission が立つまでは使えない
+		st.Objects = append(st.Objects, ObjectState{
+			ID:           lighterStandID(seat),
+			Kind:         api.LighterStand,
+			Scope:        api.Personal,
+			Owner:        pid,
+			Position:     lighterStandPosition(seat),
+			Users:        []string{},
+			Availability: api.ObjectAvailabilityUnavailable,
+		})
 	}
+	st.Items = st.initialItems()
 	return st
 }
 
-// initialItems はアイテムの初期状態(ディレクトリの初期在庫)を返す
-func initialItems() []ItemState {
-	items := make([]ItemState, 0, len(directoryStock))
+// initialItems はアイテムの初期状態(ディレクトリの初期在庫と、席ごとの置き場のライター)を返す
+func (st State) initialItems() []ItemState {
+	items := make([]ItemState, 0, len(directoryStock)+len(st.Players))
 	for _, f := range directoryStock {
 		items = append(items, ItemState{
 			ID:       f.id,
@@ -155,6 +170,15 @@ func initialItems() []ItemState {
 			Status:   api.FileStatusUnedited,
 			Color:    f.color,
 			Location: Location{Kind: InDirectory, ObjectID: directoryID},
+		})
+	}
+	for _, p := range st.Players {
+		stand := lighterStandID(p.Seat)
+		items = append(items, ItemState{
+			ID:       lighterID(p.Seat),
+			Kind:     api.Lighter,
+			Location: Location{Kind: OnObject, ObjectID: stand},
+			Home:     stand,
 		})
 	}
 	return items
@@ -254,8 +278,13 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 	if o.Owner != "" {
 		g.Owner = &o.Owner
 	}
-	if o.Kind == api.Directory {
+	switch o.Kind {
+	case api.Directory:
 		g.Data = st.directoryData(o.ID)
+	case api.LighterStand:
+		g.Data = api.LighterStandData{HasLighter: slices.ContainsFunc(st.Items, func(it ItemState) bool {
+			return it.Kind == api.Lighter && it.Location.Kind == OnObject && it.Location.ObjectID == o.ID
+		})}
 	}
 	return g
 }

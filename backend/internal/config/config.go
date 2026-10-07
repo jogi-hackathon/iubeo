@@ -28,6 +28,11 @@ type Config struct {
 	PhaseDuration time.Duration
 	// IntermissionDuration はフェーズの間の長さ(IUBEO_INTERMISSION_DURATION。既定 10s。time.ParseDuration の形で、正の値)
 	IntermissionDuration time.Duration
+	// BypassDuration は、最後のフェーズを生き残ってから、火がつかなくても victory にするまでの長さ
+	// (IUBEO_BYPASS_DURATION。既定 30s。time.ParseDuration の形で、正の値)
+	BypassDuration time.Duration
+	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
+	FireDuration time.Duration
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
@@ -38,6 +43,8 @@ func Load(getenv func(string) string) (Config, error) {
 		PhaseCount:           3,
 		PhaseDuration:        30 * time.Second,
 		IntermissionDuration: 10 * time.Second,
+		BypassDuration:       30 * time.Second,
+		FireDuration:         10 * time.Second,
 	}
 	var errs []error
 
@@ -89,6 +96,8 @@ func Load(getenv func(string) string) (Config, error) {
 	}{
 		{"IUBEO_PHASE_DURATION", &cfg.PhaseDuration},
 		{"IUBEO_INTERMISSION_DURATION", &cfg.IntermissionDuration},
+		{"IUBEO_BYPASS_DURATION", &cfg.BypassDuration},
+		{"IUBEO_FIRE_DURATION", &cfg.FireDuration},
 	} {
 		v := getenv(d.name)
 		if v == "" {

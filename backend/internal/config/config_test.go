@@ -30,6 +30,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.PhaseCount != 3 || cfg.PhaseDuration != 30*time.Second || cfg.IntermissionDuration != 10*time.Second {
 		t.Errorf("phases = %d, %s, %s, want 3, 30s, 10s", cfg.PhaseCount, cfg.PhaseDuration, cfg.IntermissionDuration)
 	}
+	if cfg.BypassDuration != 30*time.Second || cfg.FireDuration != 10*time.Second {
+		t.Errorf("bypass = %s, fire = %s, want 30s, 10s", cfg.BypassDuration, cfg.FireDuration)
+	}
 	if string(cfg.SigningKey) != validKey {
 		t.Errorf("SigningKey = %q", cfg.SigningKey)
 	}
@@ -44,6 +47,8 @@ func TestLoadAll(t *testing.T) {
 		"IUBEO_PHASE_COUNT":           "5",
 		"IUBEO_PHASE_DURATION":        "1m30s",
 		"IUBEO_INTERMISSION_DURATION": "500ms",
+		"IUBEO_BYPASS_DURATION":       "45s",
+		"IUBEO_FIRE_DURATION":         "3s",
 	}))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -59,6 +64,9 @@ func TestLoadAll(t *testing.T) {
 	}
 	if cfg.PhaseCount != 5 || cfg.PhaseDuration != 90*time.Second || cfg.IntermissionDuration != 500*time.Millisecond {
 		t.Errorf("phases = %d, %s, %s", cfg.PhaseCount, cfg.PhaseDuration, cfg.IntermissionDuration)
+	}
+	if cfg.BypassDuration != 45*time.Second || cfg.FireDuration != 3*time.Second {
+		t.Errorf("bypass = %s, fire = %s", cfg.BypassDuration, cfg.FireDuration)
 	}
 }
 
@@ -93,8 +101,9 @@ func TestLoadErrors(t *testing.T) {
 			env: map[string]string{
 				"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
 				"IUBEO_PHASE_COUNT": "0", "IUBEO_PHASE_DURATION": "30", "IUBEO_INTERMISSION_DURATION": "-1s",
+				"IUBEO_BYPASS_DURATION": "0s", "IUBEO_FIRE_DURATION": "soon",
 			},
-			want: []string{"IUBEO_PHASE_COUNT", "IUBEO_PHASE_DURATION", "IUBEO_INTERMISSION_DURATION"},
+			want: []string{"IUBEO_PHASE_COUNT", "IUBEO_PHASE_DURATION", "IUBEO_INTERMISSION_DURATION", "IUBEO_BYPASS_DURATION", "IUBEO_FIRE_DURATION"},
 		},
 	}
 	for _, tt := range tests {

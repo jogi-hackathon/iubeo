@@ -41,7 +41,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `TaskStatus` | `pending` / `completed` |
 | `ItemKind` | `file` / `lighter` |
 | `FileStatus` | `unedited` / `edited`(ディレクトリの在庫から取り出したもの)/ `file_created` / `search_created` / `image_created`(新しく作ったもの。編集はしない) |
-| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ directory・workspace 以外はフロント未実装。名前は暫定) |
+| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ canvas・pc はサーバー・フロントとも未実装で、名前は暫定。lighter_stand はライターの置き場で、名前は変えない) |
 | `ObjectScope` | `personal` / `shared` |
 | `ObjectAvailability` | `available` / `unavailable` |
 | `RejectReason` | `not_found` / `not_owner` / `unavailable` / `too_far` / `missing_item` |
@@ -64,8 +64,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
       "location": { "kind": "directory", "objectId": "directory-1" } },
     { "itemId": "6f1c0d2e-…", "kind": "file", "file": { "status": "file_created" },
       "location": { "kind": "directory", "objectId": "directory-1" } },
-    { "itemId": "lighter-1", "kind": "lighter",
-      "location": { "kind": "object", "objectId": "lighter_stand-p2" } }
+    { "itemId": "lighter-2", "kind": "lighter",
+      "location": { "kind": "object", "objectId": "lighter_stand-2" } }
   ]
 }
 ```
@@ -83,6 +83,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | ディレクトリの `data.stock` | `kind=file`・`status` が `unedited` / `edited`・`location=directory(そのディレクトリ)` のファイル → `{id, color, status}` |
 | ディレクトリの `data.outputs` | `kind=file`・`status` が作成系・`location=directory(そのディレクトリ)` のファイルの数 |
 | `players[].heldItem` | `location=held_by(その人)` のアイテム → `Item{id, kind, data}`。ファイルの `data` は `{status, color?}`、ライターは `null` |
+| ライターの置き場の `data.hasLighter` | `kind=lighter`・`location=object(その置き場)` のアイテムがあるか |
 
 これにより、死亡・切断時の返却やフェーズのリセットは内部の `location` を書き換えるだけで済み、フロントは現在の `GameObject`・`Item` の型をそのまま使える。
 
@@ -132,8 +133,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
       }
     },
     {
-      "id": "lighter_stand-p2", "kind": "lighter_stand", "scope": "personal", "owner": "p2",
-      "position": [-3, 1, 4], "users": [], "availability": "unavailable", "data": null
+      "id": "lighter_stand-2", "kind": "lighter_stand", "scope": "personal", "owner": "p2",
+      "position": [12.05, 0.95, -4.8], "users": [], "availability": "unavailable", "data": { "hasLighter": true }
     }
   ],
   "game": {
@@ -173,7 +174,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 完了時刻はクライアントの送信時刻ではなく、**サーバーが受け付けた時刻**(`serverAcceptedAt`)とする。
 - `serverAcceptedAt < deadlineAt` なら締切内、`>=` なら締切後。締切処理と完了処理はセッションごとに単一の順序で処理する。サーバーは時刻を持つ入力を処理する前に締切を確かめるので、締切を過ぎてから届いた `interact` は、Tick より先に届いても締切の処理の後で扱う(その時点では `intermission` なので `unavailable` で拒否される)。
 - 同じファイルの達成は1回だけ数える(取り出して入れ直しても増えない)。
-- 達成になるのは、担当者が自分で `interact` で入れたときだけ。切断で手持ちのファイルがディレクトリに入った場合(§5.5)は、在庫・成果物にはなるが、誰のタスクの達成にも数えない。
+- 達成になるのは、担当者が自分で `interact` で入れたときだけ。切断で手持ちのファイルがディレクトリに入った場合(§5.6)は、在庫・成果物にはなるが、誰のタスクの達成にも数えない。
 - 検索(PC)・画像生成(キャンバス)で新しいファイルが作られる操作の要求の形は未確定(§9)。
 
 ### 5.2 フェーズ進行
@@ -187,7 +188,11 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 1. 生存者がいなければ敗北。次フェーズがあれば、脱落者分の負荷を生存者に再分配して開始する。
 1. フェーズ間はサーバーが `intermission` 状態を管理し、クライアントはその間に演出する。
 1. フェーズごとにアイテムを初期状態にリセットする(ディレクトリの在庫を初期化し、成果物・手持ちは消す)。次のフェーズの開始時に、`phase.started` の前にディレクトリの `object.upsert` と、手持ちが消えた人の `player.updated` を送る。
-1. 決着(仮): 最後のフェーズを生存者 1 人以上で終えたら(締切、または全員の完了)`victory`、途中で全員脱落したらその締切で `defeat`。`phase.ended`(`next: completed`)に続けて `session.finished`(`result`)を送り、送信キューに残ったメッセージを送ってから接続を切ってセッションを破棄する(close のコード 4000、reason `finished`)。ライターの条件は後で足す。
+1. 決着([ADR-0006](../adr/ADR-0006-game-progression-rules.md)):
+   - 途中で全員脱落したら、その締切で `defeat`。
+   - 最後のフェーズを生存者 1 人以上で終えたら(締切、または全員の完了)、`phase.ended`(`next: completed`)に続けて `team.bypassPermission` を立て(`team.updated`)、生存者のライターの置き場を `available` にする。セッションは `playing` のまま(フェーズは `completed`)で、まだ決着しない。
+   - ライターで火をつけたら(§5.5)、`IUBEO_FIRE_DURATION` の後に `victory`。誰も火をつけないまま `IUBEO_BYPASS_DURATION` たっても、時間切れで `victory`(火はつかないまま)。
+   - 決着したら `session.finished`(`result`)を送り、送信キューに残ったメッセージを送ってから接続を切ってセッションを破棄する(close のコード 4000、reason `finished`)。
 
 フェーズの数と長さは環境変数で変えられる。
 
@@ -196,6 +201,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `IUBEO_PHASE_COUNT` | `3` | フェーズの数 |
 | `IUBEO_PHASE_DURATION` | `30s` | フェーズの長さ(開始から締切まで) |
 | `IUBEO_INTERMISSION_DURATION` | `10s` | フェーズの間(`intermission`)の長さ。フェーズが終わった時刻(締切、または全員が完了した時刻)から数える |
+| `IUBEO_BYPASS_DURATION` | `30s` | 最後のフェーズを生き残って `bypassPermission` を立ててから、火がつかなくても `victory` にするまで |
+| `IUBEO_FIRE_DURATION` | `10s` | 火をつけてから `victory` にするまで(燃える演出の時間) |
 
 #### 5.2.1 タスクの分配
 
@@ -224,7 +231,16 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 作業中はそのプレイヤーを `users` に入れ、終わったら外す(フロントは `users` から外れたら移動とカメラのロックを解く)
 - 作業中にワークスペースが消えたら、結果は適用しない
 
-### 5.5 切断・死亡
+### 5.5 ライター
+
+- ライターは 1 人 1 つ(`lighter-{席}`)。自分の区画のワークスペース(机)の天板の上に置いた personal の置き場 `lighter_stand-{席}` に、ずっと置かれている。
+- 内部状態では `items[]` のアイテム(`kind: lighter`)。置き場にあるときは `location: object(置き場)`、持っている間は `held_by`。
+- 置き場は `bypassPermission` が立つまで `availability: unavailable`。立ったら生存者の置き場だけ `available` にする。
+- 置き場への `interact`: 手ぶらなら持つ、ライターを持っていれば戻す。ファイルを持っていると `missing_item`(手は 1 つ)。
+- ライターを持ってディレクトリに `interact` → `team.fireStarted` を立て(`team.updated`)、`effect`(`fire`。`playerId` と `objectId`)を全員に送る。燃やすのは演出なので、ファイルは消さない。火は最初の 1 人がつけた時点で始まり、2 人目からは `unavailable`。
+- ライターを持ってディレクトリ以外(ワークスペースなど)に `interact` すると `missing_item`。
+
+### 5.6 切断・死亡
 
 - 手持ちのファイルはディレクトリに戻し、ライターは元の置き場に戻す。
 - 切断中も `life` は維持する(締切で未達なら脱落する)。再接続すれば同じプレイヤーとして復帰する。
@@ -308,10 +324,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 ## 9. 未確定の項目
 
-- `Bypass Permission` を有効にする正確な条件(チーム共有であることは決定済み)と、`fireStarted`(ライターで火をつける)の条件・効果
 - PC・キャンバスの操作の要求の形(検索・画像生成)
-- 勝利条件(今は §5.2 の仮の決着。ライターの条件を後で足す)
 - シングルモードでの CPU の参加・行動ルール
 - 自動マッチングで3人そろわないときの扱い(待機列のタイムアウト、CPU で補うか)
 - ボイスチャットの実装方式(ゲーム状態のスキーマには含めない)
-- `ObjectKind` の正式な名前(directory 以外)
+- `ObjectKind` の正式な名前(canvas・pc)

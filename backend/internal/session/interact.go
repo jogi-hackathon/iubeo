@@ -92,11 +92,13 @@ func (st *State) interact(in ClientInteract) []Output {
 		return st.interactDirectory(p, o, in)
 	case api.Workspace:
 		return st.interactWorkspace(p, o, in)
+	case api.LighterStand:
+		return st.interactLighterStand(p, o, in)
 	}
 	return reject(p.ID, objectID, api.RejectReasonUnavailable)
 }
 
-// interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。
+// interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。ライターを持っていれば火をつける。
 // ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)。
 // 入れたファイルで担当のタスクが達成になれば task.completed も送る(生存者全員が完了したら、フェーズを終える)
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
@@ -116,6 +118,9 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 		it.Location = Location{Kind: HeldBy, PlayerID: p.ID}
 	} else {
+		if held.Kind == api.Lighter {
+			return st.interactDirectoryWithLighter(p, o, in.Now)
+		}
 		if held.Kind != api.File {
 			return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 		}
@@ -135,6 +140,18 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 	}
 	return out
+}
+
+// interactDirectoryWithLighter: ライターを持ってディレクトリに触れたら火をつける。燃やすのは演出なので、ファイルは消さない。
+// 火は最初の 1 人がつけた時点で始まり、2 人目からは unavailable
+func (st *State) interactDirectoryWithLighter(p *PlayerState, o *ObjectState, now time.Time) []Output {
+	if !st.Team.BypassPermission {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	if st.Team.FireStarted {
+		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
+	}
+	return st.startFire(p, o, now)
 }
 
 // interactWorkspace: 編集前のファイルを持っていれば編集、手ぶらなら新規作成を始める。
@@ -159,6 +176,33 @@ func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInte
 	st.Actions = append(st.Actions, action)
 	o.Users = []string{p.ID}
 	return []Output{Broadcast{Msg: st.objectUpsert(o)}}
+}
+
+// interactLighterStand: 手ぶらで触れれば置き場のライターを持ち、ライターを持って触れれば戻す。
+// ファイルを持っていれば missing_item、置き場にライターが無ければ not_found
+func (st *State) interactLighterStand(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
+	held := st.held(p.ID)
+	if !claimMatches(in.Msg.HeldItem, held) {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	switch {
+	case held == nil:
+		i := slices.IndexFunc(st.Items, func(it ItemState) bool {
+			return it.Kind == api.Lighter && it.Location.Kind == OnObject && it.Location.ObjectID == o.ID
+		})
+		if i < 0 {
+			return reject(p.ID, o.ID, api.RejectReasonNotFound)
+		}
+		st.Items[i].Location = Location{Kind: HeldBy, PlayerID: p.ID}
+	case held.Kind == api.Lighter && held.Home == o.ID:
+		held.Location = Location{Kind: OnObject, ObjectID: o.ID}
+	default:
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	return []Output{
+		Broadcast{Msg: st.objectUpsert(o)},
+		Broadcast{Msg: st.playerUpdated(p)},
+	}
 }
 
 // finishWorkspaceActions は期限が来たアクションの結果を適用する。
@@ -217,7 +261,7 @@ func (st *State) cancelActions() []Output {
 }
 
 // releasePlayer は切断・脱落したプレイヤーの作業を取りやめ、手持ちのファイルをディレクトリに戻す
-// (在庫のファイルは在庫に、作ったファイルは成果物に。state-schema.md §5.5)。
+// (在庫のファイルは在庫に、作ったファイルは成果物に)。ライターは置き場に戻す(state-schema.md §5.6)。
 // 本人が入れたのではないので、タスクの達成には数えない
 func (st *State) releasePlayer(p *PlayerState) []Output {
 	var out []Output
@@ -234,9 +278,17 @@ func (st *State) releasePlayer(p *PlayerState) []Output {
 	}
 	st.Actions = rest
 
-	if held := st.held(p.ID); held != nil && held.Kind == api.File {
+	held := st.held(p.ID)
+	switch {
+	case held == nil:
+	case held.Kind == api.File:
 		held.Location = Location{Kind: InDirectory, ObjectID: directoryID}
 		if o := st.object(directoryID); o != nil {
+			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+		}
+	case held.Kind == api.Lighter:
+		held.Location = Location{Kind: OnObject, ObjectID: held.Home}
+		if o := st.object(held.Home); o != nil {
 			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
 		}
 	}

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"math"
 	"reflect"
 	"slices"
 	"testing"
@@ -54,8 +55,8 @@ func TestInitialState(t *testing.T) {
 		}
 	}
 
-	if len(snap.Objects) != 4 {
-		t.Fatalf("objects = %d, want directory + 3 workspaces", len(snap.Objects))
+	if len(snap.Objects) != 7 {
+		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 lighter stands", len(snap.Objects))
 	}
 	dir := snap.Objects[0]
 	if dir.Id != "directory-1" || dir.Kind != api.Directory || dir.Scope != api.Shared || dir.Owner != nil || !slices.Equal(dir.Position, api.Vec3{14, 0, 1}) {
@@ -69,13 +70,29 @@ func TestInitialState(t *testing.T) {
 		t.Errorf("stock[0] = %+v", data.Stock[0])
 	}
 	positions := map[string]api.Vec3{"p1": {14, 0, -5}, "p2": {11.5, 0, -5}, "p3": {16.5, 0, -5}}
-	for _, ws := range snap.Objects[1:] {
-		if ws.Kind != api.Workspace || ws.Scope != api.Personal || ws.Owner == nil || ws.Data != nil {
-			t.Errorf("workspace = %+v", ws)
+	stands := map[string]api.Vec3{"p1": {14.55, 0.95, -4.8}, "p2": {12.05, 0.95, -4.8}, "p3": {17.05, 0.95, -4.8}}
+	for _, o := range snap.Objects[1:] {
+		if o.Scope != api.Personal || o.Owner == nil {
+			t.Errorf("object = %+v", o)
 			continue
 		}
-		if !slices.Equal(ws.Position, positions[*ws.Owner]) {
-			t.Errorf("workspace of %s at %v, want %v", *ws.Owner, ws.Position, positions[*ws.Owner])
+		switch o.Kind {
+		case api.Workspace:
+			if o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable || !slices.Equal(o.Position, positions[*o.Owner]) {
+				t.Errorf("workspace of %s = %+v, want at %v", *o.Owner, o, positions[*o.Owner])
+			}
+		case api.LighterStand:
+			// ライターの置き場は机の上。bypassPermission が立つまでは使えない
+			if o.Data != (api.LighterStandData{HasLighter: true}) || o.Availability != api.ObjectAvailabilityUnavailable {
+				t.Errorf("lighter stand of %s = %+v", *o.Owner, o)
+			}
+			for i := range 3 {
+				if math.Abs(o.Position[i]-stands[*o.Owner][i]) > 1e-9 {
+					t.Errorf("lighter stand of %s at %v, want %v", *o.Owner, o.Position, stands[*o.Owner])
+				}
+			}
+		default:
+			t.Errorf("object = %+v", o)
 		}
 	}
 }
