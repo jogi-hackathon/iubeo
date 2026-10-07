@@ -81,10 +81,10 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # pnpm build は先頭で型検査(typecheck)を走らせるので、ここでは改めて呼ばない
       - name: 型検査・lint・テスト・ビルド
         working-directory: frontend
         run: |
-          pnpm typecheck
           pnpm lint
           pnpm test
           pnpm build
