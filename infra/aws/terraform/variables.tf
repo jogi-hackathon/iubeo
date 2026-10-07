@@ -105,3 +105,9 @@ variable "cloudflare_kv_namespace_id" {
   type        = string
   default     = ""
 }
+
+variable "github_repository" {
+  description = "GitHub repository (owner/name) allowed to assume the deploy role through OIDC."
+  type        = string
+  default     = "jogi-hackathon/iubeo"
+}

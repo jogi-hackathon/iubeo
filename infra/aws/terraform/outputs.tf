@@ -27,3 +27,13 @@ output "control_function_name" {
   description = "Lambda that starts and stops the instance. Invoke it directly with {\"action\": \"start\"} or {\"action\": \"stop\"}."
   value       = aws_lambda_function.control.function_name
 }
+
+output "github_deploy_role_arn" {
+  description = "Set this as the GitHub repository variable AWS_DEPLOY_ROLE_ARN."
+  value       = aws_iam_role.github_deploy.arn
+}
+
+output "image_tag_parameter" {
+  description = "SSM parameter holding the image tag the instance runs. CI updates it on deploy."
+  value       = aws_ssm_parameter.image_tag.name
+}

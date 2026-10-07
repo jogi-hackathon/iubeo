@@ -132,6 +132,22 @@ resource "aws_iam_role_policy_attachment" "instance_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# 起動時に「どのイメージタグを動かすか」を SSM から読む。
+# CI はインスタンスを起こさずここを書き換えるだけなので、停止中でもデプロイできる。
+resource "aws_iam_role_policy" "instance_read_image_tag" {
+  name = "${local.name}-read-image-tag"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ssm:GetParameter"
+      Resource = aws_ssm_parameter.image_tag.arn
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "${local.name}-instance"
   role = aws_iam_role.instance.name
@@ -161,12 +177,13 @@ resource "aws_instance" "backend" {
   }
 
   user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
-    region           = var.aws_region
-    registry         = split("/", aws_ecr_repository.backend.repository_url)[0]
-    ecr_repository   = aws_ecr_repository.backend.repository_url
-    image_tag        = var.image_tag
-    allowed_origins  = join(",", var.allowed_origins)
-    container_memory = var.container_memory_mib
+    region              = var.aws_region
+    registry            = split("/", aws_ecr_repository.backend.repository_url)[0]
+    ecr_repository      = aws_ecr_repository.backend.repository_url
+    image_tag           = var.image_tag
+    allowed_origins     = join(",", var.allowed_origins)
+    container_memory    = var.container_memory_mib
+    image_tag_parameter = aws_ssm_parameter.image_tag.name
   })
 
   # user_data を変えてもインスタンスは作り直さない(起動後に手で反映する)
