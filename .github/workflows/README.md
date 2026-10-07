@@ -58,18 +58,34 @@ aws ssm send-command --region ap-northeast-1 \
 試したい場合は `infra/aws/terraform/ci.tf` の `sub` を `repo:<owner>/<repo>:*` に
 緩めて `terraform apply` してください。
 
-## Worker Previews は使えない
+## Worker は 2 つある
 
-`cf previews deploy` は **DO 管理のコンテナに対応していません**。
+**DO 管理のコンテナを持つ Worker は Worker Previews に対応していません。**
+プレビューを取れるように、静的アセット側を分けてあります。
 
-```text
-Preview deployments do not support Durable Object-managed Containers
-(schedulingPolicy: "durable-object").
+| Worker | 中身 | デプロイ |
+| --- | --- | --- |
+| `iubeo-frontend` | 静的アセット(SPA) + プロキシ | `cf deploy` |
+| `iubeo-backend` | コンテナ + Durable Object + KV | `cf deploy --mode backend` |
+
+フロントはサービスバインディングでバックエンドを呼びます。**プレビューは
+本番のバックエンドを向きます**（セッションはメモリ上にしか無いので実害なし）。
+
+```sh
+cd frontend
+cf previews deploy <name>                  # PR ごとのプレビュー URL
+cf deploy                                  # フロント
+cf deploy --mode backend                   # バックエンド(要 secrets file)
 ```
 
-実機で確認済み（2026-10-07）。私たちの Worker は署名鍵をコンテナへ渡すために
-`schedulingPolicy: "durable-object"` が必須なので、この制限に当たります。
+**バックエンドを先に**デプロイしてください。サービスバインディングは
+相手の Worker が存在しないと解決できません。
 
-プレビューが要るなら、**コンテナを持つ Worker と、静的アセットだけの Worker を
-分ける**必要があります（フロントだけならプレビューできる）。分けた場合は
-フロントの Worker がサービスバインディングでコンテナの Worker を呼びます。
+初回だけ secrets file が要ります（2 回目以降は Worker に保存済みの鍵を使うので不要）。
+
+```sh
+KEY=$(openssl rand -hex 32)
+printf 'IUBEO_SIGNING_KEY=%s\n' "$KEY" > /tmp/iubeo-secrets.env
+cf deploy --mode backend --secrets-file /tmp/iubeo-secrets.env
+rm -f /tmp/iubeo-secrets.env
+```

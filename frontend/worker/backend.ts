@@ -1,5 +1,9 @@
 /**
- * Cloudflare Workers のエントリポイント。
+ * バックエンドの Worker。コンテナを持ち、/api と /ws を振り分ける。
+ *
+ * フロントの Worker からサービスバインディングで呼ばれる。
+ * コンテナを持つ Worker は Worker Previews に対応していないので、
+ * プレビューが要る部分(静的アセット)は frontend.ts に分けてある。
  *
  * - `/api/*` と `/healthz` は転送先へ流す。転送先は KV の "target" で決まる
  *   - `ec2`        … 本番相当(EC2 + EIP、東京)
@@ -17,7 +21,6 @@
 import {DurableObject} from "cloudflare:workers";
 
 interface Env {
-  ASSETS: Fetcher;
   /** HMAC の署名鍵(32 バイト以上)。secrets file か `cf workers secrets` で登録する */
   IUBEO_SIGNING_KEY: string;
   /** "target" キーに転送先("ec2" か未設定)を持つ */
@@ -140,31 +143,25 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
-    const {pathname} = new URL(request.url);
-    // assets.runWorkerFirst で /api/* と /healthz だけここに来る。
-    // それ以外(アセットに一致しなかったパス)は SPA として index.html を返す。
-    if (pathname.startsWith("/api/") || pathname === HEALTH_PATH) {
-      // KV の読み取りはエッジでキャッシュされるので、リクエストごとに引いてよい
-      const target = await env.TARGET.get(TARGET_KEY);
-      if (target === TARGET_EC2) {
-        return proxyToEc2(request);
-      }
-      // env に DO バインディングを置くと cf deploy が「別 Worker の DO」として
-      // 失敗するため、自分の export へのループバック(ctx.exports)で参照する。
-      // 型は `cf workers types` の生成物でないと生えないので、ここで形を宣言する
-      const backend = (ctx.exports as unknown as LoopbackExports).Backend;
-      // コンテナは 1 つなので、名前を固定して常に同じインスタンスに送る。
-      //
-      // ロケーションヒントで APAC 北東に寄せる。実測(2026-10-07)では
-      // ヒント無しだと「リクエストの最寄り」に置かれ、海外から初回リクエストが
-      // 来ると海外(ENAM なら mia09、WEUR なら ams17)に置かれてしまった。
-      // ヒントを付けるとリージョンは確実に従う(enam→mia09, weur→ams17 を確認)。
-      // 都市までは選べず、apac-ne でも大阪(kix06)になった。
-      return backend
-        .getByName("game", {locationHint: "apac-ne"})
-        .fetch(request);
+    // KV の読み取りはエッジでキャッシュされるので、リクエストごとに引いてよい
+    const target = await env.TARGET.get(TARGET_KEY);
+    if (target === TARGET_EC2) {
+      return proxyToEc2(request);
     }
-    return env.ASSETS.fetch(request);
+    // env に DO バインディングを置くと cf deploy が「別 Worker の DO」として
+    // 失敗するため、自分の export へのループバック(ctx.exports)で参照する。
+    // 型は `cf workers types` の生成物でないと生えないので、ここで形を宣言する
+    const namespace = (ctx.exports as unknown as LoopbackExports).Backend;
+    // コンテナは 1 つなので、名前を固定して常に同じインスタンスに送る。
+    //
+    // ロケーションヒントで APAC 北東に寄せる。実測(2026-10-07)では
+    // ヒント無しだと「リクエストの最寄り」に置かれ、海外から初回リクエストが
+    // 来ると海外(ENAM なら mia09、WEUR なら ams17)に置かれてしまった。
+    // ヒントを付けるとリージョンは確実に従う(enam→mia09, weur→ams17 を確認)。
+    // 都市までは選べず、apac-ne でも大阪(kix06)になった。
+    return namespace
+      .getByName("game", {locationHint: "apac-ne"})
+      .fetch(request);
   },
 } satisfies ExportedHandler<Env>;
 
