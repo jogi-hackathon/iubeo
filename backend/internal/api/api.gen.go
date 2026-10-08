@@ -776,7 +776,7 @@ type Game struct {
 	Team Team `json:"team"`
 }
 
-// GameObject ワールドに置かれた、機能を持つ物体
+// GameObject ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める
 type GameObject struct {
 	Availability ObjectAvailability `json:"availability"`
 
@@ -791,11 +791,6 @@ type GameObject struct {
 
 	// Owner scope が personal のときだけ
 	Owner *PlayerId `json:"owner,omitempty"`
-
-	// Position [x, y, z]。ワールド座標(Y-up)
-	//
-	// Example: [1.25,0,-2.5]
-	Position Vec3 `json:"position"`
 
 	// Scope personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ)
 	Scope ObjectScope `json:"scope"`
@@ -903,7 +898,7 @@ type ObjectScope string
 
 // ObjectUpsertMessage defines model for ObjectUpsertMessage.
 type ObjectUpsertMessage struct {
-	// Object ワールドに置かれた、機能を持つ物体
+	// Object ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める
 	Object GameObject `json:"object"`
 
 	// Seq セッション内の確定状態の更新順序。単調に増える
@@ -974,8 +969,10 @@ type Player struct {
 	PlayerId PlayerId `json:"playerId"`
 
 	// Seat サンドボックスの区画の番号
-	Seat      int       `json:"seat"`
-	Transform Transform `json:"transform"`
+	Seat int `json:"seat"`
+
+	// Transform 最初の transform を受け取るまでは null。初期位置はサーバーが持たず、フロントが seat から決める
+	Transform *Transform `json:"transform"`
 }
 
 // PlayerId Example: p1

@@ -123,7 +123,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
   "objects": [
     {
       "id": "directory-1", "kind": "directory", "scope": "shared",
-      "position": [0, 0, 0], "users": [], "availability": "available",
+      "users": [], "availability": "available",
       "data": {
         "stock": [
           { "id": "file-01", "color": "#e63946", "status": "unedited" },
@@ -134,7 +134,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
     },
     {
       "id": "lighter_stand-2", "kind": "lighter_stand", "scope": "personal", "owner": "p2",
-      "position": [12.05, 0.95, -4.8], "users": [], "availability": "unavailable", "data": { "hasLighter": true }
+      "users": [], "availability": "unavailable", "data": { "hasLighter": true }
     }
   ],
   "game": {
@@ -279,7 +279,16 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 - マッチングが成立すると、セッションは `waiting` で作られる。人間のプレイヤー全員が WebSocket で接続したら自動で `playing` にし、`session.started` を送って第1フェーズを始める。30 秒たってもそろわなければセッションを解散する。フロントはシーンの読み込みを済ませてから接続する。
 - 1セッションの人数は環境変数 `IUBEO_MATCH_SIZE` で変えられる(既定 3)。開発中は 1 にすれば1人で試せる。2人以上で試すときは、別のブラウザかシークレットウィンドウで Cookie を分ける。
-- オブジェクトの配置は、当面はフロントの開発用の配置(`frontend/src/dev/authority.ts`。ディレクトリ `[14, 0, 1]` と在庫6色、ワークスペース `[14, 0, -5]`)をサーバーの定数に写す。席 2・3 のワークスペースはずらして置く。サンドボックス(#14)ができたら差し替える。
+- **オブジェクトの位置とプレイヤーの初期位置はサーバーが持たない**。サーバーはオブジェクトの状態(`availability`・`users`・`data`)だけを持って配り、配置はフロントが決める。サーバーが配置を持つと、フロントのレイアウトがサーバーの定数に縛られるため。判定は位置を使わないので(§8)、ルールには影響しない。
+- ディレクトリの初期在庫(6色)はサーバーの定数(`backend/internal/session/layout.go`)。
+
+オブジェクトの id と数はフロントとの約束として固定する。フロントは id(personal なら `owner` の席)から置き場所を決める。
+
+| id | kind | scope | 数 |
+|---|---|---|---|
+| `directory-1` | `directory` | shared | 1 |
+| `workspace-{席}` | `workspace` | personal | 席ごと(1〜3) |
+| `lighter_stand-{席}` | `lighter_stand` | personal | 席ごと(1〜3) |
 
 ## 7. WebSocket メッセージ
 
@@ -328,6 +337,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 ## 8. プレイヤーの座標・向き
 
 - `position` は**足元**のワールド座標 `[x, y, z]`(Y-up)。
+- 初期位置はサーバーが持たない。フロントが `seat` から決める。サーバーは最初の `transform` を受け取るまで、そのプレイヤーの `transform` を `null` で配る(snapshot)。
 - `yaw` / `pitch` はラジアン。`yaw = 0` で -Z を向き、`pitch` は上向きが正(フロントの `Look` と同じ規約)。
 - `transform.seq` はそのプレイヤーの更新ごとに増やし、古い更新で巻き戻らないようにする(サーバーは `seq` が増えない更新を捨てる)。
 - 送信の目安は 20Hz。描画側で補間する。

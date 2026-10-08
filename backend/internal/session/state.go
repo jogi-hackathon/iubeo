@@ -55,7 +55,8 @@ type PlayerState struct {
 	Transform  api.Transform
 	// ConnID は今の接続。無ければ 0
 	ConnID uint64
-	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)
+	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)。
+	// 受け取るまでは位置が無いので、snapshot の transform は null
 	reported bool
 	// moved は前回の transforms の配信から動いたか
 	moved bool
@@ -67,7 +68,6 @@ type ObjectState struct {
 	Kind         api.ObjectKind
 	Scope        api.ObjectScope
 	Owner        string
-	Position     api.Vec3
 	Users        []string
 	Availability api.ObjectAvailability
 }
@@ -122,7 +122,6 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		ID:           directoryID,
 		Kind:         api.Directory,
 		Scope:        api.Shared,
-		Position:     slices.Clone(directoryPosition),
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
@@ -134,14 +133,12 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 			Seat:       seat,
 			Connection: api.Connecting,
 			Life:       api.Alive,
-			Transform:  api.Transform{Position: slices.Clone(spawnPositions[seat])},
 		})
 		st.Objects = append(st.Objects, ObjectState{
 			ID:           workspaceID(seat),
 			Kind:         api.Workspace,
 			Scope:        api.Personal,
 			Owner:        pid,
-			Position:     slices.Clone(workspacePositions[seat]),
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityAvailable,
 		})
@@ -151,7 +148,6 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 			Kind:         api.LighterStand,
 			Scope:        api.Personal,
 			Owner:        pid,
-			Position:     lighterStandPosition(seat),
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityUnavailable,
 		})
@@ -193,7 +189,6 @@ func (st State) clone() State {
 	}
 	c.Objects = slices.Clone(st.Objects)
 	for i := range c.Objects {
-		c.Objects[i].Position = slices.Clone(st.Objects[i].Position)
 		c.Objects[i].Users = slices.Clone(st.Objects[i].Users)
 	}
 	c.Items = slices.Clone(st.Items)
@@ -270,7 +265,6 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 		Id:           o.ID,
 		Kind:         o.Kind,
 		Scope:        o.Scope,
-		Position:     slices.Clone(o.Position),
 		Users:        slices.Clone(o.Users),
 		Availability: o.Availability,
 		Data:         nil,
@@ -312,7 +306,7 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 			Connection: ps.Connection,
 			Life:       ps.Life,
 			HeldItem:   ps.HeldItem,
-			Transform:  cloneTransform(p.Transform),
+			Transform:  p.apiTransform(),
 		})
 	}
 	for _, o := range st.Objects {
@@ -327,6 +321,15 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 		snap.Game.Result = &result
 	}
 	return snap
+}
+
+// apiTransform は配る transform。最初の transform を受け取るまでは nil(初期位置はフロントが席から決める)
+func (p PlayerState) apiTransform() *api.Transform {
+	if !p.reported {
+		return nil
+	}
+	t := cloneTransform(p.Transform)
+	return &t
 }
 
 func cloneTransform(t api.Transform) api.Transform {
