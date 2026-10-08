@@ -276,7 +276,7 @@ export interface components {
       /** @description 今触っているプレイヤー。personal は最大 1 人、shared は複数人 */
       users: components["schemas"]["PlayerId"][];
       availability: components["schemas"]["ObjectAvailability"];
-      /** @description kind が directory なら DirectoryData。他は未定(null) */
+      /** @description kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null) */
       data: components["schemas"]["JsonValue"];
     };
     StockFile: {
@@ -289,6 +289,11 @@ export interface components {
       stock: components["schemas"]["StockFile"][];
       /** @description このフェーズで入れられた成果物(新しく作ったファイル)の数 */
       outputs: number;
+    };
+    /** @description ライターの置き場。bypassPermission が立つまでは availability が unavailable */
+    LighterStandData: {
+      /** @description 置き場にライターがあるか(持ち主が持っている間は false) */
+      hasLighter: boolean;
     };
     Transform: {
       /** @description 足元の位置 */
