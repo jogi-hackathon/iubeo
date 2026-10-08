@@ -426,7 +426,7 @@ components:
         availability:
           $ref: "#/components/schemas/ObjectAvailability"
         data:
-          description: kind が directory なら DirectoryData。他は未定(null)
+          description: kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null)
           allOf:
             - $ref: "#/components/schemas/JsonValue"
     StockFile:
@@ -452,6 +452,14 @@ components:
           description: このフェーズで入れられた成果物(新しく作ったファイル)の数
           type: integer
           minimum: 0
+    LighterStandData:
+      description: ライターの置き場。bypassPermission が立つまでは availability が unavailable
+      type: object
+      required: [hasLighter]
+      properties:
+        hasLighter:
+          description: 置き場にライターがあるか(持ち主が持っている間は false)
+          type: boolean
 
     # ---------- プレイヤー ----------
     Transform:

@@ -436,19 +436,45 @@ func TestPhasesToDefeatOverWebSocket(t *testing.T) {
 func TestVictoryOverWebSocket(t *testing.T) {
 	cfg := session.DefaultConfig
 	cfg.Phases.Count = 1
+	cfg.Phases.Fire = 300 * time.Millisecond
 	h := newTestServerWith(t, 1, cfg)
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 	sessionID, players := matchPlayers(t, h, 1)
 	ws := mustDial(t, srv, sessionID, players[0])
 
+	// 最後のフェーズを生き残ると bypassPermission が立ち、ライターの置き場が使えるようになる
 	started := readType[api.PhaseStartedMessage](t, ws, "phase.started")
 	doTask(t, ws, started.Phase.Tasks[0])
 	if m := readType[api.PhaseEndedMessage](t, ws, "phase.ended"); m.Next != api.PhaseEndedMessageNextCompleted || len(m.EliminatedPlayerIds) != 0 {
 		t.Errorf("phase.ended = %+v", m)
 	}
+	if m := readType[api.TeamUpdatedMessage](t, ws, "team.updated"); !m.Team.BypassPermission || m.Team.FireStarted {
+		t.Errorf("team.updated = %+v", m)
+	}
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); m.Object.Id != "lighter_stand-1" || m.Object.Availability != api.ObjectAvailabilityAvailable {
+		t.Errorf("object.upsert = %+v", m)
+	}
+
+	// ライターを取ってディレクトリに触れると火がつき、演出の時間の後に victory
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "lighter_stand-1"})
+	m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+	if m.Player.HeldItem == nil || m.Player.HeldItem.Kind != api.Lighter {
+		t.Fatalf("player.updated = %+v", m)
+	}
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", HeldItem: &api.HeldItemRef{Id: m.Player.HeldItem.Id, Kind: api.Lighter}})
+	if m := readType[api.TeamUpdatedMessage](t, ws, "team.updated"); !m.Team.FireStarted {
+		t.Errorf("team.updated = %+v", m)
+	}
+	if m := readType[api.EffectMessage](t, ws, "effect"); m.Name != api.EffectMessageNameFire {
+		t.Errorf("effect = %+v", m)
+	}
+	fired := time.Now()
 	if m := readType[api.SessionFinishedMessage](t, ws, "session.finished"); m.Result.Outcome != api.Victory {
 		t.Errorf("session.finished = %+v", m)
+	}
+	if elapsed := time.Since(fired); elapsed < 250*time.Millisecond {
+		t.Errorf("finished %s after the fire, want after the fire effect", elapsed)
 	}
 	if ce := waitClose(t, ws); ce.Code != session.CloseSessionEnded || ce.Reason != string(session.ReasonFinished) {
 		t.Errorf("closed with %v, want finished", ce)

@@ -8,7 +8,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// PhaseRules はフェーズの決まり(state-schema.md §5.2)
+// PhaseRules はフェーズと決着の決まり(state-schema.md §5.2、ADR-0006)
 type PhaseRules struct {
 	// Count はフェーズの数
 	Count int
@@ -16,6 +16,10 @@ type PhaseRules struct {
 	Duration time.Duration
 	// Intermission はフェーズの間の長さ
 	Intermission time.Duration
+	// Bypass は、最後のフェーズを生き残って bypassPermission を立ててから、火がつかなくても victory にするまでの長さ
+	Bypass time.Duration
+	// Fire は、火をつけてから victory にするまでの長さ(燃える演出の時間)
+	Fire time.Duration
 }
 
 // PhaseState はフェーズの内部状態。Number が 0 なら、まだフェーズが無い
@@ -108,7 +112,7 @@ func (st *State) resetItems() []Output {
 			holders = append(holders, it.Location.PlayerID)
 		}
 	}
-	st.Items = initialItems()
+	st.Items = st.initialItems()
 	var out []Output
 	if o := st.object(directoryID); o != nil {
 		out = append(out, Broadcast{Msg: st.objectUpsert(o)})
@@ -129,6 +133,11 @@ func (st *State) advance(now time.Time) []Output {
 		return st.endPhase(st.Phase.DeadlineAt)
 	case st.Status == api.SessionStatusIntermission && !now.Before(st.Phase.EndedAt.Add(st.Phases.Intermission)):
 		return st.startPhase(st.Phase.Number+1, now)
+	case !st.FireAt.IsZero() && !now.Before(st.FireAt.Add(st.Phases.Fire)):
+		return st.finish(api.Victory, st.FireAt.Add(st.Phases.Fire))
+	case st.FireAt.IsZero() && !st.BypassAt.IsZero() && !now.Before(st.BypassAt.Add(st.Phases.Bypass)):
+		// 誰も火をつけないまま時間切れ。最後のフェーズは生き残っているので victory
+		return st.finish(api.Victory, st.BypassAt.Add(st.Phases.Bypass))
 	}
 	return nil
 }
@@ -153,7 +162,7 @@ func (st *State) hasPendingTask(playerID string) bool {
 }
 
 // endPhase はフェーズを終える。未達の生存者を脱落させ(player.updated と effect の fall)、作業中のアクションを取りやめ、
-// phase.ended を送る。最後のフェーズだったか生存者がいなければ、決着をつける
+// phase.ended を送る。生存者がいなければ defeat で決着をつけ、最後のフェーズを生き残ったら bypassPermission を立てる
 func (st *State) endPhase(at time.Time) []Output {
 	var out []Output
 	eliminated := []string{}
@@ -183,6 +192,7 @@ func (st *State) endPhase(at time.Time) []Output {
 	next := api.PhaseEndedMessageNextIntermission
 	if survivors == 0 || st.Phase.Number >= st.Phases.Count {
 		next = api.PhaseEndedMessageNextCompleted
+		// 最後のフェーズを生き残ったら、セッションは playing のまま(ライターを使える)
 		st.Phase.Status = api.PhaseStatusCompleted
 	} else {
 		st.Phase.Status = api.PhaseStatusIntermission
@@ -191,15 +201,41 @@ func (st *State) endPhase(at time.Time) []Output {
 	out = append(out, Broadcast{Msg: api.PhaseEndedMessage{
 		Type: api.PhaseEnded, Seq: st.nextSeq(), PhaseNumber: st.Phase.Number, EliminatedPlayerIds: eliminated, Next: next,
 	}})
-	if next == api.PhaseEndedMessageNextCompleted {
-		// 決着は仮: 最後のフェーズを生存者が 1 人以上で終えれば victory、途中で全員脱落したら defeat
-		outcome := api.Victory
-		if survivors == 0 {
-			outcome = api.Defeat
-		}
-		out = append(out, st.finish(outcome, at)...)
+	switch {
+	case survivors == 0:
+		out = append(out, st.finish(api.Defeat, at)...)
+	case next == api.PhaseEndedMessageNextCompleted:
+		out = append(out, st.bypass(at)...)
 	}
 	return out
+}
+
+// bypass は最後のフェーズを生き残ったときに bypassPermission を立て、生存者のライターの置き場を使えるようにする。
+// 決着はまだつけない(ライターで火をつけるか、時間切れで victory。ADR-0006)
+func (st *State) bypass(at time.Time) []Output {
+	st.Team.BypassPermission = true
+	st.BypassAt = at
+	out := []Output{Broadcast{Msg: api.TeamUpdatedMessage{Type: api.TeamUpdated, Seq: st.nextSeq(), Team: st.Team}}}
+	for i := range st.Objects {
+		o := &st.Objects[i]
+		if o.Kind != api.LighterStand || st.player(o.Owner).Life != api.Alive {
+			continue
+		}
+		o.Availability = api.ObjectAvailabilityAvailable
+		out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+	}
+	return out
+}
+
+// startFire は火をつける。fireStarted を立てて effect(fire)を送り、Phases.Fire の後に victory にする
+func (st *State) startFire(p *PlayerState, o *ObjectState, now time.Time) []Output {
+	st.Team.FireStarted = true
+	st.FireAt = now
+	id, objectID := p.ID, o.ID
+	return []Output{
+		Broadcast{Msg: api.TeamUpdatedMessage{Type: api.TeamUpdated, Seq: st.nextSeq(), Team: st.Team}},
+		Broadcast{Msg: api.EffectMessage{Type: api.Effect, Name: api.EffectMessageNameFire, PlayerId: &id, ObjectId: &objectID}},
+	}
 }
 
 // finish は決着をつけ、session.finished を送ってからセッションを終える(ADR-0004)

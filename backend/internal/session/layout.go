@@ -42,3 +42,20 @@ var spawnPositions = map[int]api.Vec3{
 func workspaceID(seat int) string {
 	return "workspace-" + strconv.Itoa(seat)
 }
+
+// lighterStandOffset は、ワークスペースの位置から見たライターの置き場の位置。机の天板の上面(高さ 0.95m。
+// frontend/src/objects/workspace/desk.ts の DESK_HEIGHT)の右手前で、作業スペース・ペン立て・紙の束と重ならない
+var lighterStandOffset = api.Vec3{0.55, 0.95, 0.2}
+
+func lighterStandPosition(seat int) api.Vec3 {
+	ws := workspacePositions[seat]
+	return api.Vec3{ws[0] + lighterStandOffset[0], ws[1] + lighterStandOffset[1], ws[2] + lighterStandOffset[2]}
+}
+
+func lighterStandID(seat int) string {
+	return "lighter_stand-" + strconv.Itoa(seat)
+}
+
+func lighterID(seat int) string {
+	return "lighter-" + strconv.Itoa(seat)
+}

@@ -780,7 +780,7 @@ type Game struct {
 type GameObject struct {
 	Availability ObjectAvailability `json:"availability"`
 
-	// Data kind が directory なら DirectoryData。他は未定(null)
+	// Data kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null)
 	Data JsonValue `json:"data"`
 
 	// Id Example: directory-1
@@ -852,6 +852,12 @@ type JsonValue = interface{}
 
 // LifeStatus defines model for LifeStatus.
 type LifeStatus string
+
+// LighterStandData ライターの置き場。bypassPermission が立つまでは availability が unavailable
+type LighterStandData struct {
+	// HasLighter 置き場にライターがあるか(持ち主が持っている間は false)
+	HasLighter bool `json:"hasLighter"`
+}
 
 // MatchmakingStatus defines model for MatchmakingStatus.
 type MatchmakingStatus struct {

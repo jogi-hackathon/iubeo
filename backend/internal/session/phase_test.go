@@ -398,7 +398,7 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 	}
 
 	// アイテムは初期状態に戻る(在庫は 6 つとも編集前、成果物と手持ちは消える)。phase.started の前に配る
-	if d := directoryOf(st); len(d.Stock) != len(directoryStock) || d.Outputs != 0 || st.held("p1") != nil || len(st.Items) != len(directoryStock) {
+	if d := directoryOf(st); len(d.Stock) != len(directoryStock) || d.Outputs != 0 || st.held("p1") != nil || len(st.Items) != len(directoryStock)+3 {
 		t.Errorf("directory = %+v, items = %+v", d, st.Items)
 	}
 	bc := outputsOf[Broadcast](out)
@@ -498,45 +498,6 @@ func TestAllEliminatedIsDefeat(t *testing.T) {
 	if _, out = step(t, st, Tick{Now: deadline.Add(time.Hour)}); len(out) != 0 {
 		t.Errorf("ended session produced %+v", out)
 	}
-}
-
-func TestLastPhaseIsVictory(t *testing.T) {
-	last := func(t *testing.T) State {
-		t.Helper()
-		st := playing(t, "p1", "p2")
-		st.Phases.Count = 1
-		return withTasks(st,
-			TaskState{ID: "task-1-1", Type: api.Write, Assignee: "p1"},
-			TaskState{ID: "task-1-2", Type: api.Write, Assignee: "p2"},
-		)
-	}
-
-	t.Run("締切で生存者が残れば victory", func(t *testing.T) {
-		st := create(t, last(t), "p1", "new-1")
-		st, _ = put(t, st, "p1")
-		st, out := step(t, st, Tick{Now: st.Phase.DeadlineAt})
-		wantPhaseEnded(t, out, 1, []string{"p2"}, api.PhaseEndedMessageNextCompleted)
-		if fin := msgsOf[api.SessionFinishedMessage](out); len(fin) != 1 || fin[0].Result.Outcome != api.Victory {
-			t.Errorf("session.finished = %+v", fin)
-		}
-		if !st.Ended || st.Status != api.SessionStatusFinished {
-			t.Errorf("ended = %v, status = %s", st.Ended, st.Status)
-		}
-	})
-
-	t.Run("全員が締切前に完了しても victory", func(t *testing.T) {
-		st := create(t, last(t), "p1", "new-1")
-		st = create(t, st, "p2", "new-2")
-		st, _ = put(t, st, "p1")
-		st, out := put(t, st, "p2")
-		wantPhaseEnded(t, out, 1, []string{}, api.PhaseEndedMessageNextCompleted)
-		if fin := msgsOf[api.SessionFinishedMessage](out); len(fin) != 1 || fin[0].Result.Outcome != api.Victory || !fin[0].Result.DecidedAt.Equal(t0) {
-			t.Errorf("session.finished = %+v", fin)
-		}
-		if !st.Ended {
-			t.Error("session did not end")
-		}
-	})
 }
 
 func TestDisconnectedPlayerIsEliminatedAtDeadline(t *testing.T) {
