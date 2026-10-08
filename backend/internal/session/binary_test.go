@@ -8,6 +8,17 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
+// playingState は接続済み・プレイ中の 3 人のセッションを作る
+func playingState() State {
+	st := NewMultiplayerState("sess-bin", []string{"p1", "p2", "p3"}, time.Unix(0, 0), Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
+	st.Status = api.SessionStatusPlaying
+	for i := range st.Players {
+		st.Players[i].ConnID = uint64(i + 1)
+		st.Players[i].Connection = api.Connected
+	}
+	return st
+}
+
 func TestTransformBinaryRoundTrip(t *testing.T) {
 	b := make([]byte, binTransformSize)
 	b[0] = binTransform
@@ -28,7 +39,7 @@ func TestTransformBinaryRoundTrip(t *testing.T) {
 }
 
 func TestTransformsBinaryUsesSeat(t *testing.T) {
-	st := benchPlaying()
+	st := playingState()
 	for i := range st.Players {
 		st.Players[i].moved = true
 		st.Players[i].Transform = api.Transform{Position: api.Vec3{float64(i), 1, 2}, Yaw: 0.5, Seq: int64(10 + i)}
