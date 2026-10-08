@@ -37,6 +37,57 @@ pnpm dev          # 開発サーバー http://localhost:5173
 
 `VITE_RENDERER=webgl` にすると WebGL2 を強制し、起動エラー画面を確認できる。
 
+## PC（Web 検索の画面）
+
+机の上の PC の画面は、Firefox のエンジン（Gecko）を WebAssembly にしたものが動く。HUD は使わず、お題は机のメモに、状態は画面そのものに出す。参考: iubeo-lab の `browser-in-browser`（同じ仕組みの実験。画面の接続部を移植した）。
+
+```sh
+# 1. エンジンを取り込む（約 34MB。engine-local/ に置き、リポジトリには入れない）
+pnpm engine:link -- --from <gecko.js/dist | firefox-wasm のリポジトリ | gecko.js-v*.tar.gz>
+
+# 2. 開発サーバーを起動する。WISP プロキシ（127.0.0.1:5001）も一緒に立つ
+pnpm dev     # http://localhost:5173/?debug（debug シーン）
+```
+
+- WISP は実サイトへ出るためのプロキシ。`pnpm dev` が 127.0.0.1:5001 に自動で立て、画面の既定の接続先は `.env.development` の `VITE_WISP_URL`（`ws://127.0.0.1:5001/`）。
+
+- 自動起動を止めるなら `IUBEO_WISP=0 pnpm dev`。ポートを変えるなら `WISP_PORT` と `VITE_WISP_URL` を揃える。`?wisp=` を空（`?wisp=`）にすると、その場だけ無効になる。
+
+- 単独で立てるなら `pnpm wisp`（開発サーバーとは別に動かすとき）。5001 が使われていると、dev は警告を出して続行する。
+
+- 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。お題のメモをクリックすると、別のお題を引く。Esc で離れる。
+
+- 初回の起動は、エンジンの wasm を読むので数十秒かかる（画面に「BOOTING」と出る）。2 回目以降は速い。
+
+- エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
+
+- `?task=<語>` でお題を固定できる（確認用）。
+
+- `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
+
+- 本番（Cloudflare）には載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番では「NO ENGINE」になる。
+
+- 検索結果は、WISP 経由で Google に出る。Google は、プロキシ経由の通信に対して reCAPTCHA を出すことがある。
+
+### 本番の WISP（トークンで保護）
+
+本番では、WISP は誰でも使えないようにする（オープンプロキシになるため）。
+
+- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。
+- WISP の Worker（`worker/wisp.ts`）がトークンを検証してから、Container（`wisp/`、wisp-js）へ流す。フロントの Worker が `/wisp/*` をここへ転送する。
+- デプロイの順は backend → wisp → frontend（サービスバインディングの参照先が先に要るため）。
+  - `pnpm exec cf deploy --mode backend`
+  - `pnpm exec cf deploy --mode wisp`
+  - `pnpm exec cf deploy`
+- secret は 2 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。
+
+`VITE_WISP_URL`（開発の既定は `ws://127.0.0.1:5001/`）があれば、トークンは使わずそこへ直結する。
+
+### エンジンの配信元
+
+本番のエンジンは R2（`iubeo-engine` バケットの `engine/...`）から配る。ビルドの成果物には入れない（静的アセットの上限が 25 MiB のため）。
+`VITE_ENGINE_BASE_URL` に配信元を入れると、そこから読む（例: `https://pub-xxxx.r2.dev`）。空なら同じオリジンの `/engine/`（`engine-local/` を開発サーバーが配る）。
+
 ## シーン
 
 `src/scenes/index.ts` の `scenes` に登録する。`room` / `sandbox` が本番、`test` は開発時のみ。

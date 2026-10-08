@@ -23,6 +23,8 @@ import {DurableObject} from "cloudflare:workers";
 interface Env {
   /** HMAC の署名鍵(32 バイト以上)。secrets file か `cf workers secrets` で登録する */
   IUBEO_SIGNING_KEY: string;
+  /** WISP 接続用トークンの署名鍵(IUBEO_WISP_KEY。WISP の Worker と同じ値。未設定なら WISP のトークンは発行しない) */
+  IUBEO_WISP_KEY?: string;
   /** "target" キーに転送先("ec2" か未設定)を持つ */
   TARGET: KVNamespace;
 }
@@ -110,6 +112,7 @@ export class Backend extends DurableObject<Env> {
           IUBEO_SIGNING_KEY: key,
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
+          ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
         },
       });
     }
@@ -164,6 +167,21 @@ export default {
       .fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * WISP のトークンを発行するための設定。鍵が無ければ空(Go 側は WISP のトークンを発行しない)。
+ * WebSocket の基点は、このリクエストの公開オリジンの /wisp/(ws/wss に読み替える)。
+ */
+const wispEnv = (
+  origin: string,
+  key: string | undefined,
+): Record<string, string> => {
+  if (!key) {
+    return {};
+  }
+  const wsOrigin = origin.replace(/^http/, "ws");
+  return {IUBEO_WISP_KEY: key, IUBEO_WISP_URL: `${wsOrigin}/wisp/`};
+};
 
 /**
  * 本番相当(EC2 + EIP)へそのまま流す。
