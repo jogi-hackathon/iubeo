@@ -1201,6 +1201,17 @@ type TransformsMessageType string
 // Example: [1.25,0,-2.5]
 type Vec3 = []float64
 
+// WispToken defines model for WispToken.
+type WispToken struct {
+	// ExpiresAt トークンの期限(接続を始めるのはこの前に)
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Url WISP の WebSocket の URL。`token` のクエリを含む
+	//
+	// Example: wss://example.test/wisp/?token=abc.def
+	Url string `json:"url"`
+}
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -1212,6 +1223,9 @@ type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// Unavailable defines model for Unavailable.
+type Unavailable = Error
 
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
@@ -1879,6 +1893,9 @@ type ServerInterface interface {
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
+	// GetWispToken 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
+	// (GET /api/v1/wisp/token)
+	GetWispToken(w http.ResponseWriter, r *http.Request)
 	// GetHealth ヘルスチェック
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -2029,6 +2046,20 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetWispToken operation middleware
+func (siw *ServerInterfaceWrapper) GetWispToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWispToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -2166,6 +2197,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealth)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.JoinMatchmaking)

@@ -21,6 +21,10 @@ type Config struct {
 	AllowedOrigins []string
 	// MatchSize は自動マッチングで 1 セッションに組む人数(IUBEO_MATCH_SIZE。既定 3。1〜3)
 	MatchSize int
+	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
+	WispKey []byte
+	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
+	WispURL string
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
@@ -58,6 +62,18 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("IUBEO_MATCH_SIZE must be an integer from 1 to 3: %q", v))
 		} else {
 			cfg.MatchSize = n
+		}
+	}
+
+	if v := getenv("IUBEO_WISP_KEY"); v != "" {
+		switch {
+		case len(v) < minSigningKeyLen:
+			errs = append(errs, fmt.Errorf("IUBEO_WISP_KEY must be at least %d bytes", minSigningKeyLen))
+		case getenv("IUBEO_WISP_URL") == "":
+			errs = append(errs, errors.New("IUBEO_WISP_URL is required when IUBEO_WISP_KEY is set"))
+		default:
+			cfg.WispKey = []byte(v)
+			cfg.WispURL = getenv("IUBEO_WISP_URL")
 		}
 	}
 
