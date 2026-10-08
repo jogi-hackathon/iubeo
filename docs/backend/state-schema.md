@@ -40,7 +40,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `TaskType` | `read_edit` / `write` / `web_search` / `image_generation` |
 | `TaskStatus` | `pending` / `completed` |
 | `ItemKind` | `file` / `lighter` |
-| `FileStatus` | `unedited` / `edited`(ディレクトリの在庫から取り出したもの)/ `file_created` / `search_created` / `image_created`(新しく作ったもの。編集はしない) |
+| `FileStatus` | `unedited` / `edited`(ディレクトリの在庫から取り出したもの。`edited` は持っている間だけで、ディレクトリに戻すと `unedited` に戻る)/ `file_created` / `search_created` / `image_created`(新しく作ったもの。編集はしない) |
 | `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ canvas・pc はサーバー・フロントとも未実装で、名前は暫定。lighter_stand はライターの置き場で、名前は変えない) |
 | `ObjectScope` | `personal` / `shared` |
 | `ObjectAvailability` | `available` / `unavailable` |
@@ -80,7 +80,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 | 配る形 | 内部状態からの組み立て |
 |---|---|
-| ディレクトリの `data.stock` | `kind=file`・`status` が `unedited` / `edited`・`location=directory(そのディレクトリ)` のファイル → `{id, color, status}` |
+| ディレクトリの `data.stock` | `kind=file`・`status` が `unedited` / `edited`・`location=directory(そのディレクトリ)` のファイル → `{id, color, status}`(戻すと編集前に戻るので、今は `status` が `edited` のものは並ばない。型は変えていない) |
 | ディレクトリの `data.outputs` | `kind=file`・`status` が作成系・`location=directory(そのディレクトリ)` のファイルの数 |
 | `players[].heldItem` | `location=held_by(その人)` のアイテム → `Item{id, kind, data}`。ファイルの `data` は `{status, color?}`、ライターは `null` |
 | ライターの置き場の `data.hasLighter` | `kind=lighter`・`location=object(その置き場)` のアイテムがあるか |
@@ -173,7 +173,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 - 完了時刻はクライアントの送信時刻ではなく、**サーバーが受け付けた時刻**(`serverAcceptedAt`)とする。
 - `serverAcceptedAt < deadlineAt` なら締切内、`>=` なら締切後。締切処理と完了処理はセッションごとに単一の順序で処理する。サーバーは時刻を持つ入力を処理する前に締切を確かめるので、締切を過ぎてから届いた `interact` は、Tick より先に届いても締切の処理の後で扱う(その時点では `intermission` なので `unavailable` で拒否される)。
-- 同じファイルの達成は1回だけ数える(取り出して入れ直しても増えない)。
+- 1回入れて達成になるタスクは1つだけ。編集済みのファイルはディレクトリに入れると `unedited` に戻るので(§5.2.1)、取り出して入れ直しても増えない。同じファイルでも、別のプレイヤーが取り出して編集し直し、入れれば、その人のタスクの達成になる。作ったファイルは成果物になって取り出せないので、2回数えることはない。
 - 達成になるのは、担当者が自分で `interact` で入れたときだけ。切断で手持ちのファイルがディレクトリに入った場合(§5.6)は、在庫・成果物にはなるが、誰のタスクの達成にも数えない(「作ってすぐ切断すれば達成」という抜け道を作らないため。回線が不安定な人に優しくはないが、達成はサーバーが確かめた本人の操作だけにする)。
 - 検索(PC)・画像生成(キャンバス)で新しいファイルが作られる操作の要求の形は未確定(§9)。
 
@@ -218,7 +218,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 第 n フェーズの全体の件数は **n × セッション開始時の人数**。
 - 生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。脱落者が出たら、全体の件数はそのままで生存者に再分配する(例: 3 人で始めて 1 人脱落 → 第3フェーズは 9 件を 4・5 件に分ける)。
 - 種類は `read_edit` と `write` から乱数で選ぶ。PC・キャンバスがまだ無いので、`web_search` / `image_generation` は出さない。
-- `read_edit` の `targetFileId` は在庫のファイルから重複させずに選び、在庫の数を超える分は `write` にする。在庫はフェーズごとに初期状態に戻る。
+- `read_edit` の `targetFileId` は在庫のファイルから乱数で選ぶ。**別のプレイヤーとは重なってよい**。同じファイルが要る人どうしで取り合いになり、「今それ編集しようとしてたのに」というコンフリクトを起こすため。同じプレイヤーの中では重複させず、自分の分で在庫の数を超える分は `write` にする。在庫はフェーズごとに初期状態に戻る。
+- 同じファイルを何人もが編集できるように、編集済み(`edited`)は持っている間だけの状態にする。ディレクトリに入れたら(達成の判定の後で)`unedited` に戻し、次の人がまた取り出して編集できる。達成にならないまま入れた場合も、切断で戻った場合も同じく `unedited` に戻る(編集は無駄になる)。
 - タスクの id は `task-{フェーズ番号}-{連番}`。乱数はセッションごとの種から作り、状態に持って進める(規則の関数を純粋に保つため)。
 
 フェーズ番号に比例させるのは、フェーズを追うごとに忙しくするため(毎フェーズ同じ件数だと難しくならない)。脱落者の分を生存者に再分配するのは、IDEA.md の「脱落者の負荷を生存者に再分配する」に沿い、脱落がチームへの圧力になるようにするため。
@@ -236,7 +237,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 ワークスペースは各プレイヤーの区画にある personal のオブジェクト。アクションは共通で 2 秒(`WORKSPACE_ACTION_MS`)かかり、結果はその後に反映する。
 
-- `unedited` のファイルを持って `interact` → 2 秒後に、手持ちのファイルが `edited` になる
+- `unedited` のファイルを持って `interact` → 2 秒後に、手持ちのファイルが `edited` になる(ディレクトリに戻すと `unedited` に戻る。§5.2.1)
 - 手ぶらで `interact` → 2 秒後に、新しいファイル(`file_created`)を手に持つ。id はサーバーが UUID で採番する
 - `edited`・作成系・ファイル以外を持っていると `missing_item`、作業中は `unavailable` で拒否する
 - 作業中はそのプレイヤーを `users` に入れ、終わったら外す(フロントは `users` から外れたら移動とカメラのロックを解く)

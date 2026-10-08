@@ -99,7 +99,7 @@ func (st *State) interact(in ClientInteract) []Output {
 }
 
 // interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。ライターを持っていれば火をつける。
-// ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)。
+// ファイルを持っていれば入れる(在庫のファイルは編集前に戻って在庫に戻り、作ったファイルは成果物になる)。
 // 入れたファイルで担当のタスクが達成になれば task.completed も送る(生存者全員が完了したら、フェーズを終える)
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
@@ -126,12 +126,17 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 		held.Location = Location{Kind: InDirectory, ObjectID: o.ID}
 	}
+	var put api.FileStatus
+	if held != nil {
+		put = held.Status
+		uneditOnReturn(held)
+	}
 	out := []Output{
 		Broadcast{Msg: st.objectUpsert(o)},
 		Broadcast{Msg: st.playerUpdated(p)},
 	}
 	if held != nil {
-		if done := st.completeTask(p.ID, held, in.Now); len(done) > 0 {
+		if done := st.completeTask(p.ID, held.ID, put, in.Now); len(done) > 0 {
 			out = append(out, done...)
 			// 生存者全員が完了したら、締切前でもフェーズを終える
 			if st.allTasksDone() {
@@ -140,6 +145,14 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 	}
 	return out
+}
+
+// uneditOnReturn は、在庫に戻すファイルの編集済みを編集前に戻す。編集済みは持っている間だけの状態で、
+// 戻したファイルは次の人がまた編集できる(state-schema.md §5.2.1)
+func uneditOnReturn(f *ItemState) {
+	if f.Status == api.FileStatusEdited {
+		f.Status = api.FileStatusUnedited
+	}
 }
 
 // interactDirectoryWithLighter: ライターを持ってディレクトリに触れたら火をつける。燃やすのは演出なので、ファイルは消さない。
@@ -283,6 +296,7 @@ func (st *State) releasePlayer(p *PlayerState) []Output {
 	case held == nil:
 	case held.Kind == api.File:
 		held.Location = Location{Kind: InDirectory, ObjectID: directoryID}
+		uneditOnReturn(held)
 		if o := st.object(directoryID); o != nil {
 			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
 		}
