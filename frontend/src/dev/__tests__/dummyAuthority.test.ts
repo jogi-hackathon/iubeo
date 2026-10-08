@@ -4,6 +4,7 @@ import {createItemManager} from "../../items/itemManager";
 import {CANVAS_ACTION_MS} from "../../objects/canvas/data";
 import {parseDirectoryData, type StockFile} from "../../objects/directory/data";
 import {createObjectManager} from "../../objects/objectManager";
+import {PC_KIND} from "../../objects/pc/data";
 import type {InteractRequest} from "../../objects/types";
 import {WORKSPACE_ACTION_MS} from "../../objects/workspace/data";
 import {createDummyAuthority, DUMMY_ITEM_KIND} from "../dummyAuthority";
@@ -235,7 +236,20 @@ describe("createDummyAuthority", () => {
         users: [],
         availability: "available",
       });
-      expect(data()).toEqual({stock: STOCK, outputs: 0});
+      expect(data()).toEqual({stock: STOCK, outputs: 0, size: "large"});
+    });
+
+    it("spawnDirectory に size を渡すと、data に入る(省略は large)。在庫の出し入れでも変わらない", () => {
+      const {authority, objects, items} = setup();
+      const id = authority.spawnDirectory([0, 0, -5.5], STOCK, "small");
+      const data = () =>
+        parseDirectoryData(objects.getObject(id)?.data ?? null);
+      expect(data().size).toBe("small");
+
+      objects.interact(id, {target: F2});
+      expect(items.getHeld()?.id).toBe(F2);
+      expect(data().stock.map((f) => f.id)).toEqual([F1, F3]);
+      expect(data().size).toBe("small");
     });
 
     describe("手ぶらで取り出す", () => {
@@ -462,6 +476,38 @@ describe("createDummyAuthority", () => {
         expect(authority.editHeldFile()).toBe(false);
         authority.spawnItem("lighter");
         expect(authority.editHeldFile()).toBe(false);
+      });
+    });
+  });
+
+  describe("clearObjects", () => {
+    it("オブジェクトを全部片付け、id の採番も最初に戻す(同じ配置を置き直すと同じ id になる)", () => {
+      const {objects, authority} = setup();
+      const first = authority.spawnWorkspace([0, 0, 0]);
+      authority.spawnObject([1, 1, 1]);
+
+      authority.clearObjects();
+
+      expect(objects.getState().objects).toEqual([]);
+      expect(authority.spawnWorkspace([0, 0, 0])).toBe(first);
+    });
+  });
+
+  describe("PC", () => {
+    it("spawnPc は、自分の personal の pc を指定の位置に置く(見た目は無く、データだけ)", () => {
+      const {objects, authority} = setup();
+
+      const id = authority.spawnPc([0, 0.95, -4.3]);
+
+      expect(objects.getObject(id)).toEqual({
+        id,
+        kind: PC_KIND,
+        scope: "personal",
+        owner: "me",
+        position: [0, 0.95, -4.3],
+        users: [],
+        availability: "available",
+        data: null,
       });
     });
   });

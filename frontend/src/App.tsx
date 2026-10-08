@@ -5,7 +5,7 @@ import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
-import {Interaction, ManagedObjects, Reticle} from "./objects";
+import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
@@ -18,17 +18,14 @@ const DevTools = import.meta.env.DEV
   : null;
 
 export function App() {
-  const sceneState = useSceneState();
-  // 遷移中は from のシーンを描画し続け、idle になった時点で to に切り替える
-  const sceneName =
-    sceneState.status === "idle" ? sceneState.current : sceneState.from;
+  // 遷移の演出中は SceneManager が commit する前なので、前のシーンを描画し続ける
+  const {current: sceneName} = useSceneState();
   const Scene = scenes[sceneName];
   const warmedUp = useShaderWarmupDone();
   return (
     <>
       <GameCanvas>
         {Scene && <Scene key={sceneName} />}
-        <ManagedObjects />
         <BakedAO scene={sceneName} />
         <PlayerController />
         <Interaction />

@@ -12,6 +12,7 @@ describe("parseDirectoryData", () => {
           {id: "f2", color: "#0f0", status: "edited"},
         ],
         outputs: 3,
+        size: "small",
       }),
     ).toEqual({
       stock: [
@@ -19,12 +20,17 @@ describe("parseDirectoryData", () => {
         {id: "f2", color: "#0f0", status: "edited"},
       ],
       outputs: 3,
+      size: "small",
     });
   });
 
   it("オブジェクト以外は、空のディレクトリとして読む", () => {
     for (const bad of [null, 1, "x", true, [1, 2]]) {
-      expect(parseDirectoryData(bad)).toEqual({stock: [], outputs: 0});
+      expect(parseDirectoryData(bad)).toEqual({
+        stock: [],
+        outputs: 0,
+        size: "large",
+      });
     }
   });
 
@@ -57,7 +63,23 @@ describe("parseDirectoryData", () => {
     expect(parseDirectoryData({stock: {a: 1}, outputs: 1})).toEqual({
       stock: [],
       outputs: 1,
+      size: "large",
     });
+  });
+
+  it("size は large・small を読み、欠落・不正(未知の名前・型違い・prototype のキー)は large にする", () => {
+    expect(
+      parseDirectoryData({stock: [], outputs: 0, size: "large"}).size,
+    ).toBe("large");
+    expect(
+      parseDirectoryData({stock: [], outputs: 0, size: "small"}).size,
+    ).toBe("small");
+    expect(parseDirectoryData({stock: [], outputs: 0}).size).toBe("large");
+    for (const bad of ["huge", "", 1, null, true, ["small"], "toString"]) {
+      expect(parseDirectoryData({stock: [], outputs: 0, size: bad}).size).toBe(
+        "large",
+      );
+    }
   });
 });
 

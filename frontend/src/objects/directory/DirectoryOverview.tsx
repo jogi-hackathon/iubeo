@@ -31,7 +31,7 @@ import {
   pickFile,
   plateOf,
 } from "./fileAssign";
-import type {Candidate} from "./mountain";
+import type {Candidate, MountainSizeName} from "./mountain";
 import {overview, useOverviewState} from "./overview";
 import {computeOverviewPose, overviewQuaternion} from "./overviewPose";
 
@@ -65,6 +65,8 @@ type Props = {
   position: Vec3;
   /** 在庫ファイルを割り当てられる束(山の束のうち、真上から見える物) */
   candidates: readonly Candidate[];
+  /** 山の大きさ(俯瞰のカメラの高さが決まる) */
+  size: MountainSizeName;
   stock: readonly StockFile[];
 };
 
@@ -79,6 +81,7 @@ export function DirectoryOverview({
   directoryId,
   position,
   candidates,
+  size,
   stock,
 }: Props) {
   const {aimedFileId} = useOverviewState();
@@ -87,7 +90,9 @@ export function DirectoryOverview({
   const gl = useThree((s) => s.gl);
 
   // 入った時点のプレイヤーの向きから基準姿勢を決める(その間プレイヤーは動かない)
-  const [pose] = useState(() => computeOverviewPose(position, localPlayer.yaw));
+  const [pose] = useState(() =>
+    computeOverviewPose(position, localPlayer.yaw, size),
+  );
   // 俯瞰のカメラは、この基準姿勢で固定(視点は振らない)。狙いは画面上の仮想カーソルで行う
   const ovQuaternion = useMemo(
     () => overviewQuaternion(pose, new Quaternion()),

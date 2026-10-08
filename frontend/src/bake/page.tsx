@@ -4,9 +4,8 @@ import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
-// ダミーのサーバー役。読み込むと、ゲーム本体(開発時)と同じ id・位置で、確認用のオブジェクト(ディレクトリなど)が置かれる
-import "../dev/authority";
-import {ManagedObjects} from "../objects";
+// ダミーのサーバー役。ゲーム本体(開発時)と同じ位置に、確認用のオブジェクト(ディレクトリなど)を置く
+import {applyDevLayout} from "../dev/authority";
 import {type SceneName, sceneNames, scenes} from "../scenes";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
@@ -42,6 +41,11 @@ const SOFTWARE_RE =
 
 const isSceneName = (name: string): name is SceneName =>
   (sceneNames as string[]).includes(name);
+
+// ダミーのサーバー役のオブジェクトを、ベイクするシーンの配置に合わせる(ゲーム本体はシーン切替で置き直す)
+if (isSceneName(sceneName)) {
+  applyDevLayout(sceneName);
+}
 
 /** WebGPU が使えないと WebGPURenderer は黙って WebGL2 に落ちるので、確認して止める */
 const createRenderer = async (props: object) => {
@@ -202,9 +206,8 @@ function BakePage() {
             すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
             useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
         <Suspense fallback={null}>
+          {/* サーバーが置くオブジェクトのうち、動かない物(ディレクトリなど)は、シーンが描く(ManagedObjects)ので、一緒にベイクされる */}
           <Scene />
-          {/* サーバーが置くオブジェクトのうち、動かない物(ディレクトリ)もベイクする。ゲーム本体(App)と同じ並び */}
-          <ManagedObjects />
           <Runner onProgress={setProgress} />
         </Suspense>
       </Canvas>

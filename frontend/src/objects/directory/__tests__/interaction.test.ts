@@ -18,6 +18,7 @@ describe("createDirectoryInteraction", () => {
     const enterOverview = vi.fn();
     const handle = createDirectoryInteraction({
       isHandEmpty: () => true,
+      isOverviewEnabled: () => true,
       enterOverview,
     });
 
@@ -29,6 +30,31 @@ describe("createDirectoryInteraction", () => {
     const enterOverview = vi.fn();
     const handle = createDirectoryInteraction({
       isHandEmpty: () => false,
+      isOverviewEnabled: () => true,
+      enterOverview,
+    });
+
+    expect(handle(directory)).toBe(false);
+    expect(enterOverview).not.toHaveBeenCalled();
+  });
+
+  it("手ぶらでも、俯瞰の機能が OFF なら、俯瞰に入らず処理済み(何もしない)にする", () => {
+    const enterOverview = vi.fn();
+    const handle = createDirectoryInteraction({
+      isHandEmpty: () => true,
+      isOverviewEnabled: () => false,
+      enterOverview,
+    });
+
+    expect(handle(directory)).toBe(true);
+    expect(enterOverview).not.toHaveBeenCalled();
+  });
+
+  it("ファイルを持っていれば、俯瞰の機能が OFF でも処理せず、既定の処理(入れる)に任せる", () => {
+    const enterOverview = vi.fn();
+    const handle = createDirectoryInteraction({
+      isHandEmpty: () => false,
+      isOverviewEnabled: () => false,
       enterOverview,
     });
 
