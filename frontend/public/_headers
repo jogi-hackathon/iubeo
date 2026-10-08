@@ -4,3 +4,9 @@
 # 長くキャッシュし、再検証もさせない(index.html は既定のまま、毎回確かめる)
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Gecko エンジン(PC の画面)は pthread のために SharedArrayBuffer を使うので、cross-origin isolation にする(開発サーバーは vite.config.ts が付ける)。
+# R2 のエンジンは CORS 付きで配るので、require-corp でも読める
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
