@@ -229,6 +229,10 @@ export function BakedAO({scene}: {scene: string}) {
         atlas: `${import.meta.env.BASE_URL}${files.atlas}`,
         layout: `${import.meta.env.BASE_URL}${files.layout}`,
       };
+      // アトラスはレイアウトと同時に取りに行く(順に待つと往復 1 回ぶんと、レイアウトの受信のぶん、ウォームアップの待ちが延びる)。
+      // ベイク結果が無いときは失敗するので、未処理の reject にならないよう先に握っておく
+      const atlasPromise = loadAtlas(urls.atlas);
+      atlasPromise.catch(() => {});
       const res = await fetch(urls.layout);
       // SPA フォールバックのあるホスティングでは、無いファイルが index.html(200)で返る
       if (!res.ok || res.headers.get("content-type")?.startsWith("text/html")) {
@@ -236,10 +240,14 @@ export function BakedAO({scene}: {scene: string}) {
           "info",
           `${urls.layout} がありません。pnpm bake:ao --scene=${scene} でベイクできます`,
         );
+        atlasPromise.then(
+          (t) => t.dispose(),
+          () => {},
+        );
         return;
       }
       const layout = parseLayout(await res.arrayBuffer());
-      const atlas = await loadAtlas(urls.atlas);
+      const atlas = await atlasPromise;
       if (disposed) {
         atlas.dispose();
         return;
