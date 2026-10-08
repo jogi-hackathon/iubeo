@@ -4,13 +4,39 @@
 
 | ファイル | きっかけ | 内容 |
 | --- | --- | --- |
-| `ci.yml` | PR と main への push | backend の build/vet/test、frontend の typecheck/lint/test/build、terraform の fmt/validate |
-| `deploy-frontend.yml` | main への push（`frontend/**`） | Cloudflare へデプロイ（`cf deploy`） |
-| `deploy-backend.yml` | main への push（`backend/**`） | arm64 のイメージを ECR へ push し、デプロイ対象のタグを更新 |
-| `preview.yml` | **main に向けた PR** | Worker Preview を作り、URL を PR にコメント |
+| `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | まず `changes` で変更パスを見て、関係するジョブだけ走らせる。backend の gofmt/build/vet/test（`backend/**`）、frontend の lint/test/build（`frontend/**`）、terraform の fmt/validate（`infra/**`） |
+| `preview.yml` | **main に向けた PR**（`frontend/**` の変更） | Worker Preview を作り、URL を PR にコメント |
+| `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**` か `.github/workflows/deploy-cloudflare.yml`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
+| `deploy-backend.yml` | main への push（`backend/**` または `.github/workflows/deploy-backend.yml`）、手動実行 | CI → arm64 のイメージを ECR へ push（同じ sha のタグが既にあれば push は飛ばす）→ デプロイ対象のタグを更新 |
 
-**AWS の長期アクセスキーは使いません。** `deploy-backend.yml` は GitHub OIDC で
-一時資格情報を受け取ります。信頼ポリシーは **main への push だけ**に絞ってあります。
+### デプロイは CI の成功が前提
+
+`deploy-*.yml` は最初のジョブで `ci.yml` を呼び出し、`needs: ci` でデプロイを待たせています。
+CI が赤なら、その run ではデプロイされません。
+
+main への push で CI を単独で走らせることはしていません（デプロイの run の中で走る）。
+そのため、デプロイ対象外のパスだけを変えた push では main 上の CI は走りません。
+変更は PR の段階で CI を通す前提です。
+
+`ci.yml` か `.github/scripts/` が変わった run では、判定を信用せず全ジョブを走らせます。
+
+### 必須にする設定（リポジトリの Settings 側・未設定）
+
+ワークフローの中で CI を通しても、**PR を CI なしで merge できる状態のままだと意味が薄くなります**。
+Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブを必須のステータスチェックとして追加してください
+（チェック名はジョブ名の `backend` / `frontend` / `terraform`。候補に出ない場合は一度 PR で CI を走らせると出ます）。
+
+### `deploy-cloudflare` の backend 判定
+
+比較の基準は **main で直近に成功した deploy-cloudflare の sha** です（直前の push ではありません）。
+そのため、前回の backend デプロイが失敗していても、次の push でまとめて載ります。
+
+`backend/**` も `.github/workflows/deploy-cloudflare.yml` も基準から変わっていなければ、
+バックエンド Worker は再デプロイしません。frontend だけの変更でコンテナを作り直すと、
+メモリ上のセッションが消えるためです。直近の成功が無いとき、手動実行（`workflow_dispatch`）、
+判定できない push では、安全側に倒して再デプロイします。
+
+`workflow_dispatch` は main 以外のブランチから実行しても、本番へのデプロイ（`deploy` ジョブ）は skip されます。
 
 ## 最初に設定するもの
 
@@ -52,12 +78,25 @@ aws ssm send-command --region ap-northeast-1 \
   --parameters commands=/usr/local/bin/iubeo-deploy
 ```
 
-## ブランチから試したいとき
+## OIDC の信頼ポリシー
 
-信頼ポリシーは `repo:jogi-hackathon/iubeo:ref:refs/heads/main` に限定しています。
-ブランチから `deploy-backend.yml` を試すと OIDC の引き受けに失敗します。
-試したい場合は `infra/aws/terraform/ci.tf` の `sub` を `repo:<owner>/<repo>:*` に
-緩めて `terraform apply` してください。
+`deploy-backend.yml` は GitHub OIDC で一時資格情報を受け取ります。信頼ポリシーは
+**main への push だけ**に絞ってあります（`infra/aws/terraform/ci.tf`）。
+
+リポジトリの OIDC sub は不変 ID 形式です（`use_immutable_subject: true`）。sub は次のとおりです。
+
+```text
+repo:jogi-hackathon@331157460/iubeo@1378523961:ref:refs/heads/main
+```
+
+ID を含めているのは、名前の使い回しを防ぐためです。
+
+### ブランチから試したいとき
+
+上の sub が `main` に一致しないので、ブランチから `deploy-backend.yml` を試すと
+OIDC の引き受けに失敗します。試したい場合は `infra/aws/terraform/ci.tf` の
+`StringLike` の sub 末尾を `ref:refs/heads/main` から `*` に変えて `terraform apply` してください。
+作業が終わったら必ず元に戻してください。
 
 ## Worker は 2 つある
 

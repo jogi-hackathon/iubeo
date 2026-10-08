@@ -14,6 +14,8 @@ on:
 
 permissions:
   contents: read
+  # 直近に成功したデプロイの sha を取るため(gh run list)
+  actions: read
 
 concurrency:
   # 同時に 2 つ走るとデプロイが競合するので直列化する
@@ -21,10 +23,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # CI が通ったときだけデプロイする
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
+    # Cloudflare の API トークンは ref で絞れないので、本番へのデプロイは main からだけ許す。
+    # workflow_dispatch で別ブランチから実行しても、ここで skip される
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 今回の push で backend が変わったかを before..sha の差分で見るため、全履歴が要る
+          fetch-depth: 0
+
+      # backend Worker が最後に確実に載ったコミット。直前の push だけを見ると、
+      # その push のデプロイが失敗していた場合に backend の変更を取りこぼすため、
+      # 「直近に成功したデプロイ」を基準にする
+      - name: 直近に成功したデプロイのコミットを取得
+        id: last
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha=$(gh run list --workflow deploy-cloudflare.yml --branch main --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty')
+          echo "直近の成功: ${sha:-(なし)}"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: バックエンドの変更有無を判定
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ steps.last.outputs.sha }}
+          SHA: ${{ github.sha }}
+        run: |
+          # 判定できないときは安全側(再デプロイする)に倒す:
+          # 手動実行、直近の成功が無い、履歴に無い場合
+          backend=true
+          if [ "$EVENT_NAME" = "push" ] \
+            && [ -n "$BEFORE" ] \
+            && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # backend か、この workflow 自体が直近の成功から変わっていなければ再デプロイしない。
+            # frontend だけの変更でコンテナを作り直すと、メモリ上のセッションが消えるため
+            if git diff --quiet "$BEFORE" "$SHA" -- backend .github/workflows/deploy-cloudflare.yml; then
+              backend=false
+            fi
+          fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "バックエンドを再デプロイ: $backend"
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -36,9 +88,11 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+
       # バックエンドを先にデプロイする。サービスバインディングは
       # 相手の Worker が存在しないと解決できないため
       - name: バックエンド Worker をデプロイ
+        if: steps.changes.outputs.backend == 'true'
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

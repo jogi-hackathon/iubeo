@@ -111,3 +111,21 @@ variable "github_repository" {
   type        = string
   default     = "jogi-hackathon/iubeo"
 }
+
+variable "github_repository_name" {
+  description = "Repository name without the owner. Used to build the OIDC sub claim."
+  type        = string
+  default     = "iubeo"
+}
+
+variable "github_owner_id" {
+  description = "Immutable numeric ID of the GitHub owner. GitHub includes it in the OIDC sub claim to prevent name reuse."
+  type        = string
+  default     = "331157460"
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric ID of the GitHub repository. GitHub includes it in the OIDC sub claim to prevent name reuse."
+  type        = string
+  default     = "1378523961"
+}

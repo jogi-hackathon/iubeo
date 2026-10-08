@@ -2,31 +2,73 @@ name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  # deploy-*.yml から呼ばれる。main へデプロイする前に必ずここを通し、
+  # CI が赤ならデプロイしない
+  workflow_call:
 
 # 検証だけなので AWS の資格情報は要らない
 permissions:
   contents: read
 
+concurrency:
+  # PR は同じ ref の古い実行を止める。
+  # 呼び出し元(deploy-*)から呼ばれた run は、呼び出し元の run ごとに別の group にする。
+  # 同じ group を共有すると、別 workflow の run が pending を奪い合って cancel されうるため
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.ref) || format('ci-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  backend:
+  # 変更されたパスを見て、走らせるジョブを決める。
+  # 関係の無いジョブは skip する(課金分と待ち時間が減る)
+  changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      infra: ${{ steps.detect.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 差分を取るため全履歴が要る
+          fetch-depth: 0
+      - id: detect
+        name: 変更されたパスを判定
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/scripts/detect-changes.sh
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: ビルドとテスト
+      - name: 整形・ビルド・テスト
         working-directory: backend
         run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:"
+            echo "$unformatted"
+            exit 1
+          fi
           go build ./...
           go vet ./...
           go test ./...
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -40,16 +82,25 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      # backend の OpenAPI から生成した型(コミット済み)が、スキーマとずれていないか確かめる
+      - name: API 型の生成物がずれていないか
+        working-directory: frontend
+        run: |
+          pnpm gen:api
+          git diff --exit-code -- src/net/schema.gen.ts
+      # pnpm build は先頭で型検査(typecheck)を走らせるので、ここでは改めて呼ばない
       - name: 型検査・lint・テスト・ビルド
         working-directory: frontend
         run: |
-          pnpm typecheck
           pnpm lint
           pnpm test
           pnpm build
 
   terraform:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
