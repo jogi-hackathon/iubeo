@@ -20,6 +20,12 @@ interface Env {
 const CONTAINER_PORT = 8080;
 /** これだけ使われなければ Container を眠らせる（バックエンドと同じ考え方） */
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * Container のスペック。既定の lite(1/16 vCPU / 256 MiB)だと、同時 30 人の負荷で接続が落ちた。
+ * WISP は CPU が詰まるので、1/2 vCPU / 4 GiB の standard-1 にする(backend.ts の INSTANCE と同じ指定方法)。
+ * この scheduling policy(durable-object)の実行時の指定は lite / standard-1〜4 だけで、basic は受け付けない
+ */
+const INSTANCE = "standard-1";
 /** Container の起動を待つ最大時間 */
 const START_TIMEOUT_MS = 90_000;
 /** 転送先の状態を見る用（wisp-js の server は GET / に 200 を返す） */
@@ -62,6 +68,7 @@ export class Wisp extends DurableObject<Env> {
         image,
         // 外の Web サイトへ出るため、インターネットへの通信を許す
         enableInternet: true,
+        instance: INSTANCE,
         env: {},
       });
     }
