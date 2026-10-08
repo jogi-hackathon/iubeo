@@ -29,9 +29,13 @@ resource "aws_iam_role" "github_deploy" {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
         # main への push でしか引き受けられないようにする。
-        # ブランチから試したいときは :* に緩める
+        #
+        # GitHub は sub に「オーナーとリポジトリの不変 ID」を含める:
+        #   repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/<branch>
+        # ID が入るのは名前の使い回しを防ぐため。ID は変わらないので、
+        # ここを固定しておけばリポジトリが移転しても意図せず一致しない。
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = "repo:${split("/", var.github_repository)[0]}@${var.github_owner_id}/${var.github_repository_name}@${var.github_repository_id}:ref:refs/heads/main"
         }
       }
     }]

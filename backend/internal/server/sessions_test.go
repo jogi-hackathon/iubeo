@@ -318,3 +318,166 @@ func TestWorkspaceOverWebSocket(t *testing.T) {
 		t.Errorf("finish: users = %v", m.Object.Users)
 	}
 }
+
+func TestPhaseOverWebSocket(t *testing.T) {
+	h := newTestServerSize(t, 1)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+	readType[api.SessionStartedMessage](t, ws, "session.started")
+
+	// 開始と同時に第1フェーズが始まる。1 人なので 1 件
+	started := readType[api.PhaseStartedMessage](t, ws, "phase.started")
+	ph := started.Phase
+	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || len(ph.Tasks) != 1 || started.ServerTime.IsZero() {
+		t.Fatalf("phase.started = %+v", started)
+	}
+	if d := ph.DeadlineAt.Sub(ph.StartedAt); d != session.DefaultConfig.Phases.Duration {
+		t.Errorf("deadline - start = %s", d)
+	}
+	task := ph.Tasks[0]
+	if task.AssigneePlayerId != players[0].id {
+		t.Fatalf("task = %+v", task)
+	}
+
+	// タスクをこなしてディレクトリに入れると task.completed が届く
+	doTask(t, ws, task)
+
+	snap := decode[api.SessionSnapshot](t, do(t, h, http.MethodGet, "/api/v1/sessions/"+sessionID, players[0].cookie))
+	if snap.Game.Phase == nil || snap.Game.Phase.Tasks[0].Status != api.TaskStatusCompleted {
+		t.Errorf("snapshot phase = %+v", snap.Game.Phase)
+	}
+}
+
+// doTask はタスクをこなしてディレクトリに入れ、task.completed を待つ
+func doTask(t *testing.T, ws *websocket.Conn, task api.Task) {
+	t.Helper()
+	var held api.HeldItemRef
+	if task.Type == api.ReadEdit {
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", Target: task.TargetFileId})
+		held = api.HeldItemRef{Id: *task.TargetFileId, Kind: api.File}
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1", HeldItem: &held})
+	} else {
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1"})
+	}
+	for {
+		m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+		if hi := m.Player.HeldItem; hi != nil && hi.Data.(map[string]any)["status"] != string(api.FileStatusUnedited) {
+			held = api.HeldItemRef{Id: hi.Id, Kind: hi.Kind}
+			break
+		}
+	}
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", HeldItem: &held})
+	if m := readType[api.TaskCompletedMessage](t, ws, "task.completed"); m.TaskId != task.TaskId {
+		t.Errorf("task.completed = %+v, want %s", m, task.TaskId)
+	}
+}
+
+// waitGone はセッションが破棄されて 404 になるまで待つ
+func waitGone(t *testing.T, h http.Handler, sessionID string, p testPlayer) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for do(t, h, http.MethodGet, "/api/v1/sessions/"+sessionID, p.cookie).StatusCode != http.StatusNotFound {
+		if time.Now().After(deadline) {
+			t.Fatal("session was not removed")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestPhasesToDefeatOverWebSocket(t *testing.T) {
+	cfg := session.DefaultConfig
+	// 第1フェーズでタスク(ワークスペースの 2 秒)をこなせて、第2フェーズの締切が読み取りの期限(3 秒)より前に来る長さ
+	cfg.Phases = session.PhaseRules{Count: 2, Duration: 2600 * time.Millisecond, Intermission: 200 * time.Millisecond}
+	h := newTestServerWith(t, 1, cfg)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+
+	// 第1フェーズは全員が完了したので、締切を待たずに intermission へ
+	first := readType[api.PhaseStartedMessage](t, ws, "phase.started")
+	doTask(t, ws, first.Phase.Tasks[0])
+	if m := readType[api.PhaseEndedMessage](t, ws, "phase.ended"); m.PhaseNumber != 1 || m.Next != api.PhaseEndedMessageNextIntermission || len(m.EliminatedPlayerIds) != 0 {
+		t.Fatalf("phase.ended = %+v", m)
+	}
+	ended := time.Now()
+
+	// intermission の後に第2フェーズ。アイテムは初期状態に戻る
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); m.Object.Data.(map[string]any)["outputs"] != float64(0) {
+		t.Errorf("reset directory = %+v", m.Object.Data)
+	}
+	second := readType[api.PhaseStartedMessage](t, ws, "phase.started")
+	if time.Since(ended) < 150*time.Millisecond || second.Phase.Number != 2 || len(second.Phase.Tasks) != 2 {
+		t.Fatalf("phase.started after %s = %+v", time.Since(ended), second)
+	}
+
+	// 何もしなければ締切で脱落し、全員脱落なので defeat
+	if m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated"); m.Player.Life != api.Eliminated {
+		t.Errorf("player.updated = %+v", m)
+	}
+	if m := readType[api.EffectMessage](t, ws, "effect"); m.Name != api.EffectMessageNameFall || m.PlayerId == nil || *m.PlayerId != players[0].id {
+		t.Errorf("effect = %+v", m)
+	}
+	if m := readType[api.PhaseEndedMessage](t, ws, "phase.ended"); m.PhaseNumber != 2 || m.Next != api.PhaseEndedMessageNextCompleted || len(m.EliminatedPlayerIds) != 1 {
+		t.Errorf("phase.ended = %+v", m)
+	}
+	if m := readType[api.SessionFinishedMessage](t, ws, "session.finished"); m.Result.Outcome != api.Defeat {
+		t.Errorf("session.finished = %+v", m)
+	}
+	// 結果を送ってから切り、破棄する
+	if ce := waitClose(t, ws); ce.Code != session.CloseSessionEnded || ce.Reason != string(session.ReasonFinished) {
+		t.Errorf("closed with %v, want finished", ce)
+	}
+	waitGone(t, h, sessionID, players[0])
+}
+
+func TestVictoryOverWebSocket(t *testing.T) {
+	cfg := session.DefaultConfig
+	cfg.Phases.Count = 1
+	cfg.Phases.Fire = 300 * time.Millisecond
+	h := newTestServerWith(t, 1, cfg)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+
+	// 最後のフェーズを生き残ると bypassPermission が立ち、ライターの置き場が使えるようになる
+	started := readType[api.PhaseStartedMessage](t, ws, "phase.started")
+	doTask(t, ws, started.Phase.Tasks[0])
+	if m := readType[api.PhaseEndedMessage](t, ws, "phase.ended"); m.Next != api.PhaseEndedMessageNextCompleted || len(m.EliminatedPlayerIds) != 0 {
+		t.Errorf("phase.ended = %+v", m)
+	}
+	if m := readType[api.TeamUpdatedMessage](t, ws, "team.updated"); !m.Team.BypassPermission || m.Team.FireStarted {
+		t.Errorf("team.updated = %+v", m)
+	}
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); m.Object.Id != "lighter_stand-1" || m.Object.Availability != api.ObjectAvailabilityAvailable {
+		t.Errorf("object.upsert = %+v", m)
+	}
+
+	// ライターを取ってディレクトリに触れると火がつき、演出の時間の後に victory
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "lighter_stand-1"})
+	m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+	if m.Player.HeldItem == nil || m.Player.HeldItem.Kind != api.Lighter {
+		t.Fatalf("player.updated = %+v", m)
+	}
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", HeldItem: &api.HeldItemRef{Id: m.Player.HeldItem.Id, Kind: api.Lighter}})
+	if m := readType[api.TeamUpdatedMessage](t, ws, "team.updated"); !m.Team.FireStarted {
+		t.Errorf("team.updated = %+v", m)
+	}
+	if m := readType[api.EffectMessage](t, ws, "effect"); m.Name != api.EffectMessageNameFire {
+		t.Errorf("effect = %+v", m)
+	}
+	fired := time.Now()
+	if m := readType[api.SessionFinishedMessage](t, ws, "session.finished"); m.Result.Outcome != api.Victory {
+		t.Errorf("session.finished = %+v", m)
+	}
+	if elapsed := time.Since(fired); elapsed < 250*time.Millisecond {
+		t.Errorf("finished %s after the fire, want after the fire effect", elapsed)
+	}
+	if ce := waitClose(t, ws); ce.Code != session.CloseSessionEnded || ce.Reason != string(session.ReasonFinished) {
+		t.Errorf("closed with %v, want finished", ce)
+	}
+	waitGone(t, h, sessionID, players[0])
+}

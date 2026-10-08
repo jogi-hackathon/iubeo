@@ -7,6 +7,7 @@ import type {
 import type {GameObject, ObjectManager} from "../../objects";
 import type {PlayerManager, PlayerStatus, PlayerTransform} from "../../player";
 import type {Vec3} from "../../props/types";
+import {objectPosition, spawnPosition} from "./layout";
 
 type NetPlayerStatus = ServerMessageOf<"player.updated">["player"];
 type NetTransform =
@@ -14,14 +15,15 @@ type NetTransform =
 type NetGameObject = ServerMessageOf<"object.upsert">["object"];
 
 // スキーマの型(生成物)を、フロントの型に写す。中身の形は同じで、JSON の自由な中身(data)と
-// Vec3(生成物では number[])だけ型が広いので、ここで絞る。サーバーは 3 要素で送る
+// Vec3(生成物では number[])だけ型が広いので、ここで絞る。サーバーは 3 要素で送る。
+// サーバーは位置を持たないので、オブジェクトの位置と、まだ動いていないプレイヤーの位置は layout.ts で決める
 const toVec3 = (v: readonly number[]): Vec3 => [
   v[0] ?? 0,
   v[1] ?? 0,
   v[2] ?? 0,
 ];
 const toObject = (o: NetGameObject): GameObject =>
-  ({...o, position: toVec3(o.position)}) as GameObject;
+  ({...o, position: objectPosition(o.id)}) as GameObject;
 const toStatus = (p: NetPlayerStatus): PlayerStatus => ({
   playerId: p.playerId,
   kind: p.kind,
@@ -34,6 +36,14 @@ const toTransform = (t: NetTransform): PlayerTransform => ({
   ...t,
   position: toVec3(t.position),
 });
+/** snapshot の transform。サーバーがまだ受け取っていない(null)なら、席の初期位置に置く */
+const toInitialTransform = (
+  t: NetTransform | null,
+  seat: number,
+): PlayerTransform =>
+  t
+    ? toTransform(t)
+    : {position: spawnPosition(seat), yaw: 0, pitch: 0, seq: 0};
 
 export type AdapterDeps = {
   connection: Pick<SessionConnection, "on">;
@@ -41,7 +51,7 @@ export type AdapterDeps = {
   items: Pick<ItemManager, "getHeld" | "apply">;
   players: Pick<PlayerManager, "apply" | "getState" | "getLocalTransform">;
   sender: Pick<TransformSender, "syncSeq">;
-  /** その接続で最初の snapshot に、サーバーが持つ自分の位置と向きを渡す(身体をそこへ移す用) */
+  /** その接続で最初の snapshot に、サーバーが持つ自分の位置と向き(まだ無ければ席の初期位置)を渡す(身体をそこへ移す用) */
   onFirstSnapshot?: (transform: PlayerTransform) => void;
 };
 
@@ -96,7 +106,7 @@ export const connectManagers = ({
         type: "reset",
         players: session.players.map((p) => ({
           ...toStatus(p),
-          transform: toTransform(p.transform),
+          transform: toInitialTransform(p.transform, p.seat),
         })),
       });
       const me = session.players.find((p) => isMe(p.playerId));

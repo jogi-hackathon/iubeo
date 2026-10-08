@@ -776,11 +776,11 @@ type Game struct {
 	Team Team `json:"team"`
 }
 
-// GameObject ワールドに置かれた、機能を持つ物体
+// GameObject ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める
 type GameObject struct {
 	Availability ObjectAvailability `json:"availability"`
 
-	// Data kind が directory なら DirectoryData。他は未定(null)
+	// Data kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null)
 	Data JsonValue `json:"data"`
 
 	// Id Example: directory-1
@@ -791,11 +791,6 @@ type GameObject struct {
 
 	// Owner scope が personal のときだけ
 	Owner *PlayerId `json:"owner,omitempty"`
-
-	// Position [x, y, z]。ワールド座標(Y-up)
-	//
-	// Example: [1.25,0,-2.5]
-	Position Vec3 `json:"position"`
 
 	// Scope personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ)
 	Scope ObjectScope `json:"scope"`
@@ -853,6 +848,12 @@ type JsonValue = interface{}
 // LifeStatus defines model for LifeStatus.
 type LifeStatus string
 
+// LighterStandData ライターの置き場。bypassPermission が立つまでは availability が unavailable
+type LighterStandData struct {
+	// HasLighter 置き場にライターがあるか(持ち主が持っている間は false)
+	HasLighter bool `json:"hasLighter"`
+}
+
 // MatchmakingStatus defines model for MatchmakingStatus.
 type MatchmakingStatus struct {
 	QueuedAt time.Time `json:"queuedAt"`
@@ -897,7 +898,7 @@ type ObjectScope string
 
 // ObjectUpsertMessage defines model for ObjectUpsertMessage.
 type ObjectUpsertMessage struct {
-	// Object ワールドに置かれた、機能を持つ物体
+	// Object ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める
 	Object GameObject `json:"object"`
 
 	// Seq セッション内の確定状態の更新順序。単調に増える
@@ -968,8 +969,10 @@ type Player struct {
 	PlayerId PlayerId `json:"playerId"`
 
 	// Seat サンドボックスの区画の番号
-	Seat      int       `json:"seat"`
-	Transform Transform `json:"transform"`
+	Seat int `json:"seat"`
+
+	// Transform 最初の transform を受け取るまでは null。初期位置はサーバーが持たず、フロントが seat から決める
+	Transform *Transform `json:"transform"`
 }
 
 // PlayerId Example: p1

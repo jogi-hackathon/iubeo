@@ -74,7 +74,7 @@ type CloseConn struct {
 	Reason CloseReason
 }
 
-// End はセッションを終える(全員の接続を切り、破棄する)
+// End はセッションを終える(送信キューに残ったメッセージを送ってから全員の接続を切り、破棄する)
 type End struct {
 	Reason CloseReason
 }
@@ -94,6 +94,8 @@ const (
 	ReasonDissolved CloseReason = "dissolved"
 	// ReasonAbandoned は人間が全員切断したまま戻らず、セッションを破棄した
 	ReasonAbandoned CloseReason = "abandoned"
+	// ReasonFinished は決着がつき、session.finished を送ってセッションを終えた
+	ReasonFinished CloseReason = "finished"
 )
 
 // ---------- 規則 ----------
@@ -105,19 +107,40 @@ func Step(st State, in Input) (State, []Output) {
 	}
 	next := st.clone()
 	var out []Output
+	if now, ok := inputTime(in); ok {
+		out = next.advance(now)
+		if next.Ended {
+			return next, out
+		}
+	}
 	switch in := in.(type) {
 	case Connect:
-		out = next.connect(in)
+		out = append(out, next.connect(in)...)
 	case Disconnect:
-		out = next.disconnect(in)
+		out = append(out, next.disconnect(in)...)
 	case ClientTransform:
-		out = next.transform(in)
+		out = append(out, next.transform(in)...)
 	case ClientInteract:
-		out = next.interact(in)
+		out = append(out, next.interact(in)...)
 	case Tick:
-		out = next.tick(in)
+		out = append(out, next.tick(in)...)
 	}
 	return next, out
+}
+
+// inputTime は入力の時刻を返す。transform は時刻を持たない
+func inputTime(in Input) (time.Time, bool) {
+	switch in := in.(type) {
+	case Connect:
+		return in.Now, true
+	case Disconnect:
+		return in.Now, true
+	case ClientInteract:
+		return in.Now, true
+	case Tick:
+		return in.Now, true
+	}
+	return time.Time{}, false
 }
 
 func (st *State) nextSeq() int64 {
@@ -139,7 +162,7 @@ func (st *State) humans(pred func(PlayerState) bool) bool {
 }
 
 // connect: 同じプレイヤーの古い接続は切る。本人には snapshot、他の人には player.updated を送る。
-// 開始前に人間全員がそろったら playing にして session.started を送る
+// 開始前に人間全員がそろったら playing にして session.started を送り、第1フェーズを始める
 func (st *State) connect(in Connect) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil {
@@ -161,6 +184,7 @@ func (st *State) connect(in Connect) []Output {
 		st.Status = api.SessionStatusPlaying
 		st.StartedAt = in.Now
 		out = append(out, Broadcast{Msg: api.SessionStartedMessage{Type: api.SessionStarted, Seq: st.nextSeq(), StartedAt: in.Now}})
+		out = append(out, st.startPhase(1, in.Now)...)
 	}
 	return out
 }
@@ -204,7 +228,7 @@ func (st *State) transform(in ClientTransform) []Output {
 	return nil
 }
 
-// tick: 開始と破棄の期限を確かめ、期限が来たワークスペースのアクションを終え、前回から動いたプレイヤーの transforms を配る
+// tick: (フェーズの締切と intermission の終わりは Step が先に advance で処理する)開始と破棄の期限を確かめ、期限が来たワークスペースのアクションを終え、前回から動いたプレイヤーの transforms を配る
 func (st *State) tick(in Tick) []Output {
 	if st.Status == api.SessionStatusWaiting && !in.Now.Before(st.CreatedAt.Add(st.StartTimeout)) {
 		st.Ended = true

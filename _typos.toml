@@ -2,3 +2,7 @@
 [files]
 # Go のモジュールのバージョンやハッシュを誤検出するため
 extend-exclude = ["go.mod", "go.sum"]
+
+[default.extend-words]
+# PNG のフィルタ名(Paeth predictor)
+Paeth = "Paeth"

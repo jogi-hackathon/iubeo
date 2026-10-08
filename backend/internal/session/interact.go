@@ -92,12 +92,15 @@ func (st *State) interact(in ClientInteract) []Output {
 		return st.interactDirectory(p, o, in)
 	case api.Workspace:
 		return st.interactWorkspace(p, o, in)
+	case api.LighterStand:
+		return st.interactLighterStand(p, o, in)
 	}
 	return reject(p.ID, objectID, api.RejectReasonUnavailable)
 }
 
-// interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。
-// ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)
+// interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。ライターを持っていれば火をつける。
+// ファイルを持っていれば入れる(在庫のファイルは編集前に戻って在庫に戻り、作ったファイルは成果物になる)。
+// 入れたファイルで担当のタスクが達成になれば task.completed も送る(生存者全員が完了したら、フェーズを終える)
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
 	if !claimMatches(in.Msg.HeldItem, held) {
@@ -115,15 +118,53 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		}
 		it.Location = Location{Kind: HeldBy, PlayerID: p.ID}
 	} else {
+		if held.Kind == api.Lighter {
+			return st.interactDirectoryWithLighter(p, o, in.Now)
+		}
 		if held.Kind != api.File {
 			return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 		}
 		held.Location = Location{Kind: InDirectory, ObjectID: o.ID}
 	}
-	return []Output{
+	var put api.FileStatus
+	if held != nil {
+		put = held.Status
+		uneditOnReturn(held)
+	}
+	out := []Output{
 		Broadcast{Msg: st.objectUpsert(o)},
 		Broadcast{Msg: st.playerUpdated(p)},
 	}
+	if held != nil {
+		if done := st.completeTask(p.ID, held.ID, put, in.Now); len(done) > 0 {
+			out = append(out, done...)
+			// 生存者全員が完了したら、締切前でもフェーズを終える
+			if st.allTasksDone() {
+				out = append(out, st.endPhase(in.Now)...)
+			}
+		}
+	}
+	return out
+}
+
+// uneditOnReturn は、在庫に戻すファイルの編集済みを編集前に戻す。編集済みは持っている間だけの状態で、
+// 戻したファイルは次の人がまた編集できる(state-schema.md §5.2.1)
+func uneditOnReturn(f *ItemState) {
+	if f.Status == api.FileStatusEdited {
+		f.Status = api.FileStatusUnedited
+	}
+}
+
+// interactDirectoryWithLighter: ライターを持ってディレクトリに触れたら火をつける。燃やすのは演出なので、ファイルは消さない。
+// 火は最初の 1 人がつけた時点で始まり、2 人目からは unavailable
+func (st *State) interactDirectoryWithLighter(p *PlayerState, o *ObjectState, now time.Time) []Output {
+	if !st.Team.BypassPermission {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	if st.Team.FireStarted {
+		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
+	}
+	return st.startFire(p, o, now)
 }
 
 // interactWorkspace: 編集前のファイルを持っていれば編集、手ぶらなら新規作成を始める。
@@ -148,6 +189,33 @@ func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInte
 	st.Actions = append(st.Actions, action)
 	o.Users = []string{p.ID}
 	return []Output{Broadcast{Msg: st.objectUpsert(o)}}
+}
+
+// interactLighterStand: 手ぶらで触れれば置き場のライターを持ち、ライターを持って触れれば戻す。
+// ファイルを持っていれば missing_item、置き場にライターが無ければ not_found
+func (st *State) interactLighterStand(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
+	held := st.held(p.ID)
+	if !claimMatches(in.Msg.HeldItem, held) {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	switch {
+	case held == nil:
+		i := slices.IndexFunc(st.Items, func(it ItemState) bool {
+			return it.Kind == api.Lighter && it.Location.Kind == OnObject && it.Location.ObjectID == o.ID
+		})
+		if i < 0 {
+			return reject(p.ID, o.ID, api.RejectReasonNotFound)
+		}
+		st.Items[i].Location = Location{Kind: HeldBy, PlayerID: p.ID}
+	case held.Kind == api.Lighter && held.Home == o.ID:
+		held.Location = Location{Kind: OnObject, ObjectID: o.ID}
+	default:
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	return []Output{
+		Broadcast{Msg: st.objectUpsert(o)},
+		Broadcast{Msg: st.playerUpdated(p)},
+	}
 }
 
 // finishWorkspaceActions は期限が来たアクションの結果を適用する。
@@ -192,8 +260,22 @@ func (st *State) finishWorkspaceAction(a WorkspaceAction) []Output {
 	return append(out, Broadcast{Msg: st.objectUpsert(o)})
 }
 
+// cancelActions は作業中のアクションをすべて取りやめる(フェーズの終わり)
+func (st *State) cancelActions() []Output {
+	var out []Output
+	for _, a := range st.Actions {
+		if o := st.object(a.ObjectID); o != nil {
+			o.Users = slices.DeleteFunc(o.Users, func(u string) bool { return u == a.PlayerID })
+			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+		}
+	}
+	st.Actions = nil
+	return out
+}
+
 // releasePlayer は切断・脱落したプレイヤーの作業を取りやめ、手持ちのファイルをディレクトリに戻す
-// (在庫のファイルは在庫に、作ったファイルは成果物に。state-schema.md §5.5)
+// (在庫のファイルは在庫に、作ったファイルは成果物に)。ライターは置き場に戻す(state-schema.md §5.6)。
+// 本人が入れたのではないので、タスクの達成には数えない
 func (st *State) releasePlayer(p *PlayerState) []Output {
 	var out []Output
 	var rest []WorkspaceAction
@@ -209,9 +291,18 @@ func (st *State) releasePlayer(p *PlayerState) []Output {
 	}
 	st.Actions = rest
 
-	if held := st.held(p.ID); held != nil && held.Kind == api.File {
+	held := st.held(p.ID)
+	switch {
+	case held == nil:
+	case held.Kind == api.File:
 		held.Location = Location{Kind: InDirectory, ObjectID: directoryID}
+		uneditOnReturn(held)
 		if o := st.object(directoryID); o != nil {
+			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+		}
+	case held.Kind == api.Lighter:
+		held.Location = Location{Kind: OnObject, ObjectID: held.Home}
+		if o := st.object(held.Home); o != nil {
 			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
 		}
 	}

@@ -8,9 +8,9 @@ name: preview
 on:
   pull_request:
     branches: [main]
+    # プレビューされるのは frontend だけなので、backend の変更では作らない
     paths:
       - "frontend/**"
-      - "backend/**"
       - ".github/workflows/preview.yml"
 
 permissions:
@@ -52,18 +52,37 @@ jobs:
           pnpm exec cf previews deploy "pr-${{ github.event.pull_request.number }}" \
             | tee /tmp/preview.log
 
+      # PR のコメントは 1 件だけにし、push のたびに中身を更新する。
+      # marker で既存のコメントを見つける。失敗したときも同じコメントに書く。
       # 失敗してもログは残したいので always()
-      - name: PR に URL をコメント
+      - name: PR のコメントを作成・更新
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1)
+          marker='<!-- iubeo-preview -->'
+          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1 || true)
           if [ -n "$url" ]; then
-            gh pr comment "$PR_NUMBER" --body "🔍 Preview: $url"
-            echo "コメントしました: $url"
+            text="🔍 Preview: $url"
           else
-            echo "URL が取れませんでした。ログを確認してください。"
+            text="⚠️ Preview の URL が取れませんでした。下のログを確認してください。"
+          fi
+          body=$(printf '%s\n%s' "$text" "$marker")
+
+          # github-actions[bot] が投稿した marker 付きのコメントだけを対象にする
+          id=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" \
+            | head -1 || true)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" >/dev/null
+            echo "既存のコメントを更新しました: $id"
+          else
+            gh pr comment "$PR_NUMBER" --body "$body"
+            echo "コメントを作成しました"
+          fi
+
+          if [ -z "$url" ]; then
             tail -20 /tmp/preview.log || true
           fi
