@@ -22,7 +22,7 @@ const (
 
 // WebSocket の close のコード(アプリケーション定義の 4000 番台)。reason は CloseReason
 const (
-	// CloseSessionEnded はセッションが終わった(解散・破棄)
+	// CloseSessionEnded はセッションが終わった(決着・解散・破棄)
 	CloseSessionEnded websocket.StatusCode = 4000
 	// CloseReplaced は同じプレイヤーが新しい接続を開いた
 	CloseReplaced websocket.StatusCode = 4001
@@ -46,6 +46,8 @@ type Conn struct {
 	closed    chan struct{}
 	code      websocket.StatusCode
 	reason    string
+	// flush なら、切る前に送信キューに残ったメッセージを送る
+	flush bool
 }
 
 // NewConn は ws の送信側を作る。WriteLoop を別の goroutine で回すこと
@@ -62,8 +64,17 @@ func NewConn(playerID string, ws *websocket.Conn) *Conn {
 
 // Close は接続を切る。何度呼んでもよく、最初の理由が使われる
 func (c *Conn) Close(code websocket.StatusCode, reason string) {
+	c.close(code, reason, false)
+}
+
+// CloseAfterFlush は、送信キューに残ったメッセージ(session.finished など)を送ってから接続を切る
+func (c *Conn) CloseAfterFlush(code websocket.StatusCode, reason string) {
+	c.close(code, reason, true)
+}
+
+func (c *Conn) close(code websocket.StatusCode, reason string, flush bool) {
 	c.closeOnce.Do(func() {
-		c.code, c.reason = code, reason
+		c.code, c.reason, c.flush = code, reason, flush
 		close(c.closed)
 	})
 }
@@ -119,6 +130,9 @@ func (c *Conn) WriteLoop(ctx context.Context) {
 			continue
 		}
 		if b == nil {
+			if c.flush {
+				c.drain(ctx)
+			}
 			_ = c.ws.Close(c.code, c.reason)
 			return
 		}
@@ -127,6 +141,23 @@ func (c *Conn) WriteLoop(ctx context.Context) {
 		cancel()
 		if err != nil {
 			c.Close(websocket.StatusGoingAway, "write failed")
+		}
+	}
+}
+
+// drain は送信キューに残ったメッセージを書き出す
+func (c *Conn) drain(ctx context.Context) {
+	for {
+		select {
+		case b := <-c.queue:
+			wctx, cancel := context.WithTimeout(ctx, writeTimeout)
+			err := c.ws.Write(wctx, websocket.MessageText, b)
+			cancel()
+			if err != nil {
+				return
+			}
+		default:
+			return
 		}
 	}
 }

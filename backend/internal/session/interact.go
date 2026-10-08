@@ -98,7 +98,7 @@ func (st *State) interact(in ClientInteract) []Output {
 
 // interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。
 // ファイルを持っていれば入れる(在庫のファイルは在庫に戻り、作ったファイルは成果物になる)。
-// 入れたファイルで担当のタスクが達成になれば task.completed も送る
+// 入れたファイルで担当のタスクが達成になれば task.completed も送る(生存者全員が完了したら、フェーズを終える)
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
 	if !claimMatches(in.Msg.HeldItem, held) {
@@ -126,7 +126,13 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 		Broadcast{Msg: st.playerUpdated(p)},
 	}
 	if held != nil {
-		out = append(out, st.completeTask(p.ID, held, in.Now)...)
+		if done := st.completeTask(p.ID, held, in.Now); len(done) > 0 {
+			out = append(out, done...)
+			// 生存者全員が完了したら、締切前でもフェーズを終える
+			if st.allTasksDone() {
+				out = append(out, st.endPhase(in.Now)...)
+			}
+		}
 	}
 	return out
 }
@@ -195,6 +201,19 @@ func (st *State) finishWorkspaceAction(a WorkspaceAction) []Output {
 	}
 	o.Users = slices.DeleteFunc(o.Users, func(u string) bool { return u == p.ID })
 	return append(out, Broadcast{Msg: st.objectUpsert(o)})
+}
+
+// cancelActions は作業中のアクションをすべて取りやめる(フェーズの終わり)
+func (st *State) cancelActions() []Output {
+	var out []Output
+	for _, a := range st.Actions {
+		if o := st.object(a.ObjectID); o != nil {
+			o.Users = slices.DeleteFunc(o.Users, func(u string) bool { return u == a.PlayerID })
+			out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+		}
+	}
+	st.Actions = nil
+	return out
 }
 
 // releasePlayer は切断・脱落したプレイヤーの作業を取りやめ、手持ちのファイルをディレクトリに戻す
