@@ -2,3 +2,7 @@
 [files]
 # Go のモジュールのバージョンやハッシュを誤検出するため
 extend-exclude = ["go.mod", "go.sum"]
+
+[default.extend-words]
+# three.js の標準マテリアルの属性名（金属感）
+metalness = "metalness"
