@@ -10,8 +10,11 @@ interface Env {
   ASSETS: Fetcher;
   /** サービスバインディング。バックエンドの Worker */
   BACKEND: Fetcher;
-  /** サービスバインディング。WISP の Worker(実サイトへ出るプロキシ。トークンで保護) */
-  WISP: Fetcher;
+  /**
+   * サービスバインディング。WISP の Worker(実サイトへ出るプロキシ。トークンで保護)。
+   * WISP を deploy していない環境（PR のプレビューなど）では無い。その場合 /wisp は 503
+   */
+  WISP?: Fetcher;
 }
 
 /** ヘルスチェックのパス(backend/api/openapi.yaml の /healthz) */
@@ -26,6 +29,9 @@ export default {
       return env.BACKEND.fetch(request);
     }
     if (pathname === "/wisp" || pathname.startsWith("/wisp/")) {
+      if (!env.WISP) {
+        return Response.json({error: "wisp is not deployed"}, {status: 503});
+      }
       return env.WISP.fetch(request);
     }
     return env.ASSETS.fetch(request);

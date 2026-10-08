@@ -24,6 +24,13 @@ const BACKEND_NAME = "iubeo-backend";
 const WISP_NAME = "iubeo-wisp";
 
 /**
+ * フロントから WISP の Worker を参照するか。WISP を deploy してから `IUBEO_WISP_ENABLED=1` を付けて
+ * フロントを deploy する。付けない環境（PR のプレビュー、WISP より先の deploy）では binding を作らない
+ * （無い Worker を参照すると deploy が失敗するため）。
+ */
+const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
+
+/**
  * Go サーバーを動かす Container。
  *
  * `schedulingPolicy: "durable-object"` が必要。既定の schedulingPolicy だと実行時に
@@ -113,7 +120,7 @@ const frontendWorker = defineWorker({
   },
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
-    WISP: bindings.worker({worker: WISP_NAME}),
+    ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
   },
 });
 

@@ -78,7 +78,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 - デプロイの順は backend → wisp → frontend（サービスバインディングの参照先が先に要るため）。
   - `pnpm exec cf deploy --mode backend`
   - `pnpm exec cf deploy --mode wisp`
-  - `pnpm exec cf deploy`
+  - `IUBEO_WISP_ENABLED=1 pnpm exec cf deploy`（WISP を deploy した後。付けないと `/wisp` は 503。プレビューも付けない）
 - secret は 2 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。
 
 `VITE_WISP_URL`（開発の既定は `ws://127.0.0.1:5001/`）があれば、トークンは使わずそこへ直結する。
