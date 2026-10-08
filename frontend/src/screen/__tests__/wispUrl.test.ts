@@ -59,6 +59,22 @@ describe("resolveWispUrl", () => {
     });
   });
 
+  it("Cookie が無い(401)ときは、匿名のプレイヤーを作ってから 1 回だけ取り直す", async () => {
+    const url = "wss://example.test/wisp/?token=abc.def";
+    let issued = false;
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/v1/players") {
+        issued = true;
+        return jsonResponse(200, {id: "p1"});
+      }
+      return issued
+        ? jsonResponse(200, {url, expiresAt: "2026-10-09T00:00:00Z"})
+        : jsonResponse(401, {code: "unauthorized"});
+    });
+    expect(await resolveWispUrl(undefined, fetchFn)).toBe(url);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+
   it("未ログイン(401)や未設定(503)、通信の失敗は、WISP 無し（undefined）として扱い、例外は投げない", async () => {
     expect(
       await resolveWispUrl(undefined, async () =>
