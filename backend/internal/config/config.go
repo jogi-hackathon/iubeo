@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // 署名鍵の最小の長さ(バイト)。HMAC-SHA256 の出力と同じ 32 バイト以上にする
@@ -21,11 +22,23 @@ type Config struct {
 	AllowedOrigins []string
 	// MatchSize は自動マッチングで 1 セッションに組む人数(IUBEO_MATCH_SIZE。既定 3。1〜3)
 	MatchSize int
+	// PhaseCount はフェーズの数(IUBEO_PHASE_COUNT。既定 3。1 以上)
+	PhaseCount int
+	// PhaseDuration はフェーズの長さ(IUBEO_PHASE_DURATION。既定 30s。time.ParseDuration の形で、正の値)
+	PhaseDuration time.Duration
+	// IntermissionDuration はフェーズの間の長さ(IUBEO_INTERMISSION_DURATION。既定 10s。time.ParseDuration の形で、正の値)
+	IntermissionDuration time.Duration
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
 func Load(getenv func(string) string) (Config, error) {
-	cfg := Config{Addr: ":8080", MatchSize: 3}
+	cfg := Config{
+		Addr:                 ":8080",
+		MatchSize:            3,
+		PhaseCount:           3,
+		PhaseDuration:        30 * time.Second,
+		IntermissionDuration: 10 * time.Second,
+	}
 	var errs []error
 
 	if v := getenv("IUBEO_ADDR"); v != "" {
@@ -58,6 +71,33 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("IUBEO_MATCH_SIZE must be an integer from 1 to 3: %q", v))
 		} else {
 			cfg.MatchSize = n
+		}
+	}
+
+	if v := getenv("IUBEO_PHASE_COUNT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			errs = append(errs, fmt.Errorf("IUBEO_PHASE_COUNT must be a positive integer: %q", v))
+		} else {
+			cfg.PhaseCount = n
+		}
+	}
+
+	for _, d := range []struct {
+		name string
+		dst  *time.Duration
+	}{
+		{"IUBEO_PHASE_DURATION", &cfg.PhaseDuration},
+		{"IUBEO_INTERMISSION_DURATION", &cfg.IntermissionDuration},
+	} {
+		v := getenv(d.name)
+		if v == "" {
+			continue
+		}
+		if dur, err := time.ParseDuration(v); err != nil || dur <= 0 {
+			errs = append(errs, fmt.Errorf("%s must be a positive duration such as 30s: %q", d.name, v))
+		} else {
+			*d.dst = dur
 		}
 	}
 

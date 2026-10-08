@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	mrand "math/rand/v2"
 	"slices"
 	"time"
 
@@ -29,6 +30,8 @@ type Config struct {
 	AbandonTimeout time.Duration
 	// TickInterval ごとに transforms を配る(20Hz = 50ms)
 	TickInterval time.Duration
+	// Phases はフェーズの数と長さ
+	Phases PhaseRules
 }
 
 // DefaultConfig は state-schema.md の決まりどおりの値
@@ -36,6 +39,7 @@ var DefaultConfig = Config{
 	StartTimeout:   30 * time.Second,
 	AbandonTimeout: 60 * time.Second,
 	TickInterval:   50 * time.Millisecond,
+	Phases:         PhaseRules{Count: 3, Duration: 30 * time.Second, Intermission: 10 * time.Second},
 }
 
 // inboxSize はセッションの入力チャネルの長さ
@@ -258,7 +262,8 @@ func (m *Manager) CreateMultiplayer(playerIDs []string) *Session {
 		inbox:     make(chan any, inboxSize),
 		done:      make(chan struct{}),
 	}
-	st := NewMultiplayerState(s.ID, s.PlayerIDs, s.CreatedAt, Timeouts{Start: m.config.StartTimeout, Abandon: m.config.AbandonTimeout})
+	timeouts := Timeouts{Start: m.config.StartTimeout, Abandon: m.config.AbandonTimeout}
+	st := NewMultiplayerState(s.ID, s.PlayerIDs, s.CreatedAt, timeouts, m.config.Phases, mrand.Uint64())
 	m.store.Add(s)
 	go s.run(st, m.config, m.now, func() { m.store.Remove(s.ID) })
 	slog.Info("session created", "session", s.ID, "players", s.PlayerIDs)

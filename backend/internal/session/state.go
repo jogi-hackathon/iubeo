@@ -1,6 +1,7 @@
 package session
 
 import (
+	"math/rand/v2"
 	"slices"
 	"time"
 
@@ -23,6 +24,11 @@ type State struct {
 	Team    api.Team
 	// Actions は作業中のワークスペースのアクション
 	Actions []WorkspaceAction
+	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
+	Phases PhaseRules
+	Phase  PhaseState
+	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
+	rng rand.PCG
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -93,8 +99,8 @@ type Timeouts struct {
 }
 
 // NewMultiplayerState は自動マッチングでそろったプレイヤーの、開始前(waiting)の状態を作る。
-// playerIDs の並びが席の順
-func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts) State {
+// playerIDs の並びが席の順。seed はタスクの分配に使う乱数の種
+func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
 		Mode:           api.SessionModeMultiplayer,
@@ -102,6 +108,8 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		CreatedAt:      createdAt,
 		StartTimeout:   timeouts.Start,
 		AbandonTimeout: timeouts.Abandon,
+		Phases:         phases,
+		rng:            *rand.NewPCG(seed, seed),
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
@@ -157,6 +165,7 @@ func (st State) clone() State {
 	}
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
+	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
 	return c
 }
 
@@ -270,6 +279,10 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 	}
 	for _, o := range st.Objects {
 		snap.Objects = append(snap.Objects, st.gameObject(o))
+	}
+	if st.Phase.Number > 0 {
+		ph := st.apiPhase()
+		snap.Game.Phase = &ph
 	}
 	return snap
 }

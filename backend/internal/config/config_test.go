@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 const validKey = "0123456789abcdef0123456789abcdef"
@@ -26,6 +27,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MatchSize != 3 {
 		t.Errorf("MatchSize = %d, want 3", cfg.MatchSize)
 	}
+	if cfg.PhaseCount != 3 || cfg.PhaseDuration != 30*time.Second || cfg.IntermissionDuration != 10*time.Second {
+		t.Errorf("phases = %d, %s, %s, want 3, 30s, 10s", cfg.PhaseCount, cfg.PhaseDuration, cfg.IntermissionDuration)
+	}
 	if string(cfg.SigningKey) != validKey {
 		t.Errorf("SigningKey = %q", cfg.SigningKey)
 	}
@@ -33,10 +37,13 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadAll(t *testing.T) {
 	cfg, err := Load(env(map[string]string{
-		"IUBEO_ADDR":            "127.0.0.1:9000",
-		"IUBEO_SIGNING_KEY":     validKey,
-		"IUBEO_ALLOWED_ORIGINS": " http://localhost:5173 , https://iubeo.example ,",
-		"IUBEO_MATCH_SIZE":      "1",
+		"IUBEO_ADDR":                  "127.0.0.1:9000",
+		"IUBEO_SIGNING_KEY":           validKey,
+		"IUBEO_ALLOWED_ORIGINS":       " http://localhost:5173 , https://iubeo.example ,",
+		"IUBEO_MATCH_SIZE":            "1",
+		"IUBEO_PHASE_COUNT":           "5",
+		"IUBEO_PHASE_DURATION":        "1m30s",
+		"IUBEO_INTERMISSION_DURATION": "500ms",
 	}))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -49,6 +56,9 @@ func TestLoadAll(t *testing.T) {
 	}
 	if cfg.MatchSize != 1 {
 		t.Errorf("MatchSize = %d, want 1", cfg.MatchSize)
+	}
+	if cfg.PhaseCount != 5 || cfg.PhaseDuration != 90*time.Second || cfg.IntermissionDuration != 500*time.Millisecond {
+		t.Errorf("phases = %d, %s, %s", cfg.PhaseCount, cfg.PhaseDuration, cfg.IntermissionDuration)
 	}
 }
 
@@ -77,6 +87,14 @@ func TestLoadErrors(t *testing.T) {
 			name: "人数が数でない",
 			env:  map[string]string{"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173", "IUBEO_MATCH_SIZE": "three"},
 			want: []string{"IUBEO_MATCH_SIZE"},
+		},
+		{
+			name: "フェーズの数と長さが不正",
+			env: map[string]string{
+				"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+				"IUBEO_PHASE_COUNT": "0", "IUBEO_PHASE_DURATION": "30", "IUBEO_INTERMISSION_DURATION": "-1s",
+			},
+			want: []string{"IUBEO_PHASE_COUNT", "IUBEO_PHASE_DURATION", "IUBEO_INTERMISSION_DURATION"},
 		},
 	}
 	for _, tt := range tests {

@@ -139,7 +139,7 @@ func (st *State) humans(pred func(PlayerState) bool) bool {
 }
 
 // connect: 同じプレイヤーの古い接続は切る。本人には snapshot、他の人には player.updated を送る。
-// 開始前に人間全員がそろったら playing にして session.started を送る
+// 開始前に人間全員がそろったら playing にして session.started を送り、第1フェーズを始める
 func (st *State) connect(in Connect) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil {
@@ -161,6 +161,7 @@ func (st *State) connect(in Connect) []Output {
 		st.Status = api.SessionStatusPlaying
 		st.StartedAt = in.Now
 		out = append(out, Broadcast{Msg: api.SessionStartedMessage{Type: api.SessionStarted, Seq: st.nextSeq(), StartedAt: in.Now}})
+		out = append(out, st.startPhase(1, in.Now)...)
 	}
 	return out
 }

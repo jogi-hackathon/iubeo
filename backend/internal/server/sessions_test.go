@@ -318,3 +318,53 @@ func TestWorkspaceOverWebSocket(t *testing.T) {
 		t.Errorf("finish: users = %v", m.Object.Users)
 	}
 }
+
+func TestPhaseOverWebSocket(t *testing.T) {
+	h := newTestServerSize(t, 1)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+	readType[api.SessionStartedMessage](t, ws, "session.started")
+
+	// 開始と同時に第1フェーズが始まる。1 人なので 1 件
+	started := readType[api.PhaseStartedMessage](t, ws, "phase.started")
+	ph := started.Phase
+	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || len(ph.Tasks) != 1 || started.ServerTime.IsZero() {
+		t.Fatalf("phase.started = %+v", started)
+	}
+	if d := ph.DeadlineAt.Sub(ph.StartedAt); d != session.DefaultConfig.Phases.Duration {
+		t.Errorf("deadline - start = %s", d)
+	}
+	task := ph.Tasks[0]
+	if task.AssigneePlayerId != players[0].id {
+		t.Fatalf("task = %+v", task)
+	}
+
+	// タスクをこなしてディレクトリに入れると task.completed が届く
+	var held api.HeldItemRef
+	if task.Type == api.ReadEdit {
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", Target: task.TargetFileId})
+		held = api.HeldItemRef{Id: *task.TargetFileId, Kind: api.File}
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1", HeldItem: &held})
+	} else {
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1"})
+	}
+	for {
+		m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+		if hi := m.Player.HeldItem; hi != nil && hi.Data.(map[string]any)["status"] != string(api.FileStatusUnedited) {
+			held = api.HeldItemRef{Id: hi.Id, Kind: hi.Kind}
+			break
+		}
+	}
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", HeldItem: &held})
+	m := readType[api.TaskCompletedMessage](t, ws, "task.completed")
+	if m.TaskId != task.TaskId || m.CompletedAt.Before(ph.StartedAt) {
+		t.Errorf("task.completed = %+v", m)
+	}
+
+	snap := decode[api.SessionSnapshot](t, do(t, h, http.MethodGet, "/api/v1/sessions/"+sessionID, players[0].cookie))
+	if snap.Game.Phase == nil || snap.Game.Phase.Tasks[0].Status != api.TaskStatusCompleted {
+		t.Errorf("snapshot phase = %+v", snap.Game.Phase)
+	}
+}
