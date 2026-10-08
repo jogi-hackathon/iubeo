@@ -121,5 +121,7 @@ jobs:
           IUBEO_WISP_ENABLED: "1"
           # エンジンの配信元(R2 の公開 URL。リポジトリの変数 VITE_ENGINE_BASE_URL に入れる)
           VITE_ENGINE_BASE_URL: ${{ vars.VITE_ENGINE_BASE_URL }}
+          # ?debug(room に机と PC を置く)を本番ビルドで使うか。リポジトリの変数 VITE_ENABLE_DEBUG に "true" を入れたときだけ有効
+          VITE_ENABLE_DEBUG: ${{ vars.VITE_ENABLE_DEBUG }}
         # 型検査も走る
         run: pnpm deploy
