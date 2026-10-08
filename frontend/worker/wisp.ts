@@ -9,7 +9,7 @@
  */
 import {DurableObject} from "cloudflare:workers";
 
-import {verifyWispToken} from "./wispToken";
+import {tokenFromUrl, verifyWispToken} from "./wispToken";
 
 interface Env {
   /** トークンの検証鍵（IUBEO_WISP_KEY。バックエンドと同じ値。32 バイト以上） */
@@ -98,7 +98,7 @@ export default {
     if (!env.WISP_KEY) {
       return json({error: "wisp is not configured"}, 503);
     }
-    const token = new URL(request.url).searchParams.get("token") ?? "";
+    const token = tokenFromUrl(request.url);
     const playerId = await verifyWispToken(token, env.WISP_KEY);
     if (playerId === null) {
       return json({error: "invalid or expired token"}, 401);

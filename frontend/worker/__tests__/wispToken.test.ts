@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {verifyWispToken} from "../wispToken";
+import {tokenFromUrl, verifyWispToken} from "../wispToken";
 
 // バックエンド(backend/internal/wisp/token_test.go)と同じ値。BACKEND_KEY で発行した固定のトークン（sub = p1）を、
 // 同じ鍵で検証できることで、形式が揃っていることを確かめる。KEY は別の鍵（検証で拒否される側）
@@ -45,5 +45,16 @@ describe("verifyWispToken", () => {
     for (const bad of ["", "no-dot", "a.b.c", "!!.!!", "eyJ.@@"]) {
       expect(await verifyWispToken(bad, BACKEND_KEY, VECTOR_NOW)).toBeNull();
     }
+  });
+});
+
+describe("tokenFromUrl", () => {
+  it("token を取り出す。無ければ空文字", () => {
+    expect(tokenFromUrl("https://x.test/wisp/?token=abc.def")).toBe("abc.def");
+    expect(tokenFromUrl("https://x.test/wisp/")).toBe("");
+  });
+
+  it("WISP のクライアントが足した末尾の / は落とす", () => {
+    expect(tokenFromUrl("https://x.test/wisp/?token=abc.def/")).toBe("abc.def");
   });
 });

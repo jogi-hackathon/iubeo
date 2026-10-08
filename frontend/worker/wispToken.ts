@@ -80,3 +80,10 @@ export const verifyWispToken = async (
   }
   return sub;
 };
+
+/**
+ * リクエストの URL から token を取り出す。WISP のクライアントは接続先の URL が "/" で終わらないと "/" を足すので、
+ * `?token=xxx` の後ろに "/" が付いて届く。base64url に "/" は無いので、末尾の "/" は落とす。無ければ空文字
+ */
+export const tokenFromUrl = (url: string): string =>
+  (new URL(url).searchParams.get("token") ?? "").replace(/\/+$/, "");
