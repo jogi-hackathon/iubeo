@@ -130,6 +130,42 @@ describe("connectManagers", () => {
     expect(t.onFirstSnapshot.mock.calls[0]![0].position).toEqual([1, 2, 0]);
   });
 
+  it("オブジェクトの位置はサーバーから来ないので、id から決める", () => {
+    const t = setup();
+    t.receive(
+      snapshot(
+        [player("me", 1)],
+        [
+          object("directory-1"),
+          object("workspace-2", {kind: "workspace", scope: "personal"}),
+          object("lighter_stand-1", {kind: "lighter_stand", scope: "personal"}),
+        ],
+      ),
+    );
+    const position = (id: string) =>
+      t.objects.getState().objects.find((o) => o.id === id)?.position;
+    expect(position("directory-1")).toEqual([14, 0, 1]);
+    expect(position("workspace-2")).toEqual([11.5, 0, -5]);
+    expect(position("lighter_stand-1")).toEqual([14.55, 0.95, -4.8]);
+  });
+
+  it("transform が null(サーバーがまだ受け取っていない)なら、席の初期位置に置く", () => {
+    const t = setup();
+    t.receive(
+      snapshot([
+        player("me", 1, {transform: null}),
+        player("other", 2, {transform: null}),
+      ]),
+    );
+    expect(t.onFirstSnapshot.mock.calls[0]![0]).toEqual({
+      position: [0, 2, 0],
+      yaw: 0,
+      pitch: 0,
+      seq: 0,
+    });
+    expect(t.sender.syncSeq.mock.calls).toEqual([[0]]);
+  });
+
   it("player.updated の自分の手持ちを、spawn / delete に直す。他人の手持ちは触らない", () => {
     const t = setup();
     t.receive(snapshot([player("me", 1), player("other", 2)]));

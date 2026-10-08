@@ -152,12 +152,13 @@ func TestPutIntoDirectory(t *testing.T) {
 		wantOutputs int
 	}{
 		{"編集前は在庫に戻る", api.FileStatusUnedited, 6, 0},
-		{"編集済みは編集済みのまま在庫に戻る", api.FileStatusEdited, 6, 0},
+		{"編集済みは編集前に戻って在庫に戻る", api.FileStatusEdited, 6, 0},
 		{"作ったファイルは成果物になる", api.FileStatusFileCreated, 5, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := take(t, playing(t, "p1"), "p1", f1)
+			// タスクの達成はここでは見ない
+			st := take(t, withTasks(playing(t, "p1")), "p1", f1)
 			st.held("p1").Status = tt.status
 
 			st, out := put(t, st, "p1")
@@ -171,8 +172,8 @@ func TestPutIntoDirectory(t *testing.T) {
 			}
 			if tt.status == api.FileStatusEdited {
 				i := slices.IndexFunc(data.Stock, func(f api.StockFile) bool { return f.Id == f1 })
-				if i < 0 || data.Stock[i].Status != api.StockFileStatusEdited {
-					t.Errorf("stock = %+v, want %s edited", data.Stock, f1)
+				if i < 0 || data.Stock[i].Status != api.StockFileStatusUnedited {
+					t.Errorf("stock = %+v, want %s unedited", data.Stock, f1)
 				}
 			}
 		})

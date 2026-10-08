@@ -22,6 +22,9 @@
     IUBEO_PHASE_COUNT = "3";
     IUBEO_PHASE_DURATION = "30s";
     IUBEO_INTERMISSION_DURATION = "10s";
+    # 最後のフェーズを生き残ってから、火がつかなくても勝ちにするまで / 火をつけてから勝ちにするまで
+    IUBEO_BYPASS_DURATION = "30s";
+    IUBEO_FIRE_DURATION = "10s";
   };
 
   # https://devenv.sh/packages/

@@ -2,7 +2,6 @@ package session
 
 import (
 	"reflect"
-	"slices"
 	"testing"
 	"time"
 
@@ -49,16 +48,17 @@ func TestInitialState(t *testing.T) {
 		t.Errorf("game = %+v, want no phase and no result", snap.Game)
 	}
 	for i, p := range snap.Players {
-		if p.Seat != i+1 || p.Connection != api.Connecting || p.Life != api.Alive || p.HeldItem != nil || p.Kind != api.Human {
+		// 位置はサーバーが持たないので、最初の transform を受け取るまでは null
+		if p.Seat != i+1 || p.Connection != api.Connecting || p.Life != api.Alive || p.HeldItem != nil || p.Kind != api.Human || p.Transform != nil {
 			t.Errorf("player %d = %+v", i, p)
 		}
 	}
 
-	if len(snap.Objects) != 4 {
-		t.Fatalf("objects = %d, want directory + 3 workspaces", len(snap.Objects))
+	if len(snap.Objects) != 7 {
+		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 lighter stands", len(snap.Objects))
 	}
 	dir := snap.Objects[0]
-	if dir.Id != "directory-1" || dir.Kind != api.Directory || dir.Scope != api.Shared || dir.Owner != nil || !slices.Equal(dir.Position, api.Vec3{14, 0, 1}) {
+	if dir.Id != "directory-1" || dir.Kind != api.Directory || dir.Scope != api.Shared || dir.Owner != nil {
 		t.Errorf("directory = %+v", dir)
 	}
 	data, ok := dir.Data.(api.DirectoryData)
@@ -68,14 +68,25 @@ func TestInitialState(t *testing.T) {
 	if data.Stock[0].Color != "#e63946" || data.Stock[0].Status != api.StockFileStatusUnedited {
 		t.Errorf("stock[0] = %+v", data.Stock[0])
 	}
-	positions := map[string]api.Vec3{"p1": {14, 0, -5}, "p2": {11.5, 0, -5}, "p3": {16.5, 0, -5}}
-	for _, ws := range snap.Objects[1:] {
-		if ws.Kind != api.Workspace || ws.Scope != api.Personal || ws.Owner == nil || ws.Data != nil {
-			t.Errorf("workspace = %+v", ws)
+	// personal のオブジェクトの id は席から決まる(フロントとの約束)
+	seats := map[string]string{"p1": "1", "p2": "2", "p3": "3"}
+	for _, o := range snap.Objects[1:] {
+		if o.Scope != api.Personal || o.Owner == nil {
+			t.Errorf("object = %+v", o)
 			continue
 		}
-		if !slices.Equal(ws.Position, positions[*ws.Owner]) {
-			t.Errorf("workspace of %s at %v, want %v", *ws.Owner, ws.Position, positions[*ws.Owner])
+		switch o.Kind {
+		case api.Workspace:
+			if o.Id != "workspace-"+seats[*o.Owner] || o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable {
+				t.Errorf("workspace of %s = %+v", *o.Owner, o)
+			}
+		case api.LighterStand:
+			// bypassPermission が立つまでは使えない
+			if o.Id != "lighter_stand-"+seats[*o.Owner] || o.Data != (api.LighterStandData{HasLighter: true}) || o.Availability != api.ObjectAvailabilityUnavailable {
+				t.Errorf("lighter stand of %s = %+v", *o.Owner, o)
+			}
+		default:
+			t.Errorf("object = %+v", o)
 		}
 	}
 }
@@ -204,6 +215,10 @@ func TestTransforms(t *testing.T) {
 	}
 	if st.Seq != 0 {
 		t.Errorf("transforms changed seq to %d", st.Seq)
+	}
+	// snapshot には、受け取った人の transform だけが入る(受け取っていない人は null)
+	if snap := st.Snapshot(at(2 * time.Second)); snap.Players[0].Transform == nil || snap.Players[0].Transform.Position[0] != 3 || snap.Players[1].Transform != nil {
+		t.Errorf("snapshot transforms = %+v, %+v", snap.Players[0].Transform, snap.Players[1].Transform)
 	}
 
 	// 配った後は、また動くまで送らない

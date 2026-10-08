@@ -106,25 +106,51 @@ func TestPhaseRedistributesToSurvivors(t *testing.T) {
 	}
 }
 
-func TestPhaseReadEditDoesNotExceedStock(t *testing.T) {
-	capped := false
+func TestPhaseReadEditTargets(t *testing.T) {
+	overlapped := false
 	for seed := range uint64(200) {
+		// 第3フェーズの 9 件を p1・p2 で分ける
 		st, _ := startPhaseWith(t, seed, 3)
-		var targets []string
+		targets := map[string][]string{}
 		for _, task := range st.Phase.Tasks {
 			if task.Type == api.ReadEdit {
-				targets = append(targets, task.TargetFileID)
+				targets[task.Assignee] = append(targets[task.Assignee], task.TargetFileID)
 			}
 		}
-		slices.Sort(targets)
-		if len(slices.Compact(slices.Clone(targets))) != len(targets) {
-			t.Fatalf("seed %d: read_edit targets overlap: %v", seed, targets)
+		for p, ids := range targets {
+			// 同じプレイヤーの中では重複させない(在庫は 6 つなので、1 人 6 件まで)
+			if len(slices.Compact(slices.Sorted(slices.Values(ids)))) != len(ids) || len(ids) > len(directoryStock) {
+				t.Fatalf("seed %d: %s's read_edit targets = %v", seed, p, ids)
+			}
+			for _, id := range ids {
+				if !slices.Contains(stockIDs(st), id) {
+					t.Fatalf("seed %d: target %q is not in stock", seed, id)
+				}
+			}
 		}
-		// 在庫は 6 つ。それを超える分は write になる
-		if len(targets) > len(directoryStock) {
-			t.Fatalf("seed %d: %d read_edit tasks for %d files", seed, len(targets), len(directoryStock))
+		// 別のプレイヤーとは重なってよい(コンフリクトを起こすため)
+		if slices.ContainsFunc(targets["p1"], func(id string) bool { return slices.Contains(targets["p2"], id) }) {
+			overlapped = true
 		}
-		if len(targets) == len(directoryStock) {
+	}
+	if !overlapped {
+		t.Error("read_edit targets never overlapped between players")
+	}
+}
+
+func TestPhaseReadEditPerPlayerCap(t *testing.T) {
+	// 1 人に 9 件。read_edit は在庫の 6 つを超えず、超える分は write になる
+	capped := false
+	for seed := range uint64(200) {
+		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+		st.player("p2").Life = api.Eliminated
+		st.player("p3").Life = api.Eliminated
+		st.startPhase(3, t0)
+		n := countBy(st.Phase.Tasks, func(t TaskState) string { return string(t.Type) })
+		if n[string(api.ReadEdit)]+n[string(api.Write)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
+			t.Fatalf("seed %d: tasks = %v", seed, n)
+		}
+		if n[string(api.ReadEdit)] == len(directoryStock) {
 			capped = true
 		}
 	}
@@ -211,10 +237,45 @@ func TestCompleteReadEdit(t *testing.T) {
 		t.Errorf("snapshot task = %+v", task)
 	}
 
-	// 取り出して入れ直しても、もう一度は数えない
+	// 入れたファイルは編集前に戻る。取り出して入れ直しても、編集し直して入れても、済んだタスクはもう数えない
+	if it := st.item(f1); it.Status != api.FileStatusUnedited {
+		t.Errorf("file = %+v, want unedited after put", it)
+	}
 	st = take(t, st, "p1", f1)
+	st, out = put(t, st, "p1")
+	wantNoTaskCompleted(t, out)
+	st = edit(t, st, "p1", f1)
 	_, out = put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
+}
+
+func TestTwoPlayersShareReadEditTarget(t *testing.T) {
+	st := withTasks(playing(t, "p1", "p2"),
+		TaskState{ID: "task-1-1", Type: api.ReadEdit, Assignee: "p1", TargetFileID: f1},
+		TaskState{ID: "task-1-2", Type: api.ReadEdit, Assignee: "p2", TargetFileID: f1},
+	)
+
+	// p1 が持って編集している間、p2 は取れない(コンフリクト)
+	st = edit(t, st, "p1", f1)
+	_, out := step(t, st, interactIn("p2", directoryID, nil, f1))
+	wantRejected(t, out, "p2", directoryID, api.RejectReasonNotFound)
+
+	st, out = put(t, st, "p1")
+	wantTaskCompleted(t, out, "task-1-1", t0)
+	if !taskOf(st, "task-1-2").CompletedAt.IsZero() {
+		t.Fatal("p2's task completed by p1's file")
+	}
+
+	// p1 が戻したファイルは編集前なので、そのまま入れても p2 の達成にはならない
+	st = take(t, st, "p2", f1)
+	st, out = put(t, st, "p2")
+	wantNoTaskCompleted(t, out)
+
+	// p2 が編集し直して入れれば、p2 の達成になる
+	st = edit(t, st, "p2", f1)
+	_, out = put(t, st, "p2")
+	wantTaskCompleted(t, out, "task-1-2", t0)
+	wantPhaseEnded(t, out, 1, []string{}, api.PhaseEndedMessageNextIntermission)
 }
 
 func TestCompleteWrite(t *testing.T) {
@@ -285,7 +346,8 @@ func TestDisconnectedFileDoesNotComplete(t *testing.T) {
 	wantNoTaskCompleted(t, out)
 	st, out = step(t, st, Disconnect{PlayerID: "p2", ConnID: 2, Now: t0})
 	wantNoTaskCompleted(t, out)
-	if directoryOf(st).Outputs != 1 || !slices.Contains(stockIDs(st), f1) {
+	// 編集済みのまま切断しても、在庫には編集前で戻る
+	if directoryOf(st).Outputs != 1 || !slices.Contains(stockIDs(st), f1) || st.item(f1).Status != api.FileStatusUnedited {
 		t.Errorf("directory = %+v", directoryOf(st))
 	}
 	for _, task := range st.Phase.Tasks {
@@ -294,9 +356,9 @@ func TestDisconnectedFileDoesNotComplete(t *testing.T) {
 		}
 	}
 
-	// 再接続して取り出し、自分で入れ直せば達成になる
+	// 再接続して編集し直し、自分で入れれば達成になる
 	st, _ = step(t, st, Connect{PlayerID: "p2", ConnID: 3, Now: t0})
-	st = take(t, st, "p2", f1)
+	st = edit(t, st, "p2", f1)
 	_, out = put(t, st, "p2")
 	wantTaskCompleted(t, out, "task-1-2", t0)
 }
@@ -398,7 +460,7 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 	}
 
 	// アイテムは初期状態に戻る(在庫は 6 つとも編集前、成果物と手持ちは消える)。phase.started の前に配る
-	if d := directoryOf(st); len(d.Stock) != len(directoryStock) || d.Outputs != 0 || st.held("p1") != nil || len(st.Items) != len(directoryStock) {
+	if d := directoryOf(st); len(d.Stock) != len(directoryStock) || d.Outputs != 0 || st.held("p1") != nil || len(st.Items) != len(directoryStock)+3 {
 		t.Errorf("directory = %+v, items = %+v", d, st.Items)
 	}
 	bc := outputsOf[Broadcast](out)
@@ -498,45 +560,6 @@ func TestAllEliminatedIsDefeat(t *testing.T) {
 	if _, out = step(t, st, Tick{Now: deadline.Add(time.Hour)}); len(out) != 0 {
 		t.Errorf("ended session produced %+v", out)
 	}
-}
-
-func TestLastPhaseIsVictory(t *testing.T) {
-	last := func(t *testing.T) State {
-		t.Helper()
-		st := playing(t, "p1", "p2")
-		st.Phases.Count = 1
-		return withTasks(st,
-			TaskState{ID: "task-1-1", Type: api.Write, Assignee: "p1"},
-			TaskState{ID: "task-1-2", Type: api.Write, Assignee: "p2"},
-		)
-	}
-
-	t.Run("締切で生存者が残れば victory", func(t *testing.T) {
-		st := create(t, last(t), "p1", "new-1")
-		st, _ = put(t, st, "p1")
-		st, out := step(t, st, Tick{Now: st.Phase.DeadlineAt})
-		wantPhaseEnded(t, out, 1, []string{"p2"}, api.PhaseEndedMessageNextCompleted)
-		if fin := msgsOf[api.SessionFinishedMessage](out); len(fin) != 1 || fin[0].Result.Outcome != api.Victory {
-			t.Errorf("session.finished = %+v", fin)
-		}
-		if !st.Ended || st.Status != api.SessionStatusFinished {
-			t.Errorf("ended = %v, status = %s", st.Ended, st.Status)
-		}
-	})
-
-	t.Run("全員が締切前に完了しても victory", func(t *testing.T) {
-		st := create(t, last(t), "p1", "new-1")
-		st = create(t, st, "p2", "new-2")
-		st, _ = put(t, st, "p1")
-		st, out := put(t, st, "p2")
-		wantPhaseEnded(t, out, 1, []string{}, api.PhaseEndedMessageNextCompleted)
-		if fin := msgsOf[api.SessionFinishedMessage](out); len(fin) != 1 || fin[0].Result.Outcome != api.Victory || !fin[0].Result.DecidedAt.Equal(t0) {
-			t.Errorf("session.finished = %+v", fin)
-		}
-		if !st.Ended {
-			t.Error("session did not end")
-		}
-	})
 }
 
 func TestDisconnectedPlayerIsEliminatedAtDeadline(t *testing.T) {

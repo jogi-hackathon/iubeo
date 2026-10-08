@@ -2,13 +2,14 @@ package session
 
 import (
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// PhaseRules はフェーズの決まり(state-schema.md §5.2)
+// PhaseRules はフェーズと決着の決まり(state-schema.md §5.2、ADR-0006)
 type PhaseRules struct {
 	// Count はフェーズの数
 	Count int
@@ -16,6 +17,10 @@ type PhaseRules struct {
 	Duration time.Duration
 	// Intermission はフェーズの間の長さ
 	Intermission time.Duration
+	// Bypass は、最後のフェーズを生き残って bypassPermission を立ててから、火がつかなくても victory にするまでの長さ
+	Bypass time.Duration
+	// Fire は、火をつけてから victory にするまでの長さ(燃える演出の時間)
+	Fire time.Duration
 }
 
 // PhaseState はフェーズの内部状態。Number が 0 なら、まだフェーズが無い
@@ -38,8 +43,6 @@ type TaskState struct {
 	TargetFileID string
 	// CompletedAt はサーバーが完了を受け付けた時刻。ゼロなら未完了
 	CompletedAt time.Time
-	// FileID は達成に使ったファイル。同じファイルの達成は 1 回だけ数える
-	FileID string
 }
 
 func taskID(phase, n int) string {
@@ -49,8 +52,9 @@ func taskID(phase, n int) string {
 // startPhase は第 number フェーズを始める。タスクを作って生存者に配り、phase.started を送る。
 //
 // 全体の件数は number × セッション開始時の人数。生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。
-// 種類は read_edit と write から乱数で選ぶ。read_edit の対象は在庫のファイルで重複させず、
-// 在庫が尽きたら write にする
+// 種類は read_edit と write から乱数で選ぶ。read_edit の対象は在庫のファイルから乱数で選び、別のプレイヤーとは
+// 重なってよい(同じファイルを取り合うコンフリクトを起こすため)。同じプレイヤーの中では重複させず、
+// 自分の分で在庫を使い切ったら write にする
 // 第2フェーズからは、先にアイテムを初期状態に戻す
 func (st *State) startPhase(number int, now time.Time) []Output {
 	var out []Output
@@ -75,15 +79,18 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 	}
 
 	stock := st.stockFileIDs()
-	r.Shuffle(len(stock), func(i, j int) { stock[i], stock[j] = stock[j], stock[i] })
 
 	var tasks []TaskState
 	for i, pid := range alive {
+		// このプレイヤーにまだ割り当てていない在庫のファイル
+		left := slices.Clone(stock)
 		for range quota[i] {
 			t := TaskState{ID: taskID(number, len(tasks)+1), Type: api.Write, Assignee: pid}
-			if r.IntN(2) == 0 && len(stock) > 0 {
+			if r.IntN(2) == 0 && len(left) > 0 {
+				j := r.IntN(len(left))
 				t.Type = api.ReadEdit
-				t.TargetFileID, stock = stock[0], stock[1:]
+				t.TargetFileID = left[j]
+				left = slices.Delete(left, j, j+1)
 			}
 			tasks = append(tasks, t)
 		}
@@ -108,7 +115,7 @@ func (st *State) resetItems() []Output {
 			holders = append(holders, it.Location.PlayerID)
 		}
 	}
-	st.Items = initialItems()
+	st.Items = st.initialItems()
 	var out []Output
 	if o := st.object(directoryID); o != nil {
 		out = append(out, Broadcast{Msg: st.objectUpsert(o)})
@@ -129,6 +136,11 @@ func (st *State) advance(now time.Time) []Output {
 		return st.endPhase(st.Phase.DeadlineAt)
 	case st.Status == api.SessionStatusIntermission && !now.Before(st.Phase.EndedAt.Add(st.Phases.Intermission)):
 		return st.startPhase(st.Phase.Number+1, now)
+	case !st.FireAt.IsZero() && !now.Before(st.FireAt.Add(st.Phases.Fire)):
+		return st.finish(api.Victory, st.FireAt.Add(st.Phases.Fire))
+	case st.FireAt.IsZero() && !st.BypassAt.IsZero() && !now.Before(st.BypassAt.Add(st.Phases.Bypass)):
+		// 誰も火をつけないまま時間切れ。最後のフェーズは生き残っているので victory
+		return st.finish(api.Victory, st.BypassAt.Add(st.Phases.Bypass))
 	}
 	return nil
 }
@@ -153,7 +165,7 @@ func (st *State) hasPendingTask(playerID string) bool {
 }
 
 // endPhase はフェーズを終える。未達の生存者を脱落させ(player.updated と effect の fall)、作業中のアクションを取りやめ、
-// phase.ended を送る。最後のフェーズだったか生存者がいなければ、決着をつける
+// phase.ended を送る。生存者がいなければ defeat で決着をつけ、最後のフェーズを生き残ったら bypassPermission を立てる
 func (st *State) endPhase(at time.Time) []Output {
 	var out []Output
 	eliminated := []string{}
@@ -183,6 +195,7 @@ func (st *State) endPhase(at time.Time) []Output {
 	next := api.PhaseEndedMessageNextIntermission
 	if survivors == 0 || st.Phase.Number >= st.Phases.Count {
 		next = api.PhaseEndedMessageNextCompleted
+		// 最後のフェーズを生き残ったら、セッションは playing のまま(ライターを使える)
 		st.Phase.Status = api.PhaseStatusCompleted
 	} else {
 		st.Phase.Status = api.PhaseStatusIntermission
@@ -191,15 +204,41 @@ func (st *State) endPhase(at time.Time) []Output {
 	out = append(out, Broadcast{Msg: api.PhaseEndedMessage{
 		Type: api.PhaseEnded, Seq: st.nextSeq(), PhaseNumber: st.Phase.Number, EliminatedPlayerIds: eliminated, Next: next,
 	}})
-	if next == api.PhaseEndedMessageNextCompleted {
-		// 決着は仮: 最後のフェーズを生存者が 1 人以上で終えれば victory、途中で全員脱落したら defeat
-		outcome := api.Victory
-		if survivors == 0 {
-			outcome = api.Defeat
-		}
-		out = append(out, st.finish(outcome, at)...)
+	switch {
+	case survivors == 0:
+		out = append(out, st.finish(api.Defeat, at)...)
+	case next == api.PhaseEndedMessageNextCompleted:
+		out = append(out, st.bypass(at)...)
 	}
 	return out
+}
+
+// bypass は最後のフェーズを生き残ったときに bypassPermission を立て、生存者のライターの置き場を使えるようにする。
+// 決着はまだつけない(ライターで火をつけるか、時間切れで victory。ADR-0006)
+func (st *State) bypass(at time.Time) []Output {
+	st.Team.BypassPermission = true
+	st.BypassAt = at
+	out := []Output{Broadcast{Msg: api.TeamUpdatedMessage{Type: api.TeamUpdated, Seq: st.nextSeq(), Team: st.Team}}}
+	for i := range st.Objects {
+		o := &st.Objects[i]
+		if o.Kind != api.LighterStand || st.player(o.Owner).Life != api.Alive {
+			continue
+		}
+		o.Availability = api.ObjectAvailabilityAvailable
+		out = append(out, Broadcast{Msg: st.objectUpsert(o)})
+	}
+	return out
+}
+
+// startFire は火をつける。fireStarted を立てて effect(fire)を送り、Phases.Fire の後に victory にする
+func (st *State) startFire(p *PlayerState, o *ObjectState, now time.Time) []Output {
+	st.Team.FireStarted = true
+	st.FireAt = now
+	id, objectID := p.ID, o.ID
+	return []Output{
+		Broadcast{Msg: api.TeamUpdatedMessage{Type: api.TeamUpdated, Seq: st.nextSeq(), Team: st.Team}},
+		Broadcast{Msg: api.EffectMessage{Type: api.Effect, Name: api.EffectMessageNameFire, PlayerId: &id, ObjectId: &objectID}},
+	}
 }
 
 // finish は決着をつけ、session.finished を送ってからセッションを終える(ADR-0004)
@@ -224,28 +263,25 @@ func (st *State) stockFileIDs() []string {
 	return ids
 }
 
-// completeTask は、担当者がファイルをディレクトリに入れたときに、それで達成になるタスクを完了にする(state-schema.md §5.1)。
-// read_edit は対象のファイルを編集済みで、write は作ったファイルを入れたとき。締切より前に受け付けたものだけ数える。
-// 完了にしたら task.completed を返す
-func (st *State) completeTask(playerID string, f *ItemState, now time.Time) []Output {
+// completeTask は、担当者がファイルをディレクトリに入れたときに、それで達成になるタスクを 1 つ完了にする(state-schema.md §5.1)。
+// status は入れる前(手に持っていたとき)のファイルの状態。read_edit は対象のファイルを編集済みで、
+// write は作ったファイルを入れたとき。締切より前に受け付けたものだけ数える。完了にしたら task.completed を返す。
+//
+// 編集済みは入れると編集前に戻る(§5.2.1)ので、同じファイルでも、別のプレイヤーが編集し直して入れればその人の達成になる。
+// 作ったファイルは成果物になって取り出せないので、2 回数えることはない
+func (st *State) completeTask(playerID, fileID string, status api.FileStatus, now time.Time) []Output {
 	ph := &st.Phase
 	if ph.Status != api.PhaseStatusActive || !now.Before(ph.DeadlineAt) {
 		return nil
-	}
-	for _, t := range ph.Tasks {
-		if t.FileID == f.ID {
-			return nil
-		}
 	}
 	for i := range ph.Tasks {
 		t := &ph.Tasks[i]
 		if t.Assignee != playerID || !t.CompletedAt.IsZero() {
 			continue
 		}
-		if (t.Type == api.ReadEdit && t.TargetFileID == f.ID && f.Status == api.FileStatusEdited) ||
-			(t.Type == api.Write && f.Status == api.FileStatusFileCreated) {
+		if (t.Type == api.ReadEdit && t.TargetFileID == fileID && status == api.FileStatusEdited) ||
+			(t.Type == api.Write && status == api.FileStatusFileCreated) {
 			t.CompletedAt = now
-			t.FileID = f.ID
 			return []Output{Broadcast{Msg: api.TaskCompletedMessage{Type: api.TaskCompleted, Seq: st.nextSeq(), TaskId: t.ID, CompletedAt: now}}}
 		}
 	}
