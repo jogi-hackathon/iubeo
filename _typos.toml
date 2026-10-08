@@ -4,5 +4,7 @@
 extend-exclude = ["go.mod", "go.sum"]
 
 [default.extend-words]
+# PNG のフィルタ名(Paeth predictor)
+Paeth = "Paeth"
 # three.js の標準マテリアルの属性名（金属感）
 metalness = "metalness"

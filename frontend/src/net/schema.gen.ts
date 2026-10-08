@@ -297,7 +297,7 @@ export interface components {
       id: string;
       kind: components["schemas"]["ItemKind"];
     };
-    /** @description ワールドに置かれた、機能を持つ物体 */
+    /** @description ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める */
     GameObject: {
       /** @example directory-1 */
       id: string;
@@ -305,11 +305,10 @@ export interface components {
       scope: components["schemas"]["ObjectScope"];
       /** @description scope が personal のときだけ */
       owner?: components["schemas"]["PlayerId"];
-      position: components["schemas"]["Vec3"];
       /** @description 今触っているプレイヤー。personal は最大 1 人、shared は複数人 */
       users: components["schemas"]["PlayerId"][];
       availability: components["schemas"]["ObjectAvailability"];
-      /** @description kind が directory なら DirectoryData。他は未定(null) */
+      /** @description kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null) */
       data: components["schemas"]["JsonValue"];
     };
     StockFile: {
@@ -322,6 +321,11 @@ export interface components {
       stock: components["schemas"]["StockFile"][];
       /** @description このフェーズで入れられた成果物(新しく作ったファイル)の数 */
       outputs: number;
+    };
+    /** @description ライターの置き場。bypassPermission が立つまでは availability が unavailable */
+    LighterStandData: {
+      /** @description 置き場にライターがあるか(持ち主が持っている間は false) */
+      hasLighter: boolean;
     };
     Transform: {
       /** @description 足元の位置 */
@@ -353,7 +357,8 @@ export interface components {
       heldItem: components["schemas"]["Item"] | null;
     };
     Player: components["schemas"]["PlayerStatus"] & {
-      transform: components["schemas"]["Transform"];
+      /** @description 最初の transform を受け取るまでは null。初期位置はサーバーが持たず、フロントが seat から決める */
+      transform: components["schemas"]["Transform"] | null;
     };
     Task: {
       taskId: string;

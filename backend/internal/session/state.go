@@ -1,6 +1,7 @@
 package session
 
 import (
+	"math/rand/v2"
 	"slices"
 	"time"
 
@@ -23,6 +24,16 @@ type State struct {
 	Team    api.Team
 	// Actions は作業中のワークスペースのアクション
 	Actions []WorkspaceAction
+	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
+	Phases PhaseRules
+	Phase  PhaseState
+	// Result は決着。決着前は Outcome が空
+	Result api.Result
+	// BypassAt は最後のフェーズを生き残って bypassPermission を立てた時刻、FireAt は火をつけた時刻。まだならゼロ
+	BypassAt time.Time
+	FireAt   time.Time
+	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
+	rng rand.PCG
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -30,7 +41,7 @@ type State struct {
 	AbandonTimeout time.Duration
 	// AllDisconnectedAt は人間が全員切断した時刻。誰かが接続していればゼロ
 	AllDisconnectedAt time.Time
-	// Ended は終わった(解散・破棄)。以降の入力は無視する
+	// Ended は終わった(決着・解散・破棄)。以降の入力は無視する
 	Ended bool
 }
 
@@ -44,7 +55,8 @@ type PlayerState struct {
 	Transform  api.Transform
 	// ConnID は今の接続。無ければ 0
 	ConnID uint64
-	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)
+	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)。
+	// 受け取るまでは位置が無いので、snapshot の transform は null
 	reported bool
 	// moved は前回の transforms の配信から動いたか
 	moved bool
@@ -56,7 +68,6 @@ type ObjectState struct {
 	Kind         api.ObjectKind
 	Scope        api.ObjectScope
 	Owner        string
-	Position     api.Vec3
 	Users        []string
 	Availability api.ObjectAvailability
 }
@@ -84,6 +95,8 @@ type ItemState struct {
 	Status   api.FileStatus // kind が file のときだけ
 	Color    string         // 在庫から取り出したファイルだけ
 	Location Location
+	// Home はライターの置き場(lighter_stand)の id。切断・脱落したらここに戻す
+	Home string
 }
 
 // Timeouts はセッションの時間の決まり
@@ -93,8 +106,8 @@ type Timeouts struct {
 }
 
 // NewMultiplayerState は自動マッチングでそろったプレイヤーの、開始前(waiting)の状態を作る。
-// playerIDs の並びが席の順
-func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts) State {
+// playerIDs の並びが席の順。seed はタスクの分配に使う乱数の種
+func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
 		Mode:           api.SessionModeMultiplayer,
@@ -102,24 +115,16 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		CreatedAt:      createdAt,
 		StartTimeout:   timeouts.Start,
 		AbandonTimeout: timeouts.Abandon,
+		Phases:         phases,
+		rng:            *rand.NewPCG(seed, seed),
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
 		Kind:         api.Directory,
 		Scope:        api.Shared,
-		Position:     slices.Clone(directoryPosition),
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
-	for _, f := range directoryStock {
-		st.Items = append(st.Items, ItemState{
-			ID:       f.id,
-			Kind:     api.File,
-			Status:   api.FileStatusUnedited,
-			Color:    f.color,
-			Location: Location{Kind: InDirectory, ObjectID: directoryID},
-		})
-	}
 	for i, pid := range playerIDs {
 		seat := i + 1
 		st.Players = append(st.Players, PlayerState{
@@ -128,19 +133,51 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 			Seat:       seat,
 			Connection: api.Connecting,
 			Life:       api.Alive,
-			Transform:  api.Transform{Position: slices.Clone(spawnPositions[seat])},
 		})
 		st.Objects = append(st.Objects, ObjectState{
 			ID:           workspaceID(seat),
 			Kind:         api.Workspace,
 			Scope:        api.Personal,
 			Owner:        pid,
-			Position:     slices.Clone(workspacePositions[seat]),
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityAvailable,
 		})
+		// ライターの置き場。bypassPermission が立つまでは使えない
+		st.Objects = append(st.Objects, ObjectState{
+			ID:           lighterStandID(seat),
+			Kind:         api.LighterStand,
+			Scope:        api.Personal,
+			Owner:        pid,
+			Users:        []string{},
+			Availability: api.ObjectAvailabilityUnavailable,
+		})
 	}
+	st.Items = st.initialItems()
 	return st
+}
+
+// initialItems はアイテムの初期状態(ディレクトリの初期在庫と、席ごとの置き場のライター)を返す
+func (st State) initialItems() []ItemState {
+	items := make([]ItemState, 0, len(directoryStock)+len(st.Players))
+	for _, f := range directoryStock {
+		items = append(items, ItemState{
+			ID:       f.id,
+			Kind:     api.File,
+			Status:   api.FileStatusUnedited,
+			Color:    f.color,
+			Location: Location{Kind: InDirectory, ObjectID: directoryID},
+		})
+	}
+	for _, p := range st.Players {
+		stand := lighterStandID(p.Seat)
+		items = append(items, ItemState{
+			ID:       lighterID(p.Seat),
+			Kind:     api.Lighter,
+			Location: Location{Kind: OnObject, ObjectID: stand},
+			Home:     stand,
+		})
+	}
+	return items
 }
 
 // clone は State の深いコピーを返す。Step は受け取った State を書き換えずに、コピーを変えて返す
@@ -152,11 +189,11 @@ func (st State) clone() State {
 	}
 	c.Objects = slices.Clone(st.Objects)
 	for i := range c.Objects {
-		c.Objects[i].Position = slices.Clone(st.Objects[i].Position)
 		c.Objects[i].Users = slices.Clone(st.Objects[i].Users)
 	}
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
+	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
 	return c
 }
 
@@ -228,7 +265,6 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 		Id:           o.ID,
 		Kind:         o.Kind,
 		Scope:        o.Scope,
-		Position:     slices.Clone(o.Position),
 		Users:        slices.Clone(o.Users),
 		Availability: o.Availability,
 		Data:         nil,
@@ -236,8 +272,13 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 	if o.Owner != "" {
 		g.Owner = &o.Owner
 	}
-	if o.Kind == api.Directory {
+	switch o.Kind {
+	case api.Directory:
 		g.Data = st.directoryData(o.ID)
+	case api.LighterStand:
+		g.Data = api.LighterStandData{HasLighter: slices.ContainsFunc(st.Items, func(it ItemState) bool {
+			return it.Kind == api.Lighter && it.Location.Kind == OnObject && it.Location.ObjectID == o.ID
+		})}
 	}
 	return g
 }
@@ -265,13 +306,30 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 			Connection: ps.Connection,
 			Life:       ps.Life,
 			HeldItem:   ps.HeldItem,
-			Transform:  cloneTransform(p.Transform),
+			Transform:  p.apiTransform(),
 		})
 	}
 	for _, o := range st.Objects {
 		snap.Objects = append(snap.Objects, st.gameObject(o))
 	}
+	if st.Phase.Number > 0 {
+		ph := st.apiPhase()
+		snap.Game.Phase = &ph
+	}
+	if st.Result.Outcome != "" {
+		result := st.Result
+		snap.Game.Result = &result
+	}
 	return snap
+}
+
+// apiTransform は配る transform。最初の transform を受け取るまでは nil(初期位置はフロントが席から決める)
+func (p PlayerState) apiTransform() *api.Transform {
+	if !p.reported {
+		return nil
+	}
+	t := cloneTransform(p.Transform)
+	return &t
 }
 
 func cloneTransform(t api.Transform) api.Transform {
