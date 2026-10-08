@@ -1,0 +1,42 @@
+{
+  "run": 1,
+  "mode": {
+    "move": false,
+    "uncapped": true,
+    "net": "none",
+    "cpu": 1,
+    "dpr": 2,
+    "query": "scene=crowd&n=3",
+    "seconds": 4
+  },
+  "bootGoneMs": 170.8999999994412,
+  "readyMs": 1319.8999999994412,
+  "readyWallMs": 1372,
+  "domContentLoadedMs": 138.09999999962747,
+  "loadMs": 138.20000000018626,
+  "fps": 144,
+  "frame": {
+    "meanMs": 6.960173913043478,
+    "p50Ms": 6.899999999999636,
+    "p95Ms": 7.900000000000091,
+    "p99Ms": 14.800000000000182,
+    "over33ms": 0
+  },
+  "longTasks": {
+    "count": 0,
+    "totalMs": 0
+  },
+  "cdp": {
+    "jsHeapUsedMB": 18.905433654785156,
+    "scriptMsPerSec": 924.5345,
+    "layoutMsPerSec": 0,
+    "taskMsPerSec": 1001.1967500000001
+  },
+  "transfer": {
+    "requests": 5,
+    "totalBytes": 374198,
+    "jsBytes": 373221,
+    "cssBytes": 510
+  },
+  "errors": []
+}

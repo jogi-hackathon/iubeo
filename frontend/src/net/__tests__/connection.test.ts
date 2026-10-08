@@ -11,7 +11,7 @@ import type {ServerMessage, SessionSnapshot} from "../types";
 
 class FakeSocket implements SocketLike {
   readyState = 0;
-  sent: string[] = [];
+  sent: Array<string | ArrayBuffer> = [];
   closedWith: number | null = null;
   onopen: SocketLike["onopen"] = null;
   onmessage: SocketLike["onmessage"] = null;
@@ -20,7 +20,7 @@ class FakeSocket implements SocketLike {
 
   constructor(readonly url: string) {}
 
-  send(data: string) {
+  send(data: string | ArrayBuffer) {
     this.sent.push(data);
   }
   close(code?: number) {
@@ -33,9 +33,12 @@ class FakeSocket implements SocketLike {
     this.readyState = 1;
     this.onopen?.({});
   }
-  serverSend(message: ServerMessage | string) {
+  serverSend(message: ServerMessage | string | ArrayBuffer) {
     this.onmessage?.({
-      data: typeof message === "string" ? message : JSON.stringify(message),
+      data:
+        typeof message === "string" || message instanceof ArrayBuffer
+          ? message
+          : JSON.stringify(message),
     });
   }
   serverClose(code: number) {
@@ -193,7 +196,80 @@ describe("createSessionConnection", () => {
     expect(conn.send(msg)).toBe(false);
     latest().serverOpen();
     expect(conn.send(msg)).toBe(true);
-    expect(JSON.parse(latest().sent[0]!)).toEqual(msg);
+    expect(JSON.parse(latest().sent[0] as string)).toEqual(msg);
+  });
+
+  it("位置(transform)はバイナリで送る", () => {
+    const {conn, latest} = setup();
+    latest().serverOpen();
+    conn.send({
+      type: "transform",
+      seq: 7,
+      position: [1, 2, 3],
+      yaw: 0.5,
+      pitch: -0.25,
+    });
+    const sent = latest().sent[0];
+    expect(sent).toBeInstanceOf(ArrayBuffer);
+    const v = new DataView(sent as ArrayBuffer);
+    expect([
+      v.getUint8(0),
+      v.getUint32(1, true),
+      v.getFloat32(5, true),
+      v.getFloat32(17, true),
+    ]).toEqual([1, 7, 1, 0.5]);
+  });
+
+  it("バイナリの transforms を、snapshot の席から playerId に直して配る", () => {
+    const {conn, latest} = setup();
+    latest().serverOpen();
+    const onTransforms = vi.fn();
+    conn.on("transforms", onTransforms);
+    latest().serverSend({
+      type: "snapshot",
+      session: {
+        seq: 1,
+        players: [
+          {playerId: "p1", seat: 1},
+          {playerId: "p2", seat: 2},
+        ],
+      } as SessionSnapshot,
+    });
+    // 席 2 と、まだ知らない席 3
+    const buf = new ArrayBuffer(10 + 2 * 25);
+    const v = new DataView(buf);
+    v.setUint8(0, 2);
+    v.setFloat64(1, Date.UTC(2026, 9, 1), true);
+    v.setUint8(9, 2);
+    for (const [i, seat] of [2, 3].entries()) {
+      const o = 10 + i * 25;
+      v.setUint8(o, seat);
+      v.setUint32(o + 1, 42, true);
+      v.setFloat32(o + 5, 1.5, true);
+      v.setFloat32(o + 17, 0.25, true);
+    }
+    latest().serverSend(buf);
+    expect(onTransforms).toHaveBeenCalledTimes(1);
+    const m = onTransforms.mock.calls[0]![0];
+    expect(m.serverTime).toBe("2026-10-01T00:00:00.000Z");
+    expect(m.players).toEqual([
+      {
+        playerId: "p2",
+        transform: {seq: 42, position: [1.5, 0, 0], yaw: 0.25, pitch: 0},
+      },
+    ]);
+  });
+
+  it("形の合わないバイナリは捨てる", () => {
+    const {conn, latest} = setup();
+    latest().serverOpen();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onTransforms = vi.fn();
+    conn.on("transforms", onTransforms);
+    latest().serverSend(new ArrayBuffer(3));
+    expect(onTransforms).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it("切れたら待ち時間を延ばしながら再接続し、新しい接続の snapshot を基準にする", () => {

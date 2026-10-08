@@ -1,0 +1,36 @@
+{
+  "label": "json-1",
+  "url": "http://127.0.0.1:8080",
+  "clients": 300,
+  "match_size": 3,
+  "hz": 20,
+  "duration_s": 20.00001425,
+  "warmup_s": 5,
+  "started_at": "2026-10-08T12:31:54.824554+09:00",
+  "rtt_ms": {
+    "count": 119200,
+    "mean": 22.586148557046982,
+    "p50": 20.962,
+    "p95": 34.04104999999999,
+    "p99": 46.92307999999999,
+    "max": 55.534
+  },
+  "tick_interval_ms": {
+    "count": 119200,
+    "mean": 49.999466887582024,
+    "p50": 50,
+    "p95": 50.354,
+    "p99": 51.430009999999996,
+    "max": 75.002
+  },
+  "messages": 119200,
+  "messages_per_sec": 5959.995753503026,
+  "disconnects": 0,
+  "binary": false,
+  "rx_bytes_per_client_per_sec": 9050.36105161775,
+  "tx_bytes_per_client_per_sec": 1777.0224005382065,
+  "errors": [
+    "client 128: Get \"http://127.0.0.1:8080/api/v1/matchmaking\": dial tcp 127.0.0.1:8080: connect: connection reset by peer",
+    "client 220: Get \"http://127.0.0.1:8080/api/v1/matchmaking\": dial tcp 127.0.0.1:8080: connect: connection reset by peer"
+  ]
+}

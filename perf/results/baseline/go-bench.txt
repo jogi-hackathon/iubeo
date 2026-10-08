@@ -1,0 +1,26 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/jogi-hackathon/iubeo/backend/internal/session
+cpu: Apple M4
+BenchmarkStepClientTransform-10    	 3477872	       350.9 ns/op	    1824 B/op	      11 allocs/op
+BenchmarkStepClientTransform-10    	 3484140	       329.2 ns/op	    1824 B/op	      11 allocs/op
+BenchmarkStepClientTransform-10    	 3681218	       346.1 ns/op	    1824 B/op	      11 allocs/op
+BenchmarkStepClientTransform-10    	 3546397	       325.0 ns/op	    1824 B/op	      11 allocs/op
+BenchmarkStepClientTransform-10    	 3705681	       341.4 ns/op	    1824 B/op	      11 allocs/op
+BenchmarkStepTick-10               	 2715808	       443.5 ns/op	    2432 B/op	      19 allocs/op
+BenchmarkStepTick-10               	 2695204	       451.1 ns/op	    2432 B/op	      19 allocs/op
+BenchmarkStepTick-10               	 2773410	       434.1 ns/op	    2432 B/op	      19 allocs/op
+BenchmarkStepTick-10               	 2746110	       449.1 ns/op	    2432 B/op	      19 allocs/op
+BenchmarkStepTick-10               	 2761803	       443.0 ns/op	    2432 B/op	      19 allocs/op
+BenchmarkDecodeTransform-10        	  878854	      1347 ns/op	     320 B/op	       8 allocs/op
+BenchmarkDecodeTransform-10        	  902102	      1341 ns/op	     320 B/op	       8 allocs/op
+BenchmarkDecodeTransform-10        	  904953	      1358 ns/op	     320 B/op	       8 allocs/op
+BenchmarkDecodeTransform-10        	  894673	      1357 ns/op	     320 B/op	       8 allocs/op
+BenchmarkDecodeTransform-10        	  878889	      1364 ns/op	     320 B/op	       8 allocs/op
+BenchmarkEncodeTransforms-10       	 1357807	       873.4 ns/op	     384 B/op	       2 allocs/op
+BenchmarkEncodeTransforms-10       	 1364713	       880.6 ns/op	     384 B/op	       2 allocs/op
+BenchmarkEncodeTransforms-10       	 1375364	       877.8 ns/op	     384 B/op	       2 allocs/op
+BenchmarkEncodeTransforms-10       	 1370328	       875.1 ns/op	     384 B/op	       2 allocs/op
+BenchmarkEncodeTransforms-10       	 1362291	       873.5 ns/op	     384 B/op	       2 allocs/op
+PASS
+ok  	github.com/jogi-hackathon/iubeo/backend/internal/session	32.988s

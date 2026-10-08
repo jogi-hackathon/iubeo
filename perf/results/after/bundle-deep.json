@@ -1,0 +1,44 @@
+{
+  "files": {
+    "index-CFt0Tn8P.js": {
+      "bytes": 1628861,
+      "raw": 1628861,
+      "gzip": 464364,
+      "brotli": 360378
+    },
+    "index-DHoY6zFU.css": {
+      "bytes": 446,
+      "raw": 446,
+      "gzip": 281,
+      "brotli": 210
+    }
+  },
+  "composition": {
+    "three:three/build/three.webgpu.js": 677945,
+    "three:three/build/three.core.js": 388763,
+    "react-dom": 207697,
+    "@react-three/fiber": 165899,
+    "three-mesh-bvh": 48229,
+    "src/objects": 23347,
+    "src/player": 11908,
+    "(unmapped)": 11363,
+    "three:three/build/three.tsl.js": 10899,
+    "src/camera": 9331,
+    "three:tsl/display/OutlineNode.js": 8736,
+    "src/core": 8652,
+    "react": 8216,
+    "src/bake": 5998,
+    "three:tsl/display/BloomNode.js": 5805,
+    "three:tsl/display/GTAONode.js": 5558,
+    "src/scenes": 4711,
+    "three:jsm/math/SimplexNoise.js": 4460,
+    "scheduler": 3512,
+    "react-use-measure": 3134,
+    "its-fine": 2652,
+    "src/boot": 2640,
+    "three:tsl/display/DenoiseNode.js": 2597,
+    "use-sync-external-store": 1571,
+    "src/items": 1467
+  },
+  "jsFile": "index-CFt0Tn8P.js"
+}

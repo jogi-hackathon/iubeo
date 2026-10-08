@@ -1,0 +1,35 @@
+{
+  "label": "json-2",
+  "url": "http://127.0.0.1:8080",
+  "clients": 300,
+  "match_size": 3,
+  "hz": 20,
+  "duration_s": 20.000024125,
+  "warmup_s": 5,
+  "started_at": "2026-10-08T13:54:43.293058+09:00",
+  "rtt_ms": {
+    "count": 119914,
+    "mean": 20.19439203929492,
+    "p50": 19.319,
+    "p95": 29.345,
+    "p99": 35.521309999999986,
+    "max": 56.285
+  },
+  "tick_interval_ms": {
+    "count": 119982,
+    "mean": 50.00691497890486,
+    "p50": 50,
+    "p95": 50.089,
+    "p99": 50.48119,
+    "max": 99.992
+  },
+  "messages": 119982,
+  "messages_per_sec": 5999.092763594354,
+  "disconnects": 0,
+  "binary": false,
+  "compress": false,
+  "wire_rx_bytes_per_client_per_sec": 12003.426020867362,
+  "wire_tx_bytes_per_client_per_sec": 2878.192861513194,
+  "rx_bytes_per_client_per_sec": 11923.288117533708,
+  "tx_bytes_per_client_per_sec": 2717.8430549351483
+}

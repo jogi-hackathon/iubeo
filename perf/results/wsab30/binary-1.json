@@ -1,0 +1,32 @@
+{
+  "label": "binary-1",
+  "url": "http://127.0.0.1:8080",
+  "clients": 30,
+  "match_size": 3,
+  "hz": 20,
+  "duration_s": 20.000339375,
+  "warmup_s": 5,
+  "started_at": "2026-10-08T12:27:19.120946+09:00",
+  "rtt_ms": {
+    "count": 12000,
+    "mean": 45.59324866666677,
+    "p50": 45.537,
+    "p95": 46.583,
+    "p99": 47.18304,
+    "max": 52.166
+  },
+  "tick_interval_ms": {
+    "count": 12000,
+    "mean": 50.00013033333314,
+    "p50": 50.003,
+    "p95": 50.741,
+    "p99": 51.50102,
+    "max": 55.899
+  },
+  "messages": 12000,
+  "messages_per_sec": 599.9898189227602,
+  "disconnects": 0,
+  "binary": true,
+  "rx_bytes_per_client_per_sec": 1699.971153614487,
+  "tx_bytes_per_client_per_sec": 499.9915157689668
+}

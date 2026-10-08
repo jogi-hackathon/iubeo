@@ -11,7 +11,9 @@ info:
     - HTTP: プレイヤーの発行、自動マッチング、セッションの取得、WebSocket への切り替え
     - WebSocket: `GET /api/v1/sessions/{sessionId}/ws` で切り替えた後のメッセージ。
       型は `components/schemas` の `ClientMessage`(クライアント → サーバー)と
-      `ServerMessage`(サーバー → クライアント)。すべて JSON で、`type` で種類を見分ける。
+      `ServerMessage`(サーバー → クライアント)。JSON で、`type` で種類を見分ける。
+      ただし `?enc=bin` を付けて接続したときは、位置のメッセージ(`transform` / `transforms`)だけを
+      バイナリで送る(形式は docs/backend/state-schema.md §7.5)。
 
     プレイヤーは HttpOnly Cookie(`iubeo_player`)で識別する。
     状態の正はサーバーで、クライアントは一切判定しない。
@@ -191,6 +193,8 @@ paths:
       description: |
         切り替え後、サーバーはまず `snapshot` を送る。以降のメッセージは
         `ClientMessage` / `ServerMessage` を参照。再接続も同じエンドポイントで行う。
+        クエリ `enc=bin` を付けると、位置のメッセージ(`transform` / `transforms`)だけをバイナリで
+        やり取りする(docs/backend/state-schema.md §7.5)。
       responses:
         "101":
           description: WebSocket に切り替えた

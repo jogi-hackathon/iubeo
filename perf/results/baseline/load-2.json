@@ -1,0 +1,33 @@
+{
+  "label": "baseline-2",
+  "url": "http://127.0.0.1:8080",
+  "clients": 30,
+  "match_size": 3,
+  "hz": 20,
+  "duration_s": 20.00000325,
+  "warmup_s": 3,
+  "started_at": "2026-10-08T04:26:25.663663+09:00",
+  "rtt_ms": {
+    "count": 12000,
+    "mean": 47.098288333333294,
+    "p50": 47.19,
+    "p95": 47.78105,
+    "p99": 48.036010000000005,
+    "max": 48.607
+  },
+  "tick_interval_ms": {
+    "count": 12000,
+    "mean": 49.99863883333323,
+    "p50": 50.0035,
+    "p95": 50.54615,
+    "p99": 50.926010000000005,
+    "max": 51.514
+  },
+  "messages": 12000,
+  "messages_per_sec": 599.9999025000159,
+  "disconnects": 1,
+  "errors": [
+    "client 27: 送信に失敗: failed to write msg: failed to acquire lock: context canceled",
+    "client 0: サーバーから切断された"
+  ]
+}

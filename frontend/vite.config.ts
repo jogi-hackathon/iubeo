@@ -10,6 +10,11 @@ const backend = process.env.IUBEO_BACKEND_URL ?? "http://localhost:8080";
 
 // bake.html(AO ベイクページ)は dev 専用のツールなので build の入力には含めない(既定の index.html だけ)
 export default defineConfig(({command, isPreview}) => ({
+  resolve: {
+    // three の本体(three.module.js)と WebGPU 版(three.webgpu.js)を両方バンドルしないよう、"three" は WebGPU 版に寄せる
+    // (three/webgpu は core を再輸出するので、"three" の import はそのまま同じクラスを使う)
+    alias: [{find: /^three$/, replacement: "three/webgpu"}],
+  },
   plugins: [
     react(),
     bakeSavePlugin(),
