@@ -64,7 +64,7 @@ describe("createDummyAuthority", () => {
   describe("interact の要求", () => {
     it("personal は本人が users に入り、もう一度で出る", () => {
       const {objects, authority} = setup();
-      const id = authority.spawnObject([0, 1, -3], "personal");
+      const id = authority.spawnObject("dummy-1", "personal");
 
       objects.interact(id);
       expect(objects.getObject(id)?.users).toEqual(["me"]);
@@ -75,7 +75,7 @@ describe("createDummyAuthority", () => {
 
     it("shared は複数人が同時に users に入れる", () => {
       const {objects, authority} = setup();
-      const id = authority.spawnObject([0, 1, -3], "shared");
+      const id = authority.spawnObject("dummy-1", "shared");
 
       authority.handle({
         type: "interact",
@@ -92,7 +92,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnObject([0, 1, -3], "personal");
+      const id = authority.spawnObject("dummy-1", "personal");
       const before = objects.getState();
 
       authority.handle({
@@ -113,7 +113,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnObject([0, 1, -3], "personal", "unavailable");
+      const id = authority.spawnObject("dummy-1", "personal", "unavailable");
       const before = objects.getState();
 
       objects.interact(id);
@@ -145,7 +145,7 @@ describe("createDummyAuthority", () => {
 
     it("手持ちがあれば、要求に載って届く", () => {
       const {objects, authority, requests} = setup();
-      const id = authority.spawnObject([0, 1, -3], "personal");
+      const id = authority.spawnObject("dummy-1", "personal");
       const itemId = authority.spawnItem("file");
 
       objects.interact(id);
@@ -157,8 +157,8 @@ describe("createDummyAuthority", () => {
   describe("オブジェクトの操作", () => {
     it("spawnObject は scope に応じて owner を付け、id を返す", () => {
       const {objects, authority} = setup();
-      const a = authority.spawnObject([0, 0, 0], "personal");
-      const b = authority.spawnObject([0, 0, 0], "shared");
+      const a = authority.spawnObject("dummy-1", "personal");
+      const b = authority.spawnObject("dummy-2", "shared");
 
       expect(a).not.toBe(b);
       expect(objects.getObject(a)?.owner).toBe("me");
@@ -167,7 +167,7 @@ describe("createDummyAuthority", () => {
 
     it("setAvailability で切り替え、removeObject で消す", () => {
       const {objects, authority} = setup();
-      const id = authority.spawnObject([0, 0, 0]);
+      const id = authority.spawnObject("dummy-1");
 
       authority.setAvailability(id, "unavailable");
       expect(objects.getObject(id)?.availability).toBe("unavailable");
@@ -217,7 +217,7 @@ describe("createDummyAuthority", () => {
 
     const setupDirectory = (random?: () => number) => {
       const ctx = setup(random);
-      const id = ctx.authority.spawnDirectory([3, 0, -3], STOCK);
+      const id = ctx.authority.spawnDirectory("directory-1", STOCK);
       const data = () =>
         parseDirectoryData(ctx.objects.getObject(id)?.data ?? null);
       const rejected = vi.fn();
@@ -232,24 +232,23 @@ describe("createDummyAuthority", () => {
       expect(object).toMatchObject({
         kind: "directory",
         scope: "shared",
-        position: [3, 0, -3],
         users: [],
         availability: "available",
       });
-      expect(data()).toEqual({stock: STOCK, outputs: 0, size: "large"});
+      expect(data()).toEqual({stock: STOCK, outputs: 0});
     });
 
-    it("spawnDirectory に size を渡すと、data に入る(省略は large)。在庫の出し入れでも変わらない", () => {
+    it("data に山の大きさは入らない(置き場所のレイアウトが決める)。在庫の出し入れでも data は在庫だけ変わる", () => {
       const {authority, objects, items} = setup();
-      const id = authority.spawnDirectory([0, 0, -5.5], STOCK, "small");
+      const id = authority.spawnDirectory("directory-1", STOCK);
       const data = () =>
         parseDirectoryData(objects.getObject(id)?.data ?? null);
-      expect(data().size).toBe("small");
+      expect(objects.getObject(id)?.data).not.toHaveProperty("size");
 
       objects.interact(id, {target: F2});
       expect(items.getHeld()?.id).toBe(F2);
       expect(data().stock.map((f) => f.id)).toEqual([F1, F3]);
-      expect(data().size).toBe("small");
+      expect(objects.getObject(id)?.data).not.toHaveProperty("size");
     });
 
     describe("手ぶらで取り出す", () => {
@@ -481,30 +480,29 @@ describe("createDummyAuthority", () => {
   });
 
   describe("clearObjects", () => {
-    it("オブジェクトを全部片付け、id の採番も最初に戻す(同じ配置を置き直すと同じ id になる)", () => {
+    it("オブジェクトを全部片付ける(id は呼び出し側が決めるので、置き直しはそのまま同じ id で置ける)", () => {
       const {objects, authority} = setup();
-      const first = authority.spawnWorkspace([0, 0, 0]);
-      authority.spawnObject([1, 1, 1]);
+      const first = authority.spawnWorkspace("workspace-1");
+      authority.spawnObject("dummy-1");
 
       authority.clearObjects();
 
       expect(objects.getState().objects).toEqual([]);
-      expect(authority.spawnWorkspace([0, 0, 0])).toBe(first);
+      expect(authority.spawnWorkspace("workspace-1")).toBe(first);
     });
   });
 
   describe("PC", () => {
-    it("spawnPc は、自分の personal の pc を指定の位置に置く(見た目は無く、データだけ)", () => {
+    it("spawnPc は、指定の id で、自分の personal の pc を置く(見た目は無く、データだけ)", () => {
       const {objects, authority} = setup();
 
-      const id = authority.spawnPc([0, 0.95, -4.3]);
+      const id = authority.spawnPc("pc-1");
 
       expect(objects.getObject(id)).toEqual({
         id,
         kind: PC_KIND,
         scope: "personal",
         owner: "me",
-        position: [0, 0.95, -4.3],
         users: [],
         availability: "available",
         data: null,
@@ -515,7 +513,7 @@ describe("createDummyAuthority", () => {
   describe("キャンバス", () => {
     it("手ぶらで interact すると、2 秒後に新しいファイル(image_created、色なし)を手に持ち、users が空に戻る", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const id = authority.spawnCanvas("canvas-1");
 
       objects.interact(id);
 
@@ -537,8 +535,8 @@ describe("createDummyAuthority", () => {
 
     it("作ったファイルをディレクトリに入れると、成果物になる", () => {
       const {objects, items, authority, advance} = setup();
-      const dir = authority.spawnDirectory([0, 0, 0], []);
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const dir = authority.spawnDirectory("directory-1", []);
+      const id = authority.spawnCanvas("canvas-1");
       objects.interact(id);
       advance(CANVAS_ACTION_MS);
 
@@ -566,7 +564,7 @@ describe("createDummyAuthority", () => {
         const {objects, items, authority, advance} = setup();
         const onRejected = vi.fn();
         objects.on("interactRejected", onRejected);
-        const id = authority.spawnCanvas([0, 0, -3]);
+        const id = authority.spawnCanvas("canvas-1");
         items.apply({type: "spawn", item});
 
         objects.interact(id);
@@ -585,7 +583,7 @@ describe("createDummyAuthority", () => {
       const {objects, items, authority, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const id = authority.spawnCanvas("canvas-1");
 
       objects.interact(id);
       advance(500);
@@ -604,7 +602,7 @@ describe("createDummyAuthority", () => {
 
     it("生成中に手が塞がったら、結果は適用せず users から出るだけ", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const id = authority.spawnCanvas("canvas-1");
       objects.interact(id);
       advance(500);
       const file = {
@@ -622,7 +620,7 @@ describe("createDummyAuthority", () => {
 
     it("生成中にキャンバスが消えたら、結果は適用しない", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const id = authority.spawnCanvas("canvas-1");
       objects.interact(id);
 
       authority.removeObject(id);
@@ -635,7 +633,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnCanvas([0, 0, -3]);
+      const id = authority.spawnCanvas("canvas-1");
       objects.apply({
         type: "upsert",
         object: {...objects.getObject(id)!, owner: "other"},
@@ -653,7 +651,7 @@ describe("createDummyAuthority", () => {
   describe("ワークスペース", () => {
     it("編集前のファイルを持って interact すると、2 秒後に同じ id・同じ color で edited になり、users が空に戻る", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       items.apply({
         type: "spawn",
         item: {
@@ -685,7 +683,7 @@ describe("createDummyAuthority", () => {
 
     it("手ぶらで interact すると、2 秒後に新規ファイル(file_created・色なし・id は newId の値)を持ち、users が空に戻る", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
 
       objects.interact(id);
 
@@ -704,7 +702,7 @@ describe("createDummyAuthority", () => {
 
     it("新規ファイルの id は spawnNewFile と重ならず、newId で採番される", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       const first = authority.spawnNewFile();
       authority.deleteHeldItem();
 
@@ -768,7 +766,7 @@ describe("createDummyAuthority", () => {
         const {objects, items, authority, advance} = setup();
         const onRejected = vi.fn();
         objects.on("interactRejected", onRejected);
-        const id = authority.spawnWorkspace([0, 0, -3]);
+        const id = authority.spawnWorkspace("workspace-1");
         items.apply({type: "spawn", item});
 
         objects.interact(id);
@@ -787,7 +785,7 @@ describe("createDummyAuthority", () => {
       const {objects, items, authority, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
 
       objects.interact(id);
       advance(500);
@@ -808,7 +806,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority, items, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       objects.interact(id);
       advance(WORKSPACE_ACTION_MS);
       expect(items.getHeld()?.data).toEqual({status: "file_created"});
@@ -828,7 +826,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority, items, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       items.apply({
         type: "spawn",
         item: {
@@ -851,7 +849,7 @@ describe("createDummyAuthority", () => {
 
     it("2 秒の間に手持ちが変わっていたら、結果は適用せず users だけ外す(編集)", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       items.apply({
         type: "spawn",
         item: {id: F1, kind: "file", data: {status: "unedited"}},
@@ -867,7 +865,7 @@ describe("createDummyAuthority", () => {
 
     it("2 秒の間に手持ちが変わっていたら、結果は適用せず users だけ外す(新規作成)", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       objects.interact(id);
 
       const lighter = authority.spawnItem("lighter");
@@ -879,7 +877,7 @@ describe("createDummyAuthority", () => {
 
     it("2 秒の間に編集済みに変わっていたら、再度の編集はしない(同じ data のまま)", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       items.apply({
         type: "spawn",
         item: {id: F1, kind: "file", data: {status: "unedited"}},
@@ -897,7 +895,7 @@ describe("createDummyAuthority", () => {
 
     it("2 秒の間にワークスペースが消えたら、落ちずに結果は適用しない", () => {
       const {objects, items, authority, advance} = setup();
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
       objects.interact(id);
 
       authority.removeObject(id);
@@ -911,7 +909,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
 
       authority.handle({
         type: "interact",
@@ -933,7 +931,7 @@ describe("createDummyAuthority", () => {
       const {objects, authority, advance} = setup();
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
-      const id = authority.spawnWorkspace([0, 0, -3]);
+      const id = authority.spawnWorkspace("workspace-1");
 
       authority.handle({
         type: "interact",
@@ -965,7 +963,7 @@ describe("createDummyAuthority", () => {
           objects,
           items,
         });
-        const id = authority.spawnWorkspace([0, 0, -3]);
+        const id = authority.spawnWorkspace("workspace-1");
 
         objects.interact(id);
         vi.advanceTimersByTime(WORKSPACE_ACTION_MS - 1);

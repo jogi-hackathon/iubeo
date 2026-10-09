@@ -20,11 +20,10 @@ import {
   type StockFile,
   parseDirectoryData,
 } from "../objects/directory/data";
-import type {MountainSizeName} from "../objects/directory/mountain";
+import {kindOfId} from "../objects/layout";
 import {PC_KIND} from "../objects/pc/data";
 import {WORKSPACE_ACTION_MS, WORKSPACE_KIND} from "../objects/workspace/data";
 import type {PlayerId} from "../player/types";
-import type {Vec3} from "../props/types";
 
 export const DUMMY_OBJECT_KIND = "dummy";
 export const DUMMY_ITEM_KIND = "dummy_item";
@@ -77,7 +76,6 @@ export const createDummyAuthority = ({
   schedule = defaultSchedule,
   newId = () => crypto.randomUUID(),
 }: Deps) => {
-  let nextObject = 1;
   let nextItem = 1;
   // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
   // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
@@ -274,18 +272,19 @@ export const createDummyAuthority = ({
       objects.apply({type: "upsert", object: {...object, users}});
     },
 
-    /** ダミーのオブジェクトを置き、その id を返す */
+    /**
+     * ダミーのオブジェクトを id で置く(id の種類は接頭辞で決まる)。置き場所は持たない(シーンのレイアウトが決める)。id を返す
+     */
     spawnObject: (
-      position: Vec3,
+      id: string,
       scope: ObjectScope = "personal",
       availability: ObjectAvailability = "available",
     ): string => {
       const object: GameObject = {
-        id: `${DUMMY_OBJECT_KIND}-${nextObject++}`,
-        kind: DUMMY_OBJECT_KIND,
+        id,
+        kind: kindOfId(id),
         scope,
         ...(scope === "personal" && {owner: localPlayerId}),
-        position,
         users: [],
         availability,
         data: null,
@@ -296,15 +295,11 @@ export const createDummyAuthority = ({
     removeObject: (id: string): void => {
       objects.apply({type: "remove", id});
     },
-    /**
-     * 置いてあるオブジェクトを全部片付け、id の採番も最初に戻す。同じ配置を何度置いても同じ id になる
-     * (ディレクトリの山の形は id で決まるので、ベイクページとゲーム本体で配置が同じ id でないと、ベイク AO が合わなくなる)
-     */
+    /** 置いてあるオブジェクトを全部片付ける */
     clearObjects: (): void => {
       for (const o of objects.getState().objects) {
         objects.apply({type: "remove", id: o.id});
       }
-      nextObject = 1;
     },
     setAvailability: (id: string, availability: ObjectAvailability): void => {
       const object = objects.getObject(id);
@@ -313,32 +308,26 @@ export const createDummyAuthority = ({
       }
     },
 
-    /** ディレクトリを置き(shared)、その id を返す。stock は今ディレクトリの中にあるファイル。size は山の大きさ(省略は large) */
-    spawnDirectory: (
-      position: Vec3,
-      stock: readonly StockFile[],
-      size: MountainSizeName = "large",
-    ): string => {
+    /** ディレクトリを id で置き(shared)、その id を返す。stock は今ディレクトリの中にあるファイル */
+    spawnDirectory: (id: string, stock: readonly StockFile[]): string => {
       const object: GameObject = {
-        id: `${DIRECTORY_KIND}-${nextObject++}`,
+        id,
         kind: DIRECTORY_KIND,
         scope: "shared",
-        position,
         users: [],
         availability: "available",
-        data: {stock: stock.map((f) => ({...f})), outputs: 0, size},
+        data: {stock: stock.map((f) => ({...f})), outputs: 0},
       };
       objects.apply({type: "upsert", object});
       return object.id;
     },
-    /** ワークスペースを置き(personal、owner は自分)、その id を返す */
-    spawnWorkspace: (position: Vec3): string => {
+    /** ワークスペースを id で置き(personal、owner は自分)、その id を返す */
+    spawnWorkspace: (id: string): string => {
       const object: GameObject = {
-        id: `${WORKSPACE_KIND}-${nextObject++}`,
+        id,
         kind: WORKSPACE_KIND,
         scope: "personal",
         owner: localPlayerId,
-        position,
         users: [],
         availability: "available",
         data: null,
@@ -346,15 +335,13 @@ export const createDummyAuthority = ({
       objects.apply({type: "upsert", object});
       return object.id;
     },
-    /** キャンバスを置き(personal、owner は自分)、その id を返す */
-    spawnCanvas: (position: Vec3, yaw?: number): string => {
+    /** キャンバスを id で置き(personal、owner は自分)、その id を返す */
+    spawnCanvas: (id: string): string => {
       const object: GameObject = {
-        id: `${CANVAS_KIND}-${nextObject++}`,
+        id,
         kind: CANVAS_KIND,
         scope: "personal",
         owner: localPlayerId,
-        position,
-        ...(yaw !== undefined && {yaw}),
         users: [],
         availability: "available",
         data: null,
@@ -362,14 +349,13 @@ export const createDummyAuthority = ({
       objects.apply({type: "upsert", object});
       return object.id;
     },
-    /** PC を置き(personal、owner は自分)、その id を返す。見た目はまだ無く、データだけ */
-    spawnPc: (position: Vec3): string => {
+    /** PC を id で置き(personal、owner は自分)、その id を返す。見た目はまだ無く、データだけ */
+    spawnPc: (id: string): string => {
       const object: GameObject = {
-        id: `${PC_KIND}-${nextObject++}`,
+        id,
         kind: PC_KIND,
         scope: "personal",
         owner: localPlayerId,
-        position,
         users: [],
         availability: "available",
         data: null,

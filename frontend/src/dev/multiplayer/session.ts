@@ -8,9 +8,10 @@ import {
   type SessionConnection,
   type SocketStatus,
 } from "../../net";
-import {type GameObject, objectManager, setRequestHandler} from "../../objects";
+import {objectManager, setRequestHandler} from "../../objects";
 import {localPlayer, playerManager} from "../../player";
-import {dummyAuthority} from "../authority";
+import {sceneManager} from "../../scenes/sceneStore";
+import {applyDevLayout, dummyAuthority} from "../authority";
 import {connectManagers} from "./adapter";
 
 /** 開発用ローカルマルチの進み具合(パネル表示用) */
@@ -59,7 +60,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * 開発用ローカルマルチを始める(MultiplayerTestScene に入ったとき)。戻り値で止める。
  * 実サーバーと同じ経路で動かす: プレイヤーを作り(Cookie)、参加中のセッションがあればそこへ、
  * 無ければ自動マッチングで待ち、WebSocket でつなぐ。その間、ダミーのサーバー役は外し、
- * そのオブジェクトと手持ちは退避しておき、止めたら戻す
+ * 手持ちは退避しておき、止めたら戻す。オブジェクトは、止めたときのシーンのレイアウトで置き直す
+ * (止めるのはシーンを離れたときで、そのときには新しいシーンの物が置いてあるので、入る前の物を戻すと上書きしてしまう)
  */
 export const startDevMultiplayer = (): (() => void) => {
   const api = createApiClient();
@@ -68,8 +70,7 @@ export const startDevMultiplayer = (): (() => void) => {
   let connection: SessionConnection | null = null;
   const offs: Array<() => void> = [];
 
-  // ダミーのサーバー役の状態を退避して、場を空ける
-  const savedObjects: readonly GameObject[] = objectManager.getState().objects;
+  // ダミーのサーバー役の手持ちを退避して、場を空ける
   const savedHeld: Item | null = itemManager.getHeld();
   const clearWorld = () => {
     for (const o of objectManager.getState().objects) {
@@ -199,9 +200,7 @@ export const startDevMultiplayer = (): (() => void) => {
     clearWorld();
     playerManager.apply({type: "reset", players: []});
     playerManager.setLocalPlayerId(null);
-    for (const object of savedObjects) {
-      objectManager.apply({type: "upsert", object});
-    }
+    applyDevLayout(sceneManager.getState().current);
     if (savedHeld) {
       itemManager.apply({type: "spawn", item: savedHeld});
     }

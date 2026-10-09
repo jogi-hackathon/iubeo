@@ -3,11 +3,11 @@ import {useEffect, useState} from "react";
 import {createToggleStore, useIsVisible} from "../../core/toggles";
 import {TogglesProvider} from "../../core/TogglesProvider";
 import {ManagedObjects} from "../../objects";
-import {DIRECTORY_OVERVIEW_KEY} from "../../objects/directory/data";
+import {featureKey} from "../../objects/layout";
 import {Chair, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {placeDebugObjects} from "./debugObjects";
-import {CHAIR_POSITION, ROOM_FLOOR, ROOM_WALLS} from "./layout";
+import {CHAIR_POSITION, ROOM_FLOOR, ROOM_LAYOUT, ROOM_WALLS} from "./layout";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {WindowPlug} from "./WindowPlug";
 
@@ -41,13 +41,13 @@ function RoomProps() {
  */
 export function RoomScene() {
   const [toggles] = useState(() =>
-    createToggleStore({disabled: [DIRECTORY_OVERVIEW_KEY]}),
+    createToggleStore({disabled: [featureKey("directory", "overview")]}),
   );
   useEffect(() => placeDebugObjects(), []);
   return (
     <TogglesProvider store={toggles}>
       <RoomProps />
-      <ManagedObjects ao="realtime" />
+      <ManagedObjects layout={ROOM_LAYOUT} ao="realtime" />
     </TogglesProvider>
   );
 }

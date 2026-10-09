@@ -11,6 +11,7 @@ import {createObjectManager} from "../../../objects/objectManager";
 import type {GameObject} from "../../../objects/types";
 import {createPlayerManager} from "../../../player/playerManager";
 import {connectManagers} from "../adapter";
+import {MULTIPLAYER_LAYOUT} from "../layout";
 
 type Player = SessionSnapshot["players"][number];
 
@@ -36,7 +37,6 @@ const object = (
   id,
   kind: "directory",
   scope: "shared",
-  position: [14, 0, 1],
   users: [],
   availability: "available",
   data: {stock: [], outputs: 0},
@@ -142,9 +142,9 @@ describe("connectManagers", () => {
         ],
       ),
     );
-    const position = (id: string) =>
-      t.objects.getState().objects.find((o) => o.id === id)?.position;
-    expect(position("directory-1")).toEqual([14, 0, 1]);
+    // 置き場所はレイアウトが決める(GameObject は位置を持たない)
+    const position = (name: string) => MULTIPLAYER_LAYOUT[name]?.position;
+    expect(position("directory")).toEqual([14, 0, 1]);
     expect(position("workspace-2")).toEqual([11.5, 0, -5]);
     expect(position("lighter_stand-1")).toEqual([14.55, 0.95, -4.8]);
   });

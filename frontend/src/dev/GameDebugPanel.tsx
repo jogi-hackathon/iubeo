@@ -5,7 +5,7 @@ import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
 import {objectManager, useObjectsState} from "../objects";
 import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
-import {dummyAuthority} from "./authority";
+import {dummyAuthority, spawnSpareObject} from "./authority";
 
 // パネルは Canvas の外の DOM なので、操作するには Esc で pointer lock を解除してから使う。
 // SceneDebugPanel(左上)・PostProcessPanel(右上)と重ならないよう左下に置く
@@ -54,13 +54,14 @@ export function GameDebugPanel() {
           <button
             key={scope}
             type="button"
-            onClick={() =>
-              // 続けて置いても重ならないよう、x をずらして並べる
-              dummyAuthority.spawnObject(
-                [((objects.length % 5) - 2) * 0.8, 1.5, -7],
-                scope,
-              )
-            }
+            // 予備の id(dummy-4〜8)の空いている一番若い物を置く。置き場所はテストシーンのレイアウトが決める
+            onClick={() => {
+              if (spawnSpareObject(scope) === undefined) {
+                console.warn(
+                  "[debug] 予備のダミー(dummy-4〜8)はすべて置かれています",
+                );
+              }
+            }}
           >
             spawn {scope}
           </button>
