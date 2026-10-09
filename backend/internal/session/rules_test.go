@@ -54,8 +54,8 @@ func TestInitialState(t *testing.T) {
 		}
 	}
 
-	if len(snap.Objects) != 7 {
-		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 lighter stands", len(snap.Objects))
+	if len(snap.Objects) != 10 {
+		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 canvases + 3 lighter stands", len(snap.Objects))
 	}
 	dir := snap.Objects[0]
 	if dir.Id != "directory-1" || dir.Kind != api.Directory || dir.Scope != api.Shared || dir.Owner != nil {
@@ -79,6 +79,10 @@ func TestInitialState(t *testing.T) {
 		case api.Workspace:
 			if o.Id != "workspace-"+seats[*o.Owner] || o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable {
 				t.Errorf("workspace of %s = %+v", *o.Owner, o)
+			}
+		case api.Canvas:
+			if o.Id != "canvas-"+seats[*o.Owner] || o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable {
+				t.Errorf("canvas of %s = %+v", *o.Owner, o)
 			}
 		case api.LighterStand:
 			// bypassPermission が立つまでは使えない

@@ -22,8 +22,8 @@ type State struct {
 	Objects []ObjectState
 	Items   []ItemState
 	Team    api.Team
-	// Actions は作業中のワークスペースのアクション
-	Actions []WorkspaceAction
+	// Actions は作業中のワークスペース・キャンバスのアクション
+	Actions []ObjectAction
 	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
 	Phases PhaseRules
 	Phase  PhaseState
@@ -137,6 +137,14 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		st.Objects = append(st.Objects, ObjectState{
 			ID:           workspaceID(seat),
 			Kind:         api.Workspace,
+			Scope:        api.Personal,
+			Owner:        pid,
+			Users:        []string{},
+			Availability: api.ObjectAvailabilityAvailable,
+		})
+		st.Objects = append(st.Objects, ObjectState{
+			ID:           canvasID(seat),
+			Kind:         api.Canvas,
 			Scope:        api.Personal,
 			Owner:        pid,
 			Users:        []string{},

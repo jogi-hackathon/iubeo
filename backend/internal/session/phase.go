@@ -45,6 +45,12 @@ type TaskState struct {
 	CompletedAt time.Time
 }
 
+// taskTypes は配るタスクの種類。PC がまだ無いので、web_search は出さない
+var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.ImageGeneration}
+
+// creationTaskTypes は、read_edit の対象の在庫を使い切ったときに代わりに選ぶ種類
+var creationTaskTypes = []api.TaskType{api.Write, api.ImageGeneration}
+
 func taskID(phase, n int) string {
 	return "task-" + strconv.Itoa(phase) + "-" + strconv.Itoa(n)
 }
@@ -52,9 +58,9 @@ func taskID(phase, n int) string {
 // startPhase は第 number フェーズを始める。タスクを作って生存者に配り、phase.started を送る。
 //
 // 全体の件数は number × セッション開始時の人数。生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。
-// 種類は read_edit と write から乱数で選ぶ。read_edit の対象は在庫のファイルから乱数で選び、別のプレイヤーとは
+// 種類は taskTypes から均等に乱数で選ぶ。read_edit の対象は在庫のファイルから乱数で選び、別のプレイヤーとは
 // 重なってよい(同じファイルを取り合うコンフリクトを起こすため)。同じプレイヤーの中では重複させず、
-// 自分の分で在庫を使い切ったら write にする
+// 自分の分で在庫を使い切ったら creationTaskTypes から乱数で選び直す
 // 第2フェーズからは、先にアイテムを初期状態に戻す
 func (st *State) startPhase(number int, now time.Time) []Output {
 	var out []Output
@@ -85,12 +91,15 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		// このプレイヤーにまだ割り当てていない在庫のファイル
 		left := slices.Clone(stock)
 		for range quota[i] {
-			t := TaskState{ID: taskID(number, len(tasks)+1), Type: api.Write, Assignee: pid}
-			if r.IntN(2) == 0 && len(left) > 0 {
-				j := r.IntN(len(left))
-				t.Type = api.ReadEdit
-				t.TargetFileID = left[j]
-				left = slices.Delete(left, j, j+1)
+			t := TaskState{ID: taskID(number, len(tasks)+1), Type: taskTypes[r.IntN(len(taskTypes))], Assignee: pid}
+			if t.Type == api.ReadEdit {
+				if len(left) == 0 {
+					t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
+				} else {
+					j := r.IntN(len(left))
+					t.TargetFileID = left[j]
+					left = slices.Delete(left, j, j+1)
+				}
 			}
 			tasks = append(tasks, t)
 		}
@@ -265,7 +274,8 @@ func (st *State) stockFileIDs() []string {
 
 // completeTask は、担当者がファイルをディレクトリに入れたときに、それで達成になるタスクを 1 つ完了にする(state-schema.md §5.1)。
 // status は入れる前(手に持っていたとき)のファイルの状態。read_edit は対象のファイルを編集済みで、
-// write は作ったファイルを入れたとき。締切より前に受け付けたものだけ数える。完了にしたら task.completed を返す。
+// write はワークスペースで作ったファイル、image_generation はキャンバスで作ったファイルを入れたとき。
+// 締切より前に受け付けたものだけ数える。完了にしたら task.completed を返す。
 //
 // 編集済みは入れると編集前に戻る(§5.2.1)ので、同じファイルでも、別のプレイヤーが編集し直して入れればその人の達成になる。
 // 作ったファイルは成果物になって取り出せないので、2 回数えることはない
@@ -280,7 +290,8 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 			continue
 		}
 		if (t.Type == api.ReadEdit && t.TargetFileID == fileID && status == api.FileStatusEdited) ||
-			(t.Type == api.Write && status == api.FileStatusFileCreated) {
+			(t.Type == api.Write && status == api.FileStatusFileCreated) ||
+			(t.Type == api.ImageGeneration && status == api.FileStatusImageCreated) {
 			t.CompletedAt = now
 			return []Output{Broadcast{Msg: api.TaskCompletedMessage{Type: api.TaskCompleted, Seq: st.nextSeq(), TaskId: t.ID, CompletedAt: now}}}
 		}
