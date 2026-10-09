@@ -21,8 +21,19 @@ const NETWORK_NOTE: Record<WispState, string> = {
     '<p class="warn">WISP proxy did not answer: results cannot load. Start <code>pnpm wisp</code>, then reload the app.</p>',
 };
 
-export const searchStartPage = (wisp: WispState): string => {
-  const network = NETWORK_NOTE[wisp];
+/** 本番向け。開発の手順（pnpm wisp）は出さない */
+const PRODUCTION_NETWORK_NOTE: Record<WispState, string> = {
+  ok: NETWORK_NOTE.ok,
+  none: '<p class="warn">Search is not available here: results cannot load.</p>',
+  unreachable:
+    '<p class="warn">The search proxy did not answer: results may not load. Wait a moment and try again.</p>',
+};
+
+/**
+ * @param dev 開発中か。開発中は、WISP が無いときの直し方（pnpm wisp）を書く
+ */
+export const searchStartPage = (wisp: WispState, dev = true): string => {
+  const network = (dev ? NETWORK_NOTE : PRODUCTION_NETWORK_NOTE)[wisp];
 
   return `<!doctype html><html><head><meta charset=utf-8><title>Search</title><style>
 body{margin:0;padding:34px 40px;background:#fafaf7;color:#1d1d1f;font:16px/1.6 sans-serif}

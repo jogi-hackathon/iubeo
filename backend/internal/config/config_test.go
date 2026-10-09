@@ -138,7 +138,7 @@ func TestLoadWisp(t *testing.T) {
 	})
 
 	t.Run("鍵と URL の両方があれば有効", func(t *testing.T) {
-		m := map[string]string{"IUBEO_WISP_KEY": validKey, "IUBEO_WISP_URL": "wss://example.test/wisp/"}
+		m := map[string]string{"IUBEO_WISP_KEY": validKey, "IUBEO_WISP_URL": "wss://example.test/wisp/", "IUBEO_WISP_PASS": "open-sesame"}
 		for k, v := range base {
 			m[k] = v
 		}
@@ -146,8 +146,8 @@ func TestLoadWisp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(cfg.WispKey) != validKey || cfg.WispURL != "wss://example.test/wisp/" {
-			t.Errorf("WISP config = %q / %q", cfg.WispKey, cfg.WispURL)
+		if string(cfg.WispKey) != validKey || cfg.WispURL != "wss://example.test/wisp/" || cfg.WispPass != "open-sesame" {
+			t.Errorf("WISP config = %q / %q / %q", cfg.WispKey, cfg.WispURL, cfg.WispPass)
 		}
 	})
 

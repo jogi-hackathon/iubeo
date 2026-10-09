@@ -1,3 +1,4 @@
+import {isEditableTarget} from "../core/input/useKeys";
 import {type ScreenKeyEvent, type ScreenSource, SYNTHETIC_KEY} from "./types";
 
 /**
@@ -12,7 +13,10 @@ import {type ScreenKeyEvent, type ScreenSource, SYNTHETIC_KEY} from "./types";
  *    プレイヤーの移動（core/input/useKeys）にも届かなくなる。
  *  - 隠し <textarea> をフォーカスしておく。IME の composition には本物の編集可能な要素が要る。
  *    `compositionend` で確定した文字列ごと `insertText()` に渡す（「候補から『日本語』が確定した」は
- *    キーイベントの列では表せない）。
+ *    キーイベントの列では表せない）。エンジンが canvas へフォーカスを移したら、textarea へ戻す。
+ *  - keyup は、自分が keydown を受けたキーのものだけ消費する。PC を使い始める前から押していたキー
+ *    （移動の W など）の keyup は素通しし、プレイヤーの移動側が「押しっぱなし」にならないようにする。
+ *    離れるときに押されたままのキーは、画面へ keyup を送っておく。
  *  - Escape は画面から離れる合図として、`onActiveChange(false)` で呼び出し側に返す。
  *  - 編集可能な要素（デバッグパネルの入力欄など）宛のイベントは素通しする。
  */
@@ -21,6 +25,8 @@ export class KeyboardCapture {
   private source: ScreenSource | null = null;
   private active = false;
   private composing = false;
+  /** keydown を画面へ送り、まだ keyup を送っていないキー（KeyboardEvent.code ごと） */
+  private readonly pressed = new Map<string, ScreenKeyEvent>();
   private readonly teardown: Array<() => void> = [];
 
   onActiveChange?: (active: boolean) => void;
@@ -67,6 +73,10 @@ export class KeyboardCapture {
   }
 
   disengage(): void {
+    for (const down of this.pressed.values()) {
+      this.source?.key({...down, type: "up"});
+    }
+    this.pressed.clear();
     this.source = null;
     if (!this.active) {
       return;
@@ -116,6 +126,20 @@ export class KeyboardCapture {
         this.source.insertText(text);
       }
     });
+    // エンジンは mousedown で canvas.focus() を呼ぶ。IME が効かなくなるので、textarea へ戻す
+    on(
+      "focusin",
+      (event) => {
+        if (
+          this.active &&
+          event.target !== this.field &&
+          !isEditableTarget(event.target)
+        ) {
+          this.field.focus({preventScroll: true});
+        }
+      },
+      {capture: true},
+    );
     on("input", (event) => {
       if (event.target === this.field) {
         this.field.value = "";
@@ -131,7 +155,7 @@ export class KeyboardCapture {
     if ((event as unknown as {[SYNTHETIC_KEY]?: boolean})[SYNTHETIC_KEY]) {
       return;
     }
-    if (isEditableTarget(event.target, this.field)) {
+    if (this.isOtherEditable(event.target)) {
       return;
     }
     if (isBrowserShortcut(event)) {
@@ -162,7 +186,9 @@ export class KeyboardCapture {
 
     event.preventDefault();
     event.stopPropagation();
-    this.source.key(toScreenKey(event, "down"));
+    const down = toScreenKey(event, "down");
+    this.pressed.set(event.code, down);
+    this.source.key(down);
   }
 
   private async pasteFromClipboard(): Promise<void> {
@@ -183,34 +209,26 @@ export class KeyboardCapture {
     if ((event as unknown as {[SYNTHETIC_KEY]?: boolean})[SYNTHETIC_KEY]) {
       return;
     }
-    if (isEditableTarget(event.target, this.field)) {
+    if (this.isOtherEditable(event.target)) {
       return;
     }
     if (isBrowserShortcut(event) || this.composing) {
+      return;
+    }
+    // 使い始める前から押していたキーは、画面へ keydown を送っていない。keyup は移動側へ返す
+    if (!this.pressed.delete(event.code)) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     this.source.key(toScreenKey(event, "up"));
   }
-}
 
-/** 編集可能な要素（デバッグパネルの入力欄など）宛のイベントか */
-const isEditableTarget = (
-  target: EventTarget | null,
-  own: HTMLElement,
-): boolean => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
+  /** 自分の textarea 以外の、編集可能な要素（デバッグパネルの入力欄など）宛のイベントか */
+  private isOtherEditable(target: EventTarget | null): boolean {
+    return target !== this.field && isEditableTarget(target);
   }
-  if (target === own) {
-    return false;
-  }
-  if (target.isContentEditable) {
-    return true;
-  }
-  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
-};
+}
 
 const toScreenKey = (
   event: KeyboardEvent,

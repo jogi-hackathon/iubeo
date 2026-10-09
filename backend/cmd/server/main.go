@@ -38,7 +38,7 @@ func main() {
 	)
 	// WISP のトークンは、鍵が設定されているときだけ発行する
 	if cfg.WispKey != nil {
-		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL)
+		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL, cfg.WispPass)
 	}
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
 		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration,

@@ -21,8 +21,12 @@ const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
 const CURSOR_RATE = 9;
+/** これより近づいたら、エンジンの JS を先に取っておく(m)。部屋に入っただけの人には取らせない */
+const PREWARM_DISTANCE = 4;
 
 const UP = new Vector3(0, 1, 0);
+const eye = new Vector3();
+const pcPosition = new Vector3();
 const euler = new Euler(0, 0, 0, "YXZ");
 
 /**
@@ -51,10 +55,15 @@ export function PcObject({object}: {object: GameObject}) {
     return () => crt.material.dispose();
   }, [crt]);
 
-  // エンジンの JS を先に取っておく（初めて使うときの待ちを減らす）
-  useEffect(() => {
-    prewarmEngine(location.search);
-  }, []);
+  // 使っている途中で PC が消えたら（オブジェクトが外れたなど）、預かったプレイヤーを返す
+  useEffect(
+    () => () => {
+      if (pcSession.getState().objectId === object.id) {
+        pcSession.reset();
+      }
+    },
+    [object.id],
+  );
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
@@ -134,7 +143,20 @@ export function PcObject({object}: {object: GameObject}) {
       dt,
     );
 
-    // エンジンの画素をテクスチャへ。GPU モードは毎フレーム、それ以外は変わったときだけ読み直す
+    // 近づいたら、エンジンの JS を先に取っておく（初めて使うときの待ちを減らす。ページで 1 回だけ）
+    if (
+      getEyePosition(localPlayer, eye).distanceTo(
+        pcPosition.set(...object.position),
+      ) < PREWARM_DISTANCE
+    ) {
+      prewarmEngine(location.search);
+    }
+
+    // エンジンの画素をテクスチャへ。GPU モードは毎フレーム、それ以外は変わったときだけ読み直す。
+    // 画面は全 PC で 1 枚を共有するので、使っている PC だけが進める（電源が切れていれば見えない）
+    if (phase === "idle") {
+      return;
+    }
     screen.tick();
     if (screen.liveSurface || screen.isDirty()) {
       screen.texture.needsUpdate = true;

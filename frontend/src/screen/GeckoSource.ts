@@ -12,7 +12,13 @@ import {
   type ScreenModifiers,
   type ScreenPointerEvent,
 } from "./types";
-import {describeWispHost, resolveWispUrl, wispOverrideFrom} from "./wispUrl";
+import {
+  describeWispHost,
+  resolveWispUrl,
+  setFreshWispUrl,
+  wispOverrideFrom,
+  wispPassFrom,
+} from "./wispUrl";
 
 /**
  * Gecko（Firefox のエンジン）を WebAssembly 化したものを、このタブの中で走らせる画面ソース。
@@ -32,20 +38,31 @@ import {describeWispHost, resolveWispUrl, wispOverrideFrom} from "./wispUrl";
 const PROGRESS_INTERVAL_MS = 1000;
 /** WISP プロキシの疎通を待つ上限(ms)。超えたら「つながらない」として扱う */
 const WISP_TIMEOUT_MS = 8000;
+/**
+ * トークンで繋ぐ（本番の）WISP の疎通を待つ上限(ms)。眠っている Container の起動を待つ分だけ長くする
+ * （worker/wisp.ts の START_TIMEOUT_MS と同じ）。wasm の起動と並行して待つ
+ */
+const WISP_COLD_START_TIMEOUT_MS = 90_000;
+/** WISP のトークン（期限 5 分）を取り直す間隔(ms) */
+const WISP_TOKEN_REFRESH_MS = 4 * 60 * 1000;
 
 export class GeckoSource extends CanvasScreenSource {
   private engine: GeckoInstance | null = null;
   private ready = false;
   private gpuMode = false;
   private progressTimer?: number;
+  private tokenTimer?: number;
   /** 直結の指定（?wisp= か VITE_WISP_URL）。undefined ならトークンを発行してもらう */
   private readonly wispOverride: string | undefined;
+  /** トークンの発行に要る合言葉（?wisppass=）。無ければ undefined */
+  private readonly wispPass: string | undefined;
   /** 実際に使う WISP の URL（起動時に決まる。無ければ undefined） */
   private wispUrl?: string;
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
     this.wispOverride = wispOverrideFrom(search, import.meta.env.VITE_WISP_URL);
+    this.wispPass = wispPassFrom(search);
   }
 
   /** GPU モードのエンジンはフレームをこちらへ通知せず #screen へ直接合成するので、毎フレーム読み直す */
@@ -109,11 +126,22 @@ export class GeckoSource extends CanvasScreenSource {
     );
 
     // 接続先（トークン付きの URL を含む）を決める。取れなければ WISP 無しで動かす
-    this.wispUrl = await resolveWispUrl(this.wispOverride);
+    this.wispUrl = await resolveWispUrl(
+      this.wispOverride,
+      fetch,
+      this.wispPass,
+    );
+    const usesToken = this.wispOverride === undefined && !!this.wispUrl;
     // WISP への疎通確認を wasm の起動と並行して走らせる。死んでいると最初の読み込みが永久に待つため
     const wispCheck = this.wispUrl
-      ? checkWisp(this.wispUrl)
+      ? checkWisp(
+          this.wispUrl,
+          usesToken ? WISP_COLD_START_TIMEOUT_MS : WISP_TIMEOUT_MS,
+        )
       : Promise.resolve(false);
+    if (usesToken) {
+      this.keepWispTokenFresh();
+    }
 
     try {
       const engine = new Gecko({
@@ -140,7 +168,9 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
-      await engine.load(pageToDataUrl(searchStartPage(wispState)));
+      await engine.load(
+        pageToDataUrl(searchStartPage(wispState, import.meta.env.DEV)),
+      );
 
       this.ready = true;
       const versionTag = resolved.version ? ` v${resolved.version}` : "";
@@ -151,6 +181,10 @@ export class GeckoSource extends CanvasScreenSource {
         : "オフライン（検索結果は WISP が必要）";
       this.setStatus("ready", `Gecko エンジン${versionTag} · ${network}`);
     } catch (error) {
+      // 起動し直すときに新しく作るので、途中まで起動したものは捨てる
+      this.engine?.destroy();
+      this.engine = null;
+      this.stopTokenRefresh();
       this.setStatus(
         "error",
         `エンジンの起動に失敗しました: ${describe(error)}`,
@@ -164,6 +198,30 @@ export class GeckoSource extends CanvasScreenSource {
     if (this.progressTimer !== undefined) {
       window.clearInterval(this.progressTimer);
       this.progressTimer = undefined;
+    }
+  }
+
+  /**
+   * WISP のトークンを期限が切れる前に取り直し続ける。エンジンは最初の通信のときに初めて WISP へ繋ぐので、
+   * 起動から時間が経っていても、そのとき有効なトークンで繋げるようにする
+   */
+  private keepWispTokenFresh(): void {
+    setFreshWispUrl(this.wispUrl);
+    this.stopTokenRefresh();
+    this.tokenTimer = window.setInterval(() => {
+      void resolveWispUrl(undefined, fetch, this.wispPass).then((url) => {
+        if (url && this.tokenTimer !== undefined) {
+          this.wispUrl = url;
+          setFreshWispUrl(url);
+        }
+      });
+    }, WISP_TOKEN_REFRESH_MS);
+  }
+
+  private stopTokenRefresh(): void {
+    if (this.tokenTimer !== undefined) {
+      window.clearInterval(this.tokenTimer);
+      this.tokenTimer = undefined;
     }
   }
 
@@ -301,6 +359,7 @@ export class GeckoSource extends CanvasScreenSource {
 
   override dispose(): void {
     this.stopProgress();
+    this.stopTokenRefresh();
     this.engine?.destroy();
     this.engine = null;
     super.dispose();
@@ -308,10 +367,10 @@ export class GeckoSource extends CanvasScreenSource {
 }
 
 /**
- * WISP の WebSocket への疎通（握手まで）。応答しない・拒否なら WISP_TIMEOUT_MS で諦めて false。
+ * WISP の WebSocket への疎通（握手まで）。応答しない・拒否なら timeoutMs で諦めて false。
  * wisp プロトコル自体は検証しない（開いてすぐ閉じる）。
  */
-const checkWisp = (url: string): Promise<boolean> =>
+const checkWisp = (url: string, timeoutMs: number): Promise<boolean> =>
   new Promise<boolean>((resolve) => {
     let settled = false;
     let ws: WebSocket | undefined;
@@ -333,7 +392,7 @@ const checkWisp = (url: string): Promise<boolean> =>
       }
       resolve(ok);
     };
-    const timer = window.setTimeout(() => finish(false), WISP_TIMEOUT_MS);
+    const timer = window.setTimeout(() => finish(false), timeoutMs);
     try {
       ws = new WebSocket(url.endsWith("/") ? url : `${url}/`);
     } catch {

@@ -7,6 +7,7 @@
  */
 
 import type {GeckoModule} from "./geckoTypes";
+import {installWispTokenRewrite} from "./wispUrl";
 
 const ENGINE_DIR_PATTERN = /^[\w.-]+$/;
 const ENTRY_FALLBACK = "/engine/gecko.js";
@@ -122,11 +123,17 @@ export const resolveEngine = async (
   return null;
 };
 
+let prewarmed = false;
+
 /**
  * エンジンの JS（埋め込み gecko.data を含む 13MB 級）を先に import しておく。クリック時の待ちが減る。
- * wasm 本体は取らない（localhost なら速く、抱え込むとメモリを圧迫するだけ）。
+ * wasm 本体は取らない（localhost なら速く、抱え込むとメモリを圧迫するだけ）。ページで 1 回だけ取りに行く
  */
 export const prewarmEngine = (search: string): void => {
+  if (prewarmed) {
+    return;
+  }
+  prewarmed = true;
   void (async () => {
     const resolved = await resolveEngine(search);
     if (!resolved) {
@@ -140,6 +147,11 @@ export const prewarmEngine = (search: string): void => {
   })();
 };
 
-/** public/ 配下の素の URL として動的 import する。Vite に束ねさせないため @vite-ignore */
-export const importEngine = (entry: string): Promise<GeckoModule> =>
-  import(/* @vite-ignore */ entry) as Promise<GeckoModule>;
+/**
+ * public/ 配下の素の URL として動的 import する。Vite に束ねさせないため @vite-ignore。
+ * エンジンの中の wisp-js は評価時の WebSocket を持ち続けるので、その前に WISP のトークンの差し替えを仕込む
+ */
+export const importEngine = (entry: string): Promise<GeckoModule> => {
+  installWispTokenRewrite();
+  return import(/* @vite-ignore */ entry) as Promise<GeckoModule>;
+};

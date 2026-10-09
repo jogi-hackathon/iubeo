@@ -30,6 +30,17 @@ describe("searchStartPage", () => {
     expect(searchStartPage("ok")).not.toContain("not configured");
   });
 
+  it("本番では、開発の手順（pnpm wisp）を出さない", () => {
+    for (const state of ["none", "unreachable", "ok"] as const) {
+      const html = searchStartPage(state, false);
+      expect(html).not.toContain("pnpm wisp");
+      expect(isAscii(html)).toBe(true);
+    }
+    expect(searchStartPage("unreachable", false)).toContain(
+      "search proxy did not answer",
+    );
+  });
+
   it("data: URL にしたとき、エンジンが読める上限(8192 バイト)に収まる", () => {
     expect(pageToDataUrl(searchStartPage("none")).length).toBeLessThan(
       MAX_URL_BYTES,

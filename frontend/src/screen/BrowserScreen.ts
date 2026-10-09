@@ -62,6 +62,15 @@ export class BrowserScreen implements ScreenSource {
   /** 自分で移動を始めた先の URL。読み込みが済むまで、読み直した古い URL で上書きしない */
   private pendingUrl: string | null = null;
   private holdUntil = 0;
+  /**
+   * 移動を始めたときに表示していたページの URL。これと違う URL が読めたら、移動先に着いたとみなす
+   * （リダイレクトで入力と違う URL に着いたときのため）。まだ一度も読めていなければ空
+   */
+  private navigatedFrom = "";
+  /** 最後に読んだ、表示中のページの URL */
+  private lastHref = "";
+  /** ページの中で押したボタンを離すまでの間。枠の上へはみ出しても、離すまでエンジンへ送る */
+  private pagePressed = false;
   private addressFocused = false;
   private draft = "";
   private readonly syncTimer: number;
@@ -124,7 +133,11 @@ export class BrowserScreen implements ScreenSource {
   }
 
   pointer(event: ScreenPointerEvent): void {
-    if (event.y < TOOLBAR_HEIGHT) {
+    // 離した通知を取りこぼしても（押したまま PC から離れたなど）、ボタンが押されていなければ押下は終わっている
+    if (event.type !== "up" && event.buttons === 0) {
+      this.pagePressed = false;
+    }
+    if (event.y < TOOLBAR_HEIGHT && !this.pagePressed) {
       if (event.type === "down") {
         this.pressToolbar(event.x, event.y);
       }
@@ -132,6 +145,9 @@ export class BrowserScreen implements ScreenSource {
     }
     if (event.type === "down") {
       this.blurAddress();
+      this.pagePressed = true;
+    } else if (event.type === "up") {
+      this.pagePressed = false;
     }
     this.engine.pointer({...event, y: event.y - TOOLBAR_HEIGHT});
   }
@@ -248,6 +264,7 @@ export class BrowserScreen implements ScreenSource {
   private startNavigation(target: string): void {
     this.engine.navigate(target);
     this.pendingUrl = target;
+    this.navigatedFrom = this.lastHref;
     this.holdUntil = Date.now() + NAVIGATION_HOLD_MS;
     this.markChrome();
   }
@@ -297,10 +314,20 @@ export class BrowserScreen implements ScreenSource {
     if (!href) {
       return;
     }
+    this.lastHref = href;
     if (this.pendingUrl !== null) {
-      // 自分で始めた移動の結果を待つ。来たら、それを今の URL として採る
-      if (href === this.pendingUrl || Date.now() >= this.holdUntil) {
+      // 自分で始めた移動の結果を待つ。移動先か、移動前と違うページ（リダイレクトの後など）が来たら、
+      // それを今の URL として採る
+      const arrived =
+        href === this.pendingUrl ||
+        (!!this.navigatedFrom && href !== this.navigatedFrom);
+      if (arrived || Date.now() >= this.holdUntil) {
+        // 履歴には入力どおりの URL を積んでいるので、着いた先の URL に直す（リンクで先へ進んだときに重複させない）
+        if (arrived && this.history[this.historyIndex] === this.pendingUrl) {
+          this.history[this.historyIndex] = href;
+        }
         this.pendingUrl = null;
+        this.navigatedFrom = "";
         this.url = href;
         this.markChrome();
       }

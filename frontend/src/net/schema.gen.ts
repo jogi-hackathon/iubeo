@@ -69,6 +69,8 @@ export interface paths {
      * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
      * @description WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人だけに、
      *     期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
+     *     サーバーに合言葉(IUBEO_WISP_PASS)が設定されていれば、それを X-Iubeo-Wisp-Pass で送った人だけに返す
+     *     (PC が開発中で、開発メンバーだけが触る間の制限)。
      */
     get: operations["getWispToken"];
     put?: never;
@@ -750,7 +752,10 @@ export interface operations {
   getWispToken: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description WISP を使うための合言葉。サーバーに設定があるときだけ要る */
+        "X-Iubeo-Wisp-Pass"?: string;
+      };
       path?: never;
       cookie?: never;
     };
@@ -766,6 +771,7 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
       503: components["responses"]["Unavailable"];
     };
   };

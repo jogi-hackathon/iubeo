@@ -94,6 +94,15 @@ paths:
       description: |
         WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人だけに、
         期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
+        サーバーに合言葉(IUBEO_WISP_PASS)が設定されていれば、それを X-Iubeo-Wisp-Pass で送った人だけに返す
+        (PC が開発中で、開発メンバーだけが触る間の制限)。
+      parameters:
+        - name: X-Iubeo-Wisp-Pass
+          in: header
+          required: false
+          description: WISP を使うための合言葉。サーバーに設定があるときだけ要る
+          schema:
+            type: string
       responses:
         "200":
           description: 接続先の URL(トークンを含む)
@@ -103,6 +112,8 @@ paths:
                 $ref: "#/components/schemas/WispToken"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/Unavailable"
 

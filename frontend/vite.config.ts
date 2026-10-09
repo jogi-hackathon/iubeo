@@ -4,11 +4,15 @@ import {defineConfig} from "vite";
 
 import {bakeSavePlugin} from "./scripts/bakeSavePlugin.ts";
 import {serveEnginePlugin} from "./scripts/serveEnginePlugin.ts";
-import {wispDevPlugin} from "./scripts/wispServer.ts";
+import {DEFAULT_WISP_PORT, wispDevPlugin} from "./scripts/wispServer.ts";
 
 // バックエンド(backend/。既定 :8080)。開発時は /api と /healthz を転送し、ブラウザから見て同じオリジンにする
 // (プレイヤーは HttpOnly Cookie で識別するため。ADR-0003)。IUBEO_BACKEND_URL で変えられる
 const backend = process.env.IUBEO_BACKEND_URL ?? "http://localhost:8080";
+
+// 手元の WISP(scripts/wispServer.ts)。/wisp を転送し、本番と同じ「同じオリジンの /wisp/」で繋げるようにする
+// (トークンの流れを手元で確かめるとき。直結の VITE_WISP_URL を使うなら通らない)
+const wispPort = Number(process.env.WISP_PORT ?? DEFAULT_WISP_PORT);
 
 // Gecko エンジン（PC の画面）は pthread のために SharedArrayBuffer を使う。COOP/COEP で cross-origin isolation にする
 const crossOriginIsolation = {
@@ -41,6 +45,7 @@ export default defineConfig(({command, isPreview}) => ({
     proxy: {
       "/api": {target: backend, ws: true},
       "/healthz": {target: backend},
+      "/wisp": {target: `ws://127.0.0.1:${wispPort}`, ws: true},
     },
   },
 }));

@@ -75,6 +75,8 @@ const backendWorker = defineWorker({
     IUBEO_SIGNING_KEY: bindings.secret(),
     // WISP 接続用トークンの署名鍵。WISP の Worker と同じ値を入れる(未設定なら WISP のトークンは発行されない)
     IUBEO_WISP_KEY: bindings.secret(),
+    // WISP のトークンを発行する合言葉。開発メンバーは ?wisppass=<合言葉> で開く(未設定なら WISP は無効)
+    IUBEO_WISP_PASS: bindings.secret(),
     // "target" が "ec2" なら本番相当(EC2 + EIP)へ、それ以外は Containers へ。
     // Lambda(Discord の /ec2start /ec2stop)がこの値を書き換える
     TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
