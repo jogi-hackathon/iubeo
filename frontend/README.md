@@ -15,9 +15,22 @@ pnpm install
 pnpm dev          # 開発サーバー http://localhost:5173
 ```
 
+PC の画面（Web 検索）を使うには、別途 Gecko エンジンの取り込みが要る（約 34MB。リポジトリには入らない）。
+入れなくても起動はするが、PC の画面は「NO ENGINE」のままになる。
+
+```sh
+# ビルド済みリリースを取ってリンクする（最新のタグは releases ページで確認。
+# 自分でビルドした dist や firefox-wasm のリポジトリも渡せる）
+curl -LO https://github.com/thirdlf03/firefox-wasm/releases/download/v0.0.9/gecko.js-v0.0.9.tar.gz
+pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
+```
+
+詳しくは下の「PC（Web 検索の画面）」節。
+
 | コマンド | 用途 |
 | --------------------------------- | ---------------------------------------- |
 | `pnpm dev` | 開発サーバー(5173 固定) |
+| `pnpm engine:link` | PC の画面の Gecko エンジンを取り込む(初回だけ) |
 | `pnpm build` | 型チェック後に `dist/` へビルド |
 | `pnpm preview` | ビルド結果の確認 |
 | `pnpm typecheck` | `tsc --noEmit`(本体と Node 側の2系統) |
@@ -67,7 +80,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - 本番（Cloudflare）には載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番では「NO ENGINE」になる。
 
-- 検索結果は、WISP 経由で Google に出る。Google は、プロキシ経由の通信に対して reCAPTCHA を出すことがある。
+- 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
 
 ### 本番の WISP（トークンで保護）
 
@@ -75,12 +88,17 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。
 - PC が開発中の間は、開発メンバーだけが使えるよう、合言葉（`IUBEO_WISP_PASS`）を知っている人にだけトークンを発行する。開発メンバーは `?debug&wisppass=<合言葉>` で開く（合言葉はタブを閉じるまで覚えている）。合言葉が無いと 403 で、検索結果は出ない。
-- WISP の Worker（`worker/wisp.ts`）がトークンを検証してから、Container（`wisp/`、wisp-js）へ流す。フロントの Worker が `/wisp/*` をここへ転送する。
+- WISP の Worker（`worker/wisp.ts`）は、KV の `target` で転送先を決める（backend と同じ切り替え）:
+  - `ec2` のとき: EC2 上の WISP（8081、EIP から出る）へそのまま流す。トークンは EC2 側がインスタンス上の鍵で検証する。Cloudflare の共有 IP を避けられるので Google が使える
+  - それ以外: トークンを Worker で検証してから、Container（`wisp/`、wisp-js）へ流す
+  - フロントの Worker が `/wisp/*` をここへ転送する
 - デプロイの順は backend → wisp → frontend（サービスバインディングの参照先が先に要るため）。
   - `pnpm exec cf deploy --mode backend`
   - `pnpm exec cf deploy --mode wisp`
   - `IUBEO_WISP_ENABLED=1 pnpm exec cf deploy`（WISP を deploy した後。付けないと `/wisp` は 503。プレビューも付けない）
-- secret は 3 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。`IUBEO_WISP_PASS` は backend にだけ登録する（Cloudflare では、無ければ WISP のトークンは発行されない）。
+- 手元から frontend をデプロイするときは `VITE_ENGINE_BASE_URL` も要る。付けないと本番でエンジンが取れず PC が「NO ENGINE」のままになる（CI はリポジトリ変数から入れる）。例: `IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=https://pub-0f02f960393243b2ad1e49137b42875a.r2.dev pnpm exec cf deploy`
+- 本番のドメイン（`iubeo.thirdlf03.com`）は、`iubeo-frontend` の Custom Domain としてアタッチしてある（Cloudflare が DNS と証明書を管理する）。cf からは管理しないので、消した・作り直したときはダッシュボード（Workers → iubeo-frontend → Domains & Routes）か Workers Domains API で付け直す。`iubeo-origin.thirdlf03.com` は EC2 の EIP への A レコード（DNS only）で、Worker からオリジンへ向けるために要る
+- secret は 3 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。`IUBEO_WISP_PASS` は backend にだけ登録する（Cloudflare では、無ければ WISP のトークンは発行されない）。EC2 側の鍵と合言葉は別物で、インスタンス上の `/etc/iubeo/env` に置く（infra/aws/terraform/README.md）
 
 `VITE_WISP_URL`（開発の既定は `ws://127.0.0.1:5001/`）があれば、トークンは使わずそこへ直結する。
 
