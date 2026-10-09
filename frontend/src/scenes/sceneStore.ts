@@ -1,6 +1,7 @@
 import {sceneNames, spawnOf} from ".";
 import {DEBUG_REQUESTED} from "../core/debug/flags";
 import {overview} from "../objects/directory/overview";
+import {pcSession} from "../objects/pc/session";
 import {localPlayer} from "../player/local";
 import {createSceneManager} from "./sceneManager";
 import {createSceneTransitionManager} from "./sceneTransitionManager";
@@ -27,6 +28,8 @@ applySpawn(localPlayer, spawnOf(initial));
 // 出るシーンの後始末。俯瞰ビューの解除(プレイヤーの預かりが外れる)。
 // 作業中のロック(useObjectControlLock)は、オブジェクトとシーンのアンマウントで自然に外れる
 sceneTransitionManager.onLeave(() => overview.reset());
+// PC を使っている途中なら、そのまま離す(プレイヤーを返し、画面の電源を切る)
+sceneTransitionManager.onLeave(() => pcSession.reset());
 
 // 入ったシーンのスポーン地点へ戻す
 sceneTransitionManager.onEnter(({to}) => applySpawn(localPlayer, spawnOf(to)));

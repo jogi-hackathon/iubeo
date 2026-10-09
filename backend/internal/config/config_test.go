@@ -120,3 +120,49 @@ func TestLoadErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadWisp(t *testing.T) {
+	base := map[string]string{
+		"IUBEO_SIGNING_KEY":     validKey,
+		"IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+	}
+
+	t.Run("未設定なら WISP は無効", func(t *testing.T) {
+		cfg, err := Load(env(base))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.WispKey != nil || cfg.WispURL != "" {
+			t.Errorf("WISP should be disabled: key=%q url=%q", cfg.WispKey, cfg.WispURL)
+		}
+	})
+
+	t.Run("鍵と URL の両方があれば有効", func(t *testing.T) {
+		m := map[string]string{"IUBEO_WISP_KEY": validKey, "IUBEO_WISP_URL": "wss://example.test/wisp/", "IUBEO_WISP_PASS": "open-sesame"}
+		for k, v := range base {
+			m[k] = v
+		}
+		cfg, err := Load(env(m))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(cfg.WispKey) != validKey || cfg.WispURL != "wss://example.test/wisp/" || cfg.WispPass != "open-sesame" {
+			t.Errorf("WISP config = %q / %q / %q", cfg.WispKey, cfg.WispURL, cfg.WispPass)
+		}
+	})
+
+	t.Run("鍵だけ・短すぎる鍵はエラー", func(t *testing.T) {
+		m := map[string]string{"IUBEO_WISP_KEY": validKey}
+		for k, v := range base {
+			m[k] = v
+		}
+		if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "IUBEO_WISP_URL") {
+			t.Errorf("want IUBEO_WISP_URL error, got %v", err)
+		}
+		m["IUBEO_WISP_KEY"] = "short"
+		m["IUBEO_WISP_URL"] = "wss://example.test/wisp/"
+		if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "IUBEO_WISP_KEY must be") {
+			t.Errorf("want key length error, got %v", err)
+		}
+	})
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/server"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
 func main() {
@@ -35,6 +36,10 @@ func main() {
 		matchmaking.New(cfg.MatchSize, sessions, time.Now),
 		cfg.AllowedOrigins,
 	)
+	// WISP のトークンは、鍵が設定されているときだけ発行する
+	if cfg.WispKey != nil {
+		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL, cfg.WispPass)
+	}
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
 		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration,
 		"bypass", cfg.BypassDuration, "fire", cfg.FireDuration)
