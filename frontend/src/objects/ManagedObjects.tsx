@@ -11,6 +11,7 @@ import {DirectoryObject, useOverviewGuard} from "./directory/DirectoryObject";
 import {registerDirectoryInteraction} from "./directory/interaction";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import {PC_KIND} from "./pc/data";
+import {registerPcInteraction} from "./pc/interaction";
 import {PcObject} from "./pc/PcObject";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
@@ -49,6 +50,7 @@ const renderers: Record<string, ComponentType<{object: GameObject}>> = {
 
 // kind ごとに固有のインタラクトの処理(クライアント側で完結する分)を、汎用のインタラクト基盤に登録する
 registerDirectoryInteraction();
+registerPcInteraction();
 
 /** 見た目の根。狙いの判定(interaction)が、当たった物からオブジェクトを引けるように、id を持たせて登録する */
 function ObjectRoot({object, ao}: {object: GameObject; ao?: AOMode}) {

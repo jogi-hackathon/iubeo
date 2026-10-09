@@ -66,11 +66,29 @@ const requestLock = (target: HTMLElement): void => {
   });
 };
 
+let suppressions = 0;
+
+/**
+ * マウスで画面（PC など）を操作している間、キャンバスのクリックで pointer lock を取らせない。
+ * 戻り値は解除関数（二重に呼んでも 1 回分しか解除しない）
+ */
+export const suppressPointerLock = (): (() => void) => {
+  suppressions++;
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    suppressions--;
+  };
+};
+
 /** target のクリックで pointer lock を要求し、ロック中のマウス移動量を蓄積する。戻り値は解除関数 */
 export const connectPointerLock = (target: HTMLElement): (() => void) => {
   const doc = target.ownerDocument;
   const onClick = () => {
-    if (doc.pointerLockElement !== target) {
+    if (doc.pointerLockElement !== target && suppressions === 0) {
       requestLock(target);
     }
   };

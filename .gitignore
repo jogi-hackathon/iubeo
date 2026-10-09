@@ -14,3 +14,6 @@ devenv.local.yaml
 
 # air(backend のホットリロード)のビルド出力
 backend/tmp
+
+# PC の画面の Gecko エンジン（pnpm engine:link が取り込む。約 34MB の wasm なのでリポジトリに入れない）
+frontend/engine-local/

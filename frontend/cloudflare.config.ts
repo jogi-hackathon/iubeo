@@ -8,6 +8,7 @@ import {
 
 import * as backendEntry from "./worker/backend.ts" with {type: "cf-worker"};
 import * as frontendEntry from "./worker/frontend.ts" with {type: "cf-worker"};
+import * as wispEntry from "./worker/wisp.ts" with {type: "cf-worker"};
 
 // cf と cloudflare.config.ts はベータなので、更新時は
 // https://developers.cloudflare.com/cf/ で設定形式を確認する。
@@ -17,8 +18,17 @@ import * as frontendEntry from "./worker/frontend.ts" with {type: "cf-worker"};
 //
 //   cf deploy                → iubeo-frontend(静的アセット + プロキシ)
 //   cf deploy --mode backend → iubeo-backend(コンテナ + DO)
+//   cf deploy --mode wisp    → iubeo-wisp(WISP のコンテナ + DO。実サイトへ出るプロキシ)
 const FRONTEND_NAME = "iubeo-frontend";
 const BACKEND_NAME = "iubeo-backend";
+const WISP_NAME = "iubeo-wisp";
+
+/**
+ * フロントから WISP の Worker を参照するか。WISP を deploy してから `IUBEO_WISP_ENABLED=1` を付けて
+ * フロントを deploy する。付けない環境（PR のプレビュー、WISP より先の deploy）では binding を作らない
+ * （無い Worker を参照すると deploy が失敗するため）。
+ */
+const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
 
 /**
  * Go サーバーを動かす Container。
@@ -33,6 +43,18 @@ const backendContainer = defineContainer({
   images: {
     // backend/ をビルドコンテキストにする
     base: {dockerfile: "../backend/Dockerfile"},
+  },
+});
+
+/**
+ * WISP のコンテナ。実サイトへ出るので、インターネットへの通信を許す(backend と違う点)。
+ * イメージは wisp/ の Dockerfile(wisp-js の WISP サーバー)。
+ */
+const wispContainer = defineContainer({
+  name: "iubeo-wisp-app",
+  schedulingPolicy: "durable-object",
+  images: {
+    base: {dockerfile: "../wisp/Dockerfile"},
   },
 });
 
@@ -51,9 +73,33 @@ const backendWorker = defineWorker({
   env: {
     // Go サーバーの IUBEO_SIGNING_KEY。secrets file か `cf workers secrets` で登録する
     IUBEO_SIGNING_KEY: bindings.secret(),
+    // WISP 接続用トークンの署名鍵。WISP の Worker と同じ値を入れる(未設定なら WISP のトークンは発行されない)
+    IUBEO_WISP_KEY: bindings.secret(),
+    // WISP のトークンを発行する合言葉。開発メンバーは ?wisppass=<合言葉> で開く(未設定なら WISP は無効)
+    IUBEO_WISP_PASS: bindings.secret(),
     // "target" が "ec2" なら本番相当(EC2 + EIP)へ、それ以外は Containers へ。
     // Lambda(Discord の /ec2start /ec2stop)がこの値を書き換える
     TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
+  },
+});
+
+/**
+ * WISP の Worker。トークンを検証してから、WISP のコンテナへ流す。
+ */
+const wispWorker = defineWorker({
+  name: WISP_NAME,
+  compatibilityDate: "2026-10-01",
+  entrypoint: wispEntry,
+  observability: {enabled: true},
+  exports: {
+    Wisp: exports.durableObject({
+      storage: "sqlite",
+      container: wispContainer,
+    }),
+  },
+  env: {
+    // トークンの検証鍵。バックエンドの IUBEO_WISP_KEY と同じ値を secrets file か `cf workers secrets` で登録する
+    WISP_KEY: bindings.secret(),
   },
 });
 
@@ -72,10 +118,11 @@ const frontendWorker = defineWorker({
     notFoundHandling: "single-page-application",
     // 画面と API を同じオリジンにして Cookie(SameSite=Lax)を通すため、
     // Worker が先に受けてバックエンドへ転送する
-    runWorkerFirst: ["/api/*", "/healthz"],
+    runWorkerFirst: ["/api/*", "/healthz", "/wisp/*"],
   },
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
+    ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
   },
 });
 
@@ -85,6 +132,12 @@ export default defineConfig(({mode}) => {
     return {
       worker: backendWorker,
       containers: [backendContainer],
+    };
+  }
+  if (mode === "wisp") {
+    return {
+      worker: wispWorker,
+      containers: [wispContainer],
     };
   }
   return {worker: frontendWorker};

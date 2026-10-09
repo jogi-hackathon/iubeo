@@ -1,0 +1,89 @@
+/**
+ * WISP へ繋ぐトークンの検証。バックエンド(backend/internal/wisp/token.go)が発行する形式と揃えてある。
+ *
+ * 形式は `base64url(JSON{"sub": playerId, "exp": 期限(Unix 秒)}) + "." + base64url(HMAC-SHA256(鍵, 1つ目の部分))`。
+ * 署名は 1 つ目の部分の文字列に対して取るので、デコードし直さずに検証できる。
+ * 期限切れ・署名違い・形式違いは、すべて null を返す（理由は返さない）。
+ */
+
+const encoder = new TextEncoder();
+
+/** base64url を、パディング無しでも読める形でバイト列にする。形式が違えば例外 */
+const decodeBase64Url = (text: string): Uint8Array => {
+  if (!/^[A-Za-z0-9_-]*$/.test(text)) {
+    throw new Error("not base64url");
+  }
+  const base64 = text.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+};
+
+/**
+ * トークンを検証し、プレイヤー ID（sub）を返す。無効なら null。
+ * @param key バックエンドと共有する鍵（IUBEO_WISP_KEY。32 バイト以上）
+ * @param nowSeconds 検証する時刻（Unix 秒）。テストで固定する用
+ */
+export const verifyWispToken = async (
+  token: string,
+  key: string,
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+): Promise<string | null> => {
+  const dot = token.indexOf(".");
+  if (dot < 0) {
+    return null;
+  }
+  const payload = token.slice(0, dot);
+  const signature = token.slice(dot + 1);
+
+  let signatureBytes: Uint8Array;
+  let claimsText: string;
+  try {
+    signatureBytes = decodeBase64Url(signature);
+    claimsText = new TextDecoder().decode(decodeBase64Url(payload));
+  } catch {
+    return null;
+  }
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(key),
+    {name: "HMAC", hash: "SHA-256"},
+    false,
+    ["verify"],
+  );
+  // 比較は crypto.subtle.verify が一定時間で行う
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    cryptoKey,
+    signatureBytes,
+    encoder.encode(payload),
+  );
+  if (!valid) {
+    return null;
+  }
+
+  let claims: unknown;
+  try {
+    claims = JSON.parse(claimsText);
+  } catch {
+    return null;
+  }
+  if (typeof claims !== "object" || claims === null) {
+    return null;
+  }
+  const {sub, exp} = claims as {sub?: unknown; exp?: unknown};
+  if (typeof sub !== "string" || sub === "" || typeof exp !== "number") {
+    return null;
+  }
+  if (nowSeconds >= exp) {
+    return null;
+  }
+  return sub;
+};
+
+/**
+ * リクエストの URL から token を取り出す。WISP のクライアントは接続先の URL が "/" で終わらないと "/" を足すので、
+ * `?token=xxx` の後ろに "/" が付いて届く。base64url に "/" は無いので、末尾の "/" は落とす。無ければ空文字
+ */
+export const tokenFromUrl = (url: string): string =>
+  (new URL(url).searchParams.get("token") ?? "").replace(/\/+$/, "");

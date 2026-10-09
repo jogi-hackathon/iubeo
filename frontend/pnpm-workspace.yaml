@@ -1,2 +1,4 @@
 allowBuilds:
   workerd: true
+  # ws の任意の高速化用の native モジュール。WISP では不要なのでビルドしない
+  bufferutil: false

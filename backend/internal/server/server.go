@@ -9,6 +9,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
 // Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
@@ -18,6 +19,11 @@ type Server struct {
 	matchmaker *matchmaking.Matchmaker
 	// allowedOrigins は WebSocket の接続を許すオリジン(完全一致)
 	allowedOrigins []string
+	// wisp は WISP 接続用のトークンを発行する(nil なら未設定)。wispURL は WISP の基点。
+	// wispPass は発行に要る合言葉(空なら要らない)
+	wisp     *wisp.Issuer
+	wispURL  string
+	wispPass string
 }
 
 var _ api.ServerInterface = (*Server)(nil)
