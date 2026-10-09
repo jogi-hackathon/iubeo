@@ -1,3 +1,4 @@
+import {directoryItem, type SceneLayout} from "../../objects/layout";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
@@ -130,3 +131,18 @@ export const PC_POSITION: Vec3 = [
   DESK_HEIGHT,
   WORKSPACE_POSITION[2] - 0.03,
 ];
+
+/**
+ * room に置くオブジェクトのレイアウト。項目名(directory・workspace・canvas・pc)がトグルのキーになる
+ * (例: directory:overview は俯瞰の機能)。ディレクトリは room のような狭い部屋用に small の山
+ */
+export const ROOM_LAYOUT: SceneLayout = {
+  directory: directoryItem({
+    id: "directory-1",
+    position: DIRECTORY_POSITION,
+    look: "small",
+  }),
+  workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
+  canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
+  pc: {id: "pc-1", position: PC_POSITION},
+};

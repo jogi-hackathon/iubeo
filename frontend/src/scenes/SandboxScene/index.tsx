@@ -9,11 +9,12 @@ import {
 } from "./FrostedPartition";
 import {
   ZONE_CHAIR,
+  SANDBOX_LAYOUT,
   ZONE_COUNT,
   ZONE_FLOOR,
   ZONE_ROOF,
   ZONE_WALLS,
-  zoneYaw,
+  seatYaw,
 } from "./layout";
 
 const ZONES = Array.from({length: ZONE_COUNT}, (_, i) => i);
@@ -31,7 +32,7 @@ function SandboxZone({
   partitionMaterial: MeshBasicNodeMaterial;
 }) {
   return (
-    <group rotation={[0, zoneYaw(index), 0]}>
+    <group rotation={[0, seatYaw(index + 1), 0]}>
       <Slab {...ZONE_FLOOR} />
       {ZONE_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
@@ -59,7 +60,7 @@ export function SandboxScene() {
   return (
     <>
       <SandboxStructure />
-      <ManagedObjects ao="realtime" />
+      <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
     </>
   );
 }

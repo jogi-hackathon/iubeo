@@ -14,7 +14,6 @@ const object = (
   id,
   kind: "dummy",
   scope: "personal",
-  position: [0, 1, -3],
   users: [],
   availability: "available",
   data: null,

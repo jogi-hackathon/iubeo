@@ -1,6 +1,7 @@
 import type {CSSProperties} from "react";
 
 import {sceneNames} from ".";
+import {useCoverState} from "../core/cover/coverStore";
 import {useDebugFlags} from "../core/debug/flags";
 import {
   type ToggleStore,
@@ -73,6 +74,7 @@ export function SceneDebugPanel() {
   const {current} = useSceneState();
   const transition = useTransitionState();
   const toggles = useActiveToggles();
+  const {booting} = useCoverState();
   if (!scene) {
     return null;
   }
@@ -90,7 +92,8 @@ export function SceneDebugPanel() {
           <button
             key={name}
             type="button"
-            disabled={transitioning || current === name}
+            // 起動の覆いの間と遷移中は、切り替えを始めない
+            disabled={booting || transitioning || current === name}
             onClick={() => void sceneTransitionManager.goTo(name)}
           >
             {name}

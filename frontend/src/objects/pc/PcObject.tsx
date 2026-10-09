@@ -8,8 +8,11 @@ import {getEyePosition, localPlayer} from "../../player";
 import {isSearchResultsUrl} from "../../screen/browserChrome";
 import {prewarmEngine} from "../../screen/engine";
 import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
+import {useInteraction} from "../interaction/useInteraction";
+import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
+import {pcInteraction} from "./interaction";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
 import {PcModel} from "./PcModel";
 import {type PcPhase, pcSession, usePcSession} from "./session";
@@ -55,6 +58,7 @@ const euler = new Euler(0, 0, 0, "YXZ");
  * 使っていない間は電源が切れている（画面は黒）。HUD は使わず、状態は画面と机の上のメモで伝える。
  */
 export function PcObject({object}: {object: GameObject}) {
+  const {item} = useLayoutSlot();
   const screen = useMemo(() => engineScreen(), []);
   const keyboard = useMemo(() => engineKeyboard(), []);
   const crt = useMemo(
@@ -76,6 +80,8 @@ export function PcObject({object}: {object: GameObject}) {
     },
     [object.id],
   );
+
+  useInteraction(object, pcInteraction);
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
@@ -280,7 +286,7 @@ export function PcObject({object}: {object: GameObject}) {
     // 近づいたら、エンジンの JS を先に取っておく（初めて使うときの待ちを減らす。ページで 1 回だけ）
     if (
       getEyePosition(localPlayer, eye).distanceTo(
-        pcPosition.set(...object.position),
+        pcPosition.set(...item.position),
       ) < PREWARM_DISTANCE
     ) {
       prewarmEngine(location.search);

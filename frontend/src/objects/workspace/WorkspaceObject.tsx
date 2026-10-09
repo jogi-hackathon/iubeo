@@ -3,6 +3,7 @@ import {useRef} from "react";
 import {BoxGeometry, CylinderGeometry, MeshStandardMaterial} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
+import {useControlLockWhileWorking} from "../controlLock";
 import type {GameObject} from "../types";
 import {
   DESK_HEIGHT,
@@ -81,8 +82,10 @@ export function WorkspaceActionAnimation() {
  * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
  * - モックなので、コライダーは持たない
  * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは机全体の外周に 1 本付く
+ * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
  */
 export function WorkspaceObject({object}: {object: GameObject}) {
+  useControlLockWhileWorking(object);
   return (
     <group userData={aoModeUserData("realtime")}>
       {DESK_PARTS.map((part, i) => (
