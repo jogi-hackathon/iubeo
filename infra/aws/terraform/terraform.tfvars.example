@@ -8,3 +8,6 @@ instance_type = "t4g.small"
 # 画面と API は同じ Worker から配信するので、そのオリジンを許可する。
 # サーバーは起動時にこれを検証し、空だと終了する。
 allowed_origins = ["https://iubeo.thirdlf03.com"]
+
+# WISP トークンの発行に要る合言葉。空なら EC2 側は WISP のトークンを発行しない
+wisp_pass = "change-me"

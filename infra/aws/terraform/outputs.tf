@@ -37,3 +37,8 @@ output "image_tag_parameter" {
   description = "SSM parameter holding the image tag the instance runs. CI updates it on deploy."
   value       = aws_ssm_parameter.image_tag.name
 }
+
+output "wisp_ecr_repository_url" {
+  description = "ECR repository for the WISP proxy image. Set this as the GitHub variable ECR_WISP_REPOSITORY."
+  value       = aws_ecr_repository.wisp.repository_url
+}

@@ -1,8 +1,12 @@
 /**
- * WISP の Worker。実サイトへ出るプロキシ（wisp-js を載せた Container）への入口。
+ * WISP の Worker。実サイトへ出るプロキシへの入口。
  *
  * - フロントの Worker が `/wisp/*` をこの Worker へ転送する（同じオリジンになり、Cookie の心配が要らない）
- * - `?token=` のトークンを検証してから、Container へ流す。トークンは backend が発行する（api の /api/v1/wisp/token）
+ * - 転送先は KV の "target" で切り替わる(backend.ts と同じ仕組み):
+ *   - "ec2" なら EC2 上の WISP(8081)へ流す。出口は EIP になるので、
+ *     Cloudflare のコンテナ(共有の出口IP)で出る Google の reCAPTCHA を避けられる
+ *   - それ以外は `?token=` を検証してから Cloudflare のコンテナへ流す
+ *     （トークンは backend が発行する。api の /api/v1/wisp/token）
  * - Container は外へ出るため `enableInternet: true`。wisp-js の既定で、ローカル・私設の宛先は拒否される
  *
  * トークンが無い・壊れている・期限切れは 401。鍵が未設定なら検証できないので 503。
@@ -12,8 +16,13 @@ import {DurableObject} from "cloudflare:workers";
 import {tokenFromUrl, verifyWispToken} from "./wispToken";
 
 interface Env {
-  /** トークンの検証鍵（IUBEO_WISP_KEY。バックエンドと同じ値。32 バイト以上） */
+  /**
+   * トークンの検証鍵（IUBEO_WISP_KEY。バックエンドと同じ値。32 バイト以上）。
+   * Cloudflare のコンテナ経路で使う。EC2 経路では EC2 側が自分の鍵で検証するので不要
+   */
   WISP_KEY: string;
+  /** backend.ts と同じ KV。"target" が "ec2" なら EC2 上の WISP へ流す */
+  TARGET: KVNamespace;
 }
 
 /** Container の中で wisp-js が待ち受けるポート（wisp/server.mjs） */
@@ -33,6 +42,14 @@ const HEALTH_PATH = "/";
 
 /** 1 つの Container を名前で固定して使う（単一プロセス。接続は WISP のストリームで多重化される） */
 const CONTAINER_NAME = "wisp";
+
+const TARGET_KEY = "target";
+const TARGET_EC2 = "ec2";
+/**
+ * EC2 上の WISP。backend と同じインスタンスの 8081(backend.ts の EC2_ORIGIN と同じホスト)。
+ * セキュリティグループは Cloudflare の IP 帯からしか 8081 を許していない
+ */
+const EC2_WISP_ORIGIN = "http://iubeo-origin.thirdlf03.com:8081";
 
 /**
  * Container を起動し、WISP の接続を転送する Durable Object。
@@ -102,6 +119,20 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    // EC2 経路。トークンの検証は EC2 側の WISP がインスタンス上の鍵で行うので、
+    // この Worker では検証せずそのまま流す(この Worker の WISP_KEY はコンテナ経路用の鍵で、
+    // EC2 の backend が発行したトークンとは合わない)。SG も Cloudflare の IP 帯に絞ってある
+    if ((await env.TARGET.get(TARGET_KEY)) === TARGET_EC2) {
+      const url = new URL(request.url);
+      url.protocol = "http:";
+      url.host = new URL(EC2_WISP_ORIGIN).host;
+      const forwarded = new Request(url, request);
+      // オリジン側に「本当の宛先」を残さない
+      forwarded.headers.delete("host");
+      // WebSocket への切り替えを保つため、そのまま返す
+      return fetch(forwarded);
+    }
+
     if (!env.WISP_KEY) {
       return json({error: "wisp is not configured"}, 503);
     }

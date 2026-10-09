@@ -1,6 +1,6 @@
 #!/bin/bash
-# 初回起動時に Docker と Go サーバーのコンテナを用意する。
-# 値は Terraform が埋め込む。シェル変数は署名鍵の生成にしか使わない。
+# 初回起動時に Docker と Go サーバー・WISP のコンテナを用意する。
+# 値は Terraform が埋め込む。シェル変数は鍵の生成にしか使わない。
 set -euo pipefail
 
 # AL2023 の既定リポジトリには AWS CLI が無いので、公式インストーラで入れる
@@ -17,34 +17,53 @@ fi
 
 install -d -m 0750 /etc/iubeo
 
-# 署名鍵は初回だけ生成する。再起動で変わると Cookie が無効になるため。
+# 鍵は初回だけ生成する。再起動で変わると Cookie/WISP トークンが無効になるため。
 # シェル変数は Terraform の補間と衝突しないよう、中括弧なしの $VAR で書く
 if [ ! -f /etc/iubeo/env ]; then
   SIGNING_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  WISP_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
   {
     echo "IUBEO_ADDR=:8080"
     echo "IUBEO_SIGNING_KEY=$SIGNING_KEY"
     echo "IUBEO_ALLOWED_ORIGINS=${allowed_origins}"
     echo "IUBEO_MATCH_SIZE=3"
+%{ if wisp_pass != "" ~}
+    echo "IUBEO_WISP_KEY=$WISP_KEY"
+    echo "IUBEO_WISP_URL=${wisp_url}"
+    echo "IUBEO_WISP_PASS=${wisp_pass}"
+%{ endif ~}
   } > /etc/iubeo/env
   chmod 0600 /etc/iubeo/env
-  unset SIGNING_KEY
+
+  # WISP プロセス用の環境。合言葉の有無に関わらずトークン検証を強制する
+  # (手前に検証役が居ないので、鍵が無い設定ミスのときに開くより閉じる)
+  cat > /etc/iubeo/wisp-env <<EOF
+PORT=8081
+IUBEO_WISP_KEY=$WISP_KEY
+IUBEO_WISP_REQUIRE_TOKEN=1
+EOF
+  chmod 0600 /etc/iubeo/wisp-env
+
+  unset SIGNING_KEY WISP_KEY
 fi
 
 # イメージを取り直して再起動するスクリプト。
 #
 # どのイメージを動かすかは SSM パラメータから読む。CI はインスタンスを起こさず
 # ここを書き換えるだけなので、停止中でもデプロイできる。
-# ユニットは固定のローカルタグ(iubeo-current)を見るので、
+# ユニットは固定のローカルタグ(iubeo-current / iubeo-wisp-current)を見るので、
 # タグが変わってもユニットを書き換えなくてよい。
 cat > /usr/local/bin/iubeo-deploy <<'SCRIPT'
 #!/bin/bash
 set -euo pipefail
 REGISTRY="__REGISTRY__"
 REPOSITORY="__REPOSITORY__"
+WISP_REPOSITORY="__WISP_REPOSITORY__"
 REGION="__REGION__"
 PARAMETER="__PARAMETER__"
+WISP_PARAMETER="__WISP_PARAMETER__"
 FALLBACK_TAG="__IMAGE_TAG__"
+WISP_FALLBACK_TAG="__WISP_IMAGE_TAG__"
 
 TAG=$(aws ssm get-parameter --region "$REGION" --name "$PARAMETER" \
   --query 'Parameter.Value' --output text 2>/dev/null || true)
@@ -60,13 +79,30 @@ docker pull "$REPOSITORY:$TAG"
 docker tag "$REPOSITORY:$TAG" iubeo-current:latest
 echo "$TAG" > /etc/iubeo/image-tag
 systemctl restart iubeo
+
+WISP_TAG=$(aws ssm get-parameter --region "$REGION" --name "$WISP_PARAMETER" \
+  --query 'Parameter.Value' --output text 2>/dev/null || true)
+if [ -z "$WISP_TAG" ]; then
+  WISP_TAG="$WISP_FALLBACK_TAG"
+fi
+if docker pull "$WISP_REPOSITORY:$WISP_TAG"; then
+  docker tag "$WISP_REPOSITORY:$WISP_TAG" iubeo-wisp-current:latest
+  echo "$WISP_TAG" > /etc/iubeo/wisp-image-tag
+  systemctl restart iubeo-wisp
+else
+  # 初回は wisp イメージがまだ push されていない。その場合は backend だけ動く
+  echo "wisp イメージ $WISP_REPOSITORY:$WISP_TAG を引けなかった(未 push なら初回だけ)"
+fi
 SCRIPT
 sed -i \
   -e "s|__REGISTRY__|${registry}|" \
   -e "s|__REPOSITORY__|${ecr_repository}|" \
+  -e "s|__WISP_REPOSITORY__|${wisp_repository}|" \
   -e "s|__IMAGE_TAG__|${image_tag}|" \
+  -e "s|__WISP_IMAGE_TAG__|${wisp_image_tag}|" \
   -e "s|__REGION__|${region}|" \
   -e "s|__PARAMETER__|${image_tag_parameter}|" \
+  -e "s|__WISP_PARAMETER__|${wisp_image_tag_parameter}|" \
   /usr/local/bin/iubeo-deploy
 chmod 0755 /usr/local/bin/iubeo-deploy
 
@@ -90,8 +126,28 @@ WantedBy=multi-user.target
 UNIT
 sed -i -e "s|__MEMORY__|${container_memory}|" /etc/systemd/system/iubeo.service
 
+cat > /etc/systemd/system/iubeo-wisp.service <<'UNIT'
+[Unit]
+Description=IUBEO WISP proxy
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker rm -f iubeo-wisp
+ExecStart=/usr/bin/docker run --rm --name iubeo-wisp --memory=256m --env-file /etc/iubeo/wisp-env -p 8081:8081 iubeo-wisp-current:latest
+ExecStop=/usr/bin/docker stop -t 10 iubeo-wisp
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
 systemctl daemon-reload
 systemctl enable iubeo
+systemctl enable iubeo-wisp
 
 # 初回はイメージがまだ push されていないので失敗してよい。
 # push 後に iubeo-deploy を叩けば起動する。
