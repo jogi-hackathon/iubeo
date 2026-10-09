@@ -22,18 +22,26 @@ const WORKSPACE_POSITIONS: Record<number, Vec3> = {
 /** ライターの置き場は、机の天板の上面の右手前(作業スペース・ペン立て・紙の束と重ならない) */
 const LIGHTER_STAND_OFFSET: Vec3 = [0.55, DESK_HEIGHT, 0.2];
 
+/**
+ * キャンバス(イーゼル)は机の奥に置く。机が 2.5m 間隔で横に置けないので、机から -Z へ 2.5m ずらし、
+ * 絵の面(+Z)を机の側へ向ける。机の奥の端とイーゼルの前脚の間は 1.8m 空く
+ */
+const CANVAS_OFFSET: Vec3 = [0, 0, -2.5];
+
 /** 席ごとの初期位置の x のずれ(START_POSITION から) */
 const SPAWN_OFFSET_X: Record<number, number> = {1: 0, 2: -1.5, 3: 1.5};
 
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 
-/** 席 seat の机とライターの項目(項目名は id と同じ) */
+/** 席 seat の机・キャンバス・ライターの項目(項目名は id と同じ) */
 const seatItems = (seat: number): [string, LayoutItem][] => {
   const desk = WORKSPACE_POSITIONS[seat] ?? [0, 0, 0];
   const workspace = `workspace-${seat}`;
+  const canvas = `canvas-${seat}`;
   const lighter = `lighter_stand-${seat}`;
   return [
     [workspace, {id: workspace, position: desk}],
+    [canvas, {id: canvas, position: add(desk, CANVAS_OFFSET)}],
     [lighter, {id: lighter, position: add(desk, LIGHTER_STAND_OFFSET)}],
   ];
 };
