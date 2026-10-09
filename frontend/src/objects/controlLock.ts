@@ -1,17 +1,19 @@
 import {useFrame} from "@react-three/fiber";
 import {useEffect} from "react";
 
+import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta} from "../core/input";
 import {lockPlayerControl} from "../core/playerControl";
-import {getLocalPlayerId} from "../player/local";
 import type {PlayerId} from "../player/types";
 import {useObjectState} from "./objectContext";
 import type {GameObject} from "./types";
 
 /** このプレイヤーが、このオブジェクトで作業中か(users に入っているか)。作業中の扱いは、そのオブジェクトの種類が決める */
-export const isWorkingAt = (object: GameObject, playerId: PlayerId): boolean =>
-  object.users.includes(playerId);
+export const isWorkingAt = (
+  object: GameObject,
+  playerId: PlayerId | null,
+): boolean => playerId !== null && object.users.includes(playerId);
 
 /** 作業中なら移動・視点とカメラを預かり、解除関数を返す(作業中でなければ何もしない)。useEffect にそのまま渡せる形 */
 export const controlLockEffect = (
@@ -31,7 +33,8 @@ export const controlLockEffect = (
  */
 export function useControlLockWhileWorking(object: GameObject): void {
   const {enabled} = useObjectState();
-  const working = enabled && isWorkingAt(object, getLocalPlayerId());
+  const playerId = useMyPlayerId();
+  const working = enabled && isWorkingAt(object, playerId);
   useEffect(() => controlLockEffect(working), [working]);
   useFrame(() => {
     if (working) {

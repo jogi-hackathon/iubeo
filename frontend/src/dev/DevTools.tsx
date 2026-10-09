@@ -1,11 +1,30 @@
+import {useEffect} from "react";
+
+import {itemManager} from "../items";
+import {judgeStore} from "../objects/pc/judge";
 import {GameDebugPanel} from "./GameDebugPanel";
+import {getLocalDevOps} from "./localDevOps";
 import {MultiplayerPanel} from "./multiplayer/MultiplayerPanel";
+import {installSearchDeliverable} from "./searchDeliverable";
 
 /**
  * 開発時のみ読み込む(App から import.meta.env.DEV のときだけ動的 import する)。
- * 読み込まれると、./authority(ダミーのサーバー役)も一緒に読み込まれて登録される
+ * 読み込まれると、デバッグパネルとマルチのパネルが出る(開発用の操作は ./localDevOps 経由で、ローカルのオーソリティを借りる)
  */
 export default function DevTools() {
+  // Web Search の成果物。Clef の判定が通ったら、その検索を search_created のファイルとして手に持たせる
+  // (実サーバーが PC の規則を持つまでの写し。ローカルのオーソリティがあるシーンでだけ渡る)
+  useEffect(
+    () =>
+      installSearchDeliverable({
+        authority: {
+          spawnNewFile: (status) => getLocalDevOps()?.spawnNewFile(status),
+        },
+        judge: judgeStore,
+        items: itemManager,
+      }),
+    [],
+  );
   return (
     <>
       <GameDebugPanel />

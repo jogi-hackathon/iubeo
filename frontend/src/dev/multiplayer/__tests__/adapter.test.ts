@@ -62,9 +62,8 @@ const setup = () => {
     },
   };
   const objects = createObjectManager({
-    localPlayerId: "me",
     getHeldItem: () => null,
-    send: () => {},
+    getAuthority: () => null,
   });
   const items = createItemManager();
   const players = createPlayerManager({now: () => 0});

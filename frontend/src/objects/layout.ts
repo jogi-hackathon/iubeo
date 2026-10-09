@@ -6,7 +6,7 @@ import type {GameObject} from "./types";
 
 /** レイアウトの項目。項目名(レイアウトのキー)はトグル(core/toggles)のキーにもなる */
 export type LayoutItem = {
-  /** サーバー(またはダミーのサーバー役)が付ける id。種類は id の接頭辞で決まる */
+  /** サーバー(またはローカルのオーソリティ)が付ける id。種類は id の接頭辞で決まる */
   id: string;
   /** 足元の位置(ワールド) */
   position: Vec3;

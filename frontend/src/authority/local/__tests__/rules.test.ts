@@ -1,13 +1,27 @@
 import {describe, expect, it, vi} from "vitest";
 
-import {createItemManager} from "../../items/itemManager";
-import {CANVAS_ACTION_MS} from "../../objects/canvas/data";
-import {parseDirectoryData, type StockFile} from "../../objects/directory/data";
-import {createObjectManager} from "../../objects/objectManager";
-import {PC_KIND} from "../../objects/pc/data";
-import type {InteractRequest} from "../../objects/types";
-import {WORKSPACE_ACTION_MS} from "../../objects/workspace/data";
-import {createDummyAuthority, DUMMY_ITEM_KIND} from "../dummyAuthority";
+import {FILE_KIND, parseFileData} from "../../../items";
+import {createItemManager} from "../../../items/itemManager";
+import {CANVAS_ACTION_MS, CANVAS_KIND} from "../../../objects/canvas/data";
+import {
+  DIRECTORY_KIND,
+  parseDirectoryData,
+  type StockFile,
+} from "../../../objects/directory/data";
+import {kindOfId} from "../../../objects/layout";
+import {createObjectManager} from "../../../objects/objectManager";
+import {PC_KIND} from "../../../objects/pc/data";
+import type {
+  GameObject,
+  InteractRequest,
+  ObjectScope,
+} from "../../../objects/types";
+import {
+  WORKSPACE_ACTION_MS,
+  WORKSPACE_KIND,
+} from "../../../objects/workspace/data";
+import {applyMessage} from "../../apply";
+import {createLocalRules, DUMMY_ITEM_KIND} from "../rules";
 
 // ファイルの id は意味を持たない不透明な値(状態や色を混ぜない)。読みやすいよう定数にする
 const F1 = "0a1b2c3d-0001-4000-8000-000000000001";
@@ -17,12 +31,14 @@ const F3 = "0a1b2c3d-0003-4000-8000-000000000003";
 const newIdOf = (n: number) =>
   `0a1b2c3d-01${String(n).padStart(2, "0")}-4000-8000-000000000000`;
 
-// マネージャーとダミーのサーバー役をつないだ、実際の配線と同じ形
-const setup = (random?: () => number) => {
+// マネージャーと規則をつないだ、実際の配線と同じ形(規則の通知は applyMessage で反映する)。
+// 置く物は、規則の通知(dev.deliver)で置く(テストの準備。規則の外から置く物は objects.apply で置く)
+const setup = () => {
   // 時間は進めたときだけ進む。ワークスペースのアニメーション待ちを、テストで制御する
   let now = 0;
   // 新規ファイルの id は呼ぶたびに別の固定値(UUID 風)になる
   let newIdCount = 0;
+  let itemCount = 0;
   const timers: Array<{at: number; fn: () => void}> = [];
   const advance = (ms: number) => {
     now += ms;
@@ -36,31 +52,165 @@ const setup = (random?: () => number) => {
   const requests: InteractRequest[] = [];
   let handle: (r: InteractRequest) => void = () => {};
   const objects = createObjectManager({
-    localPlayerId: "me",
     getHeldItem: () => {
       const held = items.getHeld();
       return held && {id: held.id, kind: held.kind};
     },
-    send: (r) => {
-      requests.push(r);
-      handle(r);
-    },
+    getAuthority: () => ({
+      playerId: "me",
+      kind: "local",
+      send: (r) => {
+        requests.push(r);
+        handle(r);
+      },
+    }),
   });
-  const authority = createDummyAuthority({
-    localPlayerId: "me",
+  const rules = createLocalRules({
+    playerId: "me",
     objects,
-    items,
-    random,
+    deliver: (message) =>
+      applyMessage({objects, items, myPlayerId: () => "me"}, message),
     schedule: (fn, ms) => {
-      timers.push({at: now + ms, fn});
+      const timer = {at: now + ms, fn};
+      timers.push(timer);
+      return () => {
+        const i = timers.indexOf(timer);
+        if (i >= 0) {
+          timers.splice(i, 1);
+        }
+      };
     },
     newId: () => newIdOf(++newIdCount),
   });
-  handle = authority.handle;
+  handle = rules.handle;
+
+  // 置く・持たせるの準備(規則の通知で行う)
+  const put = (object: GameObject) => {
+    rules.dev.deliver({type: "object.upsert", object});
+    return object.id;
+  };
+  const authority = {
+    ...rules,
+    /** ダミーの箱を id で置く(personal は自分の物) */
+    spawnObject: (
+      id: string,
+      scope: ObjectScope = "personal",
+      availability: GameObject["availability"] = "available",
+    ): string =>
+      put({
+        id,
+        kind: kindOfId(id),
+        scope,
+        ...(scope === "personal" && {owner: "me"}),
+        users: [],
+        availability,
+        data: null,
+      }),
+    /** ディレクトリを id で置き(shared)、その id を返す */
+    spawnDirectory: (id: string, stock: readonly StockFile[]): string =>
+      put({
+        id,
+        kind: DIRECTORY_KIND,
+        scope: "shared",
+        users: [],
+        availability: "available",
+        data: {stock: stock.map((f) => ({...f})), outputs: 0},
+      }),
+    /** ワークスペースを id で置き(personal、owner は自分) */
+    spawnWorkspace: (id: string): string =>
+      put({
+        id,
+        kind: WORKSPACE_KIND,
+        scope: "personal",
+        owner: "me",
+        users: [],
+        availability: "available",
+        data: null,
+      }),
+    /** キャンバスを id で置き(personal、owner は自分) */
+    spawnCanvas: (id: string): string =>
+      put({
+        id,
+        kind: CANVAS_KIND,
+        scope: "personal",
+        owner: "me",
+        users: [],
+        availability: "available",
+        data: null,
+      }),
+    /** PC を id で置き(personal、owner は自分) */
+    spawnPc: (id: string): string =>
+      put({
+        id,
+        kind: PC_KIND,
+        scope: "personal",
+        owner: "me",
+        users: [],
+        availability: "available",
+        data: null,
+      }),
+    /** 手持ちに、種類の id を持たせる(id は 種類-n)。持っていたアイテムは置き換わる */
+    spawnItem: (kind: string = DUMMY_ITEM_KIND): string => {
+      const id = `${kind}-${++itemCount}`;
+      rules.dev.setHeldItem({id, kind, data: null});
+      return id;
+    },
+    /** 新しく作ったファイルを手に持たせる */
+    spawnNewFile: (
+      status:
+        | "file_created"
+        | "image_created"
+        | "search_created" = "file_created",
+    ): string => {
+      // 規則の newId と同じ採番(呼ぶたびに進む)
+      const id = newIdOf(++newIdCount);
+      rules.dev.setHeldItem({id, kind: FILE_KIND, data: {status}});
+      return id;
+    },
+    /** 手持ちを空にする(規則の通知で行う) */
+    deleteHeldItem: (): void => {
+      rules.dev.setHeldItem(null);
+    },
+    /** 手持ちのファイルを編集済みにする(ワークスペースの編集の代わり)。作成したファイルは編集できず false */
+    editHeldFile: (): boolean => {
+      const held = rules.dev.getHeldItem();
+      const file =
+        held && held.kind === FILE_KIND ? parseFileData(held.data) : null;
+      if (
+        !held ||
+        !file ||
+        file.status === "file_created" ||
+        file.status === "search_created" ||
+        file.status === "image_created"
+      ) {
+        return false;
+      }
+      rules.dev.setHeldItem({...held, data: {...file, status: "edited"}});
+      return true;
+    },
+    /** 他のプレイヤーが借りた想定で、在庫から 1 つ外す(先着の準備) */
+    lendAway: (directoryId: string, fileId: string): void => {
+      const object = rules.dev.getObject(directoryId);
+      if (!object) {
+        return;
+      }
+      const data = parseDirectoryData(object.data);
+      put({
+        ...object,
+        data: {...data, stock: data.stock.filter((f) => f.id !== fileId)},
+      });
+    },
+    /** 達成の数(テストでは規則の読み取りを直接見る) */
+    getAchieved: (): number => rules.dev.getAchieved(),
+    /** 置いた物を、id で外す(規則の通知で行う) */
+    removeObject: (id: string): void => {
+      rules.dev.deliver({type: "object.remove", id});
+    },
+  };
   return {objects, items, authority, requests, advance};
 };
 
-describe("createDummyAuthority", () => {
+describe("createLocalRules", () => {
   describe("interact の要求", () => {
     it("personal は本人が users に入り、もう一度で出る", () => {
       const {objects, authority} = setup();
@@ -154,60 +304,6 @@ describe("createDummyAuthority", () => {
     });
   });
 
-  describe("オブジェクトの操作", () => {
-    it("spawnObject は scope に応じて owner を付け、id を返す", () => {
-      const {objects, authority} = setup();
-      const a = authority.spawnObject("dummy-1", "personal");
-      const b = authority.spawnObject("dummy-2", "shared");
-
-      expect(a).not.toBe(b);
-      expect(objects.getObject(a)?.owner).toBe("me");
-      expect(objects.getObject(b)).not.toHaveProperty("owner");
-    });
-
-    it("setAvailability で切り替え、removeObject で消す", () => {
-      const {objects, authority} = setup();
-      const id = authority.spawnObject("dummy-1");
-
-      authority.setAvailability(id, "unavailable");
-      expect(objects.getObject(id)?.availability).toBe("unavailable");
-
-      authority.removeObject(id);
-      expect(objects.getObject(id)).toBeUndefined();
-    });
-
-    it("存在しない id の setAvailability は無視する", () => {
-      const {objects, authority} = setup();
-      authority.setAvailability("nothing", "unavailable");
-      expect(objects.getState().objects).toEqual([]);
-    });
-  });
-
-  describe("アイテムの操作", () => {
-    it("spawnItem で手に持たせ、deleteHeldItem で消す", () => {
-      const {items, authority} = setup();
-
-      const id = authority.spawnItem();
-      expect(items.getHeld()).toEqual({id, kind: DUMMY_ITEM_KIND, data: null});
-
-      authority.deleteHeldItem();
-      expect(items.getHeld()).toBeNull();
-    });
-
-    it("持ったまま spawnItem すると置き換わる", () => {
-      const {items, authority} = setup();
-      authority.spawnItem("file");
-      const lighter = authority.spawnItem("lighter");
-      expect(items.getHeld()?.id).toBe(lighter);
-    });
-
-    it("何も持っていないときの deleteHeldItem は何も起こさない", () => {
-      const {items, authority} = setup();
-      authority.deleteHeldItem();
-      expect(items.getHeld()).toBeNull();
-    });
-  });
-
   describe("ディレクトリ", () => {
     const STOCK: StockFile[] = [
       {id: F1, color: "#e63946", status: "unedited"},
@@ -215,8 +311,8 @@ describe("createDummyAuthority", () => {
       {id: F3, color: "#2a9d5c", status: "unedited"},
     ];
 
-    const setupDirectory = (random?: () => number) => {
-      const ctx = setup(random);
+    const setupDirectory = () => {
+      const ctx = setup();
       const id = ctx.authority.spawnDirectory("directory-1", STOCK);
       const data = () =>
         parseDirectoryData(ctx.objects.getObject(id)?.data ?? null);
@@ -281,11 +377,9 @@ describe("createDummyAuthority", () => {
       });
 
       it("先着: 他の人に先に取られたファイルは、not_found になり、別のファイルは取れる", () => {
-        const {objects, items, authority, id, rejected} = setupDirectory(
-          () => 0,
-        );
+        const {objects, items, authority, id, rejected} = setupDirectory();
 
-        expect(authority.borrowAsOther(id)).toBe(F1);
+        authority.lendAway(id, F1);
         objects.interact(id, {target: F1});
         expect(rejected).toHaveBeenCalledWith({
           objectId: id,
@@ -402,93 +496,99 @@ describe("createDummyAuthority", () => {
         });
       });
     });
+  });
 
-    describe("他のプレイヤーの貸し借り", () => {
-      it("borrowAsOther は在庫からランダムに 1 つ外し、returnAsOther で戻す", () => {
-        const {authority, id, data} = setupDirectory(() => 0.5);
-
-        expect(authority.borrowAsOther(id)).toBe(F2);
-        expect(data().stock.map((f) => f.id)).toEqual([F1, F3]);
-        expect(authority.getBorrowedCount()).toBe(1);
-
-        expect(authority.returnAsOther(id)).toBe(F2);
-        expect(data().stock.map((f) => f.id)).toEqual([F1, F3, F2]);
-        expect(authority.getBorrowedCount()).toBe(0);
+  describe("片付け(release)", () => {
+    it("規則が置いた物だけを片付け、手持ちも空にする(規則の外から置かれた物は残す)", () => {
+      const {objects, items, authority} = setup();
+      authority.spawnWorkspace("workspace-1");
+      authority.spawnItem("file");
+      objects.apply({
+        type: "upsert",
+        object: {
+          id: "outside-1",
+          kind: "dummy",
+          scope: "shared",
+          users: [],
+          availability: "available",
+          data: null,
+        },
       });
 
-      it("借りたファイルは、返されるまで自分は取れない", () => {
-        const {objects, items, authority, id, rejected} = setupDirectory(
-          () => 0,
-        );
-        authority.borrowAsOther(id);
+      authority.release();
 
-        objects.interact(id, {target: F1});
-        expect(items.getHeld()).toBeNull();
-        expect(rejected).toHaveBeenCalledTimes(1);
-
-        authority.returnAsOther(id);
-        objects.interact(id, {target: F1});
-        expect(items.getHeld()?.id).toBe(F1);
-      });
-
-      it("在庫が空、または借りた物が無ければ null", () => {
-        const {objects, authority, id} = setupDirectory();
-        expect(authority.returnAsOther(id)).toBeNull();
-
-        // 1 つずつ取って、手元から捨てる(手は 1 つなので、持ったままでは次を取れない)
-        for (const f of STOCK) {
-          objects.interact(id, {target: f.id});
-          authority.deleteHeldItem();
-        }
-        expect(authority.borrowAsOther(id)).toBeNull();
-        expect(authority.borrowAsOther("nothing")).toBeNull();
-      });
+      expect(objects.getState().objects.map((o) => o.id)).toEqual([
+        "outside-1",
+      ]);
+      expect(items.getHeld()).toBeNull();
     });
 
-    describe("ファイルの操作", () => {
-      it("editHeldFile は同じ id・同じ color のまま status を edited にし、delete は通知しない", () => {
-        const {objects, items, authority, id} = setupDirectory();
-        const onDelete = vi.fn();
-        items.on("delete", onDelete);
-        objects.interact(id, {target: F1});
-
-        expect(authority.editHeldFile()).toBe(true);
-
-        expect(items.getHeld()).toEqual({
-          id: F1,
-          kind: "file",
-          data: {status: "edited", color: "#e63946"},
-        });
-        expect(onDelete).not.toHaveBeenCalled();
+    it("規則の外から置かれた物は、規則が users を書き換えても片付けない", () => {
+      const {objects, authority} = setup();
+      objects.apply({
+        type: "upsert",
+        object: {
+          id: "outside-1",
+          kind: "dummy",
+          scope: "shared",
+          users: [],
+          availability: "available",
+          data: null,
+        },
       });
 
-      it("作成したファイルは editHeldFile で編集できない", () => {
-        const {items, authority} = setup();
-        authority.spawnNewFile();
+      objects.interact("outside-1");
+      expect(objects.getObject("outside-1")?.users).toEqual(["me"]);
 
-        expect(authority.editHeldFile()).toBe(false);
-        expect(items.getHeld()?.data).toEqual({status: "file_created"});
-      });
+      authority.release();
 
-      it("ファイルを持っていなければ editHeldFile は false", () => {
-        const {authority} = setup();
-        expect(authority.editHeldFile()).toBe(false);
-        authority.spawnItem("lighter");
-        expect(authority.editHeldFile()).toBe(false);
-      });
+      expect(objects.getObject("outside-1")).toBeDefined();
     });
   });
 
-  describe("clearObjects", () => {
-    it("オブジェクトを全部片付ける(id は呼び出し側が決めるので、置き直しはそのまま同じ id で置ける)", () => {
-      const {objects, authority} = setup();
-      const first = authority.spawnWorkspace("workspace-1");
-      authority.spawnObject("dummy-1");
+  describe("その場で呼ぶ schedule", () => {
+    it("schedule がコールバックをその場で呼んでも、待ちは結果まで進み、取り消しの一覧に残らない", () => {
+      const items = createItemManager();
+      const objects = createObjectManager({
+        getHeldItem: () => null,
+        getAuthority: () => ({playerId: "me", kind: "local", send: () => {}}),
+      });
+      const rules = createLocalRules({
+        playerId: "me",
+        objects,
+        deliver: (message) =>
+          applyMessage({objects, items, myPlayerId: () => "me"}, message),
+        schedule: (fn) => {
+          fn();
+          return () => {};
+        },
+        newId: () => newIdOf(1),
+      });
+      rules.dev.deliver({
+        type: "object.upsert",
+        object: {
+          id: "workspace-1",
+          kind: "workspace",
+          scope: "personal",
+          owner: "me",
+          users: [],
+          availability: "available",
+          data: null,
+        },
+      });
 
-      authority.clearObjects();
-
-      expect(objects.getState().objects).toEqual([]);
-      expect(authority.spawnWorkspace("workspace-1")).toBe(first);
+      expect(() =>
+        rules.handle({
+          type: "interact",
+          objectId: "workspace-1",
+          by: "me",
+          heldItem: null,
+        }),
+      ).not.toThrow();
+      // その場で終わるので、作業中のまま残らず、新しいファイルを持つ
+      expect(objects.getObject("workspace-1")?.users).toEqual([]);
+      expect(items.getHeld()?.id).toBe(newIdOf(1));
+      expect(() => rules.dispose()).not.toThrow();
     });
   });
 
@@ -565,7 +665,7 @@ describe("createDummyAuthority", () => {
         const onRejected = vi.fn();
         objects.on("interactRejected", onRejected);
         const id = authority.spawnCanvas("canvas-1");
-        items.apply({type: "spawn", item});
+        authority.dev.setHeldItem(item);
 
         objects.interact(id);
 
@@ -610,7 +710,7 @@ describe("createDummyAuthority", () => {
         kind: "file",
         data: {status: "unedited", color: "#e63946"},
       };
-      items.apply({type: "spawn", item: file});
+      authority.dev.setHeldItem(file);
 
       advance(CANVAS_ACTION_MS);
 
@@ -652,13 +752,10 @@ describe("createDummyAuthority", () => {
     it("編集前のファイルを持って interact すると、2 秒後に同じ id・同じ color で edited になり、users が空に戻る", () => {
       const {objects, items, authority, advance} = setup();
       const id = authority.spawnWorkspace("workspace-1");
-      items.apply({
-        type: "spawn",
-        item: {
-          id: F1,
-          kind: "file",
-          data: {status: "unedited", color: "#e63946"},
-        },
+      authority.dev.setHeldItem({
+        id: F1,
+        kind: "file",
+        data: {status: "unedited", color: "#e63946"},
       });
 
       objects.interact(id);
@@ -716,22 +813,45 @@ describe("createDummyAuthority", () => {
     it("newId を渡さなければ、crypto.randomUUID の UUID で採番される", () => {
       const items = createItemManager();
       const objects = createObjectManager({
-        localPlayerId: "me",
-        getHeldItem: () => null,
-        send: () => {},
+        getHeldItem: () => {
+          const held = items.getHeld();
+          return held && {id: held.id, kind: held.kind};
+        },
+        getAuthority: () => ({
+          playerId: "me",
+          kind: "local",
+          send: (r) => authority.handle(r),
+        }),
       });
-      const authority = createDummyAuthority({
-        localPlayerId: "me",
+      const authority = createLocalRules({
+        playerId: "me",
         objects,
-        items,
+        deliver: (message) =>
+          applyMessage({objects, items, myPlayerId: () => "me"}, message),
+      });
+      authority.dev.deliver({
+        type: "object.upsert",
+        object: {
+          id: "workspace-1",
+          kind: WORKSPACE_KIND,
+          scope: "personal",
+          owner: "me",
+          users: [],
+          availability: "available",
+          data: null,
+        },
       });
 
-      const id = authority.spawnNewFile();
+      // 既定のタイマー(setTimeout)を使うので、フェイクタイマーで時間を進める
+      vi.useFakeTimers();
+      objects.interact("workspace-1");
+      vi.advanceTimersByTime(WORKSPACE_ACTION_MS);
+      vi.useRealTimers();
 
+      const id = items.getHeld()?.id ?? "";
       expect(id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       );
-      expect(items.getHeld()?.id).toBe(id);
     });
 
     it.each([
@@ -767,7 +887,7 @@ describe("createDummyAuthority", () => {
         const onRejected = vi.fn();
         objects.on("interactRejected", onRejected);
         const id = authority.spawnWorkspace("workspace-1");
-        items.apply({type: "spawn", item});
+        authority.dev.setHeldItem(item);
 
         objects.interact(id);
 
@@ -827,13 +947,10 @@ describe("createDummyAuthority", () => {
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
       const id = authority.spawnWorkspace("workspace-1");
-      items.apply({
-        type: "spawn",
-        item: {
-          id: F1,
-          kind: "file",
-          data: {status: "unedited", color: "#e63946"},
-        },
+      authority.dev.setHeldItem({
+        id: F1,
+        kind: "file",
+        data: {status: "unedited", color: "#e63946"},
       });
       objects.interact(id);
       advance(WORKSPACE_ACTION_MS);
@@ -850,9 +967,10 @@ describe("createDummyAuthority", () => {
     it("2 秒の間に手持ちが変わっていたら、結果は適用せず users だけ外す(編集)", () => {
       const {objects, items, authority, advance} = setup();
       const id = authority.spawnWorkspace("workspace-1");
-      items.apply({
-        type: "spawn",
-        item: {id: F1, kind: "file", data: {status: "unedited"}},
+      authority.dev.setHeldItem({
+        id: F1,
+        kind: "file",
+        data: {status: "unedited"},
       });
       objects.interact(id);
 
@@ -878,9 +996,10 @@ describe("createDummyAuthority", () => {
     it("2 秒の間に編集済みに変わっていたら、再度の編集はしない(同じ data のまま)", () => {
       const {objects, items, authority, advance} = setup();
       const id = authority.spawnWorkspace("workspace-1");
-      items.apply({
-        type: "spawn",
-        item: {id: F1, kind: "file", data: {status: "unedited"}},
+      authority.dev.setHeldItem({
+        id: F1,
+        kind: "file",
+        data: {status: "unedited"},
       });
       objects.interact(id);
 
@@ -954,16 +1073,32 @@ describe("createDummyAuthority", () => {
       try {
         const items = createItemManager();
         const objects = createObjectManager({
-          localPlayerId: "me",
           getHeldItem: () => null,
-          send: (r) => authority.handle(r),
+          getAuthority: () => ({
+            playerId: "me",
+            kind: "local",
+            send: (r) => authority.handle(r),
+          }),
         });
-        const authority = createDummyAuthority({
-          localPlayerId: "me",
+        const authority = createLocalRules({
+          playerId: "me",
           objects,
-          items,
+          deliver: (message) =>
+            applyMessage({objects, items, myPlayerId: () => "me"}, message),
         });
-        const id = authority.spawnWorkspace("workspace-1");
+        const id = "workspace-1";
+        authority.dev.deliver({
+          type: "object.upsert",
+          object: {
+            id,
+            kind: WORKSPACE_KIND,
+            scope: "personal",
+            owner: "me",
+            users: [],
+            availability: "available",
+            data: null,
+          },
+        });
 
         objects.interact(id);
         vi.advanceTimersByTime(WORKSPACE_ACTION_MS - 1);
@@ -974,6 +1109,31 @@ describe("createDummyAuthority", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe("dispose", () => {
+    it("未完了のアニメーション待ちを取り消す。取り消した後は、結果は適用されない", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace("workspace-1");
+      objects.interact(id);
+
+      authority.dispose();
+      advance(WORKSPACE_ACTION_MS);
+
+      expect(items.getHeld()).toBeNull();
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+    });
+
+    it("取り消すのは待ちだけで、終わった後の dispose は何もしない", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnWorkspace("workspace-1");
+      objects.interact(id);
+      advance(WORKSPACE_ACTION_MS);
+      expect(items.getHeld()?.kind).toBe("file");
+
+      expect(() => authority.dispose()).not.toThrow();
+      expect(objects.getObject(id)?.users).toEqual([]);
     });
   });
 });
