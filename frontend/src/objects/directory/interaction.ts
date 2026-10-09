@@ -1,8 +1,7 @@
 import {getActiveToggles} from "../../core/toggles";
 import {itemManager} from "../../items";
-import {registerInteractionHandler} from "../interaction/handlers";
 import type {GameObject} from "../types";
-import {DIRECTORY_KIND, DIRECTORY_OVERVIEW_KEY} from "./data";
+import {DIRECTORY_OVERVIEW_KEY} from "./data";
 import {overview} from "./overview";
 
 type Deps = {
@@ -31,16 +30,12 @@ export const createDirectoryInteraction =
     return true;
   };
 
-/** 汎用のインタラクト基盤に、ディレクトリ固有の処理を差し込む。ManagedObjects が描画する前に一度呼ぶ */
-export const registerDirectoryInteraction = (): (() => void) =>
-  registerInteractionHandler(
-    DIRECTORY_KIND,
-    createDirectoryInteraction({
-      isHandEmpty: () => itemManager.getHeld() === null,
-      isOverviewEnabled: () =>
-        getActiveToggles()?.isEnabled(DIRECTORY_OVERVIEW_KEY) ?? true,
-      enterOverview: (id) => {
-        overview.enter(id);
-      },
-    }),
-  );
+/** ディレクトリのインタラクトの処理(DirectoryObject が useInteraction で登録する) */
+export const directoryInteraction = createDirectoryInteraction({
+  isHandEmpty: () => itemManager.getHeld() === null,
+  isOverviewEnabled: () =>
+    getActiveToggles()?.isEnabled(DIRECTORY_OVERVIEW_KEY) ?? true,
+  enterOverview: (id) => {
+    overview.enter(id);
+  },
+});

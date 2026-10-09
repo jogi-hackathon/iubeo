@@ -1,6 +1,4 @@
-import {registerInteractionHandler} from "../interaction/handlers";
 import type {GameObject} from "../types";
-import {PC_KIND} from "./data";
 import {pcSession} from "./session";
 
 /**
@@ -15,9 +13,5 @@ export const createPcInteraction =
     return true;
   };
 
-/** 汎用のインタラクト基盤に、PC 固有の処理を差し込む。ManagedObjects が描画する前に一度呼ぶ */
-export const registerPcInteraction = (): (() => void) =>
-  registerInteractionHandler(
-    PC_KIND,
-    createPcInteraction((id) => pcSession.enter(id)),
-  );
+/** PC のインタラクトの処理(PcObject が useInteraction で登録する) */
+export const pcInteraction = createPcInteraction((id) => pcSession.enter(id));

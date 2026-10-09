@@ -122,13 +122,6 @@ export const overview = createOverviewStore();
 export const useOverviewState = (): OverviewState =>
   useSyncExternalStore(overview.subscribe, overview.getState);
 
-/** 俯瞰しているディレクトリの id(なければ null)だけを購読する */
-export const useOverviewDirectoryId = (): string | null =>
-  useSyncExternalStore(
-    overview.subscribe,
-    () => overview.getState().directoryId,
-  );
-
 /** このディレクトリが俯瞰されているか。ほかのディレクトリの状態変化では再レンダーしない */
 export const useIsOverviewing = (directoryId: string): boolean =>
   useSyncExternalStore(

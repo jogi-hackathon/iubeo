@@ -26,7 +26,7 @@ export const sceneTransitionManager = createSceneTransitionManager({
 applySpawn(localPlayer, spawnOf(initial));
 
 // 出るシーンの後始末。俯瞰ビューの解除(プレイヤーの預かりが外れる)。
-// 作業中のロック(useObjectControlLock)は、オブジェクトとシーンのアンマウントで自然に外れる
+// 作業中のロック(useControlLockWhileWorking)は、オブジェクトとシーンのアンマウントで自然に外れる
 sceneTransitionManager.onLeave(() => overview.reset());
 // PC を使っている途中なら、そのまま離す(プレイヤーを返し、画面の電源を切る)
 sceneTransitionManager.onLeave(() => pcSession.reset());

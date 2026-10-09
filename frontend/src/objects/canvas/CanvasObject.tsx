@@ -2,6 +2,7 @@ import {useEffect, useMemo} from "react";
 import {BoxGeometry, MeshStandardMaterial} from "three";
 
 import {BakeTarget} from "../../bake/BakeTarget";
+import {useControlLockWhileWorking} from "../controlLock";
 import type {GameObject} from "../types";
 import {CanvasPaper} from "./CanvasPaper";
 import {EASEL_PARTS, type EaselLook, type EaselPart} from "./easel";
@@ -37,8 +38,10 @@ function Part({part, geometry}: {part: EaselPart; geometry: BoxGeometry}) {
  *   AO の出し方は、置かれたシーンが決める(既定は baked。room のように出し入れするシーンは、影が残らないよう ManagedObjects の ao で realtime にする)
  * - コライダーは持たない。部品の mesh は、コライダーにはせずベイク対象としてだけ登録する(BakeTarget)
  * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙ってもキャンバスに当たり、アウトラインは全体の外周に 1 本付く
+ * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
  */
 export function CanvasObject({object}: {object: GameObject}) {
+  useControlLockWhileWorking(object);
   const geometries = useMemo(
     () => EASEL_PARTS.map(() => new BoxGeometry(1, 1, 1)),
     [],
