@@ -1,5 +1,7 @@
+import {SEARCH_PAGE_URL} from "./browserChrome";
+
 /**
- * 電源を入れて最初に出るページ。検索語を入れて Google へ飛ぶ入口になる。HUD の住所欄の代わりに、
+ * 電源を入れて最初に出るページ。検索語を入れて検索へ飛ぶ入口になる。HUD の住所欄の代わりに、
  * 画面の中のこの入力欄で検索する。
  *
  * ASCII だけで書くのは意図的。エンジンの最小 GRE には CJK フォントが無く、日本語は豆腐（□）になる。
@@ -46,7 +48,7 @@ button{padding:10px 20px;font:inherit;border:0;border-radius:999px;background:#1
 code{background:#eeeee9;padding:1px 6px;border-radius:4px;font-size:14px}
 </style></head><body>
 <h1>Search</h1>
-<form action="https://www.google.com/search" method="get">
+<form action="${SEARCH_PAGE_URL}" method="get">
 <input name="q" placeholder="Type a search and press Enter" autocomplete="off" autofocus>
 <button type="submit">Search</button>
 </form>

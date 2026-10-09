@@ -1,13 +1,17 @@
 import {describe, expect, it} from "vitest";
 
 import {
+  type AddressEdit,
   addressDraftFor,
+  applyAddressKey,
+  applyAddressText,
   CONTENT_HEIGHT,
   displayUrl,
   hitToolbar,
   normalizeAddress,
   removeLastChar,
   SCREEN_CANVAS,
+  SEARCH_PAGE_URL,
   TOOLBAR_HEIGHT,
 } from "../browserChrome";
 
@@ -44,12 +48,19 @@ describe("normalizeAddress", () => {
     );
   });
 
-  it("それ以外は Google の検索にする（空白は含めて検索語にする）", () => {
+  it("それ以外は検索にする（空白は含めて検索語にする）", () => {
     expect(normalizeAddress("WebAssembly")).toBe(
-      "https://www.google.com/search?q=WebAssembly",
+      `${SEARCH_PAGE_URL}?q=WebAssembly`,
     );
     expect(normalizeAddress("firefox wasm")).toBe(
-      "https://www.google.com/search?q=firefox%20wasm",
+      `${SEARCH_PAGE_URL}?q=firefox%20wasm`,
+    );
+  });
+
+  it("検索は Google へ送る（本番は WISP を EC2 の EIP 経由にして reCAPTCHA を避けている）", () => {
+    expect(SEARCH_PAGE_URL).toBe("https://www.google.com/search");
+    expect(normalizeAddress("Gecko engine")).toBe(
+      "https://www.google.com/search?q=Gecko%20engine",
     );
   });
 
@@ -77,5 +88,99 @@ describe("removeLastChar", () => {
     expect(removeLastChar("abc")).toBe("ab");
     expect(removeLastChar("検索語")).toBe("検索");
     expect(removeLastChar("")).toBe("");
+  });
+});
+
+const edit = (text: string, selectAll = false): AddressEdit => ({
+  text,
+  selectAll,
+});
+const plain = {ctrl: false, meta: false};
+const key = (
+  k: string,
+  charCode = 0,
+  modifiers = plain,
+): {key: string; charCode: number; modifiers: typeof plain} => ({
+  key: k,
+  charCode,
+  modifiers,
+});
+
+describe("applyAddressKey", () => {
+  it("普通の文字は末尾に足す", () => {
+    expect(applyAddressKey(edit("abc"), key("d", 0x64))).toEqual(edit("abcd"));
+  });
+
+  it("Backspace は末尾の 1 文字を消す", () => {
+    expect(applyAddressKey(edit("abc"), key("Backspace"))).toEqual(edit("ab"));
+  });
+
+  it("⌘A / Ctrl+A で全選択になる（空なら選ぶものが無い）", () => {
+    for (const modifiers of [
+      {ctrl: false, meta: true},
+      {ctrl: true, meta: false},
+    ]) {
+      expect(applyAddressKey(edit("abc"), key("a", 0, modifiers))).toEqual(
+        edit("abc", true),
+      );
+    }
+    expect(
+      applyAddressKey(edit(""), key("a", 0, {ctrl: false, meta: true})),
+    ).toEqual(edit(""));
+  });
+
+  it("全選択の次の 1 文字で全体が置き換わる", () => {
+    const selected = applyAddressKey(
+      edit("https://example.com/"),
+      key("a", 0, {ctrl: true, meta: false}),
+    );
+    expect(applyAddressKey(selected, key("x", 0x78))).toEqual(edit("x"));
+  });
+
+  it("⌘⌫ / Ctrl+Backspace で全部消える", () => {
+    for (const modifiers of [
+      {ctrl: false, meta: true},
+      {ctrl: true, meta: false},
+    ]) {
+      expect(
+        applyAddressKey(
+          edit("https://example.com/"),
+          key("Backspace", 0, modifiers),
+        ),
+      ).toEqual(edit(""));
+    }
+  });
+
+  it("全選択中の Backspace / Delete / ⌘Delete でも全部消える", () => {
+    for (const k of ["Backspace", "Delete"]) {
+      expect(applyAddressKey(edit("abc", true), key(k))).toEqual(edit(""));
+    }
+    expect(
+      applyAddressKey(edit("abc"), key("Delete", 0, {ctrl: true, meta: false})),
+    ).toEqual(edit(""));
+  });
+
+  it("カーソルは末尾だけなので、Delete 単体では何も起きない", () => {
+    expect(applyAddressKey(edit("abc"), key("Delete"))).toEqual(edit("abc"));
+  });
+
+  it("修飾キー付きの文字（charCode 0）や対象外のキーは状態を変えない", () => {
+    const state = edit("abc");
+    expect(applyAddressKey(state, key("x", 0, {ctrl: true, meta: false}))).toBe(
+      state,
+    );
+    expect(applyAddressKey(state, key("ArrowLeft"))).toBe(state);
+  });
+});
+
+describe("applyAddressText", () => {
+  it("改行を除いて末尾に足す", () => {
+    expect(applyAddressText(edit("abc"), "d\ne\nf")).toEqual(edit("abcdef"));
+  });
+
+  it("全選択中は置き換わる（貼り付け・IME の確定）", () => {
+    expect(applyAddressText(edit("abc", true), "貼り付け")).toEqual(
+      edit("貼り付け"),
+    );
   });
 });

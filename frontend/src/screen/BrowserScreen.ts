@@ -1,12 +1,14 @@
 import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
 import {
+  type AddressEdit,
   addressDraftFor,
+  applyAddressKey,
+  applyAddressText,
   CONTENT_HEIGHT,
   displayUrl,
   hitToolbar,
   normalizeAddress,
-  removeLastChar,
   SCREEN_CANVAS,
   TOOLBAR_HEIGHT,
   TOOLBAR_LAYOUT,
@@ -35,6 +37,7 @@ const COLORS = {
   muted: "#8e8e93",
   focus: "#4a7bd8",
   field: "#ffffff",
+  select: "#aacbf3",
 };
 
 /**
@@ -72,7 +75,8 @@ export class BrowserScreen implements ScreenSource {
   /** ページの中で押したボタンを離すまでの間。枠の上へはみ出しても、離すまでエンジンへ送る */
   private pagePressed = false;
   private addressFocused = false;
-  private draft = "";
+  /** アドレス欄の編集状態（入力中の文字列と、全選択かどうか） */
+  private address: AddressEdit = {text: "", selectAll: false};
   private readonly syncTimer: number;
 
   constructor() {
@@ -175,13 +179,15 @@ export class BrowserScreen implements ScreenSource {
     }
     if (event.key === "Enter") {
       this.submitAddress();
-    } else if (event.key === "Escape") {
+      return;
+    }
+    if (event.key === "Escape") {
       this.blurAddress();
-    } else if (event.key === "Backspace") {
-      this.draft = removeLastChar(this.draft);
-      this.markChrome();
-    } else if (event.charCode >= 0x20) {
-      this.draft += String.fromCodePoint(event.charCode);
+      return;
+    }
+    const next = applyAddressKey(this.address, event);
+    if (next !== this.address) {
+      this.address = next;
       this.markChrome();
     }
   }
@@ -191,8 +197,7 @@ export class BrowserScreen implements ScreenSource {
       this.engine.insertText(text);
       return;
     }
-    // 改行は入れない（アドレスは 1 行）
-    this.draft += text.replace(/[\r\n]+/g, "");
+    this.address = applyAddressText(this.address, text);
     this.markChrome();
   }
 
@@ -281,7 +286,7 @@ export class BrowserScreen implements ScreenSource {
 
   private focusAddress(): void {
     this.addressFocused = true;
-    this.draft = addressDraftFor(this.url);
+    this.address = {text: addressDraftFor(this.url), selectAll: false};
     this.markChrome();
   }
 
@@ -290,12 +295,12 @@ export class BrowserScreen implements ScreenSource {
       return;
     }
     this.addressFocused = false;
-    this.draft = "";
+    this.address = {text: "", selectAll: false};
     this.markChrome();
   }
 
   private submitAddress(): void {
-    const target = normalizeAddress(this.draft);
+    const target = normalizeAddress(this.address.text);
     this.blurAddress();
     if (!target) {
       return;
@@ -375,11 +380,22 @@ export class BrowserScreen implements ScreenSource {
     const cy = r.y + r.height / 2;
 
     if (focused) {
-      const text = fitTail(ctx, this.draft, maxWidth);
+      const text = fitTail(ctx, this.address.text, maxWidth);
+      if (this.address.selectAll && text) {
+        ctx.fillStyle = COLORS.select;
+        ctx.fillRect(
+          r.x + padding,
+          r.y + 6,
+          ctx.measureText(text).width,
+          r.height - 12,
+        );
+      }
       ctx.fillStyle = COLORS.ink;
       ctx.fillText(text, r.x + padding, cy);
-      const caret = r.x + padding + ctx.measureText(text).width + 2;
-      ctx.fillRect(caret, cy - 11, 2, 22);
+      if (!this.address.selectAll) {
+        const caret = r.x + padding + ctx.measureText(text).width + 2;
+        ctx.fillRect(caret, cy - 11, 2, 22);
+      }
       return;
     }
     if (!this.url) {
