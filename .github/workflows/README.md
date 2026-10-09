@@ -8,6 +8,7 @@
 | `preview.yml` | **main に向けた PR**（`frontend/**` の変更） | Worker Preview を作り、URL を PR にコメント |
 | `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**` か `.github/workflows/deploy-cloudflare.yml`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
 | `deploy-backend.yml` | main への push（`backend/**` または `.github/workflows/deploy-backend.yml`）、手動実行 | CI → arm64 のイメージを ECR へ push（同じ sha のタグが既にあれば push は飛ばす）→ デプロイ対象のタグを更新 |
+| `deploy-wisp.yml` | main への push（`wisp/**` または `.github/workflows/deploy-wisp.yml`）、手動実行 | CI → arm64 の WISP イメージを ECR へ push → WISP のデプロイ対象タグを更新 |
 
 ### デプロイは CI の成功が前提
 
@@ -48,6 +49,7 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 | --- | --- |
 | `AWS_DEPLOY_ROLE_ARN` | `terraform output -raw github_deploy_role_arn` |
 | `ECR_REPOSITORY` | `terraform output -raw ecr_repository_url` |
+| `ECR_WISP_REPOSITORY` | `terraform output -raw wisp_ecr_repository_url` |
 | `CLOUDFLARE_ACCOUNT_ID` | `bf2196e6a0e1ba61db76cf62ca00cafa` |
 
 ### Secrets

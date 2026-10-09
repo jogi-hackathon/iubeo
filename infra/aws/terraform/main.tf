@@ -79,6 +79,16 @@ resource "aws_security_group" "backend" {
     cidr_blocks = local.cloudflare_ipv4
   }
 
+  # WISP(実サイトへ出るプロキシ)。ゲームのブラウザはここ経由で出るので、
+  # 出口はこのインスタンスの EIP になる(Cloudflare の共有IPではない)
+  ingress {
+    description = "WISP proxy from Cloudflare."
+    from_port   = 8081
+    to_port     = 8081
+    protocol    = "tcp"
+    cidr_blocks = local.cloudflare_ipv4
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -103,6 +113,22 @@ resource "aws_ecr_repository" "backend" {
   }
 
   tags = { Name = "${local.name}-backend" }
+}
+
+resource "aws_ecr_repository" "wisp" {
+  name                 = "${local.name}/wisp"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = false
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  tags = { Name = "${local.name}-wisp" }
 }
 
 # インスタンスが ECR からイメージを引くためのロール。
@@ -141,9 +167,12 @@ resource "aws_iam_role_policy" "instance_read_image_tag" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = "ssm:GetParameter"
-      Resource = aws_ssm_parameter.image_tag.arn
+      Effect = "Allow"
+      Action = "ssm:GetParameter"
+      Resource = [
+        aws_ssm_parameter.image_tag.arn,
+        aws_ssm_parameter.wisp_image_tag.arn,
+      ]
     }]
   })
 }
@@ -177,13 +206,20 @@ resource "aws_instance" "backend" {
   }
 
   user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
-    region              = var.aws_region
-    registry            = split("/", aws_ecr_repository.backend.repository_url)[0]
-    ecr_repository      = aws_ecr_repository.backend.repository_url
-    image_tag           = var.image_tag
-    allowed_origins     = join(",", var.allowed_origins)
-    container_memory    = var.container_memory_mib
-    image_tag_parameter = aws_ssm_parameter.image_tag.name
+    region                   = var.aws_region
+    registry                 = split("/", aws_ecr_repository.backend.repository_url)[0]
+    ecr_repository           = aws_ecr_repository.backend.repository_url
+    wisp_repository          = aws_ecr_repository.wisp.repository_url
+    image_tag                = var.image_tag
+    wisp_image_tag           = var.wisp_image_tag
+    allowed_origins          = join(",", var.allowed_origins)
+    container_memory         = var.container_memory_mib
+    image_tag_parameter      = aws_ssm_parameter.image_tag.name
+    wisp_image_tag_parameter = aws_ssm_parameter.wisp_image_tag.name
+    wisp_pass                = var.wisp_pass
+    # ブラウザが繋ぐ公開側の WISP URL。backend がトークンに載せて返す。
+    # 先頭の許可オリジンを ws に書き換える(wss://iubeo.../wisp/)
+    wisp_url = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
   })
 
   # user_data を変えてもインスタンスは作り直さない(起動後に手で反映する)

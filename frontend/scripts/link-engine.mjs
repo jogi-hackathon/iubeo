@@ -129,9 +129,9 @@ const dist = resolveDist(expandIfArchive(fromPath));
 if (!dist) {
   fail(
     `${fromPath} に gecko.js が見つかりません。\n` +
-      "    フォークのビルド済みリリースを使うのが最短です:\n" +
-      "    curl -LO https://github.com/thirdlf03/firefox-wasm/releases/download/v0.0.6/gecko.js-v0.0.6.tar.gz\n" +
-      "    pnpm engine:link -- --from gecko.js-v0.0.6.tar.gz",
+      "    フォークのビルド済みリリースを使うのが最短です(最新のタグは releases ページで確認):\n" +
+      "    curl -LO https://github.com/thirdlf03/firefox-wasm/releases/download/v0.0.9/gecko.js-v0.0.9.tar.gz\n" +
+      "    pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz",
   );
 }
 

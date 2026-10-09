@@ -99,7 +99,10 @@ const wispWorker = defineWorker({
   },
   env: {
     // トークンの検証鍵。バックエンドの IUBEO_WISP_KEY と同じ値を secrets file か `cf workers secrets` で登録する
+    // (EC2 経路では EC2 側の鍵で検証するので使われない)
     WISP_KEY: bindings.secret(),
+    // "target" が "ec2" なら EC2 上の WISP(8081)へ流す。backend worker と同じ KV
+    TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
   },
 });
 
