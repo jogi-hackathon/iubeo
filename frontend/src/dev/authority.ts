@@ -1,6 +1,7 @@
 import {itemManager} from "../items";
 import {objectManager, setRequestHandler} from "../objects";
 import type {StockFile} from "../objects/directory/data";
+import {DESK_HEIGHT} from "../objects/workspace/desk";
 import {LOCAL_PLAYER_ID} from "../player/local";
 import type {SceneName} from "../scenes";
 import {
@@ -74,7 +75,16 @@ const DEV_WORKSPACE_POSITION = [14, 0, -5] as const;
  */
 const DEV_CANVAS_POSITION = [11.5, 0, -5] as const;
 
-/** room 以外(test など)のシーンの確認用のオブジェクト(スポーン地点から見て -Z 方向) */
+/**
+ * PC の置き場所。ワークスペースの机の天板の上、奥寄り(room の PC_POSITION と同じ関係)。机の上に置くので高さは天板
+ */
+const DEV_PC_POSITION = [
+  DEV_WORKSPACE_POSITION[0],
+  DESK_HEIGHT,
+  DEV_WORKSPACE_POSITION[2] - 0.3,
+] as const;
+
+/** room 以外(test など)のシーンの確認用のオブジェクト(スポーン地点から見て -Z 方向)。PC は机の上に置く */
 const spawnTestObjects = () => {
   dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
   dummyAuthority.spawnObject([1.5, 1, -4], "shared");
@@ -85,6 +95,7 @@ const spawnTestObjects = () => {
   );
   dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);
   dummyAuthority.spawnCanvas([...DEV_CANVAS_POSITION]);
+  dummyAuthority.spawnPc([...DEV_PC_POSITION]);
 };
 
 /** room の確認用のオブジェクト。置き場所は scenes/RoomScene/layout(本番ではサーバーが置く) */

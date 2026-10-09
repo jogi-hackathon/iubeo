@@ -58,6 +58,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/wisp/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
+     * @description WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人だけに、
+     *     期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
+     *     サーバーに合言葉(IUBEO_WISP_PASS)が設定されていれば、それを X-Iubeo-Wisp-Pass で送った人だけに返す
+     *     (PC が開発中で、開発メンバーだけが触る間の制限)。
+     */
+    get: operations["getWispToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/matchmaking": {
     parameters: {
       query?: never;
@@ -230,6 +253,18 @@ export interface components {
       playerId: components["schemas"]["PlayerId"];
       /** @description 参加中のセッション。無ければ null */
       sessionId: string | null;
+    };
+    WispToken: {
+      /**
+       * @description WISP の WebSocket の URL。`token` のクエリを含む
+       * @example wss://example.test/wisp/?token=abc.def
+       */
+      url: string;
+      /**
+       * Format: date-time
+       * @description トークンの期限(接続を始めるのはこの前に)
+       */
+      expiresAt: string;
     };
     MatchmakingStatus: {
       /** @enum {string} */
@@ -611,6 +646,15 @@ export interface components {
         "application/json": components["schemas"]["Error"];
       };
     };
+    /** @description 今は使えない(設定が無いなど) */
+    Unavailable: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["Error"];
+      };
+    };
     /** @description 今の状態ではできない(既にセッションに参加中など) */
     Conflict: {
       headers: {
@@ -703,6 +747,32 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+    };
+  };
+  getWispToken: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description WISP を使うための合言葉。サーバーに設定があるときだけ要る */
+        "X-Iubeo-Wisp-Pass"?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 接続先の URL(トークンを含む) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WispToken"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      503: components["responses"]["Unavailable"];
     };
   };
   getMatchmaking: {

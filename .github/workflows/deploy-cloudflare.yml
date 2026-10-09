@@ -9,6 +9,8 @@ on:
       # ビルドするので、backend の変更でも再デプロイが要る。
       # これが無いと開発用のコンテナだけ古いままになる
       - "backend/**"
+      # WISP の Container は wisp/ から作る
+      - "wisp/**"
       - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
 
@@ -100,10 +102,26 @@ jobs:
         # 署名鍵は既に Worker に保存されているので secrets file は要らない
         run: pnpm exec cf deploy --mode backend
 
+      # WISP(実サイトへ出るプロキシ)は backend の次、フロントの前にデプロイする。
+      # フロントがサービスバインディングで参照するため。トークンの検証鍵(WISP_KEY)は
+      # 既に Worker に保存されているので secrets file は要らない
+      - name: WISP Worker をデプロイ
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec cf deploy --mode wisp
+
       - name: フロント Worker をデプロイ
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          # WISP の binding を付ける(付けないと /wisp は 503)。WISP を上でデプロイしているので付ける
+          IUBEO_WISP_ENABLED: "1"
+          # エンジンの配信元(R2 の公開 URL。リポジトリの変数 VITE_ENGINE_BASE_URL に入れる)
+          VITE_ENGINE_BASE_URL: ${{ vars.VITE_ENGINE_BASE_URL }}
+          # ?debug(room に机と PC を置く)を本番ビルドで使うか。リポジトリの変数 VITE_ENABLE_DEBUG に "true" を入れたときだけ有効
+          VITE_ENABLE_DEBUG: ${{ vars.VITE_ENABLE_DEBUG }}
         # 型検査も走る
         run: pnpm deploy

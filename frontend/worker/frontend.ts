@@ -1,6 +1,6 @@
 /**
  * フロントの Worker。静的アセット(SPA)を配信し、/api と /ws は
- * バックエンドの Worker へそのまま流す。
+ * バックエンドの Worker へ、/wisp は WISP の Worker へそのまま流す。
  *
  * コンテナを持たないので **Worker Previews が使える**(PR ごとのプレビュー URL)。
  * 画面と API を同じオリジンにするのもこの Worker の役目で、これにより
@@ -10,6 +10,11 @@ interface Env {
   ASSETS: Fetcher;
   /** サービスバインディング。バックエンドの Worker */
   BACKEND: Fetcher;
+  /**
+   * サービスバインディング。WISP の Worker(実サイトへ出るプロキシ。トークンで保護)。
+   * WISP を deploy していない環境（PR のプレビューなど）では無い。その場合 /wisp は 503
+   */
+  WISP?: Fetcher;
 }
 
 /** ヘルスチェックのパス(backend/api/openapi.yaml の /healthz) */
@@ -22,6 +27,12 @@ export default {
     // それ以外(アセットに一致しなかったパス)は SPA として index.html を返す。
     if (pathname.startsWith("/api/") || pathname === HEALTH_PATH) {
       return env.BACKEND.fetch(request);
+    }
+    if (pathname === "/wisp" || pathname.startsWith("/wisp/")) {
+      if (!env.WISP) {
+        return Response.json({error: "wisp is not deployed"}, {status: 503});
+      }
+      return env.WISP.fetch(request);
     }
     return env.ASSETS.fetch(request);
   },
