@@ -7,8 +7,10 @@ import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {getEyePosition, localPlayer} from "../../player";
 import {prewarmEngine} from "../../screen/engine";
 import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
+import {useInteraction} from "../interaction/useInteraction";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
+import {pcInteraction} from "./interaction";
 import {PcModel} from "./PcModel";
 import {type PcPhase, pcSession, usePcSession} from "./session";
 import {type PcCursor, usePcPointer} from "./usePcPointer";
@@ -64,6 +66,8 @@ export function PcObject({object}: {object: GameObject}) {
     },
     [object.id],
   );
+
+  useInteraction(object, pcInteraction);
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";

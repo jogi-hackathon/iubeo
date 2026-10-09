@@ -4,13 +4,15 @@ import {BoxGeometry, Color, type InstancedMesh, Object3D} from "three";
 import {BakeTarget} from "../../bake/BakeTarget";
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {BVHCollider} from "../../core/bvh";
-import {useIsVisible} from "../../core/toggles";
+import {useInteraction} from "../interaction/useInteraction";
+import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
 import {parseDirectoryData} from "./data";
 import {DirectoryOverview} from "./DirectoryOverview";
 import {buildCoreGeometry, buildSheetsGeometry} from "./geometry";
+import {directoryInteraction} from "./interaction";
 import {buildMountain, type Sheet} from "./mountain";
-import {overview, useIsOverviewing, useOverviewDirectoryId} from "./overview";
+import {overview, useIsOverviewing} from "./overview";
 import {createPaperMaterial, setSheetInfo} from "./paperMaterial";
 
 /** 芯の色。板より一段暗い紙色にして、散りばめた板が見分けられるようにする */
@@ -111,8 +113,17 @@ export function DirectoryObject({object}: {object: GameObject}) {
   const paperMaterial = useMemo(() => createPaperMaterial({merged: true}), []);
   useEffect(() => () => paperMaterial.dispose(), [paperMaterial]);
   const overviewing = useIsOverviewing(object.id);
+  useInteraction(object, directoryInteraction);
   // 非表示の間は、見た目(ObjectRoot が消す)だけでなく、山にぶつからないようにコライダーも無効にする
-  const visible = useIsVisible(object.kind);
+  const {visible, enabled} = useObjectState();
+  // 俯瞰中のこのディレクトリが消えたとき(アンマウント)・機能 OFF になったときは、俯瞰を一人称へ戻す。
+  // ディレクトリ自身の後始末なので、ここで見る(PcObject の画面と同じ形)
+  useEffect(() => () => resetOverviewOf(object.id), [object.id]);
+  useEffect(() => {
+    if (!enabled) {
+      resetOverviewOf(object.id);
+    }
+  }, [enabled, object.id]);
 
   return (
     <group>
@@ -138,15 +149,9 @@ export function DirectoryObject({object}: {object: GameObject}) {
   );
 }
 
-/**
- * 俯瞰しているディレクトリが消えたら(サーバーの remove)、補間を待たず一人称へ戻す。
- * ディレクトリ自身の側では、消えると一緒に外れてしまうので、常に置いてある ManagedObjects の側で見る
- */
-export function useOverviewGuard(objects: readonly GameObject[]): void {
-  const directoryId = useOverviewDirectoryId();
-  useEffect(() => {
-    if (directoryId !== null && !objects.some((o) => o.id === directoryId)) {
-      overview.reset();
-    }
-  }, [directoryId, objects]);
-}
+/** 俯瞰しているのがこのディレクトリなら、補間を待たず一人称へ戻す(サーバーの remove や、機能 OFF・非表示のとき) */
+const resetOverviewOf = (directoryId: string): void => {
+  if (overview.getState().directoryId === directoryId) {
+    overview.reset();
+  }
+};
