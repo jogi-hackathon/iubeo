@@ -1,14 +1,16 @@
-import {lazy, Suspense} from "react";
+import {lazy, Suspense, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
+import {useBootCover} from "./core/cover/useBootCover";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
 import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
+import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
 
@@ -22,10 +24,18 @@ export function App() {
   const {current: sceneName} = useSceneState();
   const Scene = scenes[sceneName];
   const warmedUp = useShaderWarmupDone();
+  // 起動時の白い覆いは、ウォームアップと最初のシーンの準備が終わるまで被せる
+  const [initialScene] = useState(sceneName);
+  useBootCover(initialScene, warmedUp);
   return (
     <>
       <GameCanvas>
         {Scene && <Scene key={sceneName} />}
+        {/*
+          シーンの準備ができたことを知らせる(シーンの後ろに置くので、シーンの中の effect の後に知らせる)。
+          シーンが変わるたびに作り直すため key を付けるが、兄弟のシーンと同じ key にしない(重なると古いシーンが外れなくなる)
+        */}
+        <ReportSceneReady key={`ready:${sceneName}`} scene={sceneName} />
         <BakedAO scene={sceneName} />
         <PlayerController />
         <Interaction />
@@ -35,12 +45,6 @@ export function App() {
         <PostProcess />
         <ShaderWarmup />
       </GameCanvas>
-      {!warmedUp && (
-        <div className="boot-screen boot-overlay">
-          <p>Loading...</p>
-          <p>shaders</p>
-        </div>
-      )}
       <Reticle />
       <OverviewCursor />
       <PostProcessPanel />

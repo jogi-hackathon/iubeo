@@ -1,9 +1,17 @@
 import {sceneNames, spawnOf} from ".";
+import {
+  coverScreen,
+  showBarWhileWaiting,
+  uncoverScreen,
+} from "../core/cover/cover";
+import {coverStore} from "../core/cover/coverStore";
 import {DEBUG_REQUESTED} from "../core/debug/flags";
+import {lockPlayerControl} from "../core/playerControl";
 import {overview} from "../objects/directory/overview";
 import {pcSession} from "../objects/pc/session";
 import {localPlayer} from "../player/local";
 import {createSceneManager} from "./sceneManager";
+import {resetSceneReady, whenSceneReady} from "./sceneReady";
 import {createSceneTransitionManager} from "./sceneTransitionManager";
 import {applySpawn} from "./spawn";
 
@@ -17,10 +25,31 @@ export const sceneManager = createSceneManager({
   available: sceneNames,
 });
 
-/** シーンの切り替えの流れ(goTo・遷移中の状態・フック)。切り替えの結果は sceneManager に commit される */
+// 遷移の間(覆ってから外すまで)プレイヤーの移動・視点・インタラクトを止める(覆いの裏で歩き出したり、物に触ったりしない)
+let releaseTransitionLock: (() => void) | null = null;
+
+/**
+ * シーンの切り替えの流れ(goTo・遷移中の状態・フック)。切り替えの結果は sceneManager に commit される。
+ * 白い覆いで隠してから切り替え、新しいシーンの準備(ReportSceneReady)が終わったら覆いを外す。
+ * 起動の覆いの間は、遷移を始めない(覆いを取り合わない)
+ */
 export const sceneTransitionManager = createSceneTransitionManager({
   sceneManager,
+  runTransition: () => {
+    releaseTransitionLock = lockPlayerControl();
+    return coverScreen();
+  },
+  waitReady: (scene) => showBarWhileWaiting(whenSceneReady(scene)),
+  finishTransition: () => {
+    uncoverScreen();
+    releaseTransitionLock?.();
+    releaseTransitionLock = null;
+  },
+  canStart: () => !coverStore.getState().booting,
 });
+
+// commit の直前に、to の準備済みの印を外す(前の訪問で準備済みでも、今回のマウントを待つ)
+sceneTransitionManager.onPrepare(({to}) => resetSceneReady(to));
 
 // 起動時の位置も、最初のシーンのスポーン地点に合わせる
 applySpawn(localPlayer, spawnOf(initial));

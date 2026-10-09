@@ -17,25 +17,39 @@ export type TransitionHook = (ctx: SceneTransitionContext) => void;
 
 export type SceneTransitionManagerOptions = {
   sceneManager: SceneManager;
-  /** 遷移演出。resolve するまで transitioning のまま待つ */
+  /** 遷移演出(覆う)。resolve するまで transitioning のまま待つ */
   runTransition?: (ctx: SceneTransitionContext) => Promise<void>;
+  /** commit のあと、to の準備ができるまで待つ。resolve するまで finishTransition を呼ばない */
+  waitReady?: (scene: SceneName) => Promise<void>;
+  /** 準備ができたあとに演出を終える(覆いを外す)。transitionEnd の前に呼ぶ */
+  finishTransition?: (ctx: SceneTransitionContext) => void;
+  /** 今、遷移を始めてよいか(起動の覆いの間など、始めてはいけないときは false)。false なら goTo は何もしない */
+  canStart?: () => boolean;
 };
 
-/** 将来ここを PC 画面へのズームイン演出などに差し替える差し込み口。既定は演出なし */
+/** 既定は演出なし・準備は即完了 */
 const noTransition = (): Promise<void> => Promise.resolve();
+const noWait = (): Promise<void> => Promise.resolve();
+const noFinish = (): void => {};
+const always = (): boolean => true;
 
 type Phase = "leave" | "prepare" | "enter";
 
 /**
  * シーン切り替えの流れ(遷移の状態・演出・フック・イベント)。切り替えの結果は SceneManager に commit する。
  *
- * goTo の順序: transitionStart -> onLeave(from) -> runTransition -> onPrepare(to) と commit(to) -> onEnter(to) -> transitionEnd。
+ * goTo の順序: transitionStart -> onLeave(from) -> runTransition -> onPrepare(to) と commit(to) -> onEnter(to)
+ *   -> waitReady(to) -> finishTransition -> transitionEnd。
  * onPrepare と commit は同じ同期区間で続けて呼ぶ(React の再描画が 1 回にまとまり、新しいシーンに前のシーンのオブジェクトが
- * 一瞬出たり、ベイク AO の不一致が起きたりしない)。onPrepare は「新しいシーンが描かれる前」に、サーバー役のオブジェクトなどを揃える場所
+ * 一瞬出たり、ベイク AO の不一致が起きたりしない)。onPrepare は「新しいシーンが描かれる前」に、サーバー役のオブジェクトなどを揃える場所。
+ * waitReady は commit の後で待つ(新しいシーンのマウントは commit の後に起きるため)。準備が終わるまで演出は終わらない
  */
 export const createSceneTransitionManager = ({
   sceneManager,
   runTransition = noTransition,
+  waitReady = noWait,
+  finishTransition = noFinish,
+  canStart = always,
 }: SceneTransitionManagerOptions) => {
   // 遷移中も App は from のシーンを描画し続け(SceneManager が commit するまで current は from のまま)、idle になる前に to へ切り替わる
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
@@ -122,7 +136,7 @@ export const createSceneTransitionManager = ({
     /** 遷移中の呼び出し・現在と同じシーン・使えないシーンへの遷移は無視する */
     goTo: async (to: SceneName): Promise<void> => {
       const from = sceneManager.getState().current;
-      if (state.status !== "idle" || from === to) {
+      if (state.status !== "idle" || from === to || !canStart()) {
         return;
       }
       if (!sceneManager.isAvailable(to)) {
@@ -141,10 +155,21 @@ export const createSceneTransitionManager = ({
         set({status: "idle"});
         return;
       }
-      // ここから先は await しない(同じ同期区間で、新しいシーンの用意と commit を続ける)
+      // commit まで await しない(同じ同期区間で、新しいシーンの用意と commit を続ける)
       runHooks("prepare", ctx);
       sceneManager.commit(to);
       runHooks("enter", ctx);
+      // 準備が終わるまで演出を終えない。待ちが失敗しても commit 済みなので、演出は終えて遷移は完了させる
+      try {
+        await waitReady(to);
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        finishTransition(ctx);
+      } catch (e) {
+        console.error(e);
+      }
       // transitionEnd の時点で getState() は既に idle になっている。
       // ただしハンドラ内から goTo すると、後続のハンドラでは次の遷移の状態になる。
       // ハンドラは getState() ではなく引数 {from, to} を見ること

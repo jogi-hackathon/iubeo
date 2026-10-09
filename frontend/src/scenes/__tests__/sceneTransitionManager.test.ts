@@ -38,6 +38,21 @@ afterEach(() => {
 });
 
 describe("createSceneTransitionManager", () => {
+  it("canStart が false の間(起動の覆いの間など)は、goTo しても遷移を始めない", async () => {
+    let allowed = false;
+    const runTransition = vi.fn(() => Promise.resolve());
+    const {scenes, m} = make({runTransition, canStart: () => allowed});
+
+    await m.goTo("sandbox");
+    expect(runTransition).not.toHaveBeenCalled();
+    expect(m.getState()).toEqual({status: "idle"});
+    expect(scenes.getState().current).toBe("room");
+
+    allowed = true;
+    await m.goTo("sandbox");
+    expect(scenes.getState().current).toBe("sandbox");
+  });
+
   it("初期状態は idle", () => {
     expect(make().m.getState()).toEqual({status: "idle"});
   });
@@ -364,8 +379,81 @@ describe("createSceneTransitionManager", () => {
     });
     await m.goTo("sandbox");
     // ハンドラは getState() ではなくペイロードを見る(契約)。h1 の goTo による2回目の遷移は別イベント
+    // (準備の待ちが入るので、2回目の遷移の完了は外側の goTo より後になる)
+    await vi.waitFor(() => expect(seen).toHaveLength(4));
     expect(seen.slice(0, 2)).toEqual(["h1 room>sandbox", "h2 room>sandbox"]);
     expect(seen.slice(2)).toEqual(["h1 sandbox>room", "h2 sandbox>room"]);
+  });
+
+  it("commit のあと、waitReady が resolve してから finishTransition・transitionEnd の順に進む", async () => {
+    const ready = deferred();
+    const log: string[] = [];
+    const {scenes, m} = make({
+      runTransition: () => {
+        log.push("cover");
+        return Promise.resolve();
+      },
+      waitReady: (scene) => {
+        log.push(`wait:${scene}:${scenes.getState().current}`);
+        return ready.promise;
+      },
+      finishTransition: () => log.push("uncover"),
+    });
+    m.on("transitionEnd", () => log.push("transitionEnd"));
+    scenes.subscribe(() => log.push(`commit:${scenes.getState().current}`));
+
+    const p = m.goTo("sandbox");
+    await vi.waitFor(() => expect(log).toContain("wait:sandbox:sandbox"));
+    expect(log).toEqual(["cover", "commit:sandbox", "wait:sandbox:sandbox"]);
+    expect(m.getState().status).toBe("transitioning");
+
+    ready.resolve();
+    await p;
+    expect(log).toEqual([
+      "cover",
+      "commit:sandbox",
+      "wait:sandbox:sandbox",
+      "uncover",
+      "transitionEnd",
+    ]);
+    expect(m.getState()).toEqual({status: "idle"});
+  });
+
+  it("準備が終わらなければ、覆いを外さず transitioning のまま", async () => {
+    const finishTransition = vi.fn();
+    const onEnd = vi.fn();
+    const {m} = make({
+      waitReady: () => new Promise<void>(() => {}),
+      finishTransition,
+    });
+    m.on("transitionEnd", onEnd);
+
+    void m.goTo("sandbox");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(finishTransition).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+    expect(m.getState().status).toBe("transitioning");
+  });
+
+  it("waitReady が reject しても、commit 済みなので遷移は完了し finishTransition は呼ぶ", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const finishTransition = vi.fn();
+    const {scenes, m} = make({
+      waitReady: () => Promise.reject(new Error("wait")),
+      finishTransition,
+    });
+
+    await m.goTo("sandbox");
+    expect(scenes.getState()).toEqual({current: "sandbox"});
+    expect(finishTransition).toHaveBeenCalledTimes(1);
+    expect(m.getState()).toEqual({status: "idle"});
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("waitReady へ to を渡す(from ではない)", async () => {
+    const waitReady = vi.fn(() => Promise.resolve());
+    await make({waitReady}).m.goTo("sandbox");
+    expect(waitReady).toHaveBeenCalledWith("sandbox");
   });
 
   it("遷移完了後は再び goTo できる", async () => {
