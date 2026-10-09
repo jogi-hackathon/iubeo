@@ -43,33 +43,44 @@ export const ROOM_FLOOR: WallSpec = {
   size: [OUTER, WALL_THICKNESS, OUTER],
 };
 
-/** 部屋を囲む壁と天井。左の壁には窓の空洞を空ける */
+/**
+ * 部屋を囲む壁と天井。左の壁には窓の空洞を空ける。
+ * 壁は、隣の壁・床・天井の中まで延ばして重ねる(端と端を突き合わせるだけだと、隅の継ぎ目に 1px の隙間ができて外の空が線になって見える)
+ */
 export const ROOM_WALLS: readonly WallSpec[] = [
   // 奥(-Z)と手前(+Z)の壁は、角まで覆う
   {
     position: [0, HALF, ROOM_CENTER_Z - WALL_CENTER],
-    size: [OUTER, ROOM_SIZE, WALL_THICKNESS],
+    size: [OUTER, OUTER, WALL_THICKNESS],
   },
   {
     position: [0, HALF, ROOM_CENTER_Z + WALL_CENTER],
-    size: [OUTER, ROOM_SIZE, WALL_THICKNESS],
+    size: [OUTER, OUTER, WALL_THICKNESS],
   },
   // 右(+X)の壁
   {
     position: [WALL_CENTER, HALF, ROOM_CENTER_Z],
-    size: [WALL_THICKNESS, ROOM_SIZE, ROOM_SIZE],
+    size: [WALL_THICKNESS, OUTER, OUTER],
   },
   // 左(-X)の壁: 窓の下・上・奥側・手前側の 4 枚
   {
-    position: [-WALL_CENTER, WINDOW_SILL_HEIGHT / 2, ROOM_CENTER_Z],
-    size: [WALL_THICKNESS, WINDOW_SILL_HEIGHT, ROOM_SIZE],
+    position: [
+      -WALL_CENTER,
+      (WINDOW_SILL_HEIGHT - WALL_THICKNESS) / 2,
+      ROOM_CENTER_Z,
+    ],
+    size: [WALL_THICKNESS, WINDOW_SILL_HEIGHT + WALL_THICKNESS, OUTER],
   },
   {
-    position: [-WALL_CENTER, (windowTop + ROOM_SIZE) / 2, ROOM_CENTER_Z],
-    size: [WALL_THICKNESS, ROOM_SIZE - windowTop, ROOM_SIZE],
+    position: [
+      -WALL_CENTER,
+      (windowTop + ROOM_SIZE + WALL_THICKNESS) / 2,
+      ROOM_CENTER_Z,
+    ],
+    size: [WALL_THICKNESS, ROOM_SIZE + WALL_THICKNESS - windowTop, OUTER],
   },
-  besideWindow(ROOM_INNER_Z_NORTH, windowNorthZ),
-  besideWindow(windowSouthZ, ROOM_INNER_Z_SOUTH),
+  besideWindow(ROOM_INNER_Z_NORTH - WALL_THICKNESS, windowNorthZ),
+  besideWindow(windowSouthZ, ROOM_INNER_Z_SOUTH + WALL_THICKNESS),
   // 天井
   {
     position: [0, ROOM_SIZE + WALL_THICKNESS / 2, ROOM_CENTER_Z],
