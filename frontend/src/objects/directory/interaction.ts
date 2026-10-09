@@ -1,7 +1,6 @@
 import {getActiveToggles} from "../../core/toggles";
 import {itemManager} from "../../items";
 import type {GameObject} from "../types";
-import {DIRECTORY_OVERVIEW_KEY} from "./data";
 import {overview} from "./overview";
 
 type Deps = {
@@ -30,12 +29,15 @@ export const createDirectoryInteraction =
     return true;
   };
 
-/** ディレクトリのインタラクトの処理(DirectoryObject が useInteraction で登録する) */
-export const directoryInteraction = createDirectoryInteraction({
-  isHandEmpty: () => itemManager.getHeld() === null,
-  isOverviewEnabled: () =>
-    getActiveToggles()?.isEnabled(DIRECTORY_OVERVIEW_KEY) ?? true,
-  enterOverview: (id) => {
-    overview.enter(id);
-  },
-});
+/**
+ * ディレクトリのインタラクトの処理(useDirectory が登録する)。俯瞰の機能のトグルのキーは、置かれた項目名から決まる
+ * (例: directory:overview)
+ */
+export const directoryInteractionFor = (overviewKey: string) =>
+  createDirectoryInteraction({
+    isHandEmpty: () => itemManager.getHeld() === null,
+    isOverviewEnabled: () => getActiveToggles()?.isEnabled(overviewKey) ?? true,
+    enterOverview: (id) => {
+      overview.enter(id);
+    },
+  });

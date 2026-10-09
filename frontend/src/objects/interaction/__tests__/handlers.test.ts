@@ -7,7 +7,6 @@ const object = (id: string): GameObject => ({
   id,
   kind: "any",
   scope: "shared",
-  position: [0, 0, 0],
   users: [],
   availability: "available",
   data: null,

@@ -1,6 +1,7 @@
 import {useEffect} from "react";
 
 import {DEBUG_AVAILABLE} from "../../core/debug/flags";
+import {MULTIPLAYER_LAYOUT} from "../../dev/multiplayer/layout";
 import {ManagedObjects} from "../../objects";
 import {RemotePlayers} from "../../player";
 import {TestLayout} from "../TestScene/TestLayout";
@@ -35,7 +36,7 @@ export function MultiplayerTestScene() {
     <>
       <TestLayout />
       <RemotePlayers />
-      <ManagedObjects />
+      <ManagedObjects layout={MULTIPLAYER_LAYOUT} />
     </>
   );
 }

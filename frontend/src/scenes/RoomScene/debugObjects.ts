@@ -4,19 +4,15 @@ import {PC_KIND} from "../../objects/pc/data";
 import type {GameObject} from "../../objects/types";
 import {WORKSPACE_KIND} from "../../objects/workspace/data";
 import {LOCAL_PLAYER_ID} from "../../player/local";
-import {PC_POSITION, WORKSPACE_POSITION} from "./layout";
 
-const DEBUG_OBJECT_IDS = [`${WORKSPACE_KIND}-debug`, `${PC_KIND}-debug`];
+/** room のレイアウトの id(ROOM_LAYOUT の workspace・pc と一致させる。置き場所はレイアウトが決める) */
+const DEBUG_OBJECT_IDS = ["workspace-1", "pc-1"];
 
-const personal = (
-  kind: string,
-  position: GameObject["position"],
-): GameObject => ({
-  id: `${kind}-debug`,
+const personal = (id: string, kind: string): GameObject => ({
+  id,
   kind,
   scope: "personal",
   owner: LOCAL_PLAYER_ID,
-  position,
   users: [],
   availability: "available",
   data: null,
@@ -33,11 +29,11 @@ export const placeDebugObjects = (): (() => void) => {
   }
   objectManager.apply({
     type: "upsert",
-    object: personal(WORKSPACE_KIND, [...WORKSPACE_POSITION]),
+    object: personal("workspace-1", WORKSPACE_KIND),
   });
   objectManager.apply({
     type: "upsert",
-    object: personal(PC_KIND, [...PC_POSITION]),
+    object: personal("pc-1", PC_KIND),
   });
   return () => {
     for (const id of DEBUG_OBJECT_IDS) {

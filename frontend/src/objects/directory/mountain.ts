@@ -192,8 +192,11 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
   return {positions, uvs, indices, groups};
 };
 
+/** ディレクトリの山の seed。山の形はこの値と大きさだけで決まる(id やシーンには依らない) */
+export const DIRECTORY_MOUNTAIN_SEED = "directory-1";
+
 /**
- * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed(ディレクトリの id)から決まる。
+ * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed から決まる(ディレクトリは固定の seed を使う)。
  * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(厚みの違う白い本を 4〜6 冊重ねた小さな山積み)を並べる。
  * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める。
  * 段数・半径・高さは sizeName(MOUNTAIN_SIZES)で決まる(既定の large)

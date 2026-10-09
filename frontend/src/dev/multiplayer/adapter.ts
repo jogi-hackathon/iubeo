@@ -7,7 +7,7 @@ import type {
 import type {GameObject, ObjectManager} from "../../objects";
 import type {PlayerManager, PlayerStatus, PlayerTransform} from "../../player";
 import type {Vec3} from "../../props/types";
-import {objectPosition, spawnPosition} from "./layout";
+import {spawnPosition} from "./layout";
 
 type NetPlayerStatus = ServerMessageOf<"player.updated">["player"];
 type NetTransform =
@@ -22,8 +22,7 @@ const toVec3 = (v: readonly number[]): Vec3 => [
   v[1] ?? 0,
   v[2] ?? 0,
 ];
-const toObject = (o: NetGameObject): GameObject =>
-  ({...o, position: objectPosition(o.id)}) as GameObject;
+const toObject = (o: NetGameObject): GameObject => ({...o}) as GameObject;
 const toStatus = (p: NetPlayerStatus): PlayerStatus => ({
   playerId: p.playerId,
   kind: p.kind,

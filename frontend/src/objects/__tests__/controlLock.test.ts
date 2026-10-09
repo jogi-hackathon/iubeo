@@ -46,7 +46,7 @@ const setup = () => {
 describe("isWorkingAt(objectManager とダミーのサーバー役につないだ導出)", () => {
   it("自分が users に入っている間だけ true", () => {
     const {objects, authority, working, finish} = setup();
-    const id = authority.spawnWorkspace([0, 0, -3]);
+    const id = authority.spawnWorkspace("workspace-1");
     expect(working(id)).toBe(false);
 
     objects.interact(id);
@@ -58,7 +58,7 @@ describe("isWorkingAt(objectManager とダミーのサーバー役につない�
 
   it("キャンバスも、自分が users に入っている間は true", () => {
     const {objects, authority, working, finish} = setup();
-    const id = authority.spawnCanvas([0, 0, -3]);
+    const id = authority.spawnCanvas("canvas-1");
     expect(working(id)).toBe(false);
 
     objects.interact(id);
@@ -70,7 +70,7 @@ describe("isWorkingAt(objectManager とダミーのサーバー役につない�
 
   it("他のプレイヤーが作業中の間は、自分は作業中にならない", () => {
     const {objects, authority, working} = setup();
-    const ws = authority.spawnWorkspace([0, 0, -3]);
+    const ws = authority.spawnWorkspace("workspace-1");
     objects.apply({
       type: "upsert",
       object: {...objects.getObject(ws)!, users: ["other"]},
@@ -82,7 +82,7 @@ describe("isWorkingAt(objectManager とダミーのサーバー役につない�
     const {objects, items, authority, working} = setup();
     const onRejected = vi.fn();
     objects.on("interactRejected", onRejected);
-    const id = authority.spawnWorkspace([0, 0, -3]);
+    const id = authority.spawnWorkspace("workspace-1");
     items.apply({type: "spawn", item: {id: "l", kind: "lighter", data: null}});
 
     objects.interact(id);
@@ -106,7 +106,7 @@ describe("isWorkingAt(objectManager とダミーのサーバー役につない�
   // remove されるとコンポーネントがアンマウントされ、ロックはその後始末で外れる(ここではオブジェクトが無くなることだけを見る)
   it("作業中にワークスペースが remove されたら、作業中のオブジェクトは無くなる", () => {
     const {objects, authority, working} = setup();
-    const id = authority.spawnWorkspace([0, 0, -3]);
+    const id = authority.spawnWorkspace("workspace-1");
     objects.interact(id);
     expect(working(id)).toBe(true);
 

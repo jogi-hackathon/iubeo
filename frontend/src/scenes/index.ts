@@ -5,7 +5,7 @@ import {MultiplayerTestScene} from "./MultiplayerTestScene";
 import {RoomScene} from "./RoomScene";
 import {ROOM_SPAWN_POSITION} from "./RoomScene/layout";
 import {SandboxScene} from "./SandboxScene";
-import {SANDBOX_SPAWNS} from "./SandboxScene/layout";
+import {sandboxSpawnOf} from "./SandboxScene/layout";
 import type {Spawn} from "./spawn";
 import {TestScene} from "./TestScene";
 
@@ -30,14 +30,11 @@ export const sceneNames = Object.keys(scenes) as SceneName[];
 /**
  * シーンごとのスポーン地点(シーンに入ったときのプレイヤーの位置と向き)。無いシーンは START_POSITION・yaw 0。
  * room は床の上(足元 y=0 のすぐ上)から、正面の -Z 向きに始める。
- * sandbox は区画 0 の自分のスポーン地点(3 区画分は SANDBOX_SPAWNS。区画の割り当てはマルチプレイができてから)
+ * sandbox は座席 1 のスポーン地点(座席ごとは sandboxSpawnOf。座席の割り当てはマルチプレイができてから)
  */
 export const sceneSpawn: {readonly [K in SceneName]?: Spawn} = {
   room: {position: [...ROOM_SPAWN_POSITION], yaw: 0},
-  sandbox: {
-    position: [...SANDBOX_SPAWNS[0].position],
-    yaw: SANDBOX_SPAWNS[0].yaw,
-  },
+  sandbox: sandboxSpawnOf(1),
 };
 
 export const spawnOf = (scene: SceneName): Spawn =>

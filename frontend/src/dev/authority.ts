@@ -1,18 +1,14 @@
 import {itemManager} from "../items";
 import {objectManager, setRequestHandler} from "../objects";
 import type {StockFile} from "../objects/directory/data";
-import {DESK_HEIGHT} from "../objects/workspace/desk";
+import {kindOfId} from "../objects/layout";
+import type {ObjectScope} from "../objects/types";
 import {LOCAL_PLAYER_ID} from "../player/local";
 import type {SceneName} from "../scenes";
-import {
-  CANVAS_POSITION,
-  CANVAS_YAW,
-  DIRECTORY_POSITION,
-  PC_POSITION,
-  WORKSPACE_POSITION,
-} from "../scenes/RoomScene/layout";
+import {sceneLayouts} from "../scenes/layouts";
 import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
-import {createDummyAuthority} from "./dummyAuthority";
+import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
+import {createDummyAuthority, type DummyAuthority} from "./dummyAuthority";
 
 /** 開発時のダミーのサーバー役。読み込むと、オブジェクトの要求の送り先として登録され、確認用のオブジェクトを置く */
 export const dummyAuthority = createDummyAuthority({
@@ -24,11 +20,8 @@ export const dummyAuthority = createDummyAuthority({
 setRequestHandler(dummyAuthority.handle);
 
 /**
- * ディレクトリの置き場所と、在庫(はっきり見分けられる 6 色)。山とファイルのアニュラスの外径(約 6.3m)が、
- * TestScene の壁(x=8 の壁の端 (8.25,-4) まで 7.6m)・球・ダミーの箱・ダミープレイヤーの歩く円(中心 (4,-3)、半径 1.5)・
- * スポーン地点のどれとも重ならない、+X 側の壁の外
+ * 在庫(はっきり見分けられる 6 色)。ディレクトリの初期の中身
  */
-const DEV_DIRECTORY_POSITION = [14, 0, 1] as const;
 const DEV_DIRECTORY_STOCK: readonly StockFile[] = [
   {
     id: "3f0c6a52-8d1e-4b7a-9c35-1a2e4f6b8d01",
@@ -62,64 +55,47 @@ const DEV_DIRECTORY_STOCK: readonly StockFile[] = [
   },
 ];
 
-/**
- * ワークスペースの置き場所。机(1.6m x 0.8m)は x 13.2〜14.8・z -5.4〜-4.6 を占める。ディレクトリ(中心 (14,1))の山は
- * 束の端まで MOUNTAIN_REACH(4.4m)なので -Z 側は z=-3.4 付近までで、机とは約 1.2m 空く。TestScene の壁(x=8 の壁は x<=8.25)・
- * 球(x<=5)・ダミープレイヤーの歩く円(x<=5.5)とは 5m 以上離れている
- */
-const DEV_WORKSPACE_POSITION = [14, 0, -5] as const;
+type Spawn = (authority: DummyAuthority, id: string) => void;
 
 /**
- * キャンバス(イーゼル)の置き場所。足元は x ±0.49・z -0.62〜0.32 を占める。机(x>=13.2)とは 1.2m 以上、
- * ディレクトリ(中心 (14,1))の山(束の端まで 4.4m)とは約 6.5m 離れている
+ * 初期に置き方を、種類ごとに決める(種類は id の接頭辞。kindOfId)。ここに無い種類(ライターの置き場など)は置かない。
+ * ダミーの箱(dummy)はここに無く、下の DUMMY_OBJECTS にある id だけを置く(予備の dummy-4〜8 は初期状態では置かない)
  */
-const DEV_CANVAS_POSITION = [11.5, 0, -5] as const;
-
-/**
- * PC の置き場所。ワークスペースの机の天板の上、奥寄り(room の PC_POSITION と同じ関係)。机の上に置くので高さは天板
- */
-const DEV_PC_POSITION = [
-  DEV_WORKSPACE_POSITION[0],
-  DESK_HEIGHT,
-  DEV_WORKSPACE_POSITION[2] - 0.3,
-] as const;
-
-/** room 以外(test など)のシーンの確認用のオブジェクト(スポーン地点から見て -Z 方向)。PC は机の上に置く */
-const spawnTestObjects = () => {
-  dummyAuthority.spawnObject([-1.5, 1, -4], "personal");
-  dummyAuthority.spawnObject([1.5, 1, -4], "shared");
-  dummyAuthority.spawnObject([0, 1, -4], "personal", "unavailable");
-  dummyAuthority.spawnDirectory(
-    [...DEV_DIRECTORY_POSITION],
-    DEV_DIRECTORY_STOCK,
-  );
-  dummyAuthority.spawnWorkspace([...DEV_WORKSPACE_POSITION]);
-  dummyAuthority.spawnCanvas([...DEV_CANVAS_POSITION]);
-  dummyAuthority.spawnPc([...DEV_PC_POSITION]);
+const SPAWN_BY_KIND: Readonly<Record<string, Spawn>> = {
+  directory: (a, id) => a.spawnDirectory(id, DEV_DIRECTORY_STOCK),
+  workspace: (a, id) => a.spawnWorkspace(id),
+  canvas: (a, id) => a.spawnCanvas(id),
+  pc: (a, id) => a.spawnPc(id),
 };
 
-/** room の確認用のオブジェクト。置き場所は scenes/RoomScene/layout(本番ではサーバーが置く) */
-const spawnRoomObjects = () => {
-  dummyAuthority.spawnDirectory(
-    [...DIRECTORY_POSITION],
-    DEV_DIRECTORY_STOCK,
-    "small",
-  );
-  dummyAuthority.spawnWorkspace([...WORKSPACE_POSITION]);
-  dummyAuthority.spawnCanvas([...CANVAS_POSITION], CANVAS_YAW);
-  dummyAuthority.spawnPc([...PC_POSITION]);
+/** 確認用のダミーの箱(id ごとに scope・使えるか)。test のレイアウトの dummy-1〜3 */
+const DUMMY_OBJECTS: Readonly<Record<string, Spawn>> = {
+  "dummy-1": (a, id) => a.spawnObject(id, "personal"),
+  "dummy-2": (a, id) => a.spawnObject(id, "shared"),
+  "dummy-3": (a, id) => a.spawnObject(id, "personal", "unavailable"),
+};
+
+const spawnOf = (id: string): Spawn | undefined =>
+  DUMMY_OBJECTS[id] ?? SPAWN_BY_KIND[kindOfId(id)];
+
+/**
+ * 予備のダミーを、空いている一番若い id(TEST_SPARE_IDS)で置き、その id を返す。全部使われていれば undefined
+ * (デバッグパネルの「追加」が使う)
+ */
+export const spawnSpareObject = (scope: ObjectScope): string | undefined => {
+  const taken = new Set(objectManager.getState().objects.map((o) => o.id));
+  const id = TEST_SPARE_IDS.find((s) => !taken.has(s));
+  return id === undefined ? undefined : dummyAuthority.spawnObject(id, scope);
 };
 
 /**
- * 置いてあるオブジェクトを全部片付けて(id の採番も戻る)、シーンに合わせた確認用のオブジェクトを置き直す。
+ * 置いてあるオブジェクトを全部片付けて、シーンのレイアウトに合わせて確認用のオブジェクトを置き直す。
  * シーンの切り替えのたびに、新しいシーンが描かれる直前に呼ばれる(下の onPrepare)。ベイクページはシーンを切り替えず直接マウントするので、自分で呼ぶ
  */
 export const applyDevLayout = (scene: SceneName): void => {
   dummyAuthority.clearObjects();
-  if (scene === "room") {
-    spawnRoomObjects();
-  } else {
-    spawnTestObjects();
+  for (const item of Object.values(sceneLayouts[scene])) {
+    spawnOf(item.id)?.(dummyAuthority, item.id);
   }
 };
 

@@ -7,7 +7,6 @@ const directory: GameObject = {
   id: "d1",
   kind: "directory",
   scope: "shared",
-  position: [0, 0, 0],
   users: [],
   availability: "available",
   data: {stock: [], outputs: 0},

@@ -1,7 +1,7 @@
 import type {Vector3Tuple} from "three";
 
 /*
- * 机の寸法(m)と部品の配置。座標は object.position(足元)を原点とした相対で、天板の上面が高さ DESK_HEIGHT。
+ * 机の寸法(m)と部品の配置。座標はレイアウトの位置(足元)を原点とした相対で、天板の上面が高さ DESK_HEIGHT。
  * 描画(WorkspaceObject)は、ここの部品を単位の箱・円柱の scale で伸ばして描く
  */
 

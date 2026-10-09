@@ -12,11 +12,10 @@ import {
   PARTITION_AXIS,
   PARTITION_THICKNESS,
   SANDBOX_CIRCUMRADIUS,
-  SANDBOX_DIRECTORY_POSITION,
-  SANDBOX_DIRECTORY_SIZE,
+  SANDBOX_LAYOUT,
   SANDBOX_INRADIUS,
   SANDBOX_SIDE,
-  SANDBOX_SPAWNS,
+  SEATS,
   WALL_HEIGHT,
   WALL_INNER_HALF_WIDTH,
   WALL_THICKNESS,
@@ -36,8 +35,9 @@ import {
   type Placement,
   ridgeHeight,
   rotateY,
+  sandboxSpawnOf,
+  seatYaw,
   toWorld,
-  zoneYaw,
 } from "../layout";
 
 const r = SANDBOX_INRADIUS;
@@ -45,9 +45,11 @@ const t = WALL_THICKNESS;
 const pt = PARTITION_THICKNESS;
 const Y_AXIS = new Vector3(0, 1, 0);
 const ZONES = Array.from({length: ZONE_COUNT}, (_, i) => i);
+/** 区画 zone(0 始まり)の座席の回転。区画の番号は座席の番号 - 1 */
+const zoneYaw = (zone: number): number => seatYaw(zone + 1);
 /** 物の足元と、壁・仕切り・山との間に空けておく余裕(m) */
 const CLEAR = 0.3;
-const MOUNTAIN_REACH = mountainReach(SANDBOX_DIRECTORY_SIZE);
+const MOUNTAIN_REACH = mountainReach("large");
 
 type XZ = readonly [number, number];
 
@@ -119,7 +121,8 @@ const overlaps = (a: XZ[], b: XZ[]): boolean =>
     );
   });
 
-const worldPlacement = (zone: number, local: Placement) => toWorld(local, zone);
+const worldPlacement = (zone: number, local: Placement) =>
+  toWorld(local, zone + 1);
 
 describe("sandbox の形", () => {
   it("室内は一辺 SANDBOX_SIDE の正三角形で、中心から頂点までが R = 2r、辺の中点までが r", () => {
@@ -144,9 +147,7 @@ describe("sandbox の形", () => {
   });
 
   it("三角錐の頂点(APEX_HEIGHT)は、ディレクトリの俯瞰カメラ(山の中心の真上)より 1m 以上高い", () => {
-    expect(overviewHeight(SANDBOX_DIRECTORY_SIZE) + 1).toBeLessThan(
-      APEX_HEIGHT,
-    );
+    expect(overviewHeight("large") + 1).toBeLessThan(APEX_HEIGHT);
     expect(WALL_HEIGHT).toBeLessThan(APEX_HEIGHT);
   });
 
@@ -155,10 +156,10 @@ describe("sandbox の形", () => {
     expect(zoneYaw(1)).toBeCloseTo((2 * Math.PI) / 3);
     expect(zoneYaw(2)).toBeCloseTo((4 * Math.PI) / 3);
     const local: Placement = {position: [3.5, 0.2, 6], yaw: 0.7};
-    expect(toWorld(local, 0).position).toEqual(local.position);
-    expect(toWorld(local, 0).yaw).toBe(0.7);
+    expect(toWorld(local, 1).position).toEqual(local.position);
+    expect(toWorld(local, 1).yaw).toBe(0.7);
     for (const zone of [1, 2]) {
-      const world = toWorld(local, zone);
+      const world = toWorld(local, zone + 1);
       const expected = new Vector3(...local.position).applyAxisAngle(
         Y_AXIS,
         zoneYaw(zone),
@@ -444,7 +445,7 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
   });
 
   it("スポーン地点は区画の三角形の中で、山・仕切り・外壁から離れ、中心(ディレクトリ)の方を向く", () => {
-    const spawn = SANDBOX_SPAWNS[zone] as (typeof SANDBOX_SPAWNS)[number];
+    const spawn = sandboxSpawnOf(zone + 1);
     expect(spawn.position[1]).toBeCloseTo(0.05);
     const local = toZoneLocal(zone, [spawn.position[0], spawn.position[2]]);
     for (const d of partitionDistances(local)) {
@@ -464,7 +465,7 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
 
   it("キャンバスの絵の面(既定は +Z)は、スポーン地点を向く", () => {
     const canvasPlacement = place(ZONE_CANVAS);
-    const spawn = SANDBOX_SPAWNS[zone] as (typeof SANDBOX_SPAWNS)[number];
+    const spawn = sandboxSpawnOf(zone + 1);
     const facing = [
       Math.sin(canvasPlacement.yaw),
       Math.cos(canvasPlacement.yaw),
@@ -481,18 +482,18 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
 
 describe("ディレクトリ・スポーン", () => {
   it("ディレクトリは中心(原点)の large の山", () => {
-    expect(SANDBOX_DIRECTORY_POSITION).toEqual([0, 0, 0]);
-    expect(SANDBOX_DIRECTORY_SIZE).toBe("large");
+    expect(SANDBOX_LAYOUT.directory?.position).toEqual([0, 0, 0]);
+    expect(SANDBOX_LAYOUT.directory?.look).toBe("large");
     // 山は外壁の室内側の面(r)より手前に収まる
     expect(MOUNTAIN_REACH).toBeLessThan(r);
   });
 
   it("スポーン地点は区画ごとに 1 つで、区画ローカルの値を回したもの", () => {
-    expect(SANDBOX_SPAWNS).toHaveLength(ZONE_COUNT);
-    expect(SANDBOX_SPAWNS[0].position).toEqual(ZONE_SPAWN.position);
-    expect(SANDBOX_SPAWNS[0].yaw).toBe(ZONE_SPAWN.yaw);
+    expect(SEATS).toHaveLength(ZONE_COUNT);
+    expect(sandboxSpawnOf(1).position).toEqual(ZONE_SPAWN.position);
+    expect(sandboxSpawnOf(1).yaw).toBe(ZONE_SPAWN.yaw);
     for (const zone of ZONES) {
-      const spawn = SANDBOX_SPAWNS[zone] as (typeof SANDBOX_SPAWNS)[number];
+      const spawn = sandboxSpawnOf(zone + 1);
       const expected = new Vector3(...ZONE_SPAWN.position).applyAxisAngle(
         Y_AXIS,
         zoneYaw(zone),

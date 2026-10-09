@@ -1,5 +1,6 @@
 import {ManagedObjects} from "../../objects";
 import {DummyPlayers} from "./DummyPlayers";
+import {TEST_LAYOUT} from "./layout";
 import {TestLayout} from "./TestLayout";
 
 /** 衝突確認用のテストシーン。サーバーにはつながず、ダミーのサーバー役で動かす(サーバー役が置くオブジェクトは ManagedObjects が描く) */
@@ -8,7 +9,7 @@ export function TestScene() {
     <>
       <TestLayout />
       <DummyPlayers />
-      <ManagedObjects />
+      <ManagedObjects layout={TEST_LAYOUT} />
     </>
   );
 }

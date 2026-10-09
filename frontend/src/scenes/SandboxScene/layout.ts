@@ -1,4 +1,8 @@
-import type {MountainSizeName} from "../../objects/directory/mountain";
+import {
+  directoryItem,
+  type LayoutItem,
+  type SceneLayout,
+} from "../../objects/layout";
 import {DESK_HEIGHT, TOP_SIZE} from "../../objects/workspace/desk";
 import type {SlabSpec} from "../../props/slabGeometry";
 import type {Vec3} from "../../props/types";
@@ -6,9 +10,9 @@ import type {Spawn} from "../spawn";
 
 // サンドボックスは、正三角形の床の上の「正三角柱 + 三角錐の屋根」(3 人用)。3 人それぞれの区画は、中心から 3 つの頂点へ引いた仕切り(壁より薄いすりガラスの板)で区切った三角形。
 // 座標は、部屋の中心(三角形の重心)が原点、床の上面が y=0。
-// 区画 k(0, 1, 2)は、「区画ローカル座標」を Y 軸まわりに zoneYaw(k) = k * 2π/3 回したもの(three の rotation.y と同じ向き)。区画 0 はローカル=ワールド。
+// 区画 k(0, 1, 2)は、「区画ローカル座標」を Y 軸まわりに seatYaw(座席 k+1) = k * 2π/3 回したもの(three の rotation.y と同じ向き)。区画 0 はローカル=ワールド。
 // 区画ローカルでは、外壁が +Z 側、中心(ディレクトリの山)が原点で、区画は三角形 (0, 0)・(-SIDE/2, r)・(SIDE/2, r) の室内。
-// 区画の部品(床・外壁・仕切り・屋根・イス)は、ローカル座標の値をそのまま 1 つの group(rotation = zoneYaw)に入れて回す
+// 区画の部品(床・外壁・仕切り・屋根・イス)は、ローカル座標の値をそのまま 1 つの group(rotation = seatYaw)に入れて回す
 const SQRT3 = Math.sqrt(3);
 
 /** 室内の正三角形の一辺 */
@@ -34,9 +38,9 @@ const OUTER_INRADIUS = r + t;
 const OUTER_HALF_WIDTH = SQRT3 * OUTER_INRADIUS;
 const OUTER_CIRCUMRADIUS = 2 * OUTER_INRADIUS;
 
-/** 区画 index の、ローカルからワールドへの回転(Y 軸まわり、ラジアン) */
-export const zoneYaw = (zone: number): number =>
-  (zone * 2 * Math.PI) / ZONE_COUNT;
+/** 座席 seat(1, 2, 3)の、ローカルからワールドへの回転(Y 軸まわり、ラジアン)。座席 1 はローカル=ワールド */
+export const seatYaw = (seat: number): number =>
+  ((seat - 1) * 2 * Math.PI) / ZONE_COUNT;
 
 /** ベクトルを Y 軸まわりに yaw 回す(three の rotation.y と同じ向き。yaw=0 で変わらず、+π/2 で +Z が +X へ向く) */
 export const rotateY = ([x, y, z]: Vec3, yaw: number): Vec3 => {
@@ -48,10 +52,10 @@ export const rotateY = ([x, y, z]: Vec3, yaw: number): Vec3 => {
 /** 位置と向き(足元の位置と、Y 軸まわりの向き) */
 export type Placement = {position: Vec3; yaw: number};
 
-/** 区画ローカルの位置・向きを、区画 zone の分だけ回してワールドへ置く(ワールドの yaw = ローカルの yaw + zoneYaw) */
-export const toWorld = (local: Placement, zone: number): Placement => ({
-  position: rotateY(local.position, zoneYaw(zone)),
-  yaw: local.yaw + zoneYaw(zone),
+/** 区画ローカルの位置・向きを、座席 seat の分だけ回してワールドへ置く(ワールドの yaw = ローカルの yaw + seatYaw) */
+export const toWorld = (local: Placement, seat: number): Placement => ({
+  position: rotateY(local.position, seatYaw(seat)),
+  yaw: local.yaw + seatYaw(seat),
 });
 
 /** 直方体の壁。position は中心(区画ローカル) */
@@ -177,8 +181,6 @@ export const ZONE_ROOF: SlabSpec = {
 // ディレクトリは全区画で 1 つ、中心(原点)の large の山。山は束の端まで mountainReach("large") = 4.4m で、3 区画にまたがり(仕切りが貫く)、室内の三角形(内接円の半径 r)の内側に収まる。
 // 机は右(+x 側)の外壁に付けて、手前(イス側)を中心へ向ける。イスはその手前から外壁の方を向く。キャンバスは左寄りで、スポーン地点の方を向く。
 // スポーン地点は、中心(ディレクトリ)の方(ローカルの -Z)を向く。イス・PC・キャンバスの足元は、room と同じ考え方
-export const SANDBOX_DIRECTORY_POSITION: Vec3 = [0, 0, 0];
-export const SANDBOX_DIRECTORY_SIZE: MountainSizeName = "large";
 
 /** 机の奥の縁と外壁の室内側の面の間の隙間(m)。机の奥行き TOP_SIZE[2] の半分だけ、中心が壁から離れる */
 const DESK_WALL_GAP = 0.15;
@@ -216,14 +218,37 @@ export const ZONE_CANVAS: Placement = {
   ),
 };
 
-const zoneSpawn = (zone: number): Spawn => {
-  const {position, yaw} = toWorld(ZONE_SPAWN, zone);
+/** 座席番号(ワールドの区画は、座席の番号 1..3 で呼ぶ) */
+export const SEATS = [1, 2, 3] as const;
+
+/** 座席 seat のスポーン地点(ワールド。プレイヤーを自分の座席の区画へ入れる用。今のシーンの入り口は座席 1) */
+export const sandboxSpawnOf = (seat: number): Spawn => {
+  const {position, yaw} = toWorld(ZONE_SPAWN, seat);
   return {position, yaw};
 };
 
-/** 3 区画のスポーン地点(ワールド。将来のマルチプレイで、プレイヤーを自分の区画へ入れる用)。今のシーンの入り口は区画 0 */
-export const SANDBOX_SPAWNS = [
-  zoneSpawn(0),
-  zoneSpawn(1),
-  zoneSpawn(2),
-] as const;
+/** 座席ごとの項目(机・PC・キャンバス)。項目名は座席の番号つき(例: workspace-2)。位置・向きは座席で回した値 */
+const seatItems = (seat: number): [string, LayoutItem][] => {
+  const place = (kind: string, local: Placement): [string, LayoutItem] => {
+    const world = toWorld(local, seat);
+    const name = `${kind}-${seat}`;
+    return [name, {id: name, position: world.position, yaw: world.yaw}];
+  };
+  return [
+    place("workspace", ZONE_WORKSPACE),
+    place("pc", ZONE_PC),
+    place("canvas", ZONE_CANVAS),
+  ];
+};
+
+/**
+ * サンドボックスに置くオブジェクトのレイアウト。ディレクトリは中心に 1 つ(large の山)。
+ * 机・PC・キャンバスは座席 1..3 の分(項目名は座席の番号つき)
+ */
+export const SANDBOX_LAYOUT: SceneLayout = Object.fromEntries([
+  [
+    "directory",
+    directoryItem({id: "directory-1", position: [0, 0, 0], look: "large"}),
+  ],
+  ...SEATS.flatMap(seatItems),
+]);
