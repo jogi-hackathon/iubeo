@@ -1204,6 +1204,17 @@ type TransformsMessageType string
 // Example: [1.25,0,-2.5]
 type Vec3 = []float64
 
+// WispToken defines model for WispToken.
+type WispToken struct {
+	// ExpiresAt トークンの期限(接続を始めるのはこの前に)
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Url WISP の WebSocket の URL。`token` のクエリを含む
+	//
+	// Example: wss://example.test/wisp/?token=abc.def
+	Url string `json:"url"`
+}
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -1215,6 +1226,15 @@ type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// Unavailable defines model for Unavailable.
+type Unavailable = Error
+
+// GetWispTokenParams defines parameters for GetWispToken.
+type GetWispTokenParams struct {
+	// XIubeoWispPass WISP を使うための合言葉。サーバーに設定があるときだけ要る
+	XIubeoWispPass *string `json:"X-Iubeo-Wisp-Pass,omitempty"`
+}
 
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
@@ -1882,6 +1902,9 @@ type ServerInterface interface {
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
+	// GetWispToken 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
+	// (GET /api/v1/wisp/token)
+	GetWispToken(w http.ResponseWriter, r *http.Request, params GetWispTokenParams)
 	// GetHealth ヘルスチェック
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -2032,6 +2055,47 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetWispToken operation middleware
+func (siw *ServerInterfaceWrapper) GetWispToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWispTokenParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Iubeo-Wisp-Pass" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Iubeo-Wisp-Pass")]; found {
+		var XIubeoWispPass string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Iubeo-Wisp-Pass", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Iubeo-Wisp-Pass", valueList[0], &XIubeoWispPass, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Iubeo-Wisp-Pass", Err: err})
+			return
+		}
+
+		params.XIubeoWispPass = &XIubeoWispPass
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWispToken(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -2169,6 +2233,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealth)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.JoinMatchmaking)

@@ -33,6 +33,12 @@ type Config struct {
 	BypassDuration time.Duration
 	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
 	FireDuration time.Duration
+	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
+	WispKey []byte
+	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
+	WispURL string
+	// WispPass は WISP のトークンを発行する合言葉(IUBEO_WISP_PASS。任意)。あれば、これを知っている人にだけ発行する
+	WispPass string
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
@@ -107,6 +113,19 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("%s must be a positive duration such as 30s: %q", d.name, v))
 		} else {
 			*d.dst = dur
+		}
+	}
+
+	if v := getenv("IUBEO_WISP_KEY"); v != "" {
+		switch {
+		case len(v) < minSigningKeyLen:
+			errs = append(errs, fmt.Errorf("IUBEO_WISP_KEY must be at least %d bytes", minSigningKeyLen))
+		case getenv("IUBEO_WISP_URL") == "":
+			errs = append(errs, errors.New("IUBEO_WISP_URL is required when IUBEO_WISP_KEY is set"))
+		default:
+			cfg.WispKey = []byte(v)
+			cfg.WispURL = getenv("IUBEO_WISP_URL")
+			cfg.WispPass = getenv("IUBEO_WISP_PASS")
 		}
 	}
 
