@@ -2,6 +2,14 @@ import {Box3, BoxGeometry, Mesh, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
 import {mountainReach} from "../../../objects/directory/mountain";
+import {
+  KEYBOARD,
+  MEMO,
+  MONITOR_BODY_DEPTH,
+  MONITOR_Z,
+  MOUSE,
+  TOWER,
+} from "../../../objects/pc/dimensions";
 import {CHAIR_PARTS} from "../../../props/chairParts";
 import {
   CANVAS_POSITION,
@@ -190,6 +198,29 @@ describe("room layout", () => {
     expect(PC_POSITION[0]).toBeLessThan(WORKSPACE_POSITION[0] + 0.8);
     expect(PC_POSITION[2]).toBeLessThan(WORKSPACE_POSITION[2]);
     expect(PC_POSITION[2]).toBeGreaterThan(WORKSPACE_POSITION[2] - 0.4);
+  });
+
+  it("PC の、机に載る部品はすべて天板(奥行き 0.8m)の内側に収まる", () => {
+    // PC の原点からの、各部品の z の張り出し(後ろ, 手前)。CRT の管の後端は
+    // 高い所にあるので対象外。台座の後端(-0.26)はモニタ群の中の一番後ろで机に触れる点
+    const offsetZ = PC_POSITION[2] - WORKSPACE_POSITION[2];
+    const parts: [string, number, number][] = [
+      ["モニタ本体", MONITOR_Z - MONITOR_BODY_DEPTH / 2, MONITOR_Z + 0.2],
+      ["モニタ台座", MONITOR_Z - 0.14, MONITOR_Z + 0.12],
+      ["タワー", TOWER.z - TOWER.depth / 2, TOWER.z + TOWER.depth / 2],
+      [
+        "キーボード",
+        KEYBOARD.z - KEYBOARD.depth / 2,
+        KEYBOARD.z + KEYBOARD.depth / 2,
+      ],
+      ["マウス", MOUSE.z - MOUSE.depth / 2, MOUSE.z + MOUSE.depth / 2],
+      // メモは傾けて立てる板。傾きの分だけ厚み側に広がるので、高さの半分を余分に見る
+      ["メモ", MEMO.z - MEMO.height / 2, MEMO.z + MEMO.height / 2],
+    ];
+    for (const [name, back, front] of parts) {
+      expect(back + offsetZ, name).toBeGreaterThanOrEqual(-0.4);
+      expect(front + offsetZ, name).toBeLessThanOrEqual(0.4);
+    }
   });
 
   it("イスの部品は床より上に収まる", () => {

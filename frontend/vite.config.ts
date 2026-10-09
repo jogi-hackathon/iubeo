@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import {defineConfig} from "vite";
 
 import {bakeSavePlugin} from "./scripts/bakeSavePlugin.ts";
+import {judgeDevPlugin} from "./scripts/judgeDev.ts";
 import {serveEnginePlugin} from "./scripts/serveEnginePlugin.ts";
 import {DEFAULT_WISP_PORT, wispDevPlugin} from "./scripts/wispServer.ts";
 
@@ -31,6 +32,8 @@ export default defineConfig(({command, isPreview}) => ({
     react(),
     bakeSavePlugin(),
     serveEnginePlugin(),
+    // 手元でも /judge（Web Search の判定）を本番と同じ経路で使えるようにする（開発用の常時一致を返す）
+    judgeDevPlugin(),
     // pnpm dev のとき、PC の画面が実サイトへ出るための WISP（127.0.0.1:5001）も一緒に立てる
     wispDevPlugin(),
     // Cloudflare の Worker はビルド(と vite preview)のときだけ使う。開発時も Worker を動かすと、

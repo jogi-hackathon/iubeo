@@ -108,7 +108,7 @@ const wispWorker = defineWorker({
 
 /**
  * フロントの Worker。コンテナを持たないので Previews が使える。
- * /api と /ws はサービスバインディングでバックエンドへ流す。
+ * /api と /ws はサービスバインディングでバックエンドへ流し、/judge は自分で受ける。
  */
 const frontendWorker = defineWorker({
   name: FRONTEND_NAME,
@@ -120,12 +120,15 @@ const frontendWorker = defineWorker({
     // クライアント側ルーティング(index.html へフォールバック)
     notFoundHandling: "single-page-application",
     // 画面と API を同じオリジンにして Cookie(SameSite=Lax)を通すため、
-    // Worker が先に受けてバックエンドへ転送する
-    runWorkerFirst: ["/api/*", "/healthz", "/wisp/*"],
+    // Worker が先に受けてバックエンドへ転送する。/judge は Worker 自身が受ける(SPA へ落とさない)
+    runWorkerFirst: ["/api/*", "/healthz", "/wisp/*", "/judge"],
   },
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
     ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
+    // Web Search の判定(Clef)に使う Workers AI の binding。
+    // 従量課金のみで鍵は要らない。無ければ /judge は 503(画面は簡易判定に落ちる)
+    AI: bindings.ai(),
   },
 });
 

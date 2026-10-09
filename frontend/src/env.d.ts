@@ -6,6 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_WISP_URL?: string;
   /** Gecko エンジンの配信元（例: https://pub-xxxx.r2.dev）。空なら同じオリジンの /engine/（開発時の既定） */
   readonly VITE_ENGINE_BASE_URL?: string;
+  /** Web Search の判定（Clef）のエンドポイント。既定は同じオリジンの /judge（本番は Worker、開発は Vite） */
+  readonly VITE_JUDGE_URL?: string;
 }
 
 interface ImportMeta {

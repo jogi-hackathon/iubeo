@@ -38,6 +38,7 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 | `pnpm lint` / `pnpm lint:fix` | oxlint + oxfmt のチェック / oxlint の自動修正 |
 | `pnpm format` | oxfmt で整形 |
 | `pnpm bake:ao` | AO のベイク(下記) |
+| `pnpm shot:pc --out=<path>` | PC の 3D モデルを 3 視点で撮る(`pc.html`。下記) |
 
 コミット前に `pnpm typecheck && pnpm lint && pnpm test` が通ること。
 
@@ -70,6 +71,8 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。お題のメモをクリックすると、別のお題を引く。Esc で離れる。
 
+- **検索の判定**: 今のお題にふさわしいものを検索できているかを、**ページを開くたびに** Clef が見る（プレイヤーが判定を要求する操作は無い）。HUD は使わず、外れているときだけ CRT が一瞬乱れて理由を画面の中に出す。合っていれば検索は成果物（`search_created` のファイル）として手に入り、合図のあと PC が畳まれる。詳しくは [docs/frontend/web-search-judge.md](../docs/frontend/web-search-judge.md)。手元の dev サーバーでは常に一致を返す（本物は Workers AI 上で動く）。
+
 - 初回の起動は、エンジンの wasm を読むので数十秒かかる（画面に「BOOTING」と出る）。2 回目以降は速い。
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
@@ -81,6 +84,17 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 - 本番（Cloudflare）には載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番では「NO ENGINE」になる。
 
 - 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
+
+### PC の 3D モデルを撮る
+
+見た目（`PcModel`）を直したときの比較用に、ゲームへ入らずにモデルだけを撮れる。ゲームと同じライト・同じ CRT マテリアルで、正面・斜め 45°・モニタ接写の 3 視点を 1 枚にする。
+
+```sh
+pnpm shot:pc --out=../docs/screenshots/pc-after.png
+```
+
+- 実 GPU の WebGPU が使える Chrome が要る（`pnpm bake:ao` と同じ）。ページは `pc.html`（dev 専用。build には入らない）
+- 撮影しているのは `src/pc/page.tsx`。視点や背景を変えたいときはここを直す
 
 ### 本番の WISP（トークンで保護）
 
