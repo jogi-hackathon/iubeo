@@ -1,5 +1,7 @@
 import type {Texture} from "three/webgpu";
 
+import type {PageSnapshot} from "../judge/types";
+
 /**
  * PC の画面に映る中身の共通の型。画面は、自分の画素がどこから来るのかを知らない。
  * 今は Gecko(wasm のエンジン)だけだが、同じインターフェースを実装すれば差し替えられる。
@@ -81,6 +83,20 @@ export interface ScreenSource {
   escapeIsLocal?(): boolean;
   /** この canvas 位置で OS カーソルをどう見せるか */
   cursorKind(x: number, y: number): CursorKind;
+
+  /** 今表示しているページの情報（Web Search の判定に渡す）。取れなければ null */
+  readPage?(): Promise<PageSnapshot | null>;
+  /**
+   * 表示中のページが変わったときに呼ぶ。Web Search の判定は、プレイヤーの操作ではなく
+   * これをきっかけに走る（彼らは常に見ている）
+   */
+  onPageChange?: (url: string) => void;
+  /**
+   * 画面の一部として出す一時的な通知（HUD ではない）。null で消す。
+   * 判定の結果など、外に出したくない知らせをブラウン管の中に出すために使う。
+   * tear を立てると、出した直後に走査が乱れる（「彼ら」の介入）
+   */
+  setNotice?(lines: readonly string[] | null, tear?: boolean): void;
 
   dispose(): void;
 }

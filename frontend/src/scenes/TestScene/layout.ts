@@ -34,6 +34,6 @@ export const TEST_LAYOUT: SceneLayout = Object.fromEntries([
   ["directory", directoryItem({id: "directory-1", position: [14, 0, 1]})],
   ["workspace", {id: "workspace-1", position: [14, 0, -5]}],
   ["canvas", {id: "canvas-1", position: [11.5, 0, -5]}],
-  ["pc", {id: "pc-1", position: [14, DESK_HEIGHT, -5.3]}],
+  ["pc", {id: "pc-1", position: [14, DESK_HEIGHT, -5.03]}],
   ...[4, 5, 6, 7, 8].map(spare),
 ]);

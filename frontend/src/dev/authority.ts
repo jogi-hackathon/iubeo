@@ -2,6 +2,7 @@ import {itemManager} from "../items";
 import {objectManager, setRequestHandler} from "../objects";
 import type {StockFile} from "../objects/directory/data";
 import {kindOfId} from "../objects/layout";
+import {judgeStore} from "../objects/pc/judge";
 import type {ObjectScope} from "../objects/types";
 import {LOCAL_PLAYER_ID} from "../player/local";
 import type {SceneName} from "../scenes";
@@ -9,6 +10,7 @@ import {sceneLayouts} from "../scenes/layouts";
 import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
 import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
 import {createDummyAuthority, type DummyAuthority} from "./dummyAuthority";
+import {installSearchDeliverable} from "./searchDeliverable";
 
 /** 開発時のダミーのサーバー役。読み込むと、オブジェクトの要求の送り先として登録され、確認用のオブジェクトを置く */
 export const dummyAuthority = createDummyAuthority({
@@ -102,3 +104,13 @@ export const applyDevLayout = (scene: SceneName): void => {
 applyDevLayout(sceneManager.getState().current);
 // 新しいシーンの commit と同じ同期区間で置き直す(シーンの再描画が 1 回で済み、新しいシーンに前のシーンのオブジェクトが出ない)
 sceneTransitionManager.onPrepare(({to}) => applyDevLayout(to));
+
+/**
+ * Web Search の成果物。Clef の判定が通ったら、その検索を `search_created` のファイルとして手に持たせる
+ * (実サーバーが PC の規則を持つまでの写し。キャンバスの image_created と同じ立場)
+ */
+installSearchDeliverable({
+  authority: dummyAuthority,
+  judge: judgeStore,
+  items: itemManager,
+});

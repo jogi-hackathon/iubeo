@@ -1,5 +1,6 @@
 import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
+import type {PageSnapshot} from "../judge/types";
 import {
   type AddressEdit,
   addressDraftFor,
@@ -27,8 +28,14 @@ import type {
 const URL_SYNC_MS = 500;
 /** 自分で移動した直後の、URL を読み直さない時間(ms)。読み込みが済む前に古い URL へ戻らないため */
 const NAVIGATION_HOLD_MS = 10000;
+/** 「彼ら」の介入で走査が乱れる長さ(ms) */
+const TEAR_MS = 700;
+/** 乱れのスライス数と、1 スライスあたりの最大のずれ(画面幅に対する比) */
+const TEAR_SLICES = 12;
+const TEAR_SHIFT = 0.05;
 
 const MONO = "ui-monospace, Menlo, Consolas, monospace";
+const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
 const COLORS = {
   chrome: "#e6e6e2",
   chromeLine: "#c9c9c4",
@@ -38,6 +45,7 @@ const COLORS = {
   focus: "#4a7bd8",
   field: "#ffffff",
   select: "#aacbf3",
+  notice: "rgba(28, 28, 30, 0.86)",
 };
 
 /**
@@ -77,6 +85,12 @@ export class BrowserScreen implements ScreenSource {
   private addressFocused = false;
   /** アドレス欄の編集状態（入力中の文字列と、全選択かどうか） */
   private address: AddressEdit = {text: "", selectAll: false};
+  /** 画面の一部として出す通知（判定の結果など）。null なら出さない */
+  private notice: readonly string[] | null = null;
+  /** 走査を乱す（彼らの介入）の終わり。performance.now() と比べる */
+  private tearUntil = 0;
+  /** 表示中のページが変わったときに呼ぶ（Web Search の常時判定のきっかけ） */
+  onPageChange?: (url: string) => void;
   private readonly syncTimer: number;
 
   constructor() {
@@ -206,10 +220,47 @@ export class BrowserScreen implements ScreenSource {
     return this.addressFocused;
   }
 
+  /**
+   * 今表示しているページの情報。Web Search の判定（Clef）に渡すために読む。
+   * 本文は長いので切り詰めるのは呼ぶ側（judge の clip）に任せ、ここでは素直に取る
+   */
+  async readPage(): Promise<PageSnapshot | null> {
+    const url = this.url || this.lastHref;
+    const title = (await this.engine.evalContent("document.title")) ?? "";
+    const text =
+      (await this.engine.evalContent(
+        "document.body && document.body.innerText ? document.body.innerText : ''",
+      )) ?? "";
+    return url || title || text ? {url, title, text} : null;
+  }
+
+  /**
+   * 画面の中に通知を出す。同じ内容なら描き直さない（毎フレーム呼ばれても無駄に描かない）。
+   * tear を立てると、少しの間だけ走査が乱れる（彼らの介入）
+   */
+  setNotice(lines: readonly string[] | null, tear = false): void {
+    if (tear && lines) {
+      this.tearUntil = performance.now() + TEAR_MS;
+    }
+    if (sameNotice(this.notice, lines)) {
+      this.markChrome();
+      return;
+    }
+    this.notice = lines;
+    this.markChrome();
+  }
+
   tick(): void {
     this.engine.tick();
-    if (this.engine.liveSurface || this.engine.isDirty() || this.chromeDirty) {
-      this.compose();
+    // 乱れている間は、毎フレーム描き直して揺れを進める
+    const tearing = performance.now() < this.tearUntil;
+    if (
+      this.engine.liveSurface ||
+      this.engine.isDirty() ||
+      this.chromeDirty ||
+      tearing
+    ) {
+      this.compose(tearing);
       this.engine.clearDirty();
       this.chromeDirty = false;
       this.dirty = true;
@@ -335,6 +386,7 @@ export class BrowserScreen implements ScreenSource {
         this.navigatedFrom = "";
         this.url = href;
         this.markChrome();
+        this.notifyPageChange();
       }
       return;
     }
@@ -342,11 +394,17 @@ export class BrowserScreen implements ScreenSource {
       this.url = href;
       this.recordVisit(href);
       this.markChrome();
+      this.notifyPageChange();
     }
   }
 
+  /** 着いたページを、判定（常時判定）へ知らせる */
+  private notifyPageChange(): void {
+    this.onPageChange?.(this.url);
+  }
+
   /** 枠とエンジンの表示を、1 枚の画面に合成する */
-  private compose(): void {
+  private compose(tearing = false): void {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) {
       return;
@@ -360,7 +418,42 @@ export class BrowserScreen implements ScreenSource {
     drawButton(ctx, "forward", this.canGoForward);
     this.drawAddress(ctx);
 
-    ctx.drawImage(this.engine.canvas, 0, TOOLBAR_HEIGHT);
+    drawEngine(ctx, this.engine.canvas, tearing);
+    this.drawNotice(ctx);
+  }
+
+  /** 通知の帯。エンジンの表示の上に重ねるが、HUD ではなく画面の一部として描く */
+  private drawNotice(ctx: CanvasRenderingContext2D): void {
+    const lines = this.notice;
+    if (!lines || lines.length === 0) {
+      return;
+    }
+    const padding = 16;
+    const lineHeight = 26;
+    const r = {
+      x: padding,
+      y: 0,
+      width: SCREEN_CANVAS.width - padding * 2,
+      height: lines.length * lineHeight + padding * 2 - 6,
+    };
+    r.y = SCREEN_CANVAS.height - padding - r.height;
+
+    roundRect(ctx, r.x, r.y, r.width, r.height, 10);
+    ctx.fillStyle = COLORS.notice;
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `20px ${JA_FONT}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const maxWidth = r.width - padding * 2;
+    lines.forEach((line, index) => {
+      ctx.fillText(
+        fitHead(ctx, line, maxWidth),
+        r.x + padding,
+        r.y + padding + lineHeight * index + lineHeight / 2 - 3,
+      );
+    });
   }
 
   private drawAddress(ctx: CanvasRenderingContext2D): void {
@@ -413,31 +506,63 @@ export class BrowserScreen implements ScreenSource {
   }
 }
 
-/** 戻る・進むのボタン。矢印は図形で描く（フォントに依らない） */
-const drawButton = (
+/**
+ * エンジンの表示を画面へ貼る。tearing のときは横のスライスに切って、それぞれ違う量だけ横へずらす
+ * （走査が乱れる演出。「彼ら」の介入でだけ使う）。ずれは毎フレーム引き直すので揺れて見える
+ */
+const drawEngine = (
   ctx: CanvasRenderingContext2D,
-  part: "back" | "forward",
-  enabled: boolean,
+  source: HTMLCanvasElement,
+  tearing: boolean,
 ): void => {
-  const r = TOOLBAR_LAYOUT[part];
-  const cx = r.x + r.width / 2;
-  const cy = r.y + r.height / 2;
-  const dir = part === "back" ? -1 : 1;
-  roundRect(ctx, r.x, r.y, r.width, r.height, 8);
-  ctx.fillStyle = COLORS.button;
-  ctx.fill();
-  ctx.strokeStyle = COLORS.chromeLine;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.beginPath();
-  // 先端は進む向き（戻るは左）に出し、底辺はその反対側に置く
-  ctx.moveTo(cx + dir * 6, cy);
-  ctx.lineTo(cx - dir * 5, cy - 8);
-  ctx.lineTo(cx - dir * 5, cy + 8);
-  ctx.closePath();
-  ctx.fillStyle = enabled ? COLORS.ink : COLORS.muted;
-  ctx.fill();
+  if (!tearing) {
+    ctx.drawImage(source, 0, TOOLBAR_HEIGHT);
+    return;
+  }
+  const slice = source.height / TEAR_SLICES;
+  for (let index = 0; index < TEAR_SLICES; index += 1) {
+    const weight = index % 3 === 0 ? 1 : 0.35;
+    const shift =
+      (Math.random() - 0.5) * 2 * TEAR_SHIFT * SCREEN_CANVAS.width * weight;
+    ctx.drawImage(
+      source,
+      0,
+      index * slice,
+      source.width,
+      slice,
+      shift,
+      TOOLBAR_HEIGHT + index * slice,
+      SCREEN_CANVAS.width,
+      slice,
+    );
+  }
 };
+
+/** 戻る・進むのボタン。矢印は図形で描く（フォントに依らない） */ const drawButton =
+  (
+    ctx: CanvasRenderingContext2D,
+    part: "back" | "forward",
+    enabled: boolean,
+  ): void => {
+    const r = TOOLBAR_LAYOUT[part];
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    const dir = part === "back" ? -1 : 1;
+    roundRect(ctx, r.x, r.y, r.width, r.height, 8);
+    ctx.fillStyle = COLORS.button;
+    ctx.fill();
+    ctx.strokeStyle = COLORS.chromeLine;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    // 先端は進む向き（戻るは左）に出し、底辺はその反対側に置く
+    ctx.moveTo(cx + dir * 6, cy);
+    ctx.lineTo(cx - dir * 5, cy - 8);
+    ctx.lineTo(cx - dir * 5, cy + 8);
+    ctx.closePath();
+    ctx.fillStyle = enabled ? COLORS.ink : COLORS.muted;
+    ctx.fill();
+  };
 
 const roundRect = (
   ctx: CanvasRenderingContext2D,
@@ -484,3 +609,14 @@ const fitHead = (
   }
   return `${shown}…`;
 };
+
+/** 通知が同じ内容か（同じなら描き直さない） */
+const sameNotice = (
+  a: readonly string[] | null,
+  b: readonly string[] | null,
+): boolean =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.length === b.length &&
+    a.every((line, index) => line === b[index]));

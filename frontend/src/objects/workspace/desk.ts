@@ -35,7 +35,7 @@ const DRAWER_HANDLE_SIZE: Vector3Tuple = [0.16, 0.02, 0.02];
 
 /** 紙の束(A4 の厚さ 2.5cm)。左手前に少し回して置く */
 const PAPERS_SIZE: Vector3Tuple = [0.21, 0.025, 0.297];
-const PAPERS_POSITION: Vector3Tuple = [-0.57, 0, 0.12];
+const PAPERS_POSITION: Vector3Tuple = [-0.57, 0, 0.18];
 const PAPERS_YAW = -0.12;
 
 /** ペン立て(円柱)と、そこに挿したペン 1 本。右奥 */

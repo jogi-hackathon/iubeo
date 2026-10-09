@@ -1,10 +1,11 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo, useRef} from "react";
+import {useCallback, useEffect, useMemo, useRef} from "react";
 import {Euler, Matrix4, type Mesh, Quaternion, Vector3} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {getEyePosition, localPlayer} from "../../player";
+import {isSearchResultsUrl} from "../../screen/browserChrome";
 import {prewarmEngine} from "../../screen/engine";
 import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
 import {useInteraction} from "../interaction/useInteraction";
@@ -12,8 +13,10 @@ import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
 import {pcInteraction} from "./interaction";
+import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
 import {PcModel} from "./PcModel";
 import {type PcPhase, pcSession, usePcSession} from "./session";
+import {taskStore, useTask} from "./task";
 import {type PcCursor, usePcPointer} from "./usePcPointer";
 
 /** 画面の前へ寄る（離れる）補間の長さ(s) */
@@ -26,6 +29,11 @@ const BOOT_RATE = 2.4;
 const CURSOR_RATE = 9;
 /** これより近づいたら、エンジンの JS を先に取っておく(m)。部屋に入っただけの人には取らせない */
 const PREWARM_DISTANCE = 4;
+/**
+ * ページに着いてから判定するまでの待ち(ms)。読み込みが落ち着く前に本文を読むと、
+ * 前のページの内容で判定してしまう
+ */
+const JUDGE_SETTLE_MS = 1200;
 
 const UP = new Vector3(0, 1, 0);
 const eye = new Vector3();
@@ -41,6 +49,10 @@ const euler = new Euler(0, 0, 0, "YXZ");
  * - インタラクト（狙って左クリック）で、PC を使い始める（電源が入る。プレイヤーを預かってカメラが画面の前へ寄り、
  *   マウスが画面へ向く）。エンジンは初めて使うときに起動する（数十秒かかる）
  * - 画面の上ではマウスと鍵盤がエンジンへ届く。お題のメモをクリックすると、別のお題を引く
+ * - Web Search の判定（お題にふさわしい検索ができているか）は、**プレイヤーの操作ではなく、
+ *   結果を辿ってページが変わるたびに走る**（検索結果ページそのものは見ない）。
+ *   彼らは常に見ていて、外れているときだけ CRT が乱れて理由を出す（合っていれば一言だけ）。HUD は使わない
+ * - 判定が「一致」なら、合図を見せてから PC を畳む（成果物は持たせ済み）。タスクが済んだので座らせない
  * - Esc で離れる（カメラが一人称へ戻ってから、プレイヤーを返す）
  *
  * 使っていない間は電源が切れている（画面は黒）。HUD は使わず、状態は画面と机の上のメモで伝える。
@@ -79,6 +91,132 @@ export function PcObject({object}: {object: GameObject}) {
   const memoRef = useRef<Mesh>(null);
   const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0, active: false}), []);
   usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
+
+  /**
+   * 常時判定。プレイヤーは何も押さない。ページが着いて落ち着いたら、彼らが勝手に見る。
+   * ページの読み取りと判定は非同期なので走らせっぱなしにし、結果は画面の中の通知に出す
+   */
+  const judge = useJudge();
+  const task = useTask();
+  const mine = session.objectId === object.id;
+  /** 直前に着いた、判定できるページの URL（スタートページは入れない） */
+  const currentUrl = useRef("");
+  /** 判定済みの URL。同じページを二度見ない */
+  const judged = useRef<string | null>(null);
+  const settle = useRef<number | undefined>(undefined);
+
+  const judgeNow = useCallback(
+    (url: string) => {
+      window.clearTimeout(settle.current);
+      settle.current = undefined;
+      if (!url || url.startsWith("data:") || judged.current === url) {
+        return;
+      }
+      judged.current = url;
+      void (async () => {
+        const currentTask = taskStore.getTask();
+        const page = await screen.readPage?.();
+        if (!page) {
+          // 読めなかったページは判定済みにしない（エンジンが起動すれば、次に着いたとき・お題を引き直したときに見る）
+          if (judged.current === url) {
+            judged.current = null;
+          }
+          judgeStore.fail(
+            currentTask,
+            url,
+            "今のページを読めません（エンジンが起動していない）",
+          );
+          return;
+        }
+        await judgeStore.run({task: currentTask, page});
+      })();
+    },
+    [screen],
+  );
+
+  /**
+   * ページに着いた合図。読み込みが落ち着くまで待ってから見る。
+   * 検索結果ページは「開いたサイト」ではないので見ない（検索しただけでは判定しない。
+   * 結果を辿って着いたページを見る）
+   */
+  const scheduleJudgement = useCallback(
+    (url: string) => {
+      window.clearTimeout(settle.current);
+      if (!url || url.startsWith("data:") || isSearchResultsUrl(url)) {
+        return;
+      }
+      currentUrl.current = url;
+      settle.current = window.setTimeout(() => judgeNow(url), JUDGE_SETTLE_MS);
+    },
+    [judgeNow],
+  );
+
+  // 表示中のページが変わるたびに、彼らが見る（プレイヤーの操作は要らない）
+  useEffect(() => {
+    if (!using) {
+      return;
+    }
+    screen.onPageChange = scheduleJudgement;
+    return () => {
+      screen.onPageChange = undefined;
+      window.clearTimeout(settle.current);
+    };
+  }, [using, screen, scheduleJudgement]);
+
+  // お題が引き直されたら、同じページをもう一度見る（お題が変われば答えも変わる）
+  useEffect(() => {
+    if (!using || !currentUrl.current) {
+      return;
+    }
+    judged.current = null;
+    scheduleJudgement(currentUrl.current);
+  }, [task, using, scheduleJudgement]);
+
+  // 判定の知らせは、HUD ではなく PC の画面の中（通知の帯）に出す。
+  // 画面（BrowserScreen）はシーンで 1 枚を共有するので、他の PC が消さないよう、使っている PC だけが触る
+  useEffect(() => {
+    if (!mine) {
+      return;
+    }
+    const announcement = using ? judgeAnnouncement(judge) : null;
+    screen.setNotice?.(announcement?.lines ?? null, announcement?.tear);
+    if (!announcement) {
+      return;
+    }
+    const timer = window.setTimeout(
+      () => screen.setNotice?.(null),
+      announcement.ms,
+    );
+    return () => window.clearTimeout(timer);
+  }, [screen, mine, using, judge]);
+  useEffect(
+    () => () => {
+      if (mine) {
+        screen.setNotice?.(null);
+      }
+    },
+    [screen, mine],
+  );
+
+  // 判定が「一致」なら、「お題に合っている」の合図（CONFIRM_MS）を見せてから PC を畳む。
+  // 合図の間に別のページへ進めば閉じない（検索を続けているので、途中で座席を奪わない）
+  useEffect(() => {
+    if (!using || judge.status !== "done" || judge.result.verdict !== "match") {
+      return;
+    }
+    const timer = window.setTimeout(() => pcSession.leave(), CONFIRM_MS);
+    return () => window.clearTimeout(timer);
+  }, [using, judge]);
+
+  // 離れたら判定を畳む（次に使うときは、前の結果と前のページを残さない）
+  useEffect(() => {
+    if (!using) {
+      judgeStore.reset();
+      currentUrl.current = "";
+      judged.current = null;
+      window.clearTimeout(settle.current);
+    }
+  }, [using]);
 
   // 使っている間は、電源を入れて起動し、キーボードをエンジンへ渡す。離れるとキーボードを返す
   useEffect(() => {

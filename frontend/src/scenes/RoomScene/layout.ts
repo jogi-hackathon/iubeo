@@ -121,11 +121,15 @@ export const CANVAS_YAW = Math.atan2(
   ROOM_SPAWN_POSITION[2] - CANVAS_POSITION[2],
 );
 export const CHAIR_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z + 0.95];
-/** PC は机の上の奥側(作業スペースの外)。今は見た目が無く、データだけ */
+/**
+ * PC は机の天板の上。モデルの原点が「天板の中心」なので、机の中心からほんの少し奥へ寄せるだけにする
+ * (それ以上ずらすと、タワーやモニタの台座が奥の縁から落ちる。机に載る部品の z の張り出しは
+ *  後ろ 0.36m・手前 0.41m。CRT の管の後端は高い所にあるので、縁から少し出るのは許す)
+ */
 export const PC_POSITION: Vec3 = [
   WORKSPACE_POSITION[0],
   DESK_HEIGHT,
-  WORKSPACE_POSITION[2] - 0.3,
+  WORKSPACE_POSITION[2] - 0.03,
 ];
 
 /**

@@ -52,6 +52,38 @@ export const searchUrlFor = (query: string): string =>
   `${SEARCH_PAGE_URL}?q=${encodeURIComponent(query)}`;
 
 /**
+ * 検索結果ページの URL か（ホストとパスで見る軽い判定）。
+ * 結果ページは「開いたサイト」ではないので、お題の判定には回さない
+ * （判定は、結果を辿って着いたページで行う）。一覧に無い検索エンジンは普通のページとして扱う
+ */
+const SEARCH_RESULTS_PAGES: ReadonlyArray<(url: URL) => boolean> = [
+  // Google は /search。アドレス欄の検索も、トップの検索ボックスからもここへ出る
+  (url) =>
+    /(^|\.)google\.[a-z.]+$/.test(url.hostname) &&
+    url.pathname.startsWith("/search"),
+  // DuckDuckGo は /?q= と /lite/・/html/ が結果ページ（lite は /lite/）
+  (url) =>
+    /(^|\.)duckduckgo\.com$/.test(url.hostname) &&
+    (url.searchParams.has("q") || /^\/(lite|html)\/?$/.test(url.pathname)),
+  (url) =>
+    /(^|\.)bing\.com$/.test(url.hostname) && url.pathname.startsWith("/search"),
+  (url) =>
+    url.hostname === "search.brave.com" && url.pathname.startsWith("/search"),
+  (url) =>
+    /(^|\.)ecosia\.org$/.test(url.hostname) &&
+    url.pathname.startsWith("/search"),
+];
+
+export const isSearchResultsUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return SEARCH_RESULTS_PAGES.some((test) => test(parsed));
+  } catch {
+    return false;
+  }
+};
+
+/**
  * アドレス欄に入った文字を、移動先の URL にする。スキームがあればそのまま、ドメインらしければ https、
  * それ以外は検索にする。空なら null（何もしない）
  */

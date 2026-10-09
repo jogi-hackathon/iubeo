@@ -71,11 +71,11 @@ export const paintMemo = (canvas: HTMLCanvasElement, task: string): void => {
   ctx.fillText(task, 40, height / 2 + 6, width - 80);
 
   ctx.fillStyle = "#6e6e73";
-  ctx.font = `24px ${JA_FONT}`;
+  ctx.font = `20px ${JA_FONT}`;
   ctx.fillText(
     "クリックで引き直す ・ Esc で離れる",
     40,
-    height - 46,
+    height - 40,
     width - 80,
   );
 };

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.worker.json",
     "bake:ao": "node scripts/bake-ao.ts",
+    "shot:pc": "node scripts/pc-shot.ts",
     "engine:link": "node scripts/link-engine.mjs",
     "wisp": "node scripts/wispServer.ts",
     "gen:api": "openapi-typescript ../backend/api/openapi.yaml -o src/net/schema.gen.ts && oxfmt --write src/net/schema.gen.ts",

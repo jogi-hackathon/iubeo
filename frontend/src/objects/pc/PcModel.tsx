@@ -1,6 +1,6 @@
 import {type Ref, useLayoutEffect, useMemo, useRef} from "react";
 import type {InstancedMesh, Mesh, MeshBasicNodeMaterial} from "three/webgpu";
-import {Matrix4} from "three/webgpu";
+import {CatmullRomCurve3, Matrix4, Vector3} from "three/webgpu";
 
 import {aoModeUserData} from "../../bake/aoMode";
 import {createCurvedScreenGeometry} from "./curvedScreen";
@@ -21,6 +21,7 @@ import {
   SCREEN_Z,
   TOWER,
 } from "./dimensions";
+import {KEY_COUNT, keyPositions, keySize} from "./keyboard";
 import {TaskMemo} from "./TaskMemo";
 
 // 白い世界（IUBEO は色のない真っ白な世界）に合わせて、筐体はすべて白〜薄い灰色にする。
@@ -33,10 +34,6 @@ const RECESS = "#4a4a4f";
 const BEZEL_BAR_WIDTH = (MONITOR_BODY_WIDTH - SCREEN_OPENING_WIDTH) / 2;
 const BEZEL_BAR_HEIGHT = (MONITOR_BODY_HEIGHT - SCREEN_OPENING_HEIGHT) / 2;
 const BEZEL_BAR_DEPTH = 0.03;
-
-const KEY_ROWS = 4;
-const KEY_COLS = 14;
-const KEY_PITCH = 0.03;
 
 type Vec3 = [number, number, number];
 
@@ -98,18 +95,22 @@ function Monitor({
         size={[MONITOR_BODY_WIDTH, MONITOR_BODY_HEIGHT, MONITOR_BODY_DEPTH]}
         color={SHELL}
       />
-      {/* 管を隠す後ろの絞り */}
-      <Box
-        position={[0, MONITOR_BODY_Y, -0.33]}
-        size={[0.4, 0.31, 0.26]}
-        color={SHELL_DARK}
-      />
+      {/* 管の後ろ。4 角形の円柱を 45° 回して角を合わせ、群の scale で縦横比を変えて、奥へ絞る。
+          実物（奥行きは幅と同じくらい）に近づけるため短めで、後端は細く絞って管らしく見せる */}
+      <group position={[0, MONITOR_BODY_Y, -0.22]} scale={[1, 0.77, 1]}>
+        <mesh rotation={[Math.PI / 2, Math.PI / 4, 0]}>
+          {/* 半径は「正方形の半幅 × √2」。手前が本体より少し小さく、奥で一気に絞る */}
+          <cylinderGeometry args={[0.311, 0.08, 0.1, 4, 1]} />
+          <meshStandardMaterial color={SHELL_DARK} roughness={0.85} />
+        </mesh>
+      </group>
 
-      {/* 開口部を囲むベゼル（4 本） */}
+      {/* 開口部を囲むベゼル（4 本）。本体より少し光沢を持たせて、縁でハイライトを出す */}
       <Box
         position={[0, barY, BEZEL_Z]}
         size={[MONITOR_BODY_WIDTH, BEZEL_BAR_HEIGHT, BEZEL_BAR_DEPTH]}
         color={SHELL_DARK}
+        roughness={0.42}
       />
       <Box
         position={[
@@ -119,16 +120,19 @@ function Monitor({
         ]}
         size={[MONITOR_BODY_WIDTH, BEZEL_BAR_HEIGHT, BEZEL_BAR_DEPTH]}
         color={SHELL_DARK}
+        roughness={0.42}
       />
       <Box
         position={[-sideX, MONITOR_BODY_Y, BEZEL_Z]}
         size={[BEZEL_BAR_WIDTH, SCREEN_OPENING_HEIGHT, BEZEL_BAR_DEPTH]}
         color={SHELL_DARK}
+        roughness={0.42}
       />
       <Box
         position={[sideX, MONITOR_BODY_Y, BEZEL_Z]}
         size={[BEZEL_BAR_WIDTH, SCREEN_OPENING_HEIGHT, BEZEL_BAR_DEPTH]}
         color={SHELL_DARK}
+        roughness={0.42}
       />
       {/* ガラスと枠の境目の暗い彫り込み。無いとガラスが箱に貼った紙に見える */}
       <Box
@@ -149,6 +153,47 @@ function Monitor({
         size={[SCREEN_OPENING_WIDTH, 0.009, 0.028]}
         color={RECESS}
       />
+      <Box
+        position={[
+          -SCREEN_OPENING_WIDTH / 2 + 0.004,
+          MONITOR_BODY_Y,
+          MONITOR_FRONT_Z + 0.012,
+        ]}
+        size={[0.009, SCREEN_OPENING_HEIGHT, 0.028]}
+        color={RECESS}
+      />
+      <Box
+        position={[
+          SCREEN_OPENING_WIDTH / 2 - 0.004,
+          MONITOR_BODY_Y,
+          MONITOR_FRONT_Z + 0.012,
+        ]}
+        size={[0.009, SCREEN_OPENING_HEIGHT, 0.028]}
+        color={RECESS}
+      />
+
+      {/* 下のベゼルに、銘板とコントロールノブ（電源ランプと対にする）。正面の情報を増やす */}
+      <Box
+        position={[
+          0,
+          MONITOR_BODY_Y - SCREEN_OPENING_HEIGHT / 2 - BEZEL_BAR_HEIGHT / 2,
+          BEZEL_Z + 0.017,
+        ]}
+        size={[0.09, 0.012, 0.004]}
+        color={TRIM}
+        roughness={0.45}
+      />
+      <mesh
+        position={[
+          -0.17,
+          MONITOR_BODY_Y - SCREEN_OPENING_HEIGHT / 2 - BEZEL_BAR_HEIGHT / 2,
+          BEZEL_Z + 0.02,
+        ]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <cylinderGeometry args={[0.012, 0.012, 0.018, 16]} />
+        <meshStandardMaterial color={TRIM} roughness={0.5} />
+      </mesh>
 
       {/* 曲面ガラス。レイキャストの対象はこのメッシュ */}
       <mesh
@@ -175,16 +220,21 @@ function Monitor({
         />
       </mesh>
 
-      {/* 台座 */}
-      <mesh position={[0, 0.03, -0.03]} castShadow>
-        <cylinderGeometry args={[0.035, 0.045, 0.07, 20]} />
-        <meshStandardMaterial color={SHELL_DARK} roughness={0.8} />
-      </mesh>
+      {/* 台座。板を広げ、首とスイベルの上に本体が載る形にして、宙に浮かないようにする */}
       <Box
-        position={[0, 0.011, 0.005]}
-        size={[0.26, 0.022, 0.2]}
-        color={SHELL}
+        position={[0, 0.011, -0.01]}
+        size={[0.34, 0.022, 0.26]}
+        color={SHELL_DARK}
+        roughness={0.75}
       />
+      <mesh position={[0, 0.034, -0.02]}>
+        <cylinderGeometry args={[0.05, 0.062, 0.028, 20]} />
+        <meshStandardMaterial color={SHELL} roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.05, -0.02]}>
+        <cylinderGeometry args={[0.125, 0.125, 0.016, 24]} />
+        <meshStandardMaterial color={SHELL_DARK} roughness={0.55} />
+      </mesh>
     </group>
   );
 }
@@ -201,23 +251,31 @@ function Tower() {
         size={[width, height, depth]}
         color={SHELL}
       />
-      {/* 前面パネル（わずかに手前へ出す）と、その中の線 */}
+      {/* 前面パネル（わずかに手前へ出す） */}
       <Box
         position={[0, height / 2, depth / 2 + 0.002]}
         size={[width * 0.92, height * 0.94, 0.004]}
         color={SHELL_DARK}
       />
-      {[0, 1, 2].map((index) => (
+      {/* ドライブベイ 2 段と、フロッピー口。線より面で見せた方が、正面が寂しくならない */}
+      {[0.9, 0.82].map((at) => (
         <Box
-          key={index}
-          position={[0, height * 0.72 - index * 0.035, frontZ + 0.006]}
-          size={[width * 0.6, 0.006, 0.004]}
-          color={TRIM}
+          key={at}
+          position={[0, height * at, frontZ + 0.006]}
+          size={[width * 0.72, 0.03, 0.004]}
+          color={RECESS}
+          roughness={0.9}
         />
       ))}
+      <Box
+        position={[0, height * 0.72, frontZ + 0.006]}
+        size={[width * 0.5, 0.009, 0.004]}
+        color={RECESS}
+        roughness={0.9}
+      />
       {/* 電源ボタン */}
       <mesh
-        position={[0, height * 0.2, frontZ + 0.008]}
+        position={[0, height * 0.6, frontZ + 0.008]}
         rotation={[Math.PI / 2, 0, 0]}
       >
         <cylinderGeometry args={[0.018, 0.018, 0.01, 18]} />
@@ -232,29 +290,28 @@ function Keyboard() {
   const {z, width, depth, height} = KEYBOARD;
   return (
     <group>
+      {/* 台はキーより一段暗くする。同じ白だと、キーの粒が読めずタイルに見える */}
       <Box
         position={[0, height / 2, z]}
         size={[width, height, depth]}
-        color={SHELL}
+        color={SHELL_DARK}
       />
-      <KeyCaps originZ={z} width={width} depth={depth} top={height} />
+      <KeyCaps originZ={z} depth={depth} top={height} />
     </group>
   );
 }
 
 function KeyCaps({
   originZ,
-  width,
   depth,
   top,
 }: {
   originZ: number;
-  width: number;
   depth: number;
   top: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
-  const count = KEY_ROWS * KEY_COLS;
+  const count = KEY_COUNT;
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -262,54 +319,79 @@ function KeyCaps({
       return;
     }
     const matrix = new Matrix4();
-    const left = -width / 2 + (width - (KEY_COLS - 1) * KEY_PITCH) / 2;
-    const front =
-      originZ - depth / 2 + (depth - (KEY_ROWS - 1) * KEY_PITCH) / 2;
-    for (let row = 0; row < KEY_ROWS; row += 1) {
-      for (let col = 0; col < KEY_COLS; col += 1) {
-        matrix.makeTranslation(
-          left + col * KEY_PITCH,
-          top + 0.004,
-          front + row * KEY_PITCH,
-        );
-        mesh.setMatrixAt(row * KEY_COLS + col, matrix);
-      }
+    for (const [index, [x, z]] of keyPositions(originZ, depth).entries()) {
+      matrix.makeTranslation(x, top + 0.003, z);
+      mesh.setMatrixAt(index, matrix);
     }
     mesh.instanceMatrix.needsUpdate = true;
-  }, [originZ, width, depth, top]);
+  }, [originZ, depth, top]);
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]}>
-      <boxGeometry args={[KEY_PITCH * 0.78, 0.008, KEY_PITCH * 0.78]} />
-      <meshStandardMaterial color="#ffffff" roughness={0.6} />
+      <boxGeometry args={[keySize(), 0.007, keySize()]} />
+      <meshStandardMaterial color="#ffffff" roughness={0.5} />
     </instancedMesh>
   );
 }
 
+/** マウス。半球を伸ばして丸みを出し、コードで本体（タワー）と繋ぐ */
 function Mouse() {
+  const cable = useMemo(
+    () =>
+      new CatmullRomCurve3([
+        new Vector3(MOUSE.x, 0.004, MOUSE.z - 0.04),
+        new Vector3(MOUSE.x + 0.03, 0.006, MOUSE.z - 0.14),
+        new Vector3(MOUSE.x + 0.05, 0.005, MOUSE.z - 0.26),
+        new Vector3(TOWER.x, 0.012, TOWER.z + TOWER.depth / 2 + 0.01),
+      ]),
+    [],
+  );
   return (
-    <Box
-      position={[MOUSE.x, MOUSE.height / 2, MOUSE.z]}
-      size={[MOUSE.width, MOUSE.height, MOUSE.depth]}
-      color={SHELL}
-    />
+    <group>
+      <mesh
+        position={[MOUSE.x, 0, MOUSE.z]}
+        scale={[MOUSE.width / 2, MOUSE.height, MOUSE.depth / 2]}
+      >
+        <sphereGeometry args={[1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={SHELL} roughness={0.5} />
+      </mesh>
+      {/* 左右のボタンの境目。頂点からわずかに出して、線として読ませる */}
+      <Box
+        position={[MOUSE.x, MOUSE.height * 0.9, MOUSE.z - MOUSE.depth * 0.08]}
+        size={[0.0018, 0.012, MOUSE.depth * 0.4]}
+        color={TRIM}
+        roughness={0.6}
+      />
+      <mesh>
+        <tubeGeometry args={[cable, 28, 0.0025, 6, false]} />
+        <meshStandardMaterial color={SHELL_DARK} roughness={0.7} />
+      </mesh>
+    </group>
   );
 }
 
-/** 直方体の部品。色は白い世界の中での濃淡で区別する */
+/** 直方体の部品。色と粗さで、白い世界の中の材質差を出す */
 function Box({
   position,
   size,
   color,
+  roughness = 0.72,
+  metalness = 0.04,
 }: {
   position: Vec3;
   size: Vec3;
   color: string;
+  roughness?: number;
+  metalness?: number;
 }) {
   return (
     <mesh position={position}>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.72} metalness={0.04} />
+      <meshStandardMaterial
+        color={color}
+        roughness={roughness}
+        metalness={metalness}
+      />
     </mesh>
   );
 }

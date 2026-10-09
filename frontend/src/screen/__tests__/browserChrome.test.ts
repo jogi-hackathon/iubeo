@@ -8,10 +8,12 @@ import {
   CONTENT_HEIGHT,
   displayUrl,
   hitToolbar,
+  isSearchResultsUrl,
   normalizeAddress,
   removeLastChar,
   SCREEN_CANVAS,
   SEARCH_PAGE_URL,
+  searchUrlFor,
   TOOLBAR_HEIGHT,
 } from "../browserChrome";
 
@@ -66,6 +68,30 @@ describe("normalizeAddress", () => {
 
   it("空白だけなら何もしない", () => {
     expect(normalizeAddress("   ")).toBeNull();
+  });
+});
+
+describe("isSearchResultsUrl", () => {
+  it("アドレス欄の検索が向く Google の結果ページ（各国ドメインも）", () => {
+    expect(isSearchResultsUrl(searchUrlFor("three.js"))).toBe(true);
+    expect(
+      isSearchResultsUrl("https://www.google.co.jp/search?q=three.js&hl=ja"),
+    ).toBe(true);
+  });
+
+  it("DuckDuckGo lite など、代替の検索の結果ページ", () => {
+    expect(isSearchResultsUrl("https://lite.duckduckgo.com/lite/?q=x")).toBe(
+      true,
+    );
+    expect(isSearchResultsUrl("https://duckduckgo.com/?q=x")).toBe(true);
+    expect(isSearchResultsUrl("https://www.bing.com/search?q=x")).toBe(true);
+  });
+
+  it("普通のページや検索エンジンのトップは「開いたサイト」", () => {
+    expect(isSearchResultsUrl("https://threejs.org/docs/")).toBe(false);
+    expect(isSearchResultsUrl("https://www.google.com/")).toBe(false);
+    expect(isSearchResultsUrl("https://github.com/search?q=x")).toBe(false);
+    expect(isSearchResultsUrl("not a url")).toBe(false);
   });
 });
 
