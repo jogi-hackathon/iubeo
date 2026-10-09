@@ -117,6 +117,10 @@ export function PcObject({object}: {object: GameObject}) {
         const currentTask = taskStore.getTask();
         const page = await screen.readPage?.();
         if (!page) {
+          // 読めなかったページは判定済みにしない（エンジンが起動すれば、次に着いたとき・お題を引き直したときに見る）
+          if (judged.current === url) {
+            judged.current = null;
+          }
           judgeStore.fail(
             currentTask,
             url,

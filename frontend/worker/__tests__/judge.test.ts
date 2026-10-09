@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from "vitest";
 
-import {handleJudge, JUDGE_PATH} from "../judge";
+import {MAX_JUDGE_BODY_BYTES, MAX_TASK} from "../../src/judge/request";
+import {handleJudge, JUDGE_PATH, readBody} from "../judge";
 
 const input = {
   task: "Vite",
@@ -33,15 +34,30 @@ const aiReturning = (output: unknown) => ({
   ),
 });
 
+const ORIGIN = "https://iubeo.test";
+
+const judgeRequest = (
+  body: unknown,
+  headers: Record<string, string> = {},
+): Request =>
+  new Request(`${ORIGIN}${JUDGE_PATH}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: ORIGIN,
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+
 const post = (body: unknown, ai?: {run: unknown}): Promise<Response> =>
-  handleJudge(
-    new Request(`https://iubeo.test${JUDGE_PATH}`, {
-      method: "POST",
-      headers: {"content-type": "application/json"},
-      body: typeof body === "string" ? body : JSON.stringify(body),
-    }),
-    {AI: ai as never},
-  );
+  handleJudge(judgeRequest(body), {AI: ai as never});
+
+/** Rate Limiting の binding の代わり。success を決めて返す */
+const limiter = (success: boolean) => ({
+  limit: vi.fn(async (_options: {key: string}) => ({success})),
+});
 
 describe("handleJudge", () => {
   it("POST 以外は受けない", async () => {
@@ -107,5 +123,107 @@ describe("handleJudge", () => {
   it("Clef が使えない答えを返したら 502", async () => {
     const ai = aiReturning({answers: {verdict: {}}});
     expect((await post(input, ai)).status).toBe(502);
+  });
+
+  it("別のオリジン・Origin の無い呼び出しは 403（Clef を呼ばない）", async () => {
+    const ai = aiReturning({model: "clef-flash", answers: clefAnswers});
+    const env = {AI: ai as never};
+    const cases: Record<string, string>[] = [
+      {origin: "https://evil.test", "sec-fetch-site": "cross-site"},
+      {origin: ORIGIN, "sec-fetch-site": "cross-site"},
+      {origin: ""},
+    ];
+    for (const headers of cases) {
+      expect(
+        (await handleJudge(judgeRequest(input, headers), env)).status,
+      ).toBe(403);
+    }
+    expect(ai.run).not.toHaveBeenCalled();
+  });
+
+  it("回数の上限を超えたら 429（IP ごと・全体のどちらでも。Clef を呼ばない）", async () => {
+    const ai = aiReturning({model: "clef-flash", answers: clefAnswers});
+    const ok = await handleJudge(
+      judgeRequest(input, {"cf-connecting-ip": "203.0.113.1"}),
+      {
+        AI: ai as never,
+        JUDGE_IP_LIMIT: limiter(true) as never,
+        JUDGE_GLOBAL_LIMIT: limiter(true) as never,
+      },
+    );
+    expect(ok.status).toBe(200);
+
+    const perIp = limiter(false);
+    expect(
+      (
+        await handleJudge(
+          judgeRequest(input, {"cf-connecting-ip": "203.0.113.1"}),
+          {AI: ai as never, JUDGE_IP_LIMIT: perIp as never},
+        )
+      ).status,
+    ).toBe(429);
+    expect(perIp.limit).toHaveBeenCalledWith({key: "203.0.113.1"});
+
+    expect(
+      (
+        await handleJudge(judgeRequest(input), {
+          AI: ai as never,
+          JUDGE_GLOBAL_LIMIT: limiter(false) as never,
+        })
+      ).status,
+    ).toBe(429);
+    expect(ai.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("本文が大きすぎたら 413（Clef を呼ばない）", async () => {
+    const ai = aiReturning({model: "clef-flash", answers: clefAnswers});
+    const huge = {
+      ...input,
+      page: {...input.page, text: "a".repeat(MAX_JUDGE_BODY_BYTES)},
+    };
+    expect((await post(huge, ai)).status).toBe(413);
+    expect(ai.run).not.toHaveBeenCalled();
+  });
+
+  it("http(s) でない URL は 400", async () => {
+    const ai = aiReturning({model: "clef-flash", answers: clefAnswers});
+    const response = await post(
+      {...input, page: {...input.page, url: "javascript:alert(1)"}},
+      ai,
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("長いお題は切り詰めてから Clef に渡す", async () => {
+    const ai = aiReturning({model: "clef-flash", answers: clefAnswers});
+    await post({...input, task: "x".repeat(MAX_TASK * 10)}, ai);
+    const [, body] = ai.run.mock.calls[0]!;
+    expect(String(body.state)).not.toContain("x".repeat(MAX_TASK + 1));
+  });
+});
+
+describe("readBody", () => {
+  it("上限を超えたら、Content-Length が無くても null", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(10));
+        controller.enqueue(new Uint8Array(10));
+        controller.close();
+      },
+    });
+    const request = new Request(`${ORIGIN}${JUDGE_PATH}`, {
+      method: "POST",
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    expect(await readBody(request, 15)).toBeNull();
+  });
+
+  it("上限以内なら文字列で返す", async () => {
+    const request = new Request(`${ORIGIN}${JUDGE_PATH}`, {
+      method: "POST",
+      body: "検索",
+    });
+    expect(await readBody(request, 100)).toBe("検索");
   });
 });

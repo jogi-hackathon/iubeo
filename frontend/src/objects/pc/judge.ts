@@ -1,5 +1,6 @@
 import {useSyncExternalStore} from "react";
 
+import {normalizeJudgeRequest} from "../../judge/request";
 import type {
   JudgeRequest,
   JudgeResult,
@@ -128,17 +129,22 @@ const localReasons = (found: string[], missing: string[]): string[] => {
 
 /**
  * 判定する。まず Worker の `/judge` (本物の Clef) を試し、届かなければ簡易判定にする。
- * 例外は投げない (画面には必ず何かを出す)
+ * 送る前に上限まで切り詰める (Worker が受ける大きさに収める)。送れない形 (http(s) でない URL など) なら
+ * 送らずに簡易判定にする。例外は投げない (画面には必ず何かを出す)
  */
 export const runJudge = async (
   request: JudgeRequest,
   doFetch: typeof fetch = fetch,
 ): Promise<JudgeResult> => {
+  const body = normalizeJudgeRequest(request);
+  if (!body) {
+    return localJudge(request);
+  }
   try {
     const response = await doFetch(JUDGE_ENDPOINT, {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
     });
     if (!response.ok) {

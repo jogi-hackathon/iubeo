@@ -1,4 +1,13 @@
+import {
+  clip,
+  MAX_PAGE_TEXT,
+  MAX_PAGE_TITLE,
+  MAX_PAGE_URL,
+  MAX_TASK,
+} from "./request";
 import type {JudgeRequest, JudgeResult, JudgeVerdict} from "./types";
+
+export {clip, MAX_PAGE_TEXT, MAX_PAGE_TITLE};
 
 /**
  * Clef (Cloudflare の System One モデル) に投げる問い合わせと、返ってきた答えの畳み方。
@@ -22,10 +31,6 @@ export const CLEF_MODEL = "clef-flash";
 /** Clef の呼び出しの上限 (ms)。速いモデルなので短くてよい */
 export const CLEF_TIMEOUT_MS = 5000;
 
-/** 判定に渡す本文とタイトルの上限 (文字)。長いページでも入力と通信を抑える */
-export const MAX_PAGE_TEXT = 2000;
-export const MAX_PAGE_TITLE = 200;
-
 /** お題への一致度を聞く Score の目盛り (順序つき)。確率加重された値が返る */
 export const RELEVANCE_LEVELS = [
   "Unrelated: the page is about a different subject",
@@ -45,13 +50,16 @@ export const VERDICT_OPTIONS = {
     "The page has nothing to do with the task term: the player searched for something else",
 } as const;
 
-/** Clef に渡す state。お題と、今見ているページを 1 つの文章にまとめる */
+/**
+ * Clef に渡す state。お題と、今見ているページを 1 つの文章にまとめる。
+ * Worker は受けた時点で normalizeJudgeRequest を掛けているが、ここでも全項目を切り詰める (入力の量を必ず抑える)
+ */
 export const buildClefState = ({task, page}: JudgeRequest): string =>
   [
-    `The player's task is to search the web for: "${task}".`,
+    `The player's task is to search the web for: "${clip(task, MAX_TASK)}".`,
     "They are using a browser inside a game. Below is the page they are looking at right now.",
     "",
-    `URL: ${page.url}`,
+    `URL: ${clip(page.url, MAX_PAGE_URL)}`,
     `Title: ${clip(page.title, MAX_PAGE_TITLE)}`,
     `Text: ${clip(page.text, MAX_PAGE_TEXT)}`,
   ].join("\n");
@@ -90,7 +98,7 @@ export const buildClefQuestions = (task: string) => ({
 export const clefRequest = (input: JudgeRequest) => ({
   state: buildClefState(input),
   model: CLEF_MODEL,
-  questions: buildClefQuestions(input.task),
+  questions: buildClefQuestions(clip(input.task, MAX_TASK)),
 });
 
 /**
@@ -242,10 +250,4 @@ const clamp01 = (value: unknown): number => {
   const number =
     typeof value === "number" && Number.isFinite(value) ? value : 0;
   return Math.min(1, Math.max(0, number));
-};
-
-/** 文字列を上限まで切り詰める (改行は空白に畳む) */
-export const clip = (text: string, max: number): string => {
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length <= max ? flat : `${flat.slice(0, max)}…`;
 };

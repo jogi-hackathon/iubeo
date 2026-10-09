@@ -129,6 +129,19 @@ const frontendWorker = defineWorker({
     // Web Search の判定(Clef)に使う Workers AI の binding。
     // 従量課金のみで鍵は要らない。無ければ /judge は 503(画面は簡易判定に落ちる)
     AI: bindings.ai(),
+    // /judge の回数の上限(Workers AI の使いすぎを防ぐ)。超えたら 429 で、画面は簡易判定に落ちる。
+    // namespace はアカウント内で一意な数字の文字列。上限はロケーションごとの近似
+    // (https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+    // IP ごと: ページを開くたびに 1 回なので、普通に辿る分には届かない量
+    JUDGE_IP_LIMIT: bindings.rateLimit({
+      namespace: "1001",
+      simple: {limit: 20, period: 60},
+    }),
+    // 全体: 複数人で遊んでも届かず、連打されても Workers AI の使用量が青天井にならない量
+    JUDGE_GLOBAL_LIMIT: bindings.rateLimit({
+      namespace: "1002",
+      simple: {limit: 300, period: 60},
+    }),
   },
 });
 

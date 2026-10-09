@@ -81,10 +81,27 @@ Web Search のタスクは「検索 → ワークスペースでファイル作�
 | 名前 | どこ | 意味 |
 |---|---|---|
 | `AI` | フロントの Worker（`cloudflare.config.ts` の `bindings.ai()`） | Workers AI の binding。/judge はこれで Clef を呼ぶ。無ければ `/judge` は 503 |
-| `VITE_JUDGE_URL` | ビルド時の env（任意） | 判定のエンドポイント。既定は同じオリジンの `/judge` |
+| `JUDGE_IP_LIMIT` | フロントの Worker（`bindings.rateLimit()`） | /judge の IP ごとの回数の上限（20 回/分）。無ければ絞らない |
+| `JUDGE_GLOBAL_LIMIT` | フロントの Worker（`bindings.rateLimit()`） | /judge の全体の回数の上限（300 回/分）。無ければ絞らない |
+| `VITE_JUDGE_URL` | ビルド時の env（任意） | 判定のエンドポイント。既定は同じオリジンの `/judge`。Worker は同じオリジンからの呼び出ししか受けないので、別のオリジンは指せない |
 
 API キーは要らない（課金は Workers AI の従量課金に乗る。無料枠は 10,000 Neurons/日で、
 1 回の判定は 10 Neurons 前後）。
+
+## /judge の守り
+
+Workers AI は従量課金なので、/judge は誰でも叩ける入口にしない。Clef を呼ぶ前に、安い順に弾く
+（[frontend/worker/judge.ts](../../frontend/worker/judge.ts)）。どれで弾かれても、画面は簡易判定に落ちる。
+
+| 順 | 何を見るか | 弾いたとき |
+|---|---|---|
+| 1 | 同じオリジンの画面からか（`Origin` と `Sec-Fetch-Site`） | 403 |
+| 2 | 回数（IP ごと 20 回/分・全体 300 回/分。Rate Limiting の binding） | 429 |
+| 3 | 本文の大きさ（16KB まで） | 413 |
+| 4 | 形と中身（お題は空でない、URL は http(s)）。お題 80 字・タイトル 200 字・本文 2000 字に切り詰める | 400 |
+
+1 はヘッダーを偽れる相手（curl など）には効かないので、使用量の上限は 2 と 3 で抑える。
+上限と検証は [frontend/src/judge/request.ts](../../frontend/src/judge/request.ts) にあり、画面も送る前に同じ切り詰めを掛ける。
 
 開発サーバー（`pnpm dev`）の `/judge` は **常に一致を返す**開発用の判定（`source: "dev"`）。
 Clef は Cloudflare 上でしか動かないので、本物を手元で試すには Worker を動かす環境
@@ -93,6 +110,7 @@ Clef は Cloudflare 上でしか動かないので、本物を手元で試すに
 ## ファイル
 
 - [frontend/src/judge/clef.ts](../../frontend/src/judge/clef.ts) … state と質問の組み立て、答えの畳み方、Clef の呼び出し
+- [frontend/src/judge/request.ts](../../frontend/src/judge/request.ts) … 依頼の上限・検証・切り詰め（画面と Worker で共有）
 - [frontend/src/judge/types.ts](../../frontend/src/judge/types.ts) … 画面と Worker で共有する型
 - [frontend/src/objects/pc/judge.ts](../../frontend/src/objects/pc/judge.ts) … 画面側の状態・出す/出さないの判断・簡易判定・`/judge` の呼び出し
 - [frontend/src/dev/searchDeliverable.ts](../../frontend/src/dev/searchDeliverable.ts) … 通った検索を成果物にする（開発時のみ）
