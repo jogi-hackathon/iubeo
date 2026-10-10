@@ -15,7 +15,11 @@ const WorkspaceActionDuration = 2 * time.Second
 // フロントの CANVAS_ACTION_MS と同じ。結果はこの後に反映する(state-schema.md §5.4.1)
 const CanvasActionDuration = 2 * time.Second
 
-// ObjectAction は作業中のワークスペース・キャンバスのアクション。DueAt を過ぎた Tick で結果を適用する
+// PcActionDuration は PC のアクション(検索)にかかる時間。
+// フロントの検索が通ったときの待ちに合わせる。結果はこの後に反映する(state-schema.md §5.4.2)
+const PcActionDuration = 2 * time.Second
+
+// ObjectAction は作業中のワークスペース・キャンバス・PC のアクション。DueAt を過ぎた Tick で結果を適用する
 type ObjectAction struct {
 	ObjectID string
 	PlayerID string
@@ -23,7 +27,7 @@ type ObjectAction struct {
 	EditingID string
 	// NewID は新規作成で作るファイルの id(受け付けたときに採番しておく)
 	NewID string
-	// Creates は新規作成で作るファイルの状態(ワークスペースは file_created、キャンバスは image_created)
+	// Creates は新規作成で作るファイルの状態(ワークスペースは file_created、PC は search_created、キャンバスは image_created)
 	Creates api.FileStatus
 	DueAt   time.Time
 }
@@ -95,6 +99,8 @@ func (st *State) interact(in ClientInteract) []Output {
 		return st.interactWorkspace(p, o, in)
 	case api.Canvas:
 		return st.interactCanvas(p, o, in)
+	case api.Pc:
+		return st.interactPC(p, o, in)
 	case api.LighterStand:
 		return st.interactLighterStand(p, o, in)
 	}
@@ -190,6 +196,21 @@ func (st *State) interactCanvas(p *PlayerState, o *ObjectState, in ClientInterac
 		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 	}
 	return st.startAction(p, o, ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusImageCreated, DueAt: in.Now.Add(CanvasActionDuration)})
+}
+
+// interactPC は、検索が通ったときに PC へ届く interact。キャンバスと同じ形で、
+// 検索の結果(search_created)を新しいファイルとして手に持たせる。
+// 検索そのものの成否(お題に合っているか)はクライアントが判定し、通ったときだけここへ来る
+// (state-schema.md §5.4.2)。サーバーは手が空いていることと作業中でないことだけを確かめる
+func (st *State) interactPC(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
+	if len(o.Users) > 0 {
+		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
+	}
+	held := st.held(p.ID)
+	if held != nil || in.Msg.HeldItem != nil {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	return st.startAction(p, o, ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusSearchCreated, DueAt: in.Now.Add(PcActionDuration)})
 }
 
 func (st *State) startAction(p *PlayerState, o *ObjectState, a ObjectAction) []Output {

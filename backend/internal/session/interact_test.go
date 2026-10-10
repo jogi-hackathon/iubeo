@@ -429,3 +429,109 @@ func TestCanvasDisconnectCancels(t *testing.T) {
 		t.Errorf("directory = %+v, held = %+v", d, st.held("p1"))
 	}
 }
+
+func pcUsers(st State, seat int) []string {
+	return st.object(pcID(seat)).Users
+}
+
+func TestPcCreate(t *testing.T) {
+	st := playing(t, "p1")
+	pc := pcID(1)
+	in := interactIn("p1", pc, nil, "")
+	in.NewID = "6f1c0d2e-0000-4000-8000-000000000003"
+
+	st, out := step(t, st, in)
+	bc := outputsOf[Broadcast](out)
+	if len(bc) != 1 || bc[0].Msg.(api.ObjectUpsertMessage).Object.Id != pc || !slices.Equal(pcUsers(st, 1), []string{"p1"}) {
+		t.Fatalf("accept: out = %+v, want pc with p1 in users", out)
+	}
+
+	st, out = step(t, st, Tick{Now: t0.Add(PcActionDuration - time.Millisecond)})
+	if len(out) != 0 || st.held("p1") != nil {
+		t.Fatalf("before 2s: out = %+v", out)
+	}
+
+	st, out = step(t, st, Tick{Now: t0.Add(PcActionDuration)})
+	bc = outputsOf[Broadcast](out)
+	if len(bc) != 2 {
+		t.Fatalf("finish: out = %+v", out)
+	}
+	held := bc[0].Msg.(api.PlayerUpdatedMessage).Player.HeldItem
+	if held == nil || held.Id != in.NewID {
+		t.Fatalf("held = %+v, want the new file", held)
+	}
+	if d := held.Data.(api.FileItemData); d.Status != api.FileStatusSearchCreated || d.Color != nil {
+		t.Errorf("held data = %+v, want search_created without color", d)
+	}
+	if up := bc[1].Msg.(api.ObjectUpsertMessage); up.Object.Id != pc || len(up.Object.Users) != 0 {
+		t.Errorf("object.upsert = %+v after finish", up)
+	}
+	if len(st.Actions) != 0 {
+		t.Errorf("actions = %+v", st.Actions)
+	}
+
+	st, _ = put(t, st, "p1")
+	if d := directoryOf(st); d.Outputs != 1 || len(d.Stock) != 6 {
+		t.Errorf("directory = %+v", d)
+	}
+}
+
+func TestPcRejects(t *testing.T) {
+	pc := pcID(1)
+
+	t.Run("何かを持っていれば missing_item", func(t *testing.T) {
+		st := take(t, playing(t, "p1"), "p1", f1)
+		_, out := step(t, st, interactIn("p1", pc, st.held("p1"), ""))
+		wantRejected(t, out, "p1", pc, api.RejectReasonMissingItem)
+
+		st = browse(t, playing(t, "p1"), "p1", "search-1")
+		_, out = step(t, st, interactIn("p1", pc, st.held("p1"), ""))
+		wantRejected(t, out, "p1", pc, api.RejectReasonMissingItem)
+
+		_, out = step(t, playing(t, "p1"), interactIn("p1", pc, &ItemState{ID: f1, Kind: api.File}, ""))
+		wantRejected(t, out, "p1", pc, api.RejectReasonMissingItem)
+	})
+
+	t.Run("作業中は unavailable で、結果は 1 回だけ", func(t *testing.T) {
+		st := playing(t, "p1")
+		st, _ = step(t, st, interactIn("p1", pc, nil, ""))
+		_, out := step(t, st, interactIn("p1", pc, nil, ""))
+		wantRejected(t, out, "p1", pc, api.RejectReasonUnavailable)
+
+		st, _ = step(t, st, Tick{Now: t0.Add(PcActionDuration)})
+		st, out = step(t, st, Tick{Now: t0.Add(2 * PcActionDuration)})
+		if len(out) != 0 || len(slices.DeleteFunc(slices.Clone(st.Items), func(it ItemState) bool { return it.Status != api.FileStatusSearchCreated })) != 1 {
+			t.Errorf("second tick: out = %+v, items = %+v", out, st.Items)
+		}
+	})
+
+	t.Run("他人の PC は not_owner", func(t *testing.T) {
+		st := playing(t, "p1", "p2")
+		_, out := step(t, st, interactIn("p1", pcID(2), nil, ""))
+		wantRejected(t, out, "p1", pcID(2), api.RejectReasonNotOwner)
+	})
+}
+
+func TestPcHandChanged(t *testing.T) {
+	st := playing(t, "p1")
+	st, _ = step(t, st, interactIn("p1", pcID(1), nil, ""))
+	st = take(t, st, "p1", f1)
+	st, out := step(t, st, Tick{Now: t0.Add(PcActionDuration)})
+	if bc := outputsOf[Broadcast](out); len(bc) != 1 || st.item("new-1") != nil || st.held("p1").ID != f1 || len(pcUsers(st, 1)) != 0 {
+		t.Errorf("out = %+v, want only the pc released without a new file", out)
+	}
+}
+
+func TestPcDisconnectCancels(t *testing.T) {
+	st := playing(t, "p1", "p2")
+	st, _ = step(t, st, interactIn("p1", pcID(1), nil, ""))
+
+	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
+	if len(pcUsers(st, 1)) != 0 || len(st.Actions) != 0 {
+		t.Errorf("users = %v, actions = %+v; want the action cancelled", pcUsers(st, 1), st.Actions)
+	}
+	st, out := step(t, st, Tick{Now: t0.Add(PcActionDuration)})
+	if len(out) != 0 || st.item("new-1") != nil {
+		t.Errorf("tick after cancel: out = %+v", out)
+	}
+}

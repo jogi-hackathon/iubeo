@@ -26,6 +26,7 @@ import {
   lighterIdOf,
   parseLighterStandData,
 } from "../../objects/lighter_stand/data";
+import {PC_ACTION_MS, PC_KIND} from "../../objects/pc/data";
 import {
   WORKSPACE_ACTION_MS,
   WORKSPACE_KIND,
@@ -71,6 +72,10 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
  *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "image_created"、色なし)を手に持たせて users から出る
  *   - 何かを持って: missing_item(アニメーションは始めない)
  *   - 終わる時点で手を塞がれていたら、結果は適用せず users から出るだけ。作業中にキャンバスが消えたら、結果は適用しない
+ * - PC(kind "pc")の interact は、キャンバスと同じ形で、アニメーション(PC_ACTION_MS)を待って結果を返す
+ *   (実サーバーの interact.go の PC の規則と同じ意味。docs/backend/state-schema.md §5.4.2):
+ *   - 作業中なら unavailable、何かを持って: missing_item、手ぶら: 終わったら新しいファイル(status "search_created"、色なし)を手に持たせる
+ *   - 検索の成否(お題に合っているか)はクライアントが判定し、通ったときだけ interact が届く
  * - ワークスペース(kind "workspace")の interact は、アニメーション(WORKSPACE_ACTION_MS)を待って結果を返す:
  *   - 作業中(users に誰かいる)なら unavailable
  *   - ディレクトリから取り出した編集前のファイル(status "unedited")を持って: 受理して users に入り、終わったら同じ id・同じ color で status を "edited" にして users から出る
@@ -315,6 +320,28 @@ export const createLocalRules = ({
     }, CANVAS_ACTION_MS);
   };
 
+  const handlePC = (object: GameObject, request: InteractRequest) => {
+    if (object.users.length > 0) {
+      reject(object.id, "unavailable");
+      return;
+    }
+    if (held || request.heldItem !== null) {
+      reject(object.id, "missing_item");
+      return;
+    }
+
+    setUsers(object.id, [request.by]);
+    later(() => {
+      if (!objects.getObject(object.id)) {
+        return;
+      }
+      if (held === null) {
+        spawnNew("search_created");
+      }
+      setUsers(object.id, []);
+    }, PC_ACTION_MS);
+  };
+
   const handleLighterStand = (object: GameObject, request: InteractRequest) => {
     if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
       reject(object.id, "missing_item");
@@ -391,6 +418,10 @@ export const createLocalRules = ({
       }
       if (object.kind === CANVAS_KIND) {
         handleCanvas(object, request);
+        return;
+      }
+      if (object.kind === PC_KIND) {
+        handlePC(object, request);
         return;
       }
       if (object.kind === LIGHTER_STAND_KIND) {

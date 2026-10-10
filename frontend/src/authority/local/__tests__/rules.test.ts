@@ -11,7 +11,7 @@ import {
 import {kindOfId} from "../../../objects/layout";
 import {LIGHTER_STAND_KIND} from "../../../objects/lighter_stand/data";
 import {createObjectManager} from "../../../objects/objectManager";
-import {PC_KIND} from "../../../objects/pc/data";
+import {PC_ACTION_MS, PC_KIND} from "../../../objects/pc/data";
 import type {
   GameObject,
   InteractRequest,
@@ -725,6 +725,143 @@ describe("createLocalRules", () => {
       const onRejected = vi.fn();
       objects.on("interactRejected", onRejected);
       const id = authority.spawnCanvas("canvas-1");
+      objects.apply({
+        type: "upsert",
+        object: {...objects.getObject(id)!, owner: "other"},
+      });
+
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "not_owner",
+      });
+    });
+  });
+
+  describe("PC", () => {
+    it("手ぶらで interact すると、2 秒後に新しいファイル(search_created、色なし)を手に持ち、users が空に戻る", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnPc("pc-1");
+
+      objects.interact(id);
+
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+      expect(items.getHeld()).toBeNull();
+      advance(PC_ACTION_MS - 1);
+      expect(items.getHeld()).toBeNull();
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(1);
+      expect(items.getHeld()).toEqual({
+        id: newIdOf(1),
+        kind: "file",
+        data: {status: "search_created"},
+      });
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("作ったファイルをディレクトリに入れると、成果物になる", () => {
+      const {objects, items, authority, advance} = setup();
+      const dir = authority.spawnDirectory("directory-1", []);
+      const id = authority.spawnPc("pc-1");
+      objects.interact(id);
+      advance(PC_ACTION_MS);
+
+      objects.interact(dir);
+
+      expect(items.getHeld()).toBeNull();
+      expect(
+        parseDirectoryData(objects.getObject(dir)?.data ?? null).outputs,
+      ).toBe(1);
+    });
+
+    it.each([
+      [
+        "編集前のファイル",
+        {id: F1, kind: "file", data: {status: "unedited", color: "#e63946"}},
+      ],
+      [
+        "作成したファイル(search_created)",
+        {id: F2, kind: "file", data: {status: "search_created"}},
+      ],
+      ["ファイル以外のアイテム", {id: "l", kind: "lighter", data: null}],
+    ])(
+      "%sを持っていると missing_item で拒否し、アニメーションを始めない",
+      (_, item) => {
+        const {objects, items, authority, advance} = setup();
+        const onRejected = vi.fn();
+        objects.on("interactRejected", onRejected);
+        const id = authority.spawnPc("pc-1");
+        authority.dev.setHeldItem(item);
+
+        objects.interact(id);
+
+        expect(onRejected).toHaveBeenCalledWith({
+          objectId: id,
+          reason: "missing_item",
+        });
+        expect(objects.getObject(id)?.users).toEqual([]);
+        advance(PC_ACTION_MS);
+        expect(items.getHeld()).toEqual(item);
+      },
+    );
+
+    it("作業中の再 interact は unavailable で拒否し、結果は 1 回だけ適用される", () => {
+      const {objects, items, authority, advance} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnPc("pc-1");
+
+      objects.interact(id);
+      advance(500);
+      objects.interact(id);
+
+      expect(onRejected).toHaveBeenCalledWith({
+        objectId: id,
+        reason: "unavailable",
+      });
+      expect(objects.getObject(id)?.users).toEqual(["me"]);
+
+      advance(PC_ACTION_MS);
+      expect(items.getHeld()?.data).toEqual({status: "search_created"});
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("検索中に手が塞がったら、結果は適用せず users から出るだけ", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnPc("pc-1");
+      objects.interact(id);
+      advance(500);
+      const file = {
+        id: F1,
+        kind: "file",
+        data: {status: "unedited", color: "#e63946"},
+      };
+      authority.dev.setHeldItem(file);
+
+      advance(PC_ACTION_MS);
+
+      expect(items.getHeld()).toEqual(file);
+      expect(objects.getObject(id)?.users).toEqual([]);
+    });
+
+    it("検索中に PC が消えたら、結果は適用しない", () => {
+      const {objects, items, authority, advance} = setup();
+      const id = authority.spawnPc("pc-1");
+      objects.interact(id);
+
+      authority.removeObject(id);
+      advance(PC_ACTION_MS);
+
+      expect(items.getHeld()).toBeNull();
+    });
+
+    it("他のプレイヤーの PC は not_owner で拒否する", () => {
+      const {objects, authority} = setup();
+      const onRejected = vi.fn();
+      objects.on("interactRejected", onRejected);
+      const id = authority.spawnPc("pc-1");
       objects.apply({
         type: "upsert",
         object: {...objects.getObject(id)!, owner: "other"},

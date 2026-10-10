@@ -21,6 +21,10 @@ func canvasID(seat int) string {
 	return "canvas-" + strconv.Itoa(seat)
 }
 
+func pcID(seat int) string {
+	return "pc-" + strconv.Itoa(seat)
+}
+
 func lighterStandID(seat int) string {
 	return "lighter_stand-" + strconv.Itoa(seat)
 }

@@ -45,9 +45,9 @@ type TaskState struct {
 	CompletedAt time.Time
 }
 
-var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.ImageGeneration}
+var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.WebSearch, api.ImageGeneration}
 
-var creationTaskTypes = []api.TaskType{api.Write, api.ImageGeneration}
+var creationTaskTypes = []api.TaskType{api.Write, api.WebSearch, api.ImageGeneration}
 
 func taskID(phase, n int) string {
 	return "task-" + strconv.Itoa(phase) + "-" + strconv.Itoa(n)
@@ -261,6 +261,7 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 		}
 		if (t.Type == api.ReadEdit && t.TargetFileID == fileID && status == api.FileStatusEdited) ||
 			(t.Type == api.Write && status == api.FileStatusFileCreated) ||
+			(t.Type == api.WebSearch && status == api.FileStatusSearchCreated) ||
 			(t.Type == api.ImageGeneration && status == api.FileStatusImageCreated) {
 			t.CompletedAt = now
 			return []Output{Broadcast{Msg: api.TaskCompletedMessage{Type: api.TaskCompleted, Seq: st.nextSeq(), TaskId: t.ID, CompletedAt: now}}}

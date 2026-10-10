@@ -145,3 +145,25 @@ func TestCPUSurvivesHumanAndTimesOutToVictory(t *testing.T) {
 		t.Fatalf("session.finished = %+v, want victory", fin)
 	}
 }
+
+func TestCPUCompletesWebSearch(t *testing.T) {
+	st := withTasks(newCPUState(t, []string{"p1"}, []string{"cpu-1"}),
+		TaskState{ID: "task-cpu", Type: api.WebSearch, Assignee: "cpu-1"},
+		TaskState{ID: "task-human", Type: api.Write, Assignee: "p1"},
+	)
+
+	st, out := step(t, st, Tick{Now: t0.Add(CpuTaskInterval)})
+	done := msgsOf[api.TaskCompletedMessage](out)
+	if len(done) != 1 || done[0].TaskId != "task-cpu" {
+		t.Fatalf("task.completed = %+v, want task-cpu", done)
+	}
+	found := false
+	for _, it := range st.Items {
+		if it.Status == api.FileStatusSearchCreated && it.Location.Kind == InDirectory {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("search_created が山にない: %+v", st.Items)
+	}
+}
