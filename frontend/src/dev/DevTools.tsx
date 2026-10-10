@@ -3,13 +3,13 @@ import {useEffect} from "react";
 import {itemManager} from "../items";
 import {judgeStore} from "../objects/pc/judge";
 import {GameDebugPanel} from "./GameDebugPanel";
+import {GameFlowPanel} from "./GameFlowPanel";
 import {getLocalDevOps} from "./localDevOps";
-import {MultiplayerPanel} from "./multiplayer/MultiplayerPanel";
 import {installSearchDeliverable} from "./searchDeliverable";
 
 /**
  * 開発時のみ読み込む(App から import.meta.env.DEV のときだけ動的 import する)。
- * 読み込まれると、デバッグパネルとマルチのパネルが出る(開発用の操作は ./localDevOps 経由で、ローカルのオーソリティを借りる)
+ * 読み込まれると、デバッグパネルとゲームの流れのパネルが出る(開発用の操作は ./localDevOps 経由で、ローカルのオーソリティを借りる)
  */
 export default function DevTools() {
   // Web Search の成果物。Clef の判定が通ったら、その検索を search_created のファイルとして手に持たせる
@@ -28,7 +28,7 @@ export default function DevTools() {
   return (
     <>
       <GameDebugPanel />
-      <MultiplayerPanel />
+      <GameFlowPanel />
     </>
   );
 }

@@ -5,7 +5,7 @@ import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
 import {type SceneName, sceneNames, scenes} from "../scenes";
-import {sceneReadiness} from "../scenes/readiness";
+import {readinessOf} from "../scenes/readiness";
 import {ReportSceneReady} from "../scenes/ReportSceneReady";
 import {whenSceneReady} from "../scenes/sceneReady";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
@@ -218,8 +218,8 @@ function BakePage() {
         <Suspense fallback={null}>
           {/* 物(ディレクトリなど)は、シーンの LocalAuthority が置いて、ManagedObjects が描く(一緒にベイクされる) */}
           <Scene />
-          {/* 準備を知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority が知らせる。Runner は、これが済むまで待つ) */}
-          {sceneReadiness[scene] === "mount" && (
+          {/* 準備を知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority / ServerAuthority が知らせる。Runner は、これが済むまで待つ) */}
+          {readinessOf(scene) === "mount" && (
             <ReportSceneReady key={`ready:${scene}`} scene={scene} />
           )}
           <Runner scene={scene} onProgress={setProgress} />

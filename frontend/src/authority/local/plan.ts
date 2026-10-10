@@ -11,7 +11,7 @@ import {WORKSPACE_KIND} from "../../objects/workspace/data";
 import type {PlayerId} from "../../player/types";
 import {DUMMY_OBJECT_KIND} from "./rules";
 
-/** ローカルのオーソリティの自分の ID(ローカルで動かすときの固定値。サーバーにつないだら、サーバーが発行した ID を使う) */
+/** ローカルのオーソリティの自分の ID(固定値。サーバーが発行した ID は使わない。それを使うのは ServerAuthority だけ) */
 export const LOCAL_AUTHORITY_PLAYER_ID: PlayerId = "local-player";
 
 /**

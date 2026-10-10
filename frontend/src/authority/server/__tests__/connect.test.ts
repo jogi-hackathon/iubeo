@@ -10,8 +10,8 @@ import type {
 import {createObjectManager} from "../../../objects/objectManager";
 import type {GameObject} from "../../../objects/types";
 import {createPlayerManager} from "../../../player/playerManager";
-import {connectManagers} from "../adapter";
-import {MULTIPLAYER_LAYOUT} from "../layout";
+import {createPlayerState} from "../../../player/state";
+import {connectSession} from "../connect";
 
 type Player = SessionSnapshot["players"][number];
 
@@ -53,7 +53,13 @@ const snapshot = (
 
 const file = {id: "f1", kind: "file" as const, data: {status: "unedited"}};
 
-const setup = () => {
+// 席のスポーン地点(シーンが決める。ここでは席ごとにずらした固定値)
+const spawnOf = (seat: number) => ({
+  position: [10 * seat, 0.5, 3] as [number, number, number],
+  yaw: seat / 10,
+});
+
+const setup = (playerId = "me") => {
   const handlers = new Map<ServerMessageType, (m: ServerMessage) => void>();
   const connection = {
     on: (type: ServerMessageType, cb: (m: never) => void) => {
@@ -66,16 +72,20 @@ const setup = () => {
     getAuthority: () => null,
   });
   const items = createItemManager();
-  const players = createPlayerManager({now: () => 0});
-  players.setLocalPlayerId("me");
+  const players = createPlayerManager({
+    now: () => 0,
+    myPlayerId: () => playerId,
+  });
   const sender = {syncSeq: vi.fn()};
   const onFirstSnapshot = vi.fn();
-  const off = connectManagers({
+  const off = connectSession({
     connection: connection as never,
     objects,
     items,
     players,
     sender,
+    playerId,
+    spawnOf,
     onFirstSnapshot,
   });
   const receive = (m: ServerMessage) => handlers.get(m.type)?.(m);
@@ -91,7 +101,7 @@ const setup = () => {
   };
 };
 
-describe("connectManagers", () => {
+describe("connectSession", () => {
   it("snapshot でオブジェクトを入れ替え(無い物は消す)、プレイヤーと自分の手持ちを合わせる", () => {
     const t = setup();
     t.objects.apply({
@@ -114,7 +124,7 @@ describe("connectManagers", () => {
     expect(t.items.getHeld()).toEqual(file);
   });
 
-  it("snapshot で送る側の seq を合わせ、最初の snapshot でだけ自分の位置を渡す", () => {
+  it("snapshot で送る側の seq を合わせ、最初の snapshot でだけ自分の置き場所を渡す(位置があれば再開)", () => {
     const t = setup();
     t.receive(snapshot([player("me", 1)]));
     t.receive(
@@ -126,29 +136,13 @@ describe("connectManagers", () => {
     );
     expect(t.sender.syncSeq.mock.calls).toEqual([[10], [30]]);
     expect(t.onFirstSnapshot).toHaveBeenCalledTimes(1);
-    expect(t.onFirstSnapshot.mock.calls[0]![0].position).toEqual([1, 2, 0]);
+    expect(t.onFirstSnapshot.mock.calls[0]![0]).toEqual({
+      kind: "resume",
+      transform: {position: [1, 2, 0], yaw: 0, pitch: 0, seq: 10},
+    });
   });
 
-  it("オブジェクトの位置はサーバーから来ないので、id から決める", () => {
-    const t = setup();
-    t.receive(
-      snapshot(
-        [player("me", 1)],
-        [
-          object("directory-1"),
-          object("workspace-2", {kind: "workspace", scope: "personal"}),
-          object("lighter_stand-1", {kind: "lighter_stand", scope: "personal"}),
-        ],
-      ),
-    );
-    // 置き場所はレイアウトが決める(GameObject は位置を持たない)
-    const position = (name: string) => MULTIPLAYER_LAYOUT[name]?.position;
-    expect(position("directory")).toEqual([14, 0, 1]);
-    expect(position("workspace-2")).toEqual([11.5, 0, -5]);
-    expect(position("lighter_stand-1")).toEqual([14.55, 0.95, -4.8]);
-  });
-
-  it("transform が null(サーバーがまだ受け取っていない)なら、席の初期位置に置く", () => {
+  it("transform が null(サーバーがまだ受け取っていない)なら、席のスポーン地点に置く(自分も他人も)", () => {
     const t = setup();
     t.receive(
       snapshot([
@@ -156,13 +150,55 @@ describe("connectManagers", () => {
         player("other", 2, {transform: null}),
       ]),
     );
-    expect(t.onFirstSnapshot.mock.calls[0]![0]).toEqual({
-      position: [0, 2, 0],
-      yaw: 0,
-      pitch: 0,
-      seq: 0,
+    expect(t.onFirstSnapshot).toHaveBeenCalledWith({
+      kind: "spawn",
+      spawn: spawnOf(1),
     });
     expect(t.sender.syncSeq.mock.calls).toEqual([[0]]);
+    // 他人は、席 2 のスポーン地点から始まる
+    const out = createPlayerState(0, 0, 0);
+    expect(t.players.sample("other", 10_000, out)).toBe(true);
+    expect(out.position.toArray()).toEqual([20, 0.5, 3]);
+    expect(out.yaw).toBeCloseTo(0.2);
+  });
+
+  it("再読み込み・再参加(自分の位置がある)は、その位置で再開する。席のスポーン地点にしない", () => {
+    const t = setup();
+    t.receive(
+      snapshot([
+        player("me", 2, {
+          transform: {position: [7, 0, 8], yaw: 1, pitch: 0.2, seq: 55},
+        }),
+      ]),
+    );
+    expect(t.onFirstSnapshot).toHaveBeenCalledWith({
+      kind: "resume",
+      transform: {position: [7, 0, 8], yaw: 1, pitch: 0.2, seq: 55},
+    });
+    expect(t.sender.syncSeq).toHaveBeenCalledWith(55);
+  });
+
+  it("自分が snapshot に居なければ、置き場所は null(seq も合わせない)", () => {
+    const t = setup();
+    t.receive(snapshot([player("other", 2)]));
+    expect(t.onFirstSnapshot).toHaveBeenCalledWith(null);
+    expect(t.sender.syncSeq).not.toHaveBeenCalled();
+  });
+
+  it("2 回目の snapshot(再接続)では置き場所を渡さない。オブジェクトは入れ替える", () => {
+    const t = setup();
+    t.receive(snapshot([player("me", 1)], [object("directory-1")]));
+    t.receive(
+      snapshot(
+        [player("me", 1, {transform: null})],
+        [object("directory-1"), object("workspace-1", {kind: "workspace"})],
+      ),
+    );
+    expect(t.onFirstSnapshot).toHaveBeenCalledTimes(1);
+    expect(t.objects.getState().objects.map((o) => o.id)).toEqual([
+      "directory-1",
+      "workspace-1",
+    ]);
   });
 
   it("player.updated の自分の手持ちを、spawn / delete に直す。他人の手持ちは触らない", () => {
@@ -243,23 +279,17 @@ describe("connectManagers", () => {
           playerId: "other",
           transform: {position: [5, 0, 0], yaw: 0, pitch: 0, seq: 99},
         },
+        {
+          playerId: "me",
+          transform: {position: [6, 0, 0], yaw: 0, pitch: 0, seq: 100},
+        },
       ],
     });
-    const out = {
-      position: {
-        x: 0,
-        set(x: number) {
-          this.x = x;
-        },
-      },
-      velocity: {set() {}},
-      yaw: 0,
-      pitch: 0,
-      onGround: false,
-      y: 0,
-    };
-    t.players.sample("other", 10_000, out as never);
+    const out = createPlayerState(0, 0, 0);
+    expect(t.players.sample("other", 10_000, out)).toBe(true);
     expect(out.position.x).toBe(5);
+    // 自分の位置は、届いても持たない
+    expect(t.players.sample("me", 10_000, out)).toBe(false);
   });
 
   it("解除したら、何も流さない", () => {

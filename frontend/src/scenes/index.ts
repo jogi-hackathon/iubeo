@@ -1,7 +1,6 @@
 import type {ComponentType} from "react";
 
 import {START_POSITION} from "../player/constants";
-import {MultiplayerTestScene} from "./MultiplayerTestScene";
 import {RoomScene} from "./RoomScene";
 import {ROOM_SPAWN_POSITION} from "./RoomScene/layout";
 import {SandboxScene} from "./SandboxScene";
@@ -11,11 +10,8 @@ import {TestScene} from "./TestScene";
 
 const coreScenes = {room: RoomScene, sandbox: SandboxScene} as const;
 // 開発時のみ加えるシーン(package.json の devDependencies と同じ考え方)。
-// 本番では登録されず、TestScene・MultiplayerTestScene 以下はバンドルからも落ちる
-const devScenes = {
-  test: TestScene,
-  multiplayer: MultiplayerTestScene,
-} as const;
+// 本番では登録されず、TestScene 以下はバンドルからも落ちる
+const devScenes = {test: TestScene} as const;
 
 export type SceneName = keyof typeof coreScenes | keyof typeof devScenes;
 
@@ -30,7 +26,7 @@ export const sceneNames = Object.keys(scenes) as SceneName[];
 /**
  * シーンごとのスポーン地点(シーンに入ったときのプレイヤーの位置と向き)。無いシーンは START_POSITION・yaw 0。
  * room は床の上(足元 y=0 のすぐ上)から、正面の -Z 向きに始める。
- * sandbox は座席 1 のスポーン地点(座席ごとは sandboxSpawnOf。座席の割り当てはマルチプレイができてから)
+ * sandbox は座席 1 のスポーン地点(セッション無しで入ったときの置き場所。セッションに入るときは、ServerAuthority が最初の snapshot で自分の席の sandboxSpawnOf に置き直す)
  */
 export const sceneSpawn: {readonly [K in SceneName]?: Spawn} = {
   room: {position: [...ROOM_SPAWN_POSITION], yaw: 0},

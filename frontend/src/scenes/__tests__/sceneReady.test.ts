@@ -19,13 +19,13 @@ describe("sceneReady", () => {
   });
 
   it("reset すると、前の mark は無効になり、次の mark を待つ", async () => {
-    markSceneReady("multiplayer");
-    resetSceneReady("multiplayer");
+    markSceneReady("sandbox");
+    resetSceneReady("sandbox");
     const onReady = vi.fn();
-    const p = whenSceneReady("multiplayer").then(onReady);
+    const p = whenSceneReady("sandbox").then(onReady);
     await Promise.resolve();
     expect(onReady).not.toHaveBeenCalled();
-    markSceneReady("multiplayer");
+    markSceneReady("sandbox");
     await p;
     expect(onReady).toHaveBeenCalledTimes(1);
   });

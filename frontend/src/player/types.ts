@@ -48,8 +48,6 @@ export type PlayerMessage =
     };
 
 export type PlayerManagerState = {
-  /** 自分。決まるまでは null */
-  localPlayerId: PlayerId | null;
   /** 全員(自分を含む)。seat の昇順 */
   players: readonly PlayerStatus[];
 };

@@ -1,6 +1,10 @@
+import {useEffect, useRef, useState} from "react";
 import type {MeshBasicNodeMaterial} from "three/webgpu";
 
+import {ServerAuthority} from "../../authority/server/ServerAuthority";
+import {gameFlow} from "../../flow/store";
 import {ManagedObjects} from "../../objects";
+import {RemotePlayers} from "../../player";
 import {Chair, Slab, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {
@@ -14,6 +18,7 @@ import {
   ZONE_FLOOR,
   ZONE_ROOF,
   ZONE_WALLS,
+  sandboxSpawnOf,
   seatYaw,
 } from "./layout";
 
@@ -53,18 +58,59 @@ function SandboxZone({
  * すりガラスのマテリアルは、このシーンのマウントで 1 つ作って 3 区画の仕切りで共有する。
  * ディレクトリ(中心の large の山。3 区画で共有)・ワークスペース・キャンバス・PC は ManagedObjects が描く。
  * サンドボックスは出し入れするプロップがないので、トグルのストアは持たない。
- * サーバーが置くオブジェクトは、本番ではサーバーの配置(dev のダミーと同じとは限らない)で決まり、ベイク時と数・位置が違うとシーン全体のベイク AO が外れるので、
- * room と同じく AO は realtime にしてベイクしない(床・外壁・屋根・イスだけをベイクする。透明な仕切りもベイクしない=遮蔽物にもしない)
+ * サーバーが置くオブジェクトは、ベイク時と数・位置が違うとシーン全体のベイク AO が外れるので、
+ * room と同じく AO は realtime にしてベイクしない(床・外壁・屋根・イスだけをベイクする。透明な仕切りもベイクしない=遮蔽物にもしない)。
+ *
+ * オーソリティ: ゲームの流れ(flow/)がセッションに入れたときは、ServerAuthority がサーバーのセッションにつなぎ、
+ * 物(ManagedObjects)と他のプレイヤー(RemotePlayers)を出す。準備完了は、最初の snapshot を受け取って自分を置いた後(authority)。
+ * セッションが無いとき(デバッグパネルでの直接移動・AO のベイク)は、建物だけを出し、マウントで準備完了にする(mount)
  */
-// TODO(E): サンドボックスのオーソリティ(LocalAuthority などで置く物と、初期設定)は未対応。今は物を置かないので、準備は mount で足りる
 export function SandboxScene() {
+  // セッションは、マウントのときに決める(シーンの途中でオーソリティを切り替えない)。
+  // readiness.ts の sandbox も、同じ currentSession を見て準備の条件(authority / mount)を決める
+  const [session] = useState(() => gameFlow.currentSession());
+  useLeaveSessionOnUnmount();
   return (
     <>
       <SandboxStructure />
-      <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
+      {session && (
+        <>
+          <ServerAuthority
+            scene="sandbox"
+            sessionId={session.sessionId}
+            playerId={session.playerId}
+            spawnOf={sandboxSpawnOf}
+            onReady={gameFlow.sessionReady}
+            onClosed={gameFlow.sessionClosed}
+          />
+          <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
+          <RemotePlayers />
+        </>
+      )}
     </>
   );
 }
+
+/**
+ * シーンを離れたら、ゲームの流れに知らせる(leftSession)。
+ * StrictMode の開発時は、マウント直後に effect の後始末がいったん走って、また設定が走る。
+ * その間に知らせると流れが idle に戻ってしまうので、後始末では 1 tick 待って、設定が走り直したら取り消す
+ */
+const useLeaveSessionOnUnmount = () => {
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (pending.current !== null) {
+      clearTimeout(pending.current);
+      pending.current = null;
+    }
+    return () => {
+      pending.current = setTimeout(() => {
+        pending.current = null;
+        gameFlow.leftSession();
+      }, 0);
+    };
+  }, []);
+};
 
 /**
  * サンドボックスの建物(環境・3 区画の床・外壁・仕切り・屋根・イス)。サーバーが置くオブジェクトは含まない

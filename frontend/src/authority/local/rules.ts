@@ -64,8 +64,8 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
  *   - ファイルを持って: 手持ちを消して、status で行き先を決める
  *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
  *   - ファイル以外を持って: missing_item
- * - キャンバス(kind "canvas")の interact は、アニメーション(CANVAS_ACTION_MS)を待って結果を返す(実サーバーの interact.go はまだ未対応で、
- *   キャンバスは unavailable で拒否する。ここは先に、フロントの流れ「interact → 演出 → 新規ファイルを手に持つ」を確かめるための写し):
+ * - キャンバス(kind "canvas")の interact は、アニメーション(CANVAS_ACTION_MS)を待って結果を返す
+ *   (実サーバーの interact.go のキャンバスの規則と同じ意味。docs/backend/state-schema.md §5.4.1):
  *   - 作業中(users に誰かいる)なら unavailable
  *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "image_created"、色なし)を手に持たせて users から出る
  *   - 何かを持って: missing_item(アニメーションは始めない)
