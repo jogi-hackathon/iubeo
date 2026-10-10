@@ -50,7 +50,6 @@ const backendWorker = defineWorker({
   env: {
     IUBEO_SIGNING_KEY: bindings.secret(),
     IUBEO_WISP_KEY: bindings.secret(),
-    IUBEO_WISP_PASS: bindings.secret(),
     TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
   },
 });

@@ -100,8 +100,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
 
 本番では、WISP は誰でも使えないようにする（オープンプロキシになるため）。
 
-- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。
-- PC が開発中の間は、開発メンバーだけが使えるよう、合言葉（`IUBEO_WISP_PASS`）を知っている人にだけトークンを発行する。開発メンバーは `?debug&wisppass=<合言葉>` で開く（合言葉はタブを閉じるまで覚えている）。合言葉が無いと 403 で、検索結果は出ない。
+- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。合言葉（`IUBEO_WISP_PASS`）は廃止した。いまはルームに入った人（= Cookie がある人）に発行し、チュートリアルを入れたら「セッション中・マッチング中・チュートリアル中」に絞る予定（`backend/api/openapi.yaml`）
 - WISP の Worker（`worker/wisp.ts`）は、KV の `target` で転送先を決める（backend と同じ切り替え）:
   - `ec2` のとき: EC2 上の WISP（8081、EIP から出る）へそのまま流す。トークンは EC2 側がインスタンス上の鍵で検証する。Cloudflare の共有 IP を避けられるので Google が使える
   - それ以外: トークンを Worker で検証してから、Container（`wisp/`、wisp-js）へ流す
@@ -112,25 +111,25 @@ pnpm shot:pc --out=/tmp/pc-after.png
   - `IUBEO_WISP_ENABLED=1 pnpm exec cf deploy`（WISP を deploy した後。付けないと `/wisp` は 503。プレビューも付けない）
 - 手元から frontend をデプロイするときは `VITE_ENGINE_BASE_URL` も要る。付けないと本番でエンジンが取れず PC が「NO ENGINE」のままになる（CI はリポジトリ変数から入れる）。例: `IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=https://pub-0f02f960393243b2ad1e49137b42875a.r2.dev pnpm exec cf deploy`
 - 本番のドメイン（`iubeo.thirdlf03.com`）は、`iubeo-frontend` の Custom Domain としてアタッチしてある（Cloudflare が DNS と証明書を管理する）。cf からは管理しないので、消した・作り直したときはダッシュボード（Workers → iubeo-frontend → Domains & Routes）か Workers Domains API で付け直す。`iubeo-origin.thirdlf03.com` は EC2 の EIP への A レコード（DNS only）で、Worker からオリジンへ向けるために要る
-- secret は 3 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。`IUBEO_WISP_PASS` は backend にだけ登録する（Cloudflare では、無ければ WISP のトークンは発行されない）。EC2 側の鍵と合言葉は別物で、インスタンス上の `/etc/iubeo/env` に置く（infra/aws/terraform/README.md）
+- secret は 2 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。`IUBEO_SIGNING_KEY` は backend に登録する。EC2 側の鍵は別物で、インスタンス上の `/etc/iubeo/env` に置く（infra/aws/terraform/README.md）
 
 `VITE_WISP_URL`（開発の既定は `ws://127.0.0.1:5001/`）があれば、トークンは使わずそこへ直結する。
 
 #### トークンの流れを手元だけで確かめる
 
-本番と同じ流れ（バックエンドが合言葉を確かめてトークンを発行 → 同じオリジンの `/wisp/` でトークンを検証 → WISP）を、Cloudflare に繋がずに動かせる。`pnpm dev` が `/wisp` を手元の WISP へ転送し、WISP は `IUBEO_WISP_KEY` があればトークンを検証する。
+本番と同じ流れ（バックエンドがトークンを発行 → 同じオリジンの `/wisp/` でトークンを検証 → WISP）を、Cloudflare に繋がずに動かせる。`pnpm dev` が `/wisp` を手元の WISP へ転送し、WISP は `IUBEO_WISP_KEY` があればトークンを検証する。
 
 ```sh
 # バックエンド(backend/ で)。鍵は 32 バイト以上なら何でもよい
 IUBEO_SIGNING_KEY=<32 バイト以上> IUBEO_ALLOWED_ORIGINS=http://localhost:5173 \
-  IUBEO_WISP_KEY=<32 バイト以上> IUBEO_WISP_URL=ws://localhost:5173/wisp/ IUBEO_WISP_PASS=local-pass \
+  IUBEO_WISP_KEY=<32 バイト以上> IUBEO_WISP_URL=ws://localhost:5173/wisp/ \
   go run ./cmd/server
 
 # フロント(frontend/ で)。VITE_WISP_URL を空にして直結をやめ、同じ鍵で WISP にトークンを検証させる
 IUBEO_WISP_KEY=<バックエンドと同じ鍵> VITE_WISP_URL= pnpm dev
 ```
 
-`http://localhost:5173/?debug&wisppass=local-pass` で開くと、トークン経由で検索できる。`wisppass` を付けなければ（タブを開き直して）、トークンは 403 で発行されず、画面は「オフライン」になる。
+`http://localhost:5173/?debug` で開くと、プレイヤーの Cookie が作られてトークンが発行され、検索できる。トークンが発行されないと、画面は「オフライン」になる。
 
 ### エンジンの配信元
 

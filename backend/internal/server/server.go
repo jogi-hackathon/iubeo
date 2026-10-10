@@ -20,7 +20,6 @@ type Server struct {
 	allowedOrigins []string
 	wisp           *wisp.Issuer
 	wispURL        string
-	wispPass       string
 }
 
 var _ api.ServerInterface = (*Server)(nil)

@@ -41,8 +41,6 @@ type Config struct {
 	WispKey []byte
 	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
 	WispURL string
-	// WispPass は WISP のトークンを発行する合言葉(IUBEO_WISP_PASS。任意)。あれば、これを知っている人にだけ発行する
-	WispPass string
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
@@ -139,7 +137,6 @@ func Load(getenv func(string) string) (Config, error) {
 		default:
 			cfg.WispKey = []byte(v)
 			cfg.WispURL = getenv("IUBEO_WISP_URL")
-			cfg.WispPass = getenv("IUBEO_WISP_PASS")
 		}
 	}
 

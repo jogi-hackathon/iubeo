@@ -43,11 +43,10 @@ variable "wisp_image_tag" {
   default     = "bootstrap"
 }
 
-variable "wisp_pass" {
-  description = "Password required to issue WISP tokens on the instance (IUBEO_WISP_PASS). Empty leaves WISP token issuance disabled; the WISP process still runs but refuses everything."
-  type        = string
-  default     = ""
-  sensitive   = true
+variable "wisp_enabled" {
+  description = "WISP のトークン発行を有効にする。有効にすると、EC2 上の backend がプレイヤーの Cookie がある人に期限つきトークンを発行する"
+  type        = bool
+  default     = false
 }
 
 variable "instance_type" {

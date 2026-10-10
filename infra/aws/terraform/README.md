@@ -29,8 +29,9 @@ ALB・ECS・NAT・ACM は使いません。
 - トークンの検証は WISP 側が行う（`/etc/iubeo/wisp-env` の `IUBEO_WISP_KEY` + `IUBEO_WISP_REQUIRE_TOKEN=1`）。
   セキュリティグループは Cloudflare 帯だけだが、CF の IP は世界中で共有されるので検証を握りつぶさない
 - トークンの発行は EC2 の backend が行う（`/etc/iubeo/env` の `IUBEO_WISP_*`）。
-  合言葉は tfvars の `wisp_pass`。空だと backend はトークンを発行しない（WISP は動くが全て拒否する）
-- Cloudflare 側の `IUBEO_WISP_KEY`/`IUBEO_WISP_PASS`（Workers の secret）とは別物。
+  `wisp_enabled = true` で有効にすると、プレイヤーの Cookie がある人（ルームに入った人）に発行する。
+  false だと backend はトークンを発行しない（WISP は動くが全て拒否する）
+- Cloudflare 側の `IUBEO_WISP_KEY`（Workers の secret）とは別物。
   経路ごとに鍵が違うので、Worker は EC2 経路では検証しない（検証は必ず出口側が行う）
 
 ## デプロイの流れ
@@ -57,8 +58,8 @@ Discord の interactions エンドポイントには `control_function_url` を�
 
 ## 秘密情報の扱い
 
-- `discord_public_key`、`discord_webhook_url`、`cloudflare_api_token`、`wisp_pass` は `terraform.tfvars` から渡します。
-  **`wisp_pass` 以外は Lambda の環境変数として平文で入り、state にも残ります**（`wisp_pass` は user_data 経由で `/etc/iubeo/env` に入る。こちらも state に残ります）。
+- `discord_public_key`、`discord_webhook_url`、`cloudflare_api_token` は `terraform.tfvars` から渡します。
+  **これらは Lambda の環境変数として平文で入り、state にも残ります**。
 - `terraform.tfstate` と `terraform.tfvars` は `.gitignore` で除外しています。コミットしないでください。
 - state は現在ローカルに置いています。チームで共有する前に、暗号化されたリモート backend とロックを設定してください。
   それまでは `apply` を共有環境に対して実行しないでください。

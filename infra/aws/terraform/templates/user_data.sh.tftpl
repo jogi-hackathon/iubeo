@@ -25,10 +25,9 @@ if [ ! -f /etc/iubeo/env ]; then
     echo "IUBEO_MATCH_SIZE=3"
     # CPU 埋め(デバッグ用)は本番相当では無効にする。既定も 0 だが、意図を残すため明示する
     echo "IUBEO_CPU_FILL_AFTER=0"
-%{ if wisp_pass != "" ~}
+%{ if wisp_enabled ~}
     echo "IUBEO_WISP_KEY=$WISP_KEY"
     echo "IUBEO_WISP_URL=${wisp_url}"
-    echo "IUBEO_WISP_PASS=${wisp_pass}"
 %{ endif ~}
   } > /etc/iubeo/env
   chmod 0600 /etc/iubeo/env
