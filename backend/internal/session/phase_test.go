@@ -46,12 +46,12 @@ func TestFirstPhaseStarts(t *testing.T) {
 			if !slices.Contains(stockIDs(st), task.TargetFileID) {
 				t.Errorf("read_edit target %q is not in stock", task.TargetFileID)
 			}
-		case api.Write:
+		case api.Write, api.ImageGeneration:
 			if task.TargetFileID != "" {
-				t.Errorf("write has a target: %+v", task)
+				t.Errorf("%s has a target: %+v", task.Type, task)
 			}
 		default:
-			t.Errorf("type = %s, want read_edit or write", task.Type)
+			t.Errorf("type = %s, want read_edit, write or image_generation", task.Type)
 		}
 	}
 
@@ -60,7 +60,7 @@ func TestFirstPhaseStarts(t *testing.T) {
 		t.Fatalf("snapshot phase = %+v", snap.Game.Phase)
 	}
 	for _, task := range snap.Game.Phase.Tasks {
-		if task.Status != api.TaskStatusPending || task.CompletedAt != nil || (task.Type == api.Write) != (task.TargetFileId == nil) {
+		if task.Status != api.TaskStatusPending || task.CompletedAt != nil || (task.Type == api.ReadEdit) == (task.TargetFileId == nil) {
 			t.Errorf("snapshot task = %+v", task)
 		}
 	}
@@ -139,7 +139,7 @@ func TestPhaseReadEditTargets(t *testing.T) {
 }
 
 func TestPhaseReadEditPerPlayerCap(t *testing.T) {
-	// 1 人に 9 件。read_edit は在庫の 6 つを超えず、超える分は write になる
+	// 1 人に 9 件。read_edit は在庫の 6 つを超えず、超える分は write か image_generation になる
 	capped := false
 	for seed := range uint64(200) {
 		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
@@ -147,7 +147,7 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 		st.player("p3").Life = api.Eliminated
 		st.startPhase(3, t0)
 		n := countBy(st.Phase.Tasks, func(t TaskState) string { return string(t.Type) })
-		if n[string(api.ReadEdit)]+n[string(api.Write)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
+		if n[string(api.ReadEdit)]+n[string(api.Write)]+n[string(api.ImageGeneration)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
 			t.Fatalf("seed %d: tasks = %v", seed, n)
 		}
 		if n[string(api.ReadEdit)] == len(directoryStock) {
@@ -156,6 +156,26 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 	}
 	if !capped {
 		t.Error("no seed used up the stock")
+	}
+}
+
+func TestPhaseTaskTypesAreEven(t *testing.T) {
+	// 3 人で第1フェーズを 3000 回(9000 件)。在庫を使い切らないので、3 種類がほぼ 3000 件ずつになる
+	n := map[api.TaskType]int{}
+	for seed := range uint64(3000) {
+		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+		st.startPhase(1, t0)
+		for _, task := range st.Phase.Tasks {
+			n[task.Type]++
+		}
+	}
+	if len(n) != 3 {
+		t.Fatalf("types = %v, want read_edit, write and image_generation", n)
+	}
+	for typ, c := range n {
+		if c < 2700 || c > 3300 {
+			t.Errorf("types = %v, %s is not about a third", n, typ)
+		}
 	}
 }
 
@@ -306,6 +326,52 @@ func TestCompleteWrite(t *testing.T) {
 	}
 	if directoryOf(st).Outputs != 3 {
 		t.Errorf("outputs = %d, want 3", directoryOf(st).Outputs)
+	}
+}
+
+// paint はプレイヤーにキャンバスで画像を作らせる
+func paint(t *testing.T, st State, player, newID string) State {
+	t.Helper()
+	in := interactIn(player, canvasID(st.player(player).Seat), nil, "")
+	in.NewID = newID
+	st, _ = step(t, st, in)
+	st, _ = step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
+	return st
+}
+
+func TestCompleteImageGeneration(t *testing.T) {
+	st := withTasks(playing(t, "p1", "p2"),
+		TaskState{ID: "task-1-1", Type: api.ImageGeneration, Assignee: "p1"},
+		TaskState{ID: "task-1-2", Type: api.Write, Assignee: "p1"},
+		TaskState{ID: "task-1-3", Type: api.ImageGeneration, Assignee: "p2"},
+	)
+
+	// ワークスペースで作ったファイルは write にだけ数え、image_generation にはしない
+	st = create(t, st, "p1", "new-1")
+	st, out := put(t, st, "p1")
+	wantTaskCompleted(t, out, "task-1-2", t0)
+	if !taskOf(st, "task-1-1").CompletedAt.IsZero() {
+		t.Fatal("image_generation completed by a written file")
+	}
+
+	st = paint(t, st, "p1", "img-1")
+	st, out = put(t, st, "p1")
+	wantTaskCompleted(t, out, "task-1-1", t0)
+
+	// 自分の分が済んだあとに作った画像は、他の人の image_generation にも数えない
+	st = paint(t, st, "p1", "img-2")
+	st, out = put(t, st, "p1")
+	wantNoTaskCompleted(t, out)
+	if !taskOf(st, "task-1-3").CompletedAt.IsZero() {
+		t.Error("p2's task completed by p1's image")
+	}
+
+	st = paint(t, st, "p2", "img-3")
+	st, out = put(t, st, "p2")
+	wantTaskCompleted(t, out, "task-1-3", t0)
+	wantPhaseEnded(t, out, 1, []string{}, api.PhaseEndedMessageNextIntermission)
+	if directoryOf(st).Outputs != 4 {
+		t.Errorf("outputs = %d, want 4", directoryOf(st).Outputs)
 	}
 }
 

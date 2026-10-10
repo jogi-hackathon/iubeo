@@ -319,6 +319,46 @@ func TestWorkspaceOverWebSocket(t *testing.T) {
 	}
 }
 
+func TestCanvasOverWebSocket(t *testing.T) {
+	h := newTestServerSize(t, 1)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	sessionID, players := matchPlayers(t, h, 1)
+	ws := mustDial(t, srv, sessionID, players[0])
+	readType[api.SessionStartedMessage](t, ws, "session.started")
+
+	start := time.Now()
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "canvas-1"})
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); m.Object.Id != "canvas-1" || len(m.Object.Users) != 1 {
+		t.Fatalf("accept: object = %+v", m.Object)
+	}
+	// 作業中にもう一度触れると、本人にだけ unavailable
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "canvas-1"})
+	if m := readType[api.InteractRejectedMessage](t, ws, "object.interactRejected"); m.Reason != api.RejectReasonUnavailable {
+		t.Errorf("rejection = %+v", m)
+	}
+	m := readType[api.PlayerUpdatedMessage](t, ws, "player.updated")
+	if elapsed := time.Since(start); elapsed < session.CanvasActionDuration {
+		t.Errorf("result after %s, want at least %s", elapsed, session.CanvasActionDuration)
+	}
+	held := m.Player.HeldItem
+	if held == nil || held.Kind != api.File || len(held.Id) != 36 {
+		t.Fatalf("held = %+v, want a new file with a UUID", held)
+	}
+	if data := held.Data.(map[string]any); data["status"] != string(api.FileStatusImageCreated) || data["color"] != nil {
+		t.Errorf("data = %v, want image_created without color", data)
+	}
+	if m := readType[api.ObjectUpsertMessage](t, ws, "object.upsert"); len(m.Object.Users) != 0 {
+		t.Errorf("finish: users = %v", m.Object.Users)
+	}
+
+	// 手が塞がっていれば missing_item
+	write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "canvas-1", HeldItem: &api.HeldItemRef{Id: held.Id, Kind: api.File}})
+	if m := readType[api.InteractRejectedMessage](t, ws, "object.interactRejected"); m.Reason != api.RejectReasonMissingItem {
+		t.Errorf("rejection = %+v", m)
+	}
+}
+
 func TestPhaseOverWebSocket(t *testing.T) {
 	h := newTestServerSize(t, 1)
 	srv := httptest.NewServer(h)
@@ -354,11 +394,14 @@ func TestPhaseOverWebSocket(t *testing.T) {
 func doTask(t *testing.T, ws *websocket.Conn, task api.Task) {
 	t.Helper()
 	var held api.HeldItemRef
-	if task.Type == api.ReadEdit {
+	switch task.Type {
+	case api.ReadEdit:
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "directory-1", Target: task.TargetFileId})
 		held = api.HeldItemRef{Id: *task.TargetFileId, Kind: api.File}
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1", HeldItem: &held})
-	} else {
+	case api.ImageGeneration:
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "canvas-1"})
+	default:
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1"})
 	}
 	for {

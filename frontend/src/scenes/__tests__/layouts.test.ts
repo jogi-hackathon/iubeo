@@ -76,12 +76,13 @@ describe("シーンのレイアウト", () => {
     expect(sandboxSpawnOf(1)).toBeDefined();
   });
 
-  it("マルチプレイは、ディレクトリと席ごとの机・ライターを持つ", () => {
+  it("マルチプレイは、ディレクトリと席ごとの机・キャンバス・ライターを持つ", () => {
     expect(MULTIPLAYER_LAYOUT.directory?.position).toEqual([14, 0, 1]);
     for (const seat of [1, 2, 3]) {
       expect(MULTIPLAYER_LAYOUT[`workspace-${seat}`]?.id).toBe(
         `workspace-${seat}`,
       );
+      expect(MULTIPLAYER_LAYOUT[`canvas-${seat}`]?.id).toBe(`canvas-${seat}`);
       expect(MULTIPLAYER_LAYOUT[`lighter_stand-${seat}`]?.id).toBe(
         `lighter_stand-${seat}`,
       );

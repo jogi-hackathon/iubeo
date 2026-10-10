@@ -11,15 +11,21 @@ import (
 // フロントの WORKSPACE_ACTION_MS と同じ。結果はこの後に反映する(state-schema.md §5.4)
 const WorkspaceActionDuration = 2 * time.Second
 
-// WorkspaceAction は作業中のワークスペースのアクション。DueAt を過ぎた Tick で結果を適用する
-type WorkspaceAction struct {
+// CanvasActionDuration はキャンバスのアクション(画像生成)にかかる時間。
+// フロントの CANVAS_ACTION_MS と同じ。結果はこの後に反映する(state-schema.md §5.4.1)
+const CanvasActionDuration = 2 * time.Second
+
+// ObjectAction は作業中のワークスペース・キャンバスのアクション。DueAt を過ぎた Tick で結果を適用する
+type ObjectAction struct {
 	ObjectID string
 	PlayerID string
 	// EditingID は編集するファイルの id。空なら新規作成
 	EditingID string
 	// NewID は新規作成で作るファイルの id(受け付けたときに採番しておく)
 	NewID string
-	DueAt time.Time
+	// Creates は新規作成で作るファイルの状態(ワークスペースは file_created、キャンバスは image_created)
+	Creates api.FileStatus
+	DueAt   time.Time
 }
 
 func (st *State) object(id string) *ObjectState {
@@ -92,6 +98,8 @@ func (st *State) interact(in ClientInteract) []Output {
 		return st.interactDirectory(p, o, in)
 	case api.Workspace:
 		return st.interactWorkspace(p, o, in)
+	case api.Canvas:
+		return st.interactCanvas(p, o, in)
 	case api.LighterStand:
 		return st.interactLighterStand(p, o, in)
 	}
@@ -182,11 +190,29 @@ func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInte
 		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 	}
 
-	action := WorkspaceAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, DueAt: in.Now.Add(WorkspaceActionDuration)}
+	action := ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusFileCreated, DueAt: in.Now.Add(WorkspaceActionDuration)}
 	if held != nil {
 		action.EditingID = held.ID
 	}
-	st.Actions = append(st.Actions, action)
+	return st.startAction(p, o, action)
+}
+
+// interactCanvas: 手ぶらなら画像生成を始める(新しいファイルを手に持つので、何か持っていれば missing_item)。
+// 受け付けたら users に入れ、結果は CanvasActionDuration の後の Tick で適用する
+func (st *State) interactCanvas(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
+	if len(o.Users) > 0 {
+		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
+	}
+	held := st.held(p.ID)
+	if held != nil || in.Msg.HeldItem != nil {
+		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
+	}
+	return st.startAction(p, o, ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusImageCreated, DueAt: in.Now.Add(CanvasActionDuration)})
+}
+
+// startAction はアクションを受け付け、作業中のプレイヤーを users に入れる
+func (st *State) startAction(p *PlayerState, o *ObjectState, a ObjectAction) []Output {
+	st.Actions = append(st.Actions, a)
 	o.Users = []string{p.ID}
 	return []Output{Broadcast{Msg: st.objectUpsert(o)}}
 }
@@ -218,26 +244,26 @@ func (st *State) interactLighterStand(p *PlayerState, o *ObjectState, in ClientI
 	}
 }
 
-// finishWorkspaceActions は期限が来たアクションの結果を適用する。
+// finishActions は期限が来たアクションの結果を適用する。
 // その時点で手持ちが条件を外れていれば結果は適用せず、users から外すだけ
-func (st *State) finishWorkspaceActions(now time.Time) []Output {
+func (st *State) finishActions(now time.Time) []Output {
 	var out []Output
-	var rest []WorkspaceAction
+	var rest []ObjectAction
 	for _, a := range st.Actions {
 		if now.Before(a.DueAt) {
 			rest = append(rest, a)
 			continue
 		}
-		out = append(out, st.finishWorkspaceAction(a)...)
+		out = append(out, st.finishAction(a)...)
 	}
 	st.Actions = rest
 	return out
 }
 
-func (st *State) finishWorkspaceAction(a WorkspaceAction) []Output {
+func (st *State) finishAction(a ObjectAction) []Output {
 	o := st.object(a.ObjectID)
 	p := st.player(a.PlayerID)
-	// 作業中にワークスペースが消えたら、結果は適用しない
+	// 作業中にオブジェクトが消えたら、結果は適用しない
 	if o == nil || p == nil {
 		return nil
 	}
@@ -248,7 +274,7 @@ func (st *State) finishWorkspaceAction(a WorkspaceAction) []Output {
 		st.Items = append(st.Items, ItemState{
 			ID:       a.NewID,
 			Kind:     api.File,
-			Status:   api.FileStatusFileCreated,
+			Status:   a.Creates,
 			Location: Location{Kind: HeldBy, PlayerID: p.ID},
 		})
 		out = append(out, Broadcast{Msg: st.playerUpdated(p)})
@@ -278,7 +304,7 @@ func (st *State) cancelActions() []Output {
 // 本人が入れたのではないので、タスクの達成には数えない
 func (st *State) releasePlayer(p *PlayerState) []Output {
 	var out []Output
-	var rest []WorkspaceAction
+	var rest []ObjectAction
 	for _, a := range st.Actions {
 		if a.PlayerID != p.ID {
 			rest = append(rest, a)

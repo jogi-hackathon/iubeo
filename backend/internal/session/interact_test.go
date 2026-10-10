@@ -328,3 +328,121 @@ func TestDisconnectReleases(t *testing.T) {
 		}
 	})
 }
+
+func canvasUsers(st State, seat int) []string {
+	return st.object(canvasID(seat)).Users
+}
+
+func TestCanvasCreate(t *testing.T) {
+	st := playing(t, "p1")
+	cv := canvasID(1)
+	in := interactIn("p1", cv, nil, "")
+	in.NewID = "6f1c0d2e-0000-4000-8000-000000000002"
+
+	st, out := step(t, st, in)
+	bc := outputsOf[Broadcast](out)
+	if len(bc) != 1 || bc[0].Msg.(api.ObjectUpsertMessage).Object.Id != cv || !slices.Equal(canvasUsers(st, 1), []string{"p1"}) {
+		t.Fatalf("accept: out = %+v, want canvas with p1 in users", out)
+	}
+
+	// 2 秒たつまで結果は出ない
+	st, out = step(t, st, Tick{Now: t0.Add(CanvasActionDuration - time.Millisecond)})
+	if len(out) != 0 || st.held("p1") != nil {
+		t.Fatalf("before 2s: out = %+v", out)
+	}
+
+	st, out = step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
+	bc = outputsOf[Broadcast](out)
+	if len(bc) != 2 {
+		t.Fatalf("finish: out = %+v", out)
+	}
+	held := bc[0].Msg.(api.PlayerUpdatedMessage).Player.HeldItem
+	if held == nil || held.Id != in.NewID {
+		t.Fatalf("held = %+v, want the new file", held)
+	}
+	if d := held.Data.(api.FileItemData); d.Status != api.FileStatusImageCreated || d.Color != nil {
+		t.Errorf("held data = %+v, want image_created without color", d)
+	}
+	if up := bc[1].Msg.(api.ObjectUpsertMessage); up.Object.Id != cv || len(up.Object.Users) != 0 {
+		t.Errorf("object.upsert = %+v after finish", up)
+	}
+	if len(st.Actions) != 0 {
+		t.Errorf("actions = %+v", st.Actions)
+	}
+
+	// 入れると成果物になる
+	st, _ = put(t, st, "p1")
+	if d := directoryOf(st); d.Outputs != 1 || len(d.Stock) != 6 {
+		t.Errorf("directory = %+v", d)
+	}
+}
+
+func TestCanvasRejects(t *testing.T) {
+	cv := canvasID(1)
+
+	t.Run("何かを持っていれば missing_item", func(t *testing.T) {
+		st := take(t, playing(t, "p1"), "p1", f1)
+		_, out := step(t, st, interactIn("p1", cv, st.held("p1"), ""))
+		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
+
+		// 作った画像を持っていても同じ
+		st = paint(t, playing(t, "p1"), "p1", "img-1")
+		_, out = step(t, st, interactIn("p1", cv, st.held("p1"), ""))
+		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
+
+		// 手持ちの主張が実際と違っても missing_item
+		_, out = step(t, playing(t, "p1"), interactIn("p1", cv, &ItemState{ID: f1, Kind: api.File}, ""))
+		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
+	})
+
+	t.Run("作業中は unavailable で、結果は 1 回だけ", func(t *testing.T) {
+		st := playing(t, "p1")
+		st, _ = step(t, st, interactIn("p1", cv, nil, ""))
+		_, out := step(t, st, interactIn("p1", cv, nil, ""))
+		wantRejected(t, out, "p1", cv, api.RejectReasonUnavailable)
+
+		st, _ = step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
+		st, out = step(t, st, Tick{Now: t0.Add(2 * CanvasActionDuration)})
+		if len(out) != 0 || len(slices.DeleteFunc(slices.Clone(st.Items), func(it ItemState) bool { return it.Status != api.FileStatusImageCreated })) != 1 {
+			t.Errorf("second tick: out = %+v, items = %+v", out, st.Items)
+		}
+	})
+
+	t.Run("他人のキャンバスは not_owner", func(t *testing.T) {
+		st := playing(t, "p1", "p2")
+		_, out := step(t, st, interactIn("p1", canvasID(2), nil, ""))
+		wantRejected(t, out, "p1", canvasID(2), api.RejectReasonNotOwner)
+	})
+}
+
+func TestCanvasHandChanged(t *testing.T) {
+	st := playing(t, "p1")
+	st, _ = step(t, st, interactIn("p1", canvasID(1), nil, ""))
+	st = take(t, st, "p1", f1)
+	st, out := step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
+	if bc := outputsOf[Broadcast](out); len(bc) != 1 || st.item("new-1") != nil || st.held("p1").ID != f1 || len(canvasUsers(st, 1)) != 0 {
+		t.Errorf("out = %+v, want only the canvas released without a new file", out)
+	}
+}
+
+func TestCanvasDisconnectCancels(t *testing.T) {
+	st := playing(t, "p1", "p2")
+	st, _ = step(t, st, interactIn("p1", canvasID(1), nil, ""))
+
+	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
+	if len(canvasUsers(st, 1)) != 0 || len(st.Actions) != 0 {
+		t.Errorf("users = %v, actions = %+v; want the action cancelled", canvasUsers(st, 1), st.Actions)
+	}
+	// 取りやめたアクションは、期限が来ても結果を出さない
+	st, out := step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
+	if len(out) != 0 || st.item("new-1") != nil {
+		t.Errorf("tick after cancel: out = %+v", out)
+	}
+
+	// 作った画像を持ったまま切断すると、成果物になる
+	st = paint(t, playing(t, "p1", "p2"), "p1", "img-1")
+	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
+	if d := directoryOf(st); d.Outputs != 1 || st.held("p1") != nil {
+		t.Errorf("directory = %+v, held = %+v", d, st.held("p1"))
+	}
+}

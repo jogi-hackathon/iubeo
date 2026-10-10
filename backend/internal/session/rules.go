@@ -228,7 +228,7 @@ func (st *State) transform(in ClientTransform) []Output {
 	return nil
 }
 
-// tick: (フェーズの締切と intermission の終わりは Step が先に advance で処理する)開始と破棄の期限を確かめ、期限が来たワークスペースのアクションを終え、前回から動いたプレイヤーの transforms を配る
+// tick: (フェーズの締切と intermission の終わりは Step が先に advance で処理する)開始と破棄の期限を確かめ、期限が来たワークスペース・キャンバスのアクションを終え、前回から動いたプレイヤーの transforms を配る
 func (st *State) tick(in Tick) []Output {
 	if st.Status == api.SessionStatusWaiting && !in.Now.Before(st.CreatedAt.Add(st.StartTimeout)) {
 		st.Ended = true
@@ -239,7 +239,7 @@ func (st *State) tick(in Tick) []Output {
 		return []Output{End{Reason: ReasonAbandoned}}
 	}
 
-	out := st.finishWorkspaceActions(in.Now)
+	out := st.finishActions(in.Now)
 
 	msg := api.TransformsMessage{Type: api.Transforms, ServerTime: in.Now}
 	for i := range st.Players {
