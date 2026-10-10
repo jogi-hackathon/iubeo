@@ -3,6 +3,7 @@ import type {MeshBasicNodeMaterial} from "three/webgpu";
 
 import {ServerAuthority} from "../../authority/server/ServerAuthority";
 import {gameFlow} from "../../flow/store";
+import {SpectateOnElimination} from "../../game/SpectateOnElimination";
 import {ManagedObjects} from "../../objects";
 import {RemotePlayers} from "../../player";
 import {Chair, Slab, Wall} from "../../props";
@@ -18,6 +19,7 @@ import {
   ZONE_FLOOR,
   ZONE_ROOF,
   ZONE_WALLS,
+  ZONE_WINDOW_BLOCKER,
   sandboxSpawnOf,
   seatYaw,
 } from "./layout";
@@ -37,6 +39,13 @@ function SandboxZone({
       {ZONE_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
+      {/* 窓の空洞は見た目のまま、通れないようにする(飛び出して落ちないため)。当たり判定だけで、ベイクもしない */}
+      <Wall
+        position={ZONE_WINDOW_BLOCKER.position}
+        size={ZONE_WINDOW_BLOCKER.size}
+        visible={false}
+        ao="realtime"
+      />
       <FrostedPartition material={partitionMaterial} />
       <Slab {...ZONE_ROOF} />
       <Chair position={ZONE_CHAIR.position} yaw={ZONE_CHAIR.yaw} />
@@ -74,10 +83,12 @@ export function SandboxScene() {
             playerId={session.playerId}
             spawnOf={sandboxSpawnOf}
             onReady={gameFlow.sessionReady}
+            onFinished={gameFlow.sessionFinished}
             onClosed={gameFlow.sessionClosed}
           />
           <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
           <RemotePlayers />
+          <SpectateOnElimination />
         </>
       )}
     </>

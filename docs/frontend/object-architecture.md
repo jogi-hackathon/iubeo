@@ -22,6 +22,10 @@
 | レイアウト | シーンの `layout.ts` に書く、オブジェクトをどこに、どう置くかの定義(→ §5) |
 | レイアウトの項目 | レイアウトの中の、オブジェクト 1 つ分の定義。項目名・id・位置・向き・見た目の選び方を持つ |
 | ゲームの流れ | シーンの外で進む手順(プレイヤー ID の発行、マッチング、シーンの移動、セッションの終わり)。`flow/`(→ §4) |
+| ゲームの状態 | サーバーから届くフェーズ・タスク・結果と、サーバー時計のずれ。`game/gameStore.ts`。HUD と観戦が読む(→ §4) |
+| HUD | 画面の上に重ねる DOM の表示(フェーズ・残り時間・自分のタスクなど)。`game/Hud.tsx`。Canvas の中の物ではなく、判定もしない |
+| 観戦 | 脱落した後に `FlyCamera` でゲームを眺める状態。デバッグ用の `freeCamera`(F8)とは別。物には触れられない(`core/spectate.ts`)(→ §4) |
+| 操作対象(client target) | オーソリティが管理しない、シーンが自分で置く操作対象(room の仮のマッチングボタンなど)。狙いとクリックだけを `objects/interaction/clientTargets.ts` に登録する |
 | 準備完了(readiness) | シーンが描かれてよい状態になったこと。`authority`(オーソリティが物を置き終えた、または最初の snapshot を受け取った)か `mount`(マウントされた)かを、シーンごとに表で決める(→ §4) |
 | 白いオーバーレイ | シーンを切り替える間と起動の間、画面を白で覆う幕。中央に細い進捗バーを出す(→ §4) |
 | ベイク AO | 事前に焼いておく、建物の陰影の画像(`public/ao/`)。置いた物の数・位置が焼いたときと違うとずれる |
@@ -88,7 +92,7 @@
 
 ```
 room(LocalAuthority)にいる
-  → startMatchmaking(今は開発用パネルのボタンだけがきっかけ)
+  → startMatchmaking(今は room の机の上の仮ボタンと開発用パネルのボタンがきっかけ)
   → プレイヤー ID を発行(Cookie)。参加中のセッションがあれば、待機を飛ばして成立
   → マッチングの待機を要求(room にいたまま待つ。1 秒ごとに状況を見る)
   → マッチング成立(sessionId が決まる)
@@ -99,7 +103,7 @@ room(LocalAuthority)にいる
 
 ゲームの流れ(`flow/gameFlow.ts`)は、シーンもオーソリティも知らない純粋な状態機械で、状態は `idle` → `issuing` → `queued` → `matched` → `entering` → `inSession`(失敗は `error`)。HTTP・シーンの移動・待ちは引数で受け取る。
 
-- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは今は開発用パネル(`dev/GameFlowPanel.tsx`)のボタンだけで、`gameFlow.startMatchmaking()` を 1 回呼ぶ。将来、チュートリアルの終わりから同じ関数を呼ぶ。
+- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の机の上に置いた仮のボタン(`scenes/RoomScene/MatchmakingButton.tsx`。チュートリアルで置き換える予定の TODO つき)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ。仮のボタンはオーソリティが管理するオブジェクトにはせず、シーンが置く操作対象(`objects/interaction/clientTargets.ts`)として狙いとクリックだけを登録する。
 - 待機中の扱い(サーバー側の事実に合わせる):
   - サーバーは 10 秒見ないと待機列から外すので、1 秒ごとに GET する。GET が 404(`not_queued`)なら入り直す。
   - 入るとき 409(`in_session`)なら、既にセッションに居る。`GET /players/me` の `sessionId` で成立として進む。
@@ -113,8 +117,11 @@ room(LocalAuthority)にいる
 - 覆いは `opacity: 0.995`(完全な不透明にしない)。不透明な間はブラウザが下の Canvas を合成せず、外し始めた瞬間に重い合成が走ってフェードが飛ぶため(目には白のまま)。進捗バーは、起動の段階と、シーンの準備を待つ間(0.5 秒を超えたとき)に出す。
 - これで、前のシーンのオブジェクトの映り込みや、ベイク AO のずれを防ぐ(新しいシーンが描かれる前に同期で置き直す仕組みは使わない)。
 - 準備完了とゲームの開始は別。snapshot は全員がそろうのを待つ間にも届く。全員がつながるとサーバーが `session.started` を送る(state-schema §6)。人間が 30 秒そろわないとセッションは解散する。
-- セッションの終わり(接続の close)は、ゲームの流れが受ける(`sessionClosed(code)`)。
-  - 再接続を諦めた、`4000`(セッション終了: finished / dissolved / abandoned)は、room へ戻る。
+- 始まってからの表示は HUD(`game/Hud.tsx`。Canvas の外の DOM オーバーレイ)が受け持つ。フェーズと締切・タスクは `phase.started` / `phase.ended` / `task.completed` と snapshot の `game` を `game/gameStore` に集め、残り時間は `deadlineAt` と `serverTime` から毎回計算する。マッチングと待機の状態は `flow` の状態と snapshot の `status` を見る。`read_edit` の対象ファイルは、在庫の色(`game/stockColors.ts`。`directory-1` の `stock` から引く)を行の頭の四角で出し、山の紙と見比べられるようにする(誰かが持っている間は在庫に無いので色は出ない)。値を見せるだけで、判定はしない(ADR-0003)。
+- 脱落(`player.updated` の `life: eliminated`)したら、簡単な演出(画面を赤くして「脱落」)の後、`FlyCamera` での観戦に移る(`core/spectate`)。観戦はデバッグ用の `freeCamera`(F8)とは別の状態で、`ObjectManager` には影響せず、狙い・操作・移動を止める(物には触れられない)。セッションを離れたら通常に戻る。
+- 決着(`session.finished`)したら、結果を console に出して `gameStore` に持ち、room へシーン遷移する(勝敗画面は作らない)。結果は戻った後も HUD が数秒出す。
+- セッションの終わり(接続の close)は、ゲームの流れが受ける(`sessionClosed(code, reason)`)。close の reason から通知(`FlowNotice`)を決め、console に出し、HUD が数秒だけ 1 行で出してから room へ戻る。
+  - `4000`(セッション終了: `finished` / `dissolved` / `abandoned`)と、再接続を諦めた close(`lost`)。
   - `4001`(同じプレイヤーが別のタブで入り直した)も room へ戻るが、`notice: "replaced"` を付け、自動では入り直さない(入り直すと、置き換えたタブを今度はこちらが切ってしまう)。
   - sandbox を手動で離れたとき(`leftSession`)は、流れが `idle` に戻るだけ。サーバーのセッションは残るので、次の `startMatchmaking` で `sessionId` を引いて戻れる。
 
@@ -178,12 +185,13 @@ function WorkspaceObject({object}: {object: GameObject}) {
 | C | 白いオーバーレイと準備完了、起動の進捗バー(#72) | 済 |
 | D | `LocalAuthority`(room・test)、自分の ID と要求の送り先をオーソリティから引く | 済 |
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
+| F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
 
 残り:
 
-- マッチングのきっかけは開発用パネルのボタンだけ(チュートリアルの終わりから呼ぶのは未実装)。
-- 開始の合図(`session.started`)・フェーズ・タスク・結果(`session.finished`)の表示は未実装。接続の終わりは、room へ戻るだけ。
-- `ServerAuthority` の再接続を諦めた後の案内(エラー表示など)は無い。room へ戻る。
+- マッチングのきっかけは room の仮のボタン(チュートリアルの終わりから呼ぶ形に置き換えるのは未実装。`MatchmakingButton.tsx` の TODO)。
+- 勝敗画面は作らない(結果は console と HUD の 1 行だけ)。PC をサーバー経路に載せるのは未実装(→ §9)。
+- フェーズの数値・バランスの調整、マッチングで人数が足りないときの扱いは未着手(issue #84 の対象外)。
 
 ## 9. 後で片付けるもの・依頼事項
 

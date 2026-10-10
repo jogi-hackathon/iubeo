@@ -255,20 +255,22 @@ func (m *Manager) Store() Store {
 	return m.store
 }
 
-// CreateMultiplayer は自動マッチングでそろったプレイヤーのセッションを作り、goroutine を立てる
-func (m *Manager) CreateMultiplayer(playerIDs []string) *Session {
+// CreateMultiplayer は自動マッチングでそろったプレイヤーのセッションを作り、goroutine を立てる。
+// cpuIDs はデバッグ用に足す CPU(接続しない)。席は人間、CPU の順
+func (m *Manager) CreateMultiplayer(humanIDs []string, cpuIDs []string) *Session {
+	playerIDs := append(slices.Clone(humanIDs), cpuIDs...)
 	s := &Session{
 		ID:        "sess-" + rand.Text(),
-		PlayerIDs: slices.Clone(playerIDs),
+		PlayerIDs: playerIDs,
 		CreatedAt: m.now(),
 		inbox:     make(chan any, inboxSize),
 		done:      make(chan struct{}),
 	}
 	timeouts := Timeouts{Start: m.config.StartTimeout, Abandon: m.config.AbandonTimeout}
-	st := NewMultiplayerState(s.ID, s.PlayerIDs, s.CreatedAt, timeouts, m.config.Phases, mrand.Uint64())
+	st := NewMultiplayerState(s.ID, humanIDs, cpuIDs, s.CreatedAt, timeouts, m.config.Phases, mrand.Uint64())
 	m.store.Add(s)
 	go s.run(st, m.config, m.now, func() { m.store.Remove(s.ID) })
-	slog.Info("session created", "session", s.ID, "players", s.PlayerIDs)
+	slog.Info("session created", "session", s.ID, "players", s.PlayerIDs, "cpus", len(cpuIDs))
 	return s
 }
 
@@ -282,6 +284,6 @@ func (m *Manager) SessionOf(playerID string) (string, bool) {
 }
 
 // Create は自動マッチングでそろったプレイヤーのセッションを作り、その ID を返す(matchmaking.Sessions)
-func (m *Manager) Create(playerIDs []string) string {
-	return m.CreateMultiplayer(playerIDs).ID
+func (m *Manager) Create(humanIDs []string, cpuIDs []string) string {
+	return m.CreateMultiplayer(humanIDs, cpuIDs).ID
 }

@@ -25,7 +25,7 @@ func newWispTestServer(t *testing.T, withWisp bool) http.Handler {
 func newWispTestServerWithPass(t *testing.T, withWisp bool, pass string) http.Handler {
 	t.Helper()
 	sessions := session.NewManager(session.NewMemoryStore(), time.Now, session.DefaultConfig)
-	srv := New(player.NewSigner(testKey), sessions, matchmaking.New(3, sessions, time.Now), []string{testOrigin})
+	srv := New(player.NewSigner(testKey), sessions, matchmaking.New(3, sessions, time.Now, matchmaking.Options{}), []string{testOrigin})
 	if withWisp {
 		srv.WithWisp(wisp.NewIssuer(wispKey, 0, time.Now), "wss://example.test/wisp/", pass)
 	}

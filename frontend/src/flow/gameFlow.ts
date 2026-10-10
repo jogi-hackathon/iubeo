@@ -1,4 +1,9 @@
-import {ApiError, type ApiClient, CLOSE_REPLACED} from "../net";
+import {
+  ApiError,
+  type ApiClient,
+  CLOSE_REPLACED,
+  CLOSE_SESSION_ENDED,
+} from "../net";
 
 /** 流れが行き来するシーン(sceneStore の navigator が、実際のシーン名に写す) */
 export type FlowScene = "room" | "sandbox";
@@ -18,8 +23,36 @@ export type FlowNavigator = {
   enter: (scene: FlowScene) => void | Promise<void>;
 };
 
-/** idle に戻った理由。replaced は、同じプレイヤーが別のタブで入り直して、こちらが切られた(4001) */
-export type FlowNotice = "replaced";
+/**
+ * idle に戻った理由。console に出し、HUD が数秒だけ 1 行で出す(object-architecture §4)
+ * - replaced: 同じプレイヤーが別のタブで入り直して、こちらが切られた(4001)
+ * - dissolved: 開始までに人間がそろわず、セッションが解散した
+ * - abandoned: 人間が全員切断したまま戻らず、セッションが破棄された
+ * - lost: 再接続を諦めた(回線が切れた、サーバーが落ちたなど)
+ */
+export type FlowNotice = "replaced" | "dissolved" | "abandoned" | "lost";
+
+/**
+ * close の理由(コードと reason)から、HUD に出す通知を決める。
+ * 正常な決着(finished)は結果を別に出すので、ここでは通知しない
+ */
+const noticeOf = (code: number, reason: string): FlowNotice | undefined => {
+  if (code === CLOSE_REPLACED) {
+    return "replaced";
+  }
+  if (code === CLOSE_SESSION_ENDED) {
+    if (reason === "dissolved") {
+      return "dissolved";
+    }
+    if (reason === "abandoned") {
+      return "abandoned";
+    }
+    if (reason === "finished") {
+      return undefined;
+    }
+  }
+  return "lost";
+};
 
 export type GameFlowState =
   | {status: "idle"; notice?: FlowNotice}
@@ -50,8 +83,10 @@ const errorMessage = (e: unknown): string =>
  *   自分の参加中のセッションを引いて matched。matched になったら sandbox へ移る(entering)
  * - cancelMatchmaking: 待機をやめる(ポーリングは止まる)。既に成立していた(409)ならそのまま matched として進む
  * - sessionReady: sandbox のオーソリティが準備できた(entering → inSession)
- * - sessionClosed(code): セッションの接続が終わった。room へ戻る。4001(別のタブに置き換えられた)は notice を付ける。
- *   自動で入り直さない(入り直すと、置き換えたタブを今度はこちらが切ってしまう)
+ * - sessionFinished: 決着の通知(session.finished)を受けた。room へ戻る(結果は gameStore が持つ)
+ * - sessionClosed(code, reason): セッションの接続が終わった。console に理由を出し、room へ戻る。
+ *   close の理由から通知(FlowNotice)を決め、HUD が数秒だけ出す。4001(別のタブに置き換えられた)は
+ *   notice を付ける。自動で入り直さない(入り直すと、置き換えたタブを今度はこちらが切ってしまう)
  * - leftSession: sandbox を手動で離れた(流れは idle に戻る。サーバーのセッションはそのまま。次の start で戻れる)
  */
 export const createGameFlow = ({
@@ -238,6 +273,22 @@ export const createGameFlow = ({
     }
   };
 
+  const inSessionState = (): boolean =>
+    state.status === "matched" ||
+    state.status === "entering" ||
+    state.status === "inSession";
+
+  /** room へ戻る(シーンの移動は待たない)。通知は console と HUD の両方に出す */
+  const closeToRoom = (code: number, reason: string): void => {
+    const notice = noticeOf(code, reason);
+    console.warn(
+      `[gameFlow] セッションとの接続が終わった (code=${code}, reason=${reason || "なし"})`,
+      notice ?? "決着",
+    );
+    set(notice === undefined ? {status: "idle"} : {status: "idle", notice});
+    goRoom();
+  };
+
   return {
     getState: (): GameFlowState => state,
     subscribe: (listener: () => void) => {
@@ -259,20 +310,19 @@ export const createGameFlow = ({
       state.status === "inSession"
         ? {sessionId: state.sessionId, playerId: state.playerId}
         : null,
-    sessionClosed: (code: number): void => {
-      if (
-        state.status !== "matched" &&
-        state.status !== "entering" &&
-        state.status !== "inSession"
-      ) {
+    /** 決着(session.finished)を受けた。結果は gameStore が持つので、流れは room へ戻すだけ */
+    sessionFinished: (): void => {
+      if (!inSessionState()) {
         return;
       }
-      set(
-        code === CLOSE_REPLACED
-          ? {status: "idle", notice: "replaced"}
-          : {status: "idle"},
-      );
+      set({status: "idle"});
       goRoom();
+    },
+    sessionClosed: (code: number, reason = ""): void => {
+      if (!inSessionState()) {
+        return;
+      }
+      closeToRoom(code, reason);
     },
     leftSession: (): void => {
       if (

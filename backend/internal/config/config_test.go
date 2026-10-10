@@ -33,6 +33,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.BypassDuration != 30*time.Second || cfg.FireDuration != 10*time.Second {
 		t.Errorf("bypass = %s, fire = %s, want 30s, 10s", cfg.BypassDuration, cfg.FireDuration)
 	}
+	if cfg.CpuFillAfter != 30*time.Second {
+		t.Errorf("CpuFillAfter = %s, want 30s", cfg.CpuFillAfter)
+	}
 	if string(cfg.SigningKey) != validKey {
 		t.Errorf("SigningKey = %q", cfg.SigningKey)
 	}
@@ -49,6 +52,7 @@ func TestLoadAll(t *testing.T) {
 		"IUBEO_INTERMISSION_DURATION": "500ms",
 		"IUBEO_BYPASS_DURATION":       "45s",
 		"IUBEO_FIRE_DURATION":         "3s",
+		"IUBEO_CPU_FILL_AFTER":        "5s",
 	}))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -67,6 +71,9 @@ func TestLoadAll(t *testing.T) {
 	}
 	if cfg.BypassDuration != 45*time.Second || cfg.FireDuration != 3*time.Second {
 		t.Errorf("bypass = %s, fire = %s", cfg.BypassDuration, cfg.FireDuration)
+	}
+	if cfg.CpuFillAfter != 5*time.Second {
+		t.Errorf("CpuFillAfter = %s, want 5s", cfg.CpuFillAfter)
 	}
 }
 
@@ -104,6 +111,14 @@ func TestLoadErrors(t *testing.T) {
 				"IUBEO_BYPASS_DURATION": "0s", "IUBEO_FIRE_DURATION": "soon",
 			},
 			want: []string{"IUBEO_PHASE_COUNT", "IUBEO_PHASE_DURATION", "IUBEO_INTERMISSION_DURATION", "IUBEO_BYPASS_DURATION", "IUBEO_FIRE_DURATION"},
+		},
+		{
+			name: "CPU 埋めの長さが不正",
+			env: map[string]string{
+				"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+				"IUBEO_CPU_FILL_AFTER": "-1s",
+			},
+			want: []string{"IUBEO_CPU_FILL_AFTER"},
 		},
 	}
 	for _, tt := range tests {

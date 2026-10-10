@@ -3,6 +3,7 @@ import type {CSSProperties} from "react";
 import {useDebugFlags} from "../../core/debug/flags";
 import {usePointerLocked} from "../../core/input";
 import {usePlayerControlLocked} from "../../core/playerControl";
+import {useSpectatePhase} from "../../core/spectate";
 import {useAimedObjectId} from "./aimStore";
 
 const SIZE = 4;
@@ -27,9 +28,10 @@ const dotStyle = (size: number): CSSProperties => ({
 export function Reticle() {
   const locked = usePointerLocked();
   const {freeCamera} = useDebugFlags();
+  const spectate = useSpectatePhase();
   const aimed = useAimedObjectId();
   const taken = usePlayerControlLocked();
-  if (!locked || freeCamera || taken) {
+  if (!locked || freeCamera || spectate !== "alive" || taken) {
     return null;
   }
   return <div style={dotStyle(aimed === null ? SIZE : SIZE_AIMED)} />;

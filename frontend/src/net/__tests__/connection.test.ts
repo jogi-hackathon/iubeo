@@ -37,9 +37,9 @@ class FakeSocket implements SocketLike {
       data: typeof message === "string" ? message : JSON.stringify(message),
     });
   }
-  serverClose(code: number) {
+  serverClose(code: number, reason = "") {
     this.readyState = 3;
-    this.onclose?.({code});
+    this.onclose?.({code, reason});
   }
 }
 
@@ -205,6 +205,7 @@ describe("createSessionConnection", () => {
     expect(conn.getState()).toEqual({
       status: "reconnecting",
       closeCode: CLOSE_SLOW,
+      closeReason: "",
     });
     expect(timers.map((t) => t.ms)).toEqual([500]);
     runTimers();
@@ -240,8 +241,23 @@ describe("createSessionConnection", () => {
     const {conn, timers, latest} = setup();
     latest().serverOpen();
     latest().serverClose(code);
-    expect(conn.getState()).toEqual({status: "closed", closeCode: code});
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: code,
+      closeReason: "",
+    });
     expect(timers).toHaveLength(0);
+  });
+
+  it("close の reason を状態に持つ(サーバーの理由を HUD と console に出す用)", () => {
+    const {conn, latest} = setup();
+    latest().serverOpen();
+    latest().serverClose(CLOSE_SESSION_ENDED, "dissolved");
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: CLOSE_SESSION_ENDED,
+      closeReason: "dissolved",
+    });
   });
 
   it("再接続の上限を超えたら closed にする", () => {
@@ -252,7 +268,11 @@ describe("createSessionConnection", () => {
     runTimers();
     latest().serverClose(1006);
     expect(sockets).toHaveLength(3);
-    expect(conn.getState()).toEqual({status: "closed", closeCode: 1006});
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: 1006,
+      closeReason: "",
+    });
   });
 
   it("close() で閉じたら、予約した再接続も取り消す", () => {

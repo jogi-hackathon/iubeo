@@ -8,9 +8,11 @@ import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {usePointerLocked} from "../../core/input";
 import {isPlayerControlLocked} from "../../core/playerControl";
+import {useSpectatePhase} from "../../core/spectate";
 import {objectManager} from "../objectStore";
 import {type AimHit, INTERACT_DISTANCE, resolveAim} from "./aim";
 import {getAimedObjectId, setAimedObjectId, useAimedObjectId} from "./aimStore";
+import {getClientTarget, hasClientTarget} from "./clientTargets";
 import {dispatchInteraction} from "./handlers";
 import {
   getTarget,
@@ -22,7 +24,8 @@ import {
 const CENTER = new Vector2(0, 0);
 
 const isTargetable = (id: string): boolean =>
-  objectManager.getObject(id)?.availability === "available";
+  objectManager.getObject(id)?.availability === "available" ||
+  hasClientTarget(id);
 
 type Candidates = {
   dirty: boolean;
@@ -57,10 +60,12 @@ const refreshCandidates = (c: Candidates): void => {
  *
  * - 狙えるのは、目の位置から INTERACT_DISTANCE 内で最初に当たったオブジェクト。壁などのコライダーに遮られたら狙わない
  * - 操作は、pointer lock 中だけ。ロックされていないクリックはロック取得用なので無視する。
- *   freeCamera(F8)中と、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)は、狙いも操作も止める
+ *   freeCamera(F8)中、脱落・観戦中、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)は、狙いも操作も止める
+ * - 狙った物がオーソリティのオブジェクトなら要求を送り、シーンが置いた操作対象(clientTargets)ならその処理を呼ぶ
  */
 export function Interaction() {
   const {freeCamera} = useDebugFlags();
+  const spectate = useSpectatePhase();
   const locked = usePointerLocked();
   const gl = useThree((s) => s.gl);
   const raycaster = useMemo(() => {
@@ -68,7 +73,7 @@ export function Interaction() {
     r.far = INTERACT_DISTANCE;
     return r;
   }, []);
-  const active = locked && !freeCamera;
+  const active = locked && !freeCamera && spectate === "alive";
 
   const candidates = useRef(createCandidates());
   useEffect(() => {
@@ -115,11 +120,16 @@ export function Interaction() {
         return;
       }
       const id = getAimedObjectId();
-      const object = id === null ? undefined : objectManager.getObject(id);
-      if (!object) {
+      if (id === null) {
         return;
       }
-      dispatchInteraction(object, () => objectManager.interact(object.id));
+      const object = objectManager.getObject(id);
+      if (object) {
+        dispatchInteraction(object, () => objectManager.interact(object.id));
+        return;
+      }
+      // オーソリティのオブジェクトではない、シーンが置いた対象(サーバーへは送らない)
+      getClientTarget(id)?.interact();
     };
     doc.addEventListener("mousedown", onMouseDown);
     return () => doc.removeEventListener("mousedown", onMouseDown);

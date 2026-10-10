@@ -33,6 +33,10 @@ type State struct {
 	BypassAt time.Time
 	FireAt   time.Time
 	rng      rand.PCG
+	// CpuNextAt は CPU が次にタスクを片付ける時刻(プレイヤー id ごと)。デバッグ用の CPU だけが使う
+	CpuNextAt map[string]time.Time
+	// CpuItemSeq は CPU が作ったファイルの id の連番
+	CpuItemSeq int
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -102,8 +106,9 @@ type Timeouts struct {
 }
 
 // NewMultiplayerState は自動マッチングでそろったプレイヤーの、開始前(waiting)の状態を作る。
-// playerIDs の並びが席の順。seed はタスクの分配に使う乱数の種
-func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
+// humanIDs の並びが席の順で、そのあとに cpuIDs が続く(CPU は接続しないので connected で作り、開始を待たせない)。
+// seed はタスクの分配に使う乱数の種
+func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
 		Mode:           api.SessionModeMultiplayer,
@@ -113,6 +118,7 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		AbandonTimeout: timeouts.Abandon,
 		Phases:         phases,
 		rng:            *rand.NewPCG(seed, seed),
+		CpuNextAt:      map[string]time.Time{},
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
@@ -121,13 +127,18 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
-	for i, pid := range playerIDs {
+	ids := append(slices.Clone(humanIDs), cpuIDs...)
+	for i, pid := range ids {
 		seat := i + 1
+		kind, connection := api.Human, api.Connecting
+		if i >= len(humanIDs) {
+			kind, connection = api.Cpu, api.Connected
+		}
 		st.Players = append(st.Players, PlayerState{
 			ID:         pid,
-			Kind:       api.Human,
+			Kind:       kind,
 			Seat:       seat,
-			Connection: api.Connecting,
+			Connection: connection,
 			Life:       api.Alive,
 		})
 		st.Objects = append(st.Objects, ObjectState{
@@ -195,6 +206,12 @@ func (st State) clone() State {
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
 	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
+	if st.CpuNextAt != nil {
+		c.CpuNextAt = make(map[string]time.Time, len(st.CpuNextAt))
+		for k, v := range st.CpuNextAt {
+			c.CpuNextAt[k] = v
+		}
+	}
 	return c
 }
 

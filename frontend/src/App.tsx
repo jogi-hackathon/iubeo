@@ -6,6 +6,7 @@ import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {useBootCover} from "./core/cover/useBootCover";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
+import {Hud} from "./game/Hud";
 import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
@@ -44,6 +45,7 @@ export function App() {
       </GameCanvas>
       <Reticle />
       <OverviewCursor />
+      <Hud />
       <PostProcessPanel />
       <SceneDebugPanel />
       {DevTools && (
