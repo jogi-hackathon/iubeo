@@ -97,6 +97,19 @@ export const ZONE_WALLS: readonly WallSpec[] = [
   besideWindow(windowRight, OUTER_HALF_WIDTH),
 ];
 
+/**
+ * 窓の空洞に置く、見えない当たり判定。見た目は空洞のまま(何もはめない)で、プレイヤーが飛び出して落ちないようにする。
+ * 窓と同じ大きさ・同じ位置なので、空洞をちょうど塞ぐ
+ */
+export const ZONE_WINDOW_BLOCKER: WallSpec = {
+  position: [
+    WINDOW_CENTER_X,
+    WINDOW_SILL_HEIGHT + WINDOW_SIZE / 2,
+    wallCenterZ,
+  ],
+  size: [WINDOW_SIZE, WINDOW_SIZE, t],
+};
+
 /** 区画の床。三角形 (0, 0)・外側の頂点 (±OUTER_HALF_WIDTH, r+t) の板で、上面が y=0、厚さ t(共通の TiledFloor は使わない) */
 export const ZONE_FLOOR: SlabSpec = {
   polygon: [

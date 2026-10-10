@@ -18,7 +18,8 @@ const CPU_WANDER_SECONDS = 7;
 /**
  * CPU の見た目のために、スポーンの周りを円を描いて歩かせる。
  * 位置はサーバーが持たない(サーバーは CPU の transform を配らない)ので、見た目だけクライアントで作る。
- * 遊びには影響しない(判定は位置を使わない)
+ * 遊びには影響しない(判定は位置を使わない)。
+ * 区画の中心から遠ざかる向きには動かさない(外壁・窓・仕切りへ寄って、外に出て見えないように)
  */
 function wanderCpu(
   state: ReturnType<typeof createPlayerState>,
@@ -27,15 +28,34 @@ function wanderCpu(
 ): void {
   const omega = (Math.PI * 2) / CPU_WANDER_SECONDS;
   const w = (t / CPU_WANDER_SECONDS) * Math.PI * 2 + phase;
-  state.position.x += Math.cos(w) * CPU_WANDER_RADIUS;
-  state.position.z += Math.sin(w) * CPU_WANDER_RADIUS;
-  // 円の接線方向。velocity を入れると、歩くアニメーションになる
-  state.velocity.set(
-    -Math.sin(w) * CPU_WANDER_RADIUS * omega,
-    0,
-    Math.cos(w) * CPU_WANDER_RADIUS * omega,
-  );
-  state.yaw = Math.atan2(-state.velocity.x, -state.velocity.z);
+  const x0 = state.position.x;
+  const z0 = state.position.z;
+  let ox = Math.cos(w) * CPU_WANDER_RADIUS;
+  let oz = Math.sin(w) * CPU_WANDER_RADIUS;
+  let vx = -Math.sin(w) * CPU_WANDER_RADIUS * omega;
+  let vz = Math.cos(w) * CPU_WANDER_RADIUS * omega;
+
+  const r = Math.hypot(x0, z0);
+  if (r > 1e-6) {
+    const ux = x0 / r;
+    const uz = z0 / r;
+    const outward = ox * ux + oz * uz;
+    if (outward > 0) {
+      ox -= outward * ux;
+      oz -= outward * uz;
+    }
+    const outwardV = vx * ux + vz * uz;
+    if (outwardV > 0) {
+      vx -= outwardV * ux;
+      vz -= outwardV * uz;
+    }
+  }
+
+  state.position.x = x0 + ox;
+  state.position.z = z0 + oz;
+  // 歩くアニメーションのために velocity を入れる(向きは実際に動く向き)
+  state.velocity.set(vx, 0, vz);
+  state.yaw = Math.atan2(-vx, -vz);
   state.onGround = true;
 }
 

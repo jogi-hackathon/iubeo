@@ -8,7 +8,13 @@ import {featureKey} from "../../objects/layout";
 import {Chair, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {ROOM_INITIAL} from "./initial";
-import {CHAIR_POSITION, ROOM_FLOOR, ROOM_LAYOUT, ROOM_WALLS} from "./layout";
+import {
+  CHAIR_POSITION,
+  ROOM_FLOOR,
+  ROOM_LAYOUT,
+  ROOM_WALLS,
+  WINDOW_PLUG,
+} from "./layout";
 import {MatchmakingButton} from "./MatchmakingButton";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {WindowPlug} from "./WindowPlug";
@@ -24,6 +30,13 @@ function RoomProps() {
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
       <WindowPlug visible={!windowVisible} />
+      {/* 窓の空洞は見た目のまま、通れないようにする(飛び出して落ちないため)。当たり判定だけで、ベイクもしない */}
+      <Wall
+        position={WINDOW_PLUG.position}
+        size={WINDOW_PLUG.size}
+        visible={false}
+        ao="realtime"
+      />
       <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
       <MatchmakingButton />
     </>

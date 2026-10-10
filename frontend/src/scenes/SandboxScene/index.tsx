@@ -19,6 +19,7 @@ import {
   ZONE_FLOOR,
   ZONE_ROOF,
   ZONE_WALLS,
+  ZONE_WINDOW_BLOCKER,
   sandboxSpawnOf,
   seatYaw,
 } from "./layout";
@@ -38,6 +39,13 @@ function SandboxZone({
       {ZONE_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
+      {/* 窓の空洞は見た目のまま、通れないようにする(飛び出して落ちないため)。当たり判定だけで、ベイクもしない */}
+      <Wall
+        position={ZONE_WINDOW_BLOCKER.position}
+        size={ZONE_WINDOW_BLOCKER.size}
+        visible={false}
+        ao="realtime"
+      />
       <FrostedPartition material={partitionMaterial} />
       <Slab {...ZONE_ROOF} />
       <Chair position={ZONE_CHAIR.position} yaw={ZONE_CHAIR.yaw} />

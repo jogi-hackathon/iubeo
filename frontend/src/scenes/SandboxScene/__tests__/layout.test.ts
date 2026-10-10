@@ -43,6 +43,7 @@ import {
   ZONE_ROOF,
   ZONE_SPAWN,
   ZONE_WALLS,
+  ZONE_WINDOW_BLOCKER,
   ZONE_WORKSPACE,
   type Placement,
   ridgeHeight,
@@ -236,6 +237,20 @@ describe("外壁・窓", () => {
         expect(insideWall(x, y, r + t / 2)).toBe(!inWindow);
       }
     }
+  });
+
+  it("窓の空洞には、見えない当たり判定がちょうど重なる(飛び出して落ちないように)", () => {
+    const blocker = new Box3().setFromCenterAndSize(
+      new Vector3(...ZONE_WINDOW_BLOCKER.position),
+      new Vector3(...ZONE_WINDOW_BLOCKER.size),
+    );
+    expect(blocker.min.x).toBeCloseTo(WINDOW_CENTER_X - WINDOW_SIZE / 2);
+    expect(blocker.max.x).toBeCloseTo(WINDOW_CENTER_X + WINDOW_SIZE / 2);
+    expect(blocker.min.y).toBeCloseTo(WINDOW_SILL_HEIGHT);
+    expect(blocker.max.y).toBeCloseTo(WINDOW_SILL_HEIGHT + WINDOW_SIZE);
+    // 壁の厚みの中(z∈[r, r+t])に収まり、室内へ張り出さない
+    expect(blocker.min.z).toBeGreaterThanOrEqual(r - 1e-6);
+    expect(blocker.max.z).toBeLessThanOrEqual(r + t + 1e-6);
   });
 
   it("窓は外壁の室内側の面の範囲に収まり、左右の仕切りの厚みと重ならない", () => {
