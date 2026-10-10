@@ -26,7 +26,6 @@ const VIEW_DISTANCE = 0.36;
 /** 電源の立ち上がり・ラスタ展開の速さ（指数減衰の係数。大きいほど速い） */
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
-const CURSOR_RATE = 9;
 /** これより近づいたら、エンジンの JS を先に取っておく(m)。部屋に入っただけの人には取らせない */
 const PREWARM_DISTANCE = 4;
 /**
@@ -53,7 +52,8 @@ const euler = new Euler(0, 0, 0, "YXZ");
  *   結果を辿ってページが変わるたびに走る**（検索結果ページそのものは見ない）。
  *   彼らは常に見ていて、外れているときだけ CRT が乱れて理由を出す（合っていれば一言だけ）。HUD は使わない
  * - 判定が「一致」なら、合図を見せてから PC を畳む（成果物は持たせ済み）。タスクが済んだので座らせない
- * - Esc で離れる（カメラが一人称へ戻ってから、プレイヤーを返す）
+ * - Esc で離れる（カメラが一人称へ戻り、プレイヤーを返し、マウスルック（pointer lock）も取り直す。
+ *   画面から抜けた直後にクリックを求めない）
  *
  * 使っていない間は電源が切れている（画面は黒）。HUD は使わず、状態は画面と机の上のメモで伝える。
  */
@@ -89,7 +89,7 @@ export function PcObject({object}: {object: GameObject}) {
 
   const screenRef = useRef<Mesh>(null);
   const memoRef = useRef<Mesh>(null);
-  const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0, active: false}), []);
+  const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
 
   /**
@@ -270,7 +270,7 @@ export function PcObject({object}: {object: GameObject}) {
       }
     }
 
-    // 画面：電源、ラスタ、ポインタの目印を、毎フレーム CRT の値へ写す
+    // 画面：電源とラスタを、毎フレーム CRT の値へ写す
     crt.time.value += dt;
     crt.on.value = approach(crt.on.value, showing ? 1 : 0, POWER_RATE, dt);
     crt.boot.value = approach(
@@ -279,14 +279,6 @@ export function PcObject({object}: {object: GameObject}) {
       BOOT_RATE,
       dt,
     );
-    crt.cursor.value.set(cursor.active ? cursor.x : -1, cursor.y);
-    crt.cursorOn.value = approach(
-      crt.cursorOn.value,
-      cursor.active ? 1 : 0,
-      CURSOR_RATE,
-      dt,
-    );
-
     // 近づいたら、エンジンの JS を先に取っておく（初めて使うときの待ちを減らす。ページで 1 回だけ）
     if (
       getEyePosition(localPlayer, eye).distanceTo(
