@@ -2,6 +2,8 @@
 package config
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -40,6 +42,13 @@ type Config struct {
 	WispKey []byte
 	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
 	WispURL string
+	// VCSeed は Voice Chat の JWT を署名する Ed25519 の種(IUBEO_VC_PRIVATE_KEY。base64url の 32 バイト。任意)。
+	// 無ければ VC のトークンは発行しない
+	VCSeed []byte
+	// VCSignalingURL は VC のシグナリング(WebSocket)の URL(IUBEO_VC_SIGNALING_URL。例: wss://vc.example.test/v1/signaling)
+	VCSignalingURL string
+	// VCMediaURL は MoQ(WebTransport)の URL(IUBEO_VC_MEDIA_URL。例: https://media.example.test:4443)
+	VCMediaURL string
 }
 
 // Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
@@ -136,6 +145,23 @@ func Load(getenv func(string) string) (Config, error) {
 		default:
 			cfg.WispKey = []byte(v)
 			cfg.WispURL = getenv("IUBEO_WISP_URL")
+		}
+	}
+
+	if v := getenv("IUBEO_VC_PRIVATE_KEY"); v != "" {
+		// JWK の d は base64url(パディング無し)。パディング付きで貼られても読めるように落とす
+		seed, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(strings.TrimSpace(v), "="))
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("IUBEO_VC_PRIVATE_KEY must be base64url: %w", err))
+		case len(seed) != ed25519.SeedSize:
+			errs = append(errs, fmt.Errorf("IUBEO_VC_PRIVATE_KEY must decode to %d bytes, got %d", ed25519.SeedSize, len(seed)))
+		case getenv("IUBEO_VC_SIGNALING_URL") == "" || getenv("IUBEO_VC_MEDIA_URL") == "":
+			errs = append(errs, errors.New("IUBEO_VC_SIGNALING_URL and IUBEO_VC_MEDIA_URL are required when IUBEO_VC_PRIVATE_KEY is set"))
+		default:
+			cfg.VCSeed = seed
+			cfg.VCSignalingURL = getenv("IUBEO_VC_SIGNALING_URL")
+			cfg.VCMediaURL = getenv("IUBEO_VC_MEDIA_URL")
 		}
 	}
 

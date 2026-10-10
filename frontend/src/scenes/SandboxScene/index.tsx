@@ -7,6 +7,7 @@ import {SpectateOnElimination} from "../../game/SpectateOnElimination";
 import {ManagedObjects} from "../../objects";
 import {RemotePlayers} from "../../player";
 import {Chair, Slab, Wall} from "../../props";
+import {VoiceChat} from "../../voice";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {
   FrostedPartition,
@@ -88,6 +89,10 @@ export function SandboxScene() {
           />
           <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
           <RemotePlayers />
+          <VoiceChat
+            sessionId={session.sessionId}
+            playerId={session.playerId}
+          />
           <SpectateOnElimination />
         </>
       )}
