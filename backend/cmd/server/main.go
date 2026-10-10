@@ -37,7 +37,7 @@ func main() {
 		cfg.AllowedOrigins,
 	)
 	if cfg.WispKey != nil {
-		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL, cfg.WispPass)
+		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL)
 	}
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
 		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration,

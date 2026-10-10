@@ -200,7 +200,7 @@ resource "aws_instance" "backend" {
     container_memory         = var.container_memory_mib
     image_tag_parameter      = aws_ssm_parameter.image_tag.name
     wisp_image_tag_parameter = aws_ssm_parameter.wisp_image_tag.name
-    wisp_pass                = var.wisp_pass
+    wisp_enabled             = var.wisp_enabled
     wisp_url                 = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
   })
 
