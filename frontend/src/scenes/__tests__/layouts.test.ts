@@ -1,6 +1,5 @@
 import {describe, expect, it} from "vitest";
 
-import {MULTIPLAYER_LAYOUT} from "../../dev/multiplayer/layout";
 import {kindOfId} from "../../objects/layout";
 import {sceneLayouts} from "../layouts";
 import {ROOM_LAYOUT} from "../RoomScene/layout";
@@ -74,18 +73,5 @@ describe("シーンのレイアウト", () => {
     expect(seatYaw(1)).toBe(0);
     expect(seatYaw(2)).toBeCloseTo((2 * Math.PI) / 3);
     expect(sandboxSpawnOf(1)).toBeDefined();
-  });
-
-  it("マルチプレイは、ディレクトリと席ごとの机・キャンバス・ライターを持つ", () => {
-    expect(MULTIPLAYER_LAYOUT.directory?.position).toEqual([14, 0, 1]);
-    for (const seat of [1, 2, 3]) {
-      expect(MULTIPLAYER_LAYOUT[`workspace-${seat}`]?.id).toBe(
-        `workspace-${seat}`,
-      );
-      expect(MULTIPLAYER_LAYOUT[`canvas-${seat}`]?.id).toBe(`canvas-${seat}`);
-      expect(MULTIPLAYER_LAYOUT[`lighter_stand-${seat}`]?.id).toBe(
-        `lighter_stand-${seat}`,
-      );
-    }
   });
 });

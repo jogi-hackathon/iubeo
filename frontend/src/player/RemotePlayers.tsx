@@ -1,6 +1,7 @@
 import {useFrame} from "@react-three/fiber";
 import {useMemo, useState} from "react";
 
+import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {HeldItem} from "../items";
 import {playerManager} from "./playerStore";
@@ -38,17 +39,17 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
  * 切断中のプレイヤーは描かない(再接続すれば、また描く)。脱落したプレイヤーは描く。自分が決まるまでは誰も描かない
  */
 export function RemotePlayers() {
-  const {localPlayerId, players} = usePlayersState();
-  // 自分が決まるまでは、自分の身体を他のプレイヤーとして描いてしまうので、誰も描かない
-  if (localPlayerId === null) {
+  const myPlayerId = useMyPlayerId();
+  const {players} = usePlayersState();
+  // 自分(今のオーソリティの ID)が決まるまでは、自分の身体を他のプレイヤーとして描いてしまうので、誰も描かない
+  if (myPlayerId === null) {
     return null;
   }
   return (
     <>
       {players
         .filter(
-          (p) =>
-            p.playerId !== localPlayerId && p.connection !== "disconnected",
+          (p) => p.playerId !== myPlayerId && p.connection !== "disconnected",
         )
         .map((p) => (
           <RemotePlayer key={p.playerId} player={p} />

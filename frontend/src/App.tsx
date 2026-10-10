@@ -1,4 +1,4 @@
-import {lazy, Suspense, useState} from "react";
+import {lazy, Suspense, useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
@@ -10,7 +10,7 @@ import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
-import {sceneReadiness} from "./scenes/readiness";
+import {readinessOf} from "./scenes/readiness";
 import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
@@ -28,16 +28,19 @@ export function App() {
   // 起動時の白い覆いは、ウォームアップと最初のシーンの準備が終わるまで被せる
   const [initialScene] = useState(sceneName);
   useBootCover(initialScene, warmedUp);
+  // 準備を誰が知らせるかは、シーンが変わったときに 1 回だけ決める(sandbox は、そのときのセッションの有無で決まる。
+  // シーンの途中でセッションが閉じても、見直さない)
+  const readiness = useMemo(() => readinessOf(sceneName), [sceneName]);
   return (
     <>
       <GameCanvas>
         {Scene && <Scene key={sceneName} />}
         {/*
-          シーンの準備ができたことを知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority が知らせる)。
+          シーンの準備ができたことを知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority / ServerAuthority が知らせる)。
           シーンの後ろに置くので、シーンの中の effect の後に知らせる。シーンが変わるたびに作り直すため key を付けるが、
           兄弟のシーンと同じ key にしない(重なると古いシーンが外れなくなる)
         */}
-        {sceneReadiness[sceneName] === "mount" && (
+        {readiness === "mount" && (
           <ReportSceneReady key={`ready:${sceneName}`} scene={sceneName} />
         )}
         <BakedAO scene={sceneName} />

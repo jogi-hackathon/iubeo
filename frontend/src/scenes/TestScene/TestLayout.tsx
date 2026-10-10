@@ -1,7 +1,7 @@
 import {Ball, TiledFloor, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
 
-/** 衝突確認用の地形。開始位置(0,0,0)から見て -Z 方向に配置。TestScene と MultiplayerTestScene で共有する */
+/** 衝突確認用の地形。開始位置(0,0,0)から見て -Z 方向に配置。TestScene が使う */
 export function TestLayout() {
   return (
     <>

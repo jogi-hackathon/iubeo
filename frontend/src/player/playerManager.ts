@@ -32,6 +32,11 @@ type Track = {seq: number; samples: Sample[]};
 export type PlayerManagerOptions = {
   /** 今の時刻(ms)。テストで固定する用。既定は performance.now */
   now?: () => number;
+  /**
+   * 自分のプレイヤー ID(今の)。自分の位置と向きはクライアントで動かすので、届いても持たない。
+   * 既定は自分が無い(全員を他のプレイヤーとして持つ)。本番は playerStore.ts が、今のオーソリティの ID を引く
+   */
+  myPlayerId?: () => PlayerId | null;
 };
 
 const bySeat = (a: PlayerStatus, b: PlayerStatus) => a.seat - b.seat;
@@ -57,18 +62,16 @@ const lerpAngle = (a: number, b: number, u: number): number => {
  * - 位置と向き以外(接続・生死・手持ち)は state に持ち、変わったら subscribe に通知する
  * - 位置と向きは 20Hz で届くので state には入れず(再描画させない)、受け取った時刻付きで持つ。
  *   描画側は毎フレーム sample で、INTERPOLATION_DELAY_MS 前の位置を補間して読む
- * - 自分の位置と向きはクライアントで動かすので、届いても持たない。snapshot にある自分の
- *   transform.seq だけは、送る側の seq を合わせる(TransformSender.syncSeq)ために持つ
+ * - 自分(myPlayerId)の位置と向きはクライアントで動かすので、届いても持たない。
+ *   snapshot にある自分の transform.seq(送る側の seq を合わせる用)は、接続の側(authority/server/connect.ts)が読む
  */
 export const createPlayerManager = ({
   now = () => performance.now(),
+  myPlayerId = () => null,
 }: PlayerManagerOptions = {}) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
-  let state: PlayerManagerState = {localPlayerId: null, players: []};
+  let state: PlayerManagerState = {players: []};
   const tracks = new Map<PlayerId, Track>();
-  // 最後の snapshot の位置と向き。snapshot の後に自分が決まったときに、自分の物を引くため
-  const snapshotTransforms = new Map<PlayerId, PlayerTransform>();
-  let localTransform: PlayerTransform | null = null;
   // false なら補間せず、最後に届いた位置をそのまま描く(比べる用)
   let interpolation = true;
   const listeners = new Set<() => void>();
@@ -149,23 +152,6 @@ export const createPlayerManager = ({
         handlers[event].delete(callback);
       };
     },
-    /** 自分を決める(GET /api/v1/players/me の playerId)。自分の位置と向きは持たなくなる */
-    setLocalPlayerId: (id: PlayerId | null): void => {
-      if (state.localPlayerId === id) {
-        return;
-      }
-      localTransform =
-        id === null ? null : (snapshotTransforms.get(id) ?? null);
-      if (id !== null) {
-        tracks.delete(id);
-      }
-      set({...state, localPlayerId: id});
-    },
-    /**
-     * 最後の snapshot にあった、サーバーが持つ自分の位置と向き。自分が決まっていないか、snapshot に居なければ null。
-     * seq は送る側の seq を合わせる(TransformSender.syncSeq)のに使う。位置で再開するかは使う側が決める
-     */
-    getLocalTransform: (): PlayerTransform | null => localTransform,
     /** 補間するか。切ると、最後に届いた位置をそのまま描く(遅延なし・20Hz でカクつく)。比べる用 */
     getInterpolation: (): boolean => interpolation,
     setInterpolation: (enabled: boolean): void => {
@@ -176,20 +162,15 @@ export const createPlayerManager = ({
       switch (message.type) {
         case "reset": {
           const at = now();
+          const me = myPlayerId();
           tracks.clear();
-          snapshotTransforms.clear();
           const players: PlayerStatus[] = [];
           for (const {transform, ...status} of message.players) {
             players.push(status);
-            snapshotTransforms.set(status.playerId, transform);
-            if (status.playerId !== state.localPlayerId) {
+            if (status.playerId !== me) {
               push(status.playerId, transform, at);
             }
           }
-          localTransform =
-            state.localPlayerId === null
-              ? null
-              : (snapshotTransforms.get(state.localPlayerId) ?? null);
           set({...state, players: players.sort(bySeat)});
           return;
         }
@@ -211,8 +192,9 @@ export const createPlayerManager = ({
         }
         case "transforms": {
           const at = now();
+          const me = myPlayerId();
           for (const {playerId, transform} of message.players) {
-            if (playerId !== state.localPlayerId) {
+            if (playerId !== me) {
               push(playerId, transform, at);
             }
           }

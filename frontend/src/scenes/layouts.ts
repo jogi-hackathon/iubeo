@@ -1,4 +1,3 @@
-import {MULTIPLAYER_LAYOUT} from "../dev/multiplayer/layout";
 import type {SceneLayout} from "../objects/layout";
 import {ROOM_LAYOUT} from "./RoomScene/layout";
 import {SANDBOX_LAYOUT} from "./SandboxScene/layout";
@@ -12,5 +11,4 @@ export const sceneLayouts = {
   room: ROOM_LAYOUT,
   sandbox: SANDBOX_LAYOUT,
   test: TEST_LAYOUT,
-  multiplayer: MULTIPLAYER_LAYOUT,
 } as const satisfies Record<string, SceneLayout>;
