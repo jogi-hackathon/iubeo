@@ -3,40 +3,6 @@ export const WISP_TOKEN_PATH = "/api/v1/wisp/token";
 
 const PLAYER_PATH = "/api/v1/players";
 
-/** 合言葉を送るヘッダー（openapi.yaml の getWispToken） */
-export const WISP_PASS_HEADER = "X-Iubeo-Wisp-Pass";
-const WISP_PASS_STORAGE_KEY = "iubeo.wispPass";
-
-/**
- * 合言葉を読む。`?wisppass=` があれば覚えて使い、無ければ覚えていたもの。無ければ undefined。
- * 覚えておくのは、ゲームの中でページを移っても（?wisppass= が URL から消えても）使えるようにするため
- */
-export const wispPassFrom = (
-  search: string,
-  storage:
-    | Pick<Storage, "getItem" | "setItem">
-    | undefined = sessionStorageOrUndefined(),
-): string | undefined => {
-  const given = new URLSearchParams(search).get("wisppass");
-  try {
-    if (given) {
-      storage?.setItem(WISP_PASS_STORAGE_KEY, given);
-      return given;
-    }
-    return storage?.getItem(WISP_PASS_STORAGE_KEY) || undefined;
-  } catch {
-    return given || undefined;
-  }
-};
-
-function sessionStorageOrUndefined(): Storage | undefined {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * 直結の指定を読む。undefined なら「指定なし（トークンを発行してもらう）」、
  * 空文字なら「無効」。`?wisp=` は URL が優先で、無ければ VITE_WISP_URL
@@ -54,19 +20,17 @@ export const wispOverrideFrom = (
 
 /**
  * 接続先を決める。直結の指定があればそれ（空なら無効）、無ければトークン付きの URL。
- * 取れなければ undefined（WISP 無しで動かす）。例外は投げない
+ * 取れなければ undefined（WISP 無しで動かす）。例外は投げない。
+ * トークンは、プレイヤーの Cookie がある人にだけ発行される（合言葉は廃止。openapi.yaml の getWispToken）
  */
 export const resolveWispUrl = async (
   override: string | undefined,
   fetchFn: typeof fetch = fetch,
-  pass?: string,
 ): Promise<string | undefined> => {
   if (override !== undefined) {
     return override.trim() || undefined;
   }
-  const tokenInit: RequestInit = pass
-    ? {credentials: "same-origin", headers: {[WISP_PASS_HEADER]: pass}}
-    : {credentials: "same-origin"};
+  const tokenInit: RequestInit = {credentials: "same-origin"};
   try {
     let response = await fetchFn(WISP_TOKEN_PATH, tokenInit);
     if (response.status === 401) {

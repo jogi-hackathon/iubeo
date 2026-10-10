@@ -1230,12 +1230,6 @@ type Unauthorized = Error
 // Unavailable defines model for Unavailable.
 type Unavailable = Error
 
-// GetWispTokenParams defines parameters for GetWispToken.
-type GetWispTokenParams struct {
-	// XIubeoWispPass WISP を使うための合言葉。サーバーに設定があるときだけ要る
-	XIubeoWispPass *string `json:"X-Iubeo-Wisp-Pass,omitempty"`
-}
-
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
 
@@ -1904,7 +1898,7 @@ type ServerInterface interface {
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
 	// GetWispToken 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
 	// (GET /api/v1/wisp/token)
-	GetWispToken(w http.ResponseWriter, r *http.Request, params GetWispTokenParams)
+	GetWispToken(w http.ResponseWriter, r *http.Request)
 	// GetHealth ヘルスチェック
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -2058,35 +2052,8 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 // GetWispToken operation middleware
 func (siw *ServerInterfaceWrapper) GetWispToken(w http.ResponseWriter, r *http.Request) {
 
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetWispTokenParams
-
-	headers := r.Header
-
-	// ------------- Optional header parameter "X-Iubeo-Wisp-Pass" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Iubeo-Wisp-Pass")]; found {
-		var XIubeoWispPass string
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Iubeo-Wisp-Pass", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Iubeo-Wisp-Pass", valueList[0], &XIubeoWispPass, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Iubeo-Wisp-Pass", Err: err})
-			return
-		}
-
-		params.XIubeoWispPass = &XIubeoWispPass
-
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetWispToken(w, r, params)
+		siw.Handler.GetWispToken(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

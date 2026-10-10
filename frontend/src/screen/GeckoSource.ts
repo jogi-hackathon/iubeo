@@ -17,7 +17,6 @@ import {
   resolveWispUrl,
   setFreshWispUrl,
   wispOverrideFrom,
-  wispPassFrom,
 } from "./wispUrl";
 
 /**
@@ -46,13 +45,11 @@ export class GeckoSource extends CanvasScreenSource {
   private progressTimer?: number;
   private tokenTimer?: number;
   private readonly wispOverride: string | undefined;
-  private readonly wispPass: string | undefined;
   private wispUrl?: string;
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
     this.wispOverride = wispOverrideFrom(search, import.meta.env.VITE_WISP_URL);
-    this.wispPass = wispPassFrom(search);
   }
 
   get liveSurface(): boolean {
@@ -113,11 +110,7 @@ export class GeckoSource extends CanvasScreenSource {
       `エンジンを起動中… 0 秒（${sizeMb} の wasm を読み込んでいます）`,
     );
 
-    this.wispUrl = await resolveWispUrl(
-      this.wispOverride,
-      fetch,
-      this.wispPass,
-    );
+    this.wispUrl = await resolveWispUrl(this.wispOverride, fetch);
     const usesToken = this.wispOverride === undefined && !!this.wispUrl;
     const wispCheck = this.wispUrl
       ? checkWisp(
@@ -189,7 +182,7 @@ export class GeckoSource extends CanvasScreenSource {
     setFreshWispUrl(this.wispUrl);
     this.stopTokenRefresh();
     this.tokenTimer = window.setInterval(() => {
-      void resolveWispUrl(undefined, fetch, this.wispPass).then((url) => {
+      void resolveWispUrl(undefined, fetch).then((url) => {
         if (url && this.tokenTimer !== undefined) {
           this.wispUrl = url;
           setFreshWispUrl(url);
