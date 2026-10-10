@@ -8,6 +8,8 @@ export type CreateSessionRequest = Schemas["CreateSessionRequest"];
 export type ApiErrorBody = Schemas["Error"];
 
 export type SessionSnapshot = Schemas["SessionSnapshot"];
+/** チーム共有の勝利条件フラグ(bypassPermission・fireStarted) */
+export type Team = Schemas["Team"];
 export type Transform = Schemas["Transform"];
 
 /** クライアント → サーバー */

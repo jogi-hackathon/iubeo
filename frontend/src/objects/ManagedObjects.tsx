@@ -3,6 +3,7 @@ import type {Object3D} from "three";
 
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {useIsEnabled, useIsVisible} from "../core/toggles";
+import {useIsObjectDisabled} from "./disabledObjects";
 import {DummyObject} from "./DummyObject";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import {kindRenderers} from "./kinds";
@@ -24,7 +25,9 @@ function ObjectRoot({
   const {id} = object;
   const {name, item} = slot;
   const visible = useIsVisible(name);
-  const enabled = useIsEnabled(name);
+  const toggledOn = useIsEnabled(name);
+  const disabledByKind = useIsObjectDisabled(id);
+  const enabled = toggledOn && !disabledByKind;
   const register = useCallback(
     (root: Object3D | null) =>
       root && enabled ? registerTarget(id, root) : undefined,

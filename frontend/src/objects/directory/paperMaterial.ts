@@ -11,7 +11,8 @@ import {
   sin,
   smoothstep,
   step,
-  vec4,
+  vec3,
+  vertexColor,
 } from "three/tsl";
 import {
   type BoxGeometry,
@@ -35,6 +36,7 @@ import {
   PAGE_SHADOW_DEPTH,
   SPINE_BOARD,
 } from "./book";
+import {applyCorruption} from "./corruption";
 import {AVG_FACTOR, LINE_STRENGTH, LINE_WIDTH, STRIPE_PITCH} from "./stripe";
 
 const hashNode = (x: Node<"float">) =>
@@ -74,6 +76,8 @@ const stripeFactorNode = (phase: Node<"float">, seed: Node<"float">) => {
  *   頂点属性 `bookLocal`・`bookNormal` から読む。uv を持つので、ベイク AO(aoMap)を貼れる
  * - それ以外: InstancedMesh の箱ジオメトリ用。ローカル位置・法線は position・normal そのもので、
  *   sheetInfo は instanced 属性(setSheetInfo で書く)
+ * 燃える演出の侵食(corruption.ts)を重ねる。侵食の色に板の色が掛からないよう、まとめたジオメトリの頂点色は
+ * vertexColors で掛けず、元の色の側にだけ掛ける(InstancedMesh の色は白い成果物の板だけなので、そのまま掛かってよい)
  */
 export const createPaperMaterial = ({
   merged,
@@ -81,7 +85,6 @@ export const createPaperMaterial = ({
   merged: boolean;
 }): MeshStandardNodeMaterial => {
   const material = new MeshStandardNodeMaterial();
-  material.vertexColors = merged;
   const info = attribute("sheetInfo", "vec4");
   const p = attribute(merged ? "bookLocal" : "position", "vec3");
   const n = attribute(merged ? "bookNormal" : "normal", "vec3");
@@ -127,7 +130,8 @@ export const createPaperMaterial = ({
     .sub(frame.mul(FRAME_STRENGTH));
 
   const factor = mix(coverFactor, pageFactor, pages);
-  material.colorNode = vec4(factor, factor, factor, 1);
+  const base = vec3(factor, factor, factor);
+  applyCorruption(material, merged ? base.mul(vertexColor().rgb) : base);
   return material;
 };
 

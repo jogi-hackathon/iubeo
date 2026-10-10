@@ -9,6 +9,7 @@ import {
   type StockFile,
 } from "../../../objects/directory/data";
 import {kindOfId} from "../../../objects/layout";
+import {LIGHTER_STAND_KIND} from "../../../objects/lighter_stand/data";
 import {createObjectManager} from "../../../objects/objectManager";
 import {PC_KIND} from "../../../objects/pc/data";
 import type {
@@ -21,6 +22,7 @@ import {
   WORKSPACE_KIND,
 } from "../../../objects/workspace/data";
 import {applyMessage} from "../../apply";
+import {createTeamStore} from "../../team";
 import {createLocalRules, DUMMY_ITEM_KIND} from "../rules";
 
 const F1 = "0a1b2c3d-0001-4000-8000-000000000001";
@@ -59,11 +61,12 @@ const setup = () => {
       },
     }),
   });
+  const team = createTeamStore();
   const rules = createLocalRules({
     playerId: "me",
     objects,
     deliver: (message) =>
-      applyMessage({objects, items, myPlayerId: () => "me"}, message),
+      applyMessage({objects, items, myPlayerId: () => "me", team}, message),
     schedule: (fn, ms) => {
       const timer = {at: now + ms, fn};
       timers.push(timer);
@@ -127,6 +130,16 @@ const setup = () => {
         availability: "available",
         data: null,
       }),
+    spawnLighterStand: (id: string): string =>
+      put({
+        id,
+        kind: LIGHTER_STAND_KIND,
+        scope: "personal",
+        owner: "me",
+        users: [],
+        availability: "unavailable",
+        data: {hasLighter: true},
+      }),
     spawnPc: (id: string): string =>
       put({
         id,
@@ -187,7 +200,7 @@ const setup = () => {
       rules.dev.deliver({type: "object.remove", id});
     },
   };
-  return {objects, items, authority, requests, advance};
+  return {objects, items, team, authority, requests, advance};
 };
 
 describe("createLocalRules", () => {
@@ -1110,6 +1123,160 @@ describe("createLocalRules", () => {
 
       expect(() => authority.dispose()).not.toThrow();
       expect(objects.getObject(id)?.users).toEqual([]);
+    });
+  });
+
+  describe("勝利フラグとライター", () => {
+    const LIGHTER = {id: "lighter-1", kind: "lighter", data: null};
+
+    it("勝利フラグは最初どちらも false。bypassPermission を立てると置き場が使えるようになり、下ろすと戻る。変わるたびに team.updated で通知する", () => {
+      const {objects, team, authority} = setup();
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      const seen: boolean[] = [];
+      team.subscribe(() => seen.push(team.get().bypassPermission));
+
+      expect(authority.dev.getTeam()).toEqual({
+        bypassPermission: false,
+        fireStarted: false,
+      });
+      authority.dev.setTeam({bypassPermission: true});
+      expect(objects.getObject(stand)?.availability).toBe("available");
+      authority.dev.setTeam({bypassPermission: false});
+      expect(objects.getObject(stand)?.availability).toBe("unavailable");
+      expect(seen).toEqual([true, false]);
+    });
+
+    it("ライターを持ったまま bypassPermission を下ろすと、ライターは置き場へ戻る(使えない置き場で手が塞がらない)", () => {
+      const {objects, items, authority} = setup();
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      authority.dev.setTeam({bypassPermission: true});
+      objects.interact(stand);
+      expect(items.getHeld()).toEqual(LIGHTER);
+
+      authority.dev.setTeam({bypassPermission: false});
+
+      expect(items.getHeld()).toBeNull();
+      expect(objects.getObject(stand)).toMatchObject({
+        availability: "unavailable",
+        data: {hasLighter: true},
+      });
+    });
+
+    it("値が変わらない書き換えでは、参照も変えず、通知もしない", () => {
+      const {team, authority} = setup();
+      const before = authority.dev.getTeam();
+      const listener = vi.fn();
+      team.subscribe(listener);
+
+      authority.dev.setTeam({bypassPermission: false});
+
+      expect(authority.dev.getTeam()).toBe(before);
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it("bypassPermission の前は、置き場は unavailable で拒否する", () => {
+      const {objects, items, authority} = setup();
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      const rejected = vi.fn();
+      objects.on("interactRejected", rejected);
+
+      objects.interact(stand);
+
+      expect(rejected).toHaveBeenCalledWith({
+        objectId: stand,
+        reason: "unavailable",
+      });
+      expect(items.getHeld()).toBeNull();
+    });
+
+    it("手ぶらで置き場に触れるとライター(lighter-1)を持ち、持って触れると戻す", () => {
+      const {objects, items, authority} = setup();
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      authority.dev.setTeam({bypassPermission: true});
+
+      objects.interact(stand);
+      expect(items.getHeld()).toEqual(LIGHTER);
+      expect(objects.getObject(stand)?.data).toEqual({hasLighter: false});
+
+      objects.interact(stand);
+      expect(items.getHeld()).toBeNull();
+      expect(objects.getObject(stand)?.data).toEqual({hasLighter: true});
+    });
+
+    it("置き場にライターが無ければ not_found、ファイルや他の置き場のライターを持っていれば missing_item", () => {
+      const {objects, authority} = setup();
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      const other = authority.spawnLighterStand("lighter_stand-2");
+      authority.dev.setTeam({bypassPermission: true});
+      const rejected = vi.fn();
+      objects.on("interactRejected", rejected);
+
+      objects.interact(stand);
+      objects.interact(other);
+      expect(rejected).toHaveBeenLastCalledWith({
+        objectId: other,
+        reason: "missing_item",
+      });
+
+      authority.deleteHeldItem();
+      objects.interact(stand);
+      expect(rejected).toHaveBeenLastCalledWith({
+        objectId: stand,
+        reason: "not_found",
+      });
+
+      authority.spawnNewFile();
+      objects.interact(other);
+      expect(rejected).toHaveBeenLastCalledWith({
+        objectId: other,
+        reason: "missing_item",
+      });
+    });
+
+    it("ライターを持ってディレクトリに触れると fireStarted が立つ。ファイルは消えず、ライターも持ったまま。2 回目は unavailable", () => {
+      const {objects, items, team, authority} = setup();
+      const dir = authority.spawnDirectory("directory-1", [
+        {id: F1, color: "#ff0000", status: "unedited"},
+      ]);
+      const stand = authority.spawnLighterStand("lighter_stand-1");
+      authority.dev.setTeam({bypassPermission: true});
+      objects.interact(stand);
+      const rejected = vi.fn();
+      objects.on("interactRejected", rejected);
+
+      objects.interact(dir);
+
+      expect(authority.dev.getTeam()).toEqual({
+        bypassPermission: true,
+        fireStarted: true,
+      });
+      expect(team.get().fireStarted).toBe(true);
+      expect(
+        parseDirectoryData(objects.getObject(dir)?.data ?? null).stock,
+      ).toHaveLength(1);
+      expect(items.getHeld()).toEqual(LIGHTER);
+
+      objects.interact(dir);
+      expect(rejected).toHaveBeenCalledWith({
+        objectId: dir,
+        reason: "unavailable",
+      });
+    });
+
+    it("bypassPermission の前にライターを持ってディレクトリに触れても、火はつかず missing_item", () => {
+      const {objects, authority} = setup();
+      const dir = authority.spawnDirectory("directory-1", []);
+      authority.spawnItem("lighter");
+      const rejected = vi.fn();
+      objects.on("interactRejected", rejected);
+
+      objects.interact(dir);
+
+      expect(rejected).toHaveBeenCalledWith({
+        objectId: dir,
+        reason: "missing_item",
+      });
+      expect(authority.dev.getTeam().fireStarted).toBe(false);
     });
   });
 });

@@ -11,6 +11,7 @@ import {createObjectManager} from "../../../objects/objectManager";
 import type {GameObject} from "../../../objects/types";
 import {createPlayerManager} from "../../../player/playerManager";
 import {createPlayerState} from "../../../player/state";
+import {createTeamStore} from "../../team";
 import {connectSession} from "../connect";
 
 type Player = SessionSnapshot["players"][number];
@@ -43,12 +44,20 @@ const object = (
   ...overrides,
 });
 
+const NO_TEAM = {bypassPermission: false, fireStarted: false};
+
 const snapshot = (
   players: Player[],
   objects: GameObject[] = [],
+  team = NO_TEAM,
 ): ServerMessageOf<"snapshot"> => ({
   type: "snapshot",
-  session: {seq: 1, players, objects} as unknown as SessionSnapshot,
+  session: {
+    seq: 1,
+    players,
+    objects,
+    game: {phase: null, team, result: null},
+  } as unknown as SessionSnapshot,
 });
 
 const file = {id: "f1", kind: "file" as const, data: {status: "unedited"}};
@@ -76,11 +85,13 @@ const setup = (playerId = "me") => {
     myPlayerId: () => playerId,
   });
   const sender = {syncSeq: vi.fn()};
+  const team = createTeamStore();
   const onFirstSnapshot = vi.fn();
   const off = connectSession({
     connection: connection as never,
     objects,
     items,
+    team,
     players,
     sender,
     playerId,
@@ -91,6 +102,7 @@ const setup = (playerId = "me") => {
   return {
     objects,
     items,
+    team,
     players,
     sender,
     onFirstSnapshot,
@@ -101,6 +113,24 @@ const setup = (playerId = "me") => {
 };
 
 describe("connectSession", () => {
+  it("勝利フラグは、snapshot の game.team で入れ替え、team.updated で書き換える", () => {
+    const t = setup();
+    t.receive(
+      snapshot([player("me", 1)], [], {
+        bypassPermission: true,
+        fireStarted: false,
+      }),
+    );
+    expect(t.team.get()).toEqual({bypassPermission: true, fireStarted: false});
+
+    t.receive({
+      type: "team.updated",
+      seq: 2,
+      team: {bypassPermission: true, fireStarted: true},
+    });
+    expect(t.team.get()).toEqual({bypassPermission: true, fireStarted: true});
+  });
+
   it("snapshot でオブジェクトを入れ替え(無い物は消す)、プレイヤーと自分の手持ちを合わせる", () => {
     const t = setup();
     t.objects.apply({

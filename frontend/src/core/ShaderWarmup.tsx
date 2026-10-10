@@ -3,6 +3,7 @@ import {useEffect, useRef, useSyncExternalStore} from "react";
 import type {Object3D} from "three";
 
 import {setOutlineSelection} from "../camera/postprocess/outlineSelection";
+import {addPowerOutline} from "../camera/postprocess/powerOutlineSelection";
 import {FRAME_PRIORITY} from "./frameOrder";
 import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 
@@ -10,6 +11,8 @@ import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 let finishing = false;
 let done = false;
 let holds = 0;
+let restartRequested = false;
+let waiters: Array<() => void> = [];
 const listeners = new Set<() => void>();
 
 const finish = () => {
@@ -17,7 +20,25 @@ const finish = () => {
   for (const l of Array.from(listeners)) {
     l();
   }
+  const resolved = waiters;
+  waiters = [];
+  for (const resolve of resolved) {
+    resolve();
+  }
 };
+
+/**
+ * ウォームアップをもう一度走らせ、終わったら解決する(シーンの遷移で、新しいシーンの準備ができた後、覆いを外す前に呼ぶ)。
+ * 起動のウォームアップがまだ終わっていなければ、その終わりを待つだけ
+ */
+export const warmupShaders = (): Promise<void> =>
+  new Promise((resolve) => {
+    waiters.push(resolve);
+    if (finishing && done) {
+      finishing = false;
+      restartRequested = true;
+    }
+  });
 
 const subscribe = (l: () => void) => {
   listeners.add(l);
@@ -54,9 +75,10 @@ type DeviceLike = {queue: {onSubmittedWorkDone(): Promise<void>}};
  * renderer.compileAsync は視錐台カリングが効くうえ、ポストプロセスの各パス(pre-pass・MSAA の scene pass)と
  * 描画先が違ってキャッシュが当たらないので使わず、実際の描画経路(PostProcess)にそのまま描かせる。
  * アウトライン(OutlineNode)は選択の有無で非選択の深度パス・選択物のマスクパスを全 mesh に掛けるので、
- * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。
+ * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。力の縁取り(2 つ目の OutlineNode)も同じ選択で通す。
  * 構成が WARMUP_STABLE_MS 変わらなくなるまで(holdShaderWarmup の間は待つ)続け、元に戻したあと GPU の処理完了を待ってから終える。
- * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビューなど)やシーン遷移後のマテリアルは対象外
+ * シーンの遷移でも、新しいシーンの準備ができた後、覆いを外す前に走らせ直す(warmupShaders。sceneStore が呼ぶ)。
+ * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビュー、燃える演出の炎など)は対象外
  */
 export function ShaderWarmup() {
   const scene = useThree((s) => s.scene);
@@ -65,7 +87,8 @@ export function ShaderWarmup() {
     tracker: ReturnType<typeof createWarmupTracker> | null;
     culled: Set<Object3D>;
     frame: number;
-  }>({tracker: null, culled: new Set(), frame: 0});
+    offPower: (() => void) | null;
+  }>({tracker: null, culled: new Set(), frame: 0, offPower: null});
 
   const restore = () => {
     const s = state.current;
@@ -73,6 +96,8 @@ export function ShaderWarmup() {
       o.frustumCulled = true;
     }
     s.culled.clear();
+    s.offPower?.();
+    s.offPower = null;
     if (s.frame > 0) {
       s.frame = 0;
       setOutlineSelection([]);
@@ -87,6 +112,10 @@ export function ShaderWarmup() {
     }
     const s = state.current;
     const now = performance.now();
+    if (restartRequested) {
+      restartRequested = false;
+      s.tracker = null;
+    }
     s.tracker ??= createWarmupTracker(now);
     if (!s.tracker.update(sceneSignature(scene), now, holds > 0)) {
       let firstMesh: Object3D | null = null;
@@ -100,9 +129,12 @@ export function ShaderWarmup() {
         }
       });
       s.frame++;
-      setOutlineSelection(
-        s.frame % 2 === 0 ? [scene] : firstMesh ? [firstMesh] : [],
-      );
+      const target = s.frame % 2 === 0 ? scene : firstMesh;
+      setOutlineSelection(target ? [target] : []);
+      s.offPower?.();
+      s.offPower = target
+        ? addPowerOutline(target, {ignoreDistance: true})
+        : null;
       return;
     }
     finishing = true;

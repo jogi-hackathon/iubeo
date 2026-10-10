@@ -10,6 +10,7 @@ import {
   type Texture,
   TextureLoader,
 } from "three";
+import type {NodeMaterial} from "three/webgpu";
 
 import {
   getPostProcessSettings,
@@ -18,6 +19,7 @@ import {
 import {getSkipGTAO, setSkipGTAO} from "../camera/postprocess/skipGTAO";
 import {subscribeColliders} from "../core/bvh";
 import {holdShaderWarmup} from "../core/ShaderWarmup";
+import {erasableBakedAO} from "./aoErase";
 import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
 import {
   atlasUV,
@@ -35,6 +37,9 @@ type AOMaterial = Material & {
 };
 
 const hasAOMap = (m: Material): m is AOMaterial => "aoMap" in m;
+
+const isNodeMaterial = (m: Material): m is AOMaterial & NodeMaterial =>
+  (m as {isNodeMaterial?: boolean}).isNodeMaterial === true;
 
 const materialsOf = (mesh: Mesh): Material[] =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -129,6 +134,11 @@ const applyAtlas = (
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
+      const nodeMaterial = isNodeMaterial(material) ? material : null;
+      const prevAONode = nodeMaterial?.aoNode ?? null;
+      if (nodeMaterial) {
+        nodeMaterial.aoNode = erasableBakedAO();
+      }
       material.aoMap = texture;
       setSkipGTAO(material, skipsGTAO(modesByMaterial.get(material) ?? []));
       material.needsUpdate = true;
@@ -136,6 +146,9 @@ const applyAtlas = (
       undos.push(() => {
         material.aoMap = prev;
         material.aoMapIntensity = prevIntensity;
+        if (nodeMaterial) {
+          nodeMaterial.aoNode = prevAONode;
+        }
         setSkipGTAO(material, prevSkip);
         material.needsUpdate = true;
       });

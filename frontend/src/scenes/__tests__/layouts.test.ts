@@ -57,7 +57,7 @@ describe("シーンのレイアウト", () => {
     }
   });
 
-  it("サンドボックスは座席 1〜3 ごとに机・PC・キャンバスを持ち、ディレクトリは中心の large", () => {
+  it("サンドボックスは座席 1〜3 ごとに机・PC・キャンバス・ライターの置き場を持ち、ディレクトリは中心の large", () => {
     expect(SEATS).toEqual([1, 2, 3]);
     expect(SANDBOX_LAYOUT.directory).toEqual({
       id: "directory-1",
@@ -68,6 +68,9 @@ describe("シーンのレイアウト", () => {
       expect(SANDBOX_LAYOUT[`workspace-${seat}`]?.id).toBe(`workspace-${seat}`);
       expect(SANDBOX_LAYOUT[`pc-${seat}`]?.id).toBe(`pc-${seat}`);
       expect(SANDBOX_LAYOUT[`canvas-${seat}`]?.id).toBe(`canvas-${seat}`);
+      expect(SANDBOX_LAYOUT[`lighter_stand-${seat}`]?.id).toBe(
+        `lighter_stand-${seat}`,
+      );
     }
     expect(seatYaw(1)).toBe(0);
     expect(seatYaw(2)).toBeCloseTo((2 * Math.PI) / 3);

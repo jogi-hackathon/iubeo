@@ -7,9 +7,11 @@ import {
 } from "react";
 
 import {authorityRegistry} from "../authority/registry";
+import {useTeamState} from "../authority/team";
 import {useDebugFlags} from "../core/debug/flags";
 import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
+import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
 import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
 import type {SceneLayout} from "../objects/layout";
@@ -128,6 +130,7 @@ export function GameDebugPanel() {
         </Fragment>
       ))}
       <div style={{marginTop: 4}}>last rejected: {rejected || "-"}</div>
+      <TeamRows dev={dev} />
       <div style={headStyle}>items</div>
       <div style={rowStyle}>
         <span style={{flex: 1}}>held: {held ? held.id : "(none)"}</span>
@@ -194,5 +197,29 @@ function DirectoryRow({
         other returns
       </button>
     </div>
+  );
+}
+
+const TEAM_FLAGS: readonly (keyof Team)[] = ["bypassPermission", "fireStarted"];
+function TeamRows({dev}: {dev: LocalDevOps | null}) {
+  const team = useTeamState();
+  return (
+    <>
+      <div style={headStyle}>team(勝利フラグ)</div>
+      {TEAM_FLAGS.map((flag) => (
+        <div key={flag} style={rowStyle}>
+          <span style={{flex: 1}}>
+            {flag}: {String(team[flag])}
+          </span>
+          <button
+            type="button"
+            disabled={!dev}
+            onClick={() => dev?.toggleTeamFlag(flag)}
+          >
+            toggle
+          </button>
+        </div>
+      ))}
+    </>
   );
 }

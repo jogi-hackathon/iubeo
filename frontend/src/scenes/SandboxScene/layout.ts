@@ -3,6 +3,7 @@ import {
   type LayoutItem,
   type SceneLayout,
 } from "../../objects/layout";
+import {LIGHTER_STAND_ON_DESK} from "../../objects/lighter_stand/stand";
 import {DESK_HEIGHT, TOP_SIZE} from "../../objects/workspace/desk";
 import type {SlabSpec} from "../../props/slabGeometry";
 import type {Vec3} from "../../props/types";
@@ -173,15 +174,23 @@ export const ZONE_CHAIR: Placement = {
   position: [3.5, 0, WORKSPACE_Z - 0.95],
   yaw: Math.PI,
 };
-const pcOffset = rotateY([0, DESK_HEIGHT, -0.3], ZONE_WORKSPACE.yaw);
-export const ZONE_PC: Placement = {
-  position: [
-    ZONE_WORKSPACE.position[0] + pcOffset[0],
-    ZONE_WORKSPACE.position[1] + pcOffset[1],
-    ZONE_WORKSPACE.position[2] + pcOffset[2],
-  ],
-  yaw: ZONE_WORKSPACE.yaw,
+const onDesk = (local: Vec3): Placement => {
+  const offset = rotateY(local, ZONE_WORKSPACE.yaw);
+  return {
+    position: [
+      ZONE_WORKSPACE.position[0] + offset[0],
+      ZONE_WORKSPACE.position[1] + offset[1],
+      ZONE_WORKSPACE.position[2] + offset[2],
+    ],
+    yaw: ZONE_WORKSPACE.yaw,
+  };
 };
+/** PC を置く机ローカルの位置。天板の上の奥側(作業スペースの外) */
+export const PC_ON_DESK: Vec3 = [0, DESK_HEIGHT, -0.3];
+/** PC は机の上の奥側(PC_ON_DESK) */
+export const ZONE_PC: Placement = onDesk(PC_ON_DESK);
+/** ライターの置き場は机の天板の右手前(LIGHTER_STAND_ON_DESK) */
+export const ZONE_LIGHTER_STAND: Placement = onDesk(LIGHTER_STAND_ON_DESK);
 /** スポーン地点(足元)。向きは中心の方(ローカルの -Z) */
 export const ZONE_SPAWN: Placement = {position: [0, 0.05, r - 2], yaw: 0};
 
@@ -214,12 +223,13 @@ const seatItems = (seat: number): [string, LayoutItem][] => {
     place("workspace", ZONE_WORKSPACE),
     place("pc", ZONE_PC),
     place("canvas", ZONE_CANVAS),
+    place("lighter_stand", ZONE_LIGHTER_STAND),
   ];
 };
 
 /**
  * サンドボックスに置くオブジェクトのレイアウト。ディレクトリは中心に 1 つ(large の山)。
- * 机・PC・キャンバスは座席 1..3 の分(項目名は座席の番号つき)
+ * 机・PC・キャンバス・ライターの置き場は座席 1..3 の分(項目名は座席の番号つき)
  */
 export const SANDBOX_LAYOUT: SceneLayout = Object.fromEntries([
   [

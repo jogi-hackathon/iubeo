@@ -7,6 +7,7 @@ import {
   isCreatedStatus,
   parseFileData,
 } from "../items";
+import type {Team} from "../net/types";
 import {
   DIRECTORY_KIND,
   type StockFile,
@@ -140,6 +141,9 @@ const createLocalDevOps = (playerId: string, dev: AuthorityDev) => {
     },
     getBorrowedCount: (): number => s.borrowed.length,
     getAchieved: (): number => dev.getAchieved(),
+    /** 勝利フラグを 1 つ切り替える。bypassPermission は、ライターの置き場の使える・使えないも連動する */
+    toggleTeamFlag: (flag: keyof Team): void =>
+      dev.setTeam({[flag]: !dev.getTeam()[flag]}),
   };
 };
 

@@ -1,5 +1,6 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo} from "react";
 import {CanvasTexture, RepeatWrapping, SRGBColorSpace} from "three";
+import {MeshStandardNodeMaterial} from "three/webgpu";
 
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {BVHCollider} from "../core/bvh";
@@ -31,25 +32,36 @@ const createTileTexture = (repeat: number) => {
   return texture;
 };
 
-/** 上面が y=0 の平らな床。淡い格子線のタイル付き。BVH コライダー込み */
+/**
+ * 上面が y=0 の平らな床。淡い格子線のタイル付き。BVH コライダー込み。
+ * マテリアルはノードのマテリアルにする(焼いた後で消えた物の影を、ベイク AO から消せるように。bake/aoErase)
+ */
 export function TiledFloor({
   size = 200,
   thickness = 1,
   tileSize = 2,
   ao,
 }: TiledFloorProps) {
-  const [tiles, setTiles] = useState<CanvasTexture | null>(null);
+  const material = useMemo(() => new MeshStandardNodeMaterial(), []);
+  useEffect(() => () => material.dispose(), [material]);
   useEffect(() => {
     const texture = createTileTexture(size / tileSize);
-    setTiles(texture);
-    return () => texture.dispose();
-  }, [size, tileSize]);
+    material.map = texture;
+    material.needsUpdate = true;
+    return () => {
+      material.map = null;
+      texture.dispose();
+    };
+  }, [material, size, tileSize]);
 
   return (
     <BVHCollider>
-      <mesh userData={aoModeUserData(ao)} position={[0, -thickness / 2, 0]}>
+      <mesh
+        userData={aoModeUserData(ao)}
+        position={[0, -thickness / 2, 0]}
+        material={material}
+      >
         <boxGeometry args={[size, thickness, size]} />
-        <meshStandardMaterial map={tiles} />
       </mesh>
     </BVHCollider>
   );

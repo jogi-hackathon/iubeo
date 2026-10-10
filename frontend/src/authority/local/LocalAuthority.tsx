@@ -7,6 +7,7 @@ import type {SceneName} from "../../scenes";
 import {markSceneReady} from "../../scenes/sceneReady";
 import {applyMessage} from "../apply";
 import {authorityRegistry} from "../registry";
+import {teamStore} from "../team";
 import {
   LOCAL_AUTHORITY_PLAYER_ID,
   type LocalInitial,
@@ -46,11 +47,13 @@ export function LocalAuthority({
             objects: objectManager,
             items: itemManager,
             myPlayerId: () => playerId,
+            team: teamStore,
           },
           message,
         ),
     });
     rules.dev.setHeldItem(null);
+    teamStore.reset();
     for (const object of planLocalObjects({layout, initial, playerId})) {
       rules.dev.deliver({type: "object.upsert", object});
     }
@@ -65,6 +68,7 @@ export function LocalAuthority({
       off();
       rules.dispose();
       rules.release();
+      teamStore.reset();
       setPlaced(false);
     };
   }, [layout, initial]);

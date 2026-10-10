@@ -1,15 +1,24 @@
 import {useEffect, useLayoutEffect, useMemo, useRef} from "react";
 import {BoxGeometry, Color, type InstancedMesh, Object3D} from "three";
+import {color as colorNode} from "three/tsl";
+import {MeshStandardNodeMaterial} from "three/webgpu";
 
 import {BakeTarget} from "../../bake/BakeTarget";
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {BVHCollider} from "../../core/bvh";
+import {applyCorruption} from "./corruption";
 import {DirectoryOverview} from "./DirectoryOverview";
 import {type Sheet} from "./mountain";
 import {createPaperMaterial, setSheetInfo} from "./paperMaterial";
 import type {DirectoryModel} from "./useDirectory";
 
 const CORE_COLOR = "#e4e4e1";
+
+const createCoreMaterial = (): MeshStandardNodeMaterial => {
+  const m = new MeshStandardNodeMaterial({flatShading: true});
+  applyCorruption(m, colorNode(CORE_COLOR).rgb);
+  return m;
+};
 
 const dummy = new Object3D();
 const color = new Color();
@@ -82,12 +91,12 @@ export function DirectoryView({
   overviewing,
   visible,
 }: DirectoryModel) {
+  const coreMaterial = useMemo(createCoreMaterial, []);
+  useEffect(() => () => coreMaterial.dispose(), [coreMaterial]);
   return (
     <group>
       <BVHCollider enabled={visible}>
-        <mesh geometry={coreGeometry}>
-          <meshStandardMaterial color={CORE_COLOR} flatShading />
-        </mesh>
+        <mesh geometry={coreGeometry} material={coreMaterial} />
       </BVHCollider>
       <BakeTarget>
         <mesh geometry={sheetsGeometry} material={paperMaterial} />

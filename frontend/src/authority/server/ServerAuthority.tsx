@@ -12,6 +12,7 @@ import type {SceneName} from "../../scenes";
 import {markSceneReady} from "../../scenes/sceneReady";
 import {applySpawn, type Spawn} from "../../scenes/spawn";
 import {authorityRegistry} from "../registry";
+import {teamStore} from "../team";
 import {connectSession} from "./connect";
 
 export type ServerAuthorityProps = {
@@ -36,6 +37,7 @@ const clearWorld = () => {
   if (held) {
     itemManager.apply({type: "delete", id: held.id});
   }
+  teamStore.reset();
 };
 
 /**
@@ -86,6 +88,7 @@ export function ServerAuthority({
       sender,
       objects: objectManager,
       items: itemManager,
+      team: teamStore,
       players: playerManager,
       playerId,
       spawnOf: (seat) => latest.current.spawnOf(seat),

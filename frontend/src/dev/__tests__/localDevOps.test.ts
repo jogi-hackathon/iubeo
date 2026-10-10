@@ -58,7 +58,7 @@ const setup = (random?: () => number) => {
     borrowAsOther: (directoryId: string) =>
       ops.borrowAsOther(directoryId, random),
   };
-  return {objects, items, authority, deliver: rules.dev.deliver};
+  return {objects, items, authority, rules, deliver: rules.dev.deliver};
 };
 
 describe("localDevOps", () => {
@@ -269,6 +269,43 @@ describe("localDevOps", () => {
         authority.spawnItem("lighter");
         expect(authority.editHeldFile()).toBe(false);
       });
+    });
+  });
+
+  describe("勝利フラグ", () => {
+    it("toggleTeamFlag で 1 つずつ切り替える。bypassPermission は置き場の使える・使えないも連動する", () => {
+      const {objects, authority, rules} = setup();
+      rules.dev.deliver({
+        type: "object.upsert",
+        object: {
+          id: "lighter_stand-1",
+          kind: "lighter_stand",
+          scope: "personal",
+          owner: "me",
+          users: [],
+          availability: "unavailable",
+          data: {hasLighter: true},
+        },
+      });
+
+      authority.toggleTeamFlag("bypassPermission");
+      expect(rules.dev.getTeam()).toEqual({
+        bypassPermission: true,
+        fireStarted: false,
+      });
+      expect(objects.getObject("lighter_stand-1")?.availability).toBe(
+        "available",
+      );
+
+      authority.toggleTeamFlag("fireStarted");
+      authority.toggleTeamFlag("bypassPermission");
+      expect(rules.dev.getTeam()).toEqual({
+        bypassPermission: false,
+        fireStarted: true,
+      });
+      expect(objects.getObject("lighter_stand-1")?.availability).toBe(
+        "unavailable",
+      );
     });
   });
 });
