@@ -35,6 +35,8 @@ type State struct {
 	rng      rand.PCG
 	// CpuAgents は CPU の段取り(プレイヤー id ごと)。フェーズ開始時に resetCpuAgents で作り直す
 	CpuAgents map[string]CpuAgent
+	// CpuPersonas は CPU の人格(プレイヤー id ごと)。セッション開始時に決まり、フェーズをまたいで同じ
+	CpuPersonas map[string]CpuPersona
 	// CpuLastAt は CPU の移動を進めた最後の時刻。tick の間隔から歩いた距離を出す
 	CpuLastAt time.Time
 	// CpuItemSeq は CPU が作ったファイルの id の連番
@@ -121,6 +123,7 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		Phases:         phases,
 		rng:            *rand.NewPCG(seed, seed),
 		CpuAgents:      map[string]CpuAgent{},
+		CpuPersonas:    map[string]CpuPersona{},
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
@@ -177,6 +180,12 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		})
 	}
 	st.Items = st.initialItems()
+	// CPU には人格を割り当てる(人数分をシャッフルして、なるべく違う人格にする)
+	r := rand.New(&st.rng)
+	order := r.Perm(len(cpuPersonas))
+	for i, pid := range cpuIDs {
+		st.CpuPersonas[pid] = cpuPersonas[order[i%len(order)]]
+	}
 	return st
 }
 
@@ -220,6 +229,12 @@ func (st State) clone() State {
 		c.CpuAgents = make(map[string]CpuAgent, len(st.CpuAgents))
 		for k, v := range st.CpuAgents {
 			c.CpuAgents[k] = v
+		}
+	}
+	if st.CpuPersonas != nil {
+		c.CpuPersonas = make(map[string]CpuPersona, len(st.CpuPersonas))
+		for k, v := range st.CpuPersonas {
+			c.CpuPersonas[k] = v
 		}
 	}
 	return c

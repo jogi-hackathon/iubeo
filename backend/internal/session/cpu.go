@@ -14,13 +14,30 @@ import (
 // 速さ・段取り・成功率は個体ごとに違い、たまには失敗もする(全員が毎フェーズ成功するわけではない)。
 // 達成の判定は人間と同じ completeTask を通すので、CPU だけ特別扱いしない
 const (
-	// cpuWalkSpeed は歩く速さ(m/s)。人間の歩きに近いが、少しゆっくりめ
+	// cpuWalkSpeed は歩く速さの既定(m/s)。人格(cpuPersonas)が上書きする
 	cpuWalkSpeed = 2.4
 	// cpuReachEpsilon は目的地に着いたとみなす距離(m)
 	cpuReachEpsilon = 0.2
-	// cpuMinReliability は、フェーズごとのノルマを落とさない確率の下限
-	cpuMinReliability = 0.7
 )
+
+// CpuPersona は CPU の人格。動き方・作業の速さ・失敗のしやすさに個体差を作る。
+// セッション開始時に人数分を割り当て、フェーズをまたいで同じ
+type CpuPersona struct {
+	Name        string
+	WalkSpeed   float64
+	JitterMax   time.Duration
+	Reliability float64
+	ThinkPause  time.Duration
+}
+
+// cpuPersonas は用意しておく人格。速いが雑・遅いが丁寧・マイペース・不器用・仕事人
+var cpuPersonas = []CpuPersona{
+	{Name: "せっかち", WalkSpeed: 3.1, JitterMax: 300 * time.Millisecond, Reliability: 0.85, ThinkPause: 200 * time.Millisecond},
+	{Name: "丁寧", WalkSpeed: 2.0, JitterMax: 900 * time.Millisecond, Reliability: 0.97, ThinkPause: 800 * time.Millisecond},
+	{Name: "マイペース", WalkSpeed: 2.2, JitterMax: 1200 * time.Millisecond, Reliability: 0.9, ThinkPause: 1200 * time.Millisecond},
+	{Name: "不器用", WalkSpeed: 2.4, JitterMax: 600 * time.Millisecond, Reliability: 0.7, ThinkPause: 500 * time.Millisecond},
+	{Name: "仕事人", WalkSpeed: 2.8, JitterMax: 400 * time.Millisecond, Reliability: 0.95, ThinkPause: 300 * time.Millisecond},
+}
 
 // cpuStage は 1 体の CPU が今していること
 type cpuStage int
@@ -52,17 +69,21 @@ type CpuAgent struct {
 	Until time.Time
 	// Resume は待ちが明けたら戻る段階
 	Resume cpuStage
-	// Reliability はこの CPU がフェーズごとのノルマを落とさない確率(0.7〜1.0)
+	// Reliability はこの CPU がフェーズごとのノルマを落とさない確率
 	Reliability float64
+	// WalkSpeed は歩く速さ(m/s)、JitterMax は作業時間に足す揺らぎの上限
+	WalkSpeed float64
+	JitterMax time.Duration
+	// ThinkPause は次のノルマを決めてから動き出すまでの間
+	ThinkPause time.Duration
 	// Skip はこのタスクを「最後に戻さない」= 失敗を選んだ。人間でもあること
 	Skip bool
 }
 
-// resetCpuAgents はフェーズ開始時に CPU の段取りを引き直す。区画のスポーン地点に立ち、個体差を作る
+// resetCpuAgents はフェーズ開始時に CPU の段取りを引き直す。区画のスポーン地点に立ち、人格をあてる
 func (st *State) resetCpuAgents() {
 	st.CpuAgents = map[string]CpuAgent{}
 	st.CpuLastAt = time.Time{}
-	r := rand.New(&st.rng)
 	for i := range st.Players {
 		p := &st.Players[i]
 		if p.Kind != api.Cpu || p.Life != api.Alive {
@@ -72,9 +93,16 @@ func (st *State) resetCpuAgents() {
 		p.Transform.Position = []float64{pos[0], pos[1], pos[2]}
 		p.Transform.Yaw = cpuSeatYaw(p.Seat)
 		st.cpuMarkMoved(p)
+		persona, ok := st.CpuPersonas[p.ID]
+		if !ok {
+			persona = cpuPersonas[0]
+		}
 		st.CpuAgents[p.ID] = CpuAgent{
 			Stage:       cpuStageIdle,
-			Reliability: cpuMinReliability + r.Float64()*(1-cpuMinReliability),
+			Reliability: persona.Reliability,
+			WalkSpeed:   persona.WalkSpeed,
+			JitterMax:   persona.JitterMax,
+			ThinkPause:  persona.ThinkPause,
 		}
 	}
 }
@@ -162,7 +190,10 @@ func (st *State) cpuMove(p *PlayerState, a *CpuAgent, dt float64) bool {
 	if dist <= cpuReachEpsilon {
 		return true
 	}
-	step := cpuWalkSpeed * dt
+	step := a.WalkSpeed * dt
+	if step <= 0 {
+		step = cpuWalkSpeed * dt
+	}
 	if step >= dist {
 		p.Transform.Position = []float64{a.Target[0], a.Target[1], a.Target[2]}
 		st.cpuMarkMoved(p)
@@ -189,13 +220,23 @@ func (st *State) cpuStartTask(p *PlayerState, a *CpuAgent, now time.Time) []Outp
 	a.TaskID = t.ID
 	r := rand.New(&st.rng)
 	a.Skip = r.Float64() > a.Reliability
+	var target [3]float64
+	next := cpuStageToStation
 	if t.Type == api.ReadEdit {
-		a.Stage = cpuStageFetch
-		a.Target = cpuWaypoint(p.Seat, cpuLocalDirectory)
+		next = cpuStageFetch
+		target = cpuWaypoint(p.Seat, cpuLocalDirectory)
 	} else {
-		a.Stage = cpuStageToStation
-		a.Target = cpuWaypoint(p.Seat, cpuStation(t.Type))
+		target = cpuWaypoint(p.Seat, cpuStation(t.Type))
 	}
+	a.Target = target
+	// 人間らしく、決めてから少し間を置いて動き出す
+	if a.ThinkPause > 0 && rand.New(&st.rng).Float64() > 0.3 {
+		a.Stage = cpuStageWait
+		a.Resume = next
+		a.Until = now.Add(time.Duration(rand.New(&st.rng).Int64N(int64(a.ThinkPause)) + 1))
+		return nil
+	}
+	a.Stage = next
 	return nil
 }
 
@@ -278,8 +319,11 @@ func (st *State) cpuWork(p *PlayerState, a *CpuAgent, now time.Time) []Output {
 		a.Until = now.Add(500 * time.Millisecond)
 		return out
 	}
-	// 人間らしい揺らぎ: 作業の終わりを少しだけ延ばす(0〜700ms)
-	jitter := time.Duration(rand.New(&st.rng).IntN(700)) * time.Millisecond
+	// 人間らしい揺らぎ: 作業の終わりを少しだけ延ばす(0〜JitterMax)
+	jitter := time.Duration(0)
+	if a.JitterMax > 0 {
+		jitter = time.Duration(rand.New(&st.rng).Int64N(int64(a.JitterMax)) + 1)
+	}
 	st.Actions[len(st.Actions)-1].DueAt = st.Actions[len(st.Actions)-1].DueAt.Add(jitter)
 	a.Stage = cpuStageWorking
 	a.Until = st.Actions[len(st.Actions)-1].DueAt

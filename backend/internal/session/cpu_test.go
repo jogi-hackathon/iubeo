@@ -75,6 +75,18 @@ func TestCPUStartsWithoutConnecting(t *testing.T) {
 	}
 }
 
+func TestCPUAssignsPersonas(t *testing.T) {
+	st := newCPUState(t, []string{"p1"}, []string{"cpu-1", "cpu-2"})
+	p1, ok1 := st.CpuPersonas["cpu-1"]
+	p2, ok2 := st.CpuPersonas["cpu-2"]
+	if !ok1 || !ok2 || p1.Name == "" || p2.Name == "" {
+		t.Fatalf("personas = %+v, %+v", p1, p2)
+	}
+	if p1.Name == p2.Name {
+		t.Errorf("同じ人格が当たっている: %q", p1.Name)
+	}
+}
+
 func TestCPUWalksAndCompletesTask(t *testing.T) {
 	st := withTasks(newCPUState(t, []string{"p1"}, []string{"cpu-1"}),
 		TaskState{ID: "task-cpu", Type: api.ReadEdit, Assignee: "cpu-1", TargetFileID: f1},
