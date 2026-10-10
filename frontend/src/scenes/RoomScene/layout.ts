@@ -1,4 +1,5 @@
 import {directoryItem, type SceneLayout} from "../../objects/layout";
+import {LIGHTER_STAND_ON_DESK} from "../../objects/lighter_stand/stand";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
@@ -132,8 +133,15 @@ export const PC_POSITION: Vec3 = [
   WORKSPACE_POSITION[2] - 0.03,
 ];
 
+/** ライターの置き場は机の天板の右手前(机は回さないので、机ローカルの LIGHTER_STAND_ON_DESK を足すだけ) */
+export const LIGHTER_STAND_POSITION: Vec3 = [
+  WORKSPACE_POSITION[0] + LIGHTER_STAND_ON_DESK[0],
+  WORKSPACE_POSITION[1] + LIGHTER_STAND_ON_DESK[1],
+  WORKSPACE_POSITION[2] + LIGHTER_STAND_ON_DESK[2],
+];
+
 /**
- * room に置くオブジェクトのレイアウト。項目名(directory・workspace・canvas・pc)がトグルのキーになる
+ * room に置くオブジェクトのレイアウト。項目名(directory・workspace・canvas・pc・lighter_stand)がトグルのキーになる
  * (例: directory:overview は俯瞰の機能)。ディレクトリは room のような狭い部屋用に small の山
  */
 export const ROOM_LAYOUT: SceneLayout = {
@@ -145,4 +153,5 @@ export const ROOM_LAYOUT: SceneLayout = {
   workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
   pc: {id: "pc-1", position: PC_POSITION},
+  lighter_stand: {id: "lighter_stand-1", position: LIGHTER_STAND_POSITION},
 };

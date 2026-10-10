@@ -1,4 +1,5 @@
 import type {Item} from "../items/types";
+import type {Team} from "../net/types";
 import type {GameObject, InteractRequest} from "../objects/types";
 import type {PlayerId} from "../player/types";
 import type {AuthorityMessage} from "./apply";
@@ -10,6 +11,8 @@ import type {AuthorityMessage} from "./apply";
  * - getObject / getObjects: オブジェクトを読む
  * - getHeldItem / setHeldItem: 手持ちを読む・置き換える(置き換えは player.updated で通知する)
  * - getAchieved: 達成の数(サーバーが数える物。デバッグパネル用)
+ * - getTeam / setTeam / subscribeTeam: 勝利フラグ(サーバーは team.updated で配る物。ローカルでは規則が持つ)を読む・書き換える・変化を待つ。
+ *   getTeam は、変わるまで同じ参照を返す(useSyncExternalStore 用)
  */
 export type AuthorityDev = {
   deliver: (message: AuthorityMessage) => void;
@@ -18,6 +21,9 @@ export type AuthorityDev = {
   getHeldItem: () => Item | null;
   setHeldItem: (item: Item | null) => void;
   getAchieved: () => number;
+  getTeam: () => Team;
+  setTeam: (patch: Partial<Team>) => void;
+  subscribeTeam: (listener: () => void) => () => void;
 };
 
 /**

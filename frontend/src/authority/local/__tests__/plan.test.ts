@@ -10,7 +10,7 @@ import {LOCAL_AUTHORITY_PLAYER_ID, planLocalObjects} from "../plan";
 const PLAYER = LOCAL_AUTHORITY_PLAYER_ID;
 
 describe("planLocalObjects", () => {
-  it("room は 4 つ(ディレクトリ・ワークスペース・キャンバス・PC)。個人の物の owner は自分、id はレイアウトの id", () => {
+  it("room は 5 つ(ディレクトリ・ワークスペース・キャンバス・PC・ライターの置き場)。個人の物の owner は自分、id はレイアウトの id", () => {
     const planned = planLocalObjects({
       layout: ROOM_LAYOUT,
       initial: ROOM_INITIAL,
@@ -22,6 +22,7 @@ describe("planLocalObjects", () => {
       "workspace-1",
       "canvas-1",
       "pc-1",
+      "lighter_stand-1",
     ]);
     expect(PLAYER).toBe("local-player");
     for (const o of planned.slice(1)) {
@@ -65,7 +66,26 @@ describe("planLocalObjects", () => {
       "workspace-1",
       "canvas-1",
       "pc-1",
+      "lighter_stand-1",
     ]);
+  });
+
+  it("ライターの置き場は自分の個人の物で、ライターがあり、勝利フラグが立つまでは使えない", () => {
+    const planned = planLocalObjects({
+      layout: ROOM_LAYOUT,
+      initial: ROOM_INITIAL,
+      playerId: PLAYER,
+    });
+
+    expect(planned.find((o) => o.id === "lighter_stand-1")).toEqual({
+      id: "lighter_stand-1",
+      kind: "lighter_stand",
+      scope: "personal",
+      owner: "local-player",
+      users: [],
+      availability: "unavailable",
+      data: {hasLighter: true},
+    });
   });
 
   it("ダミーの箱の scope と使えるかは初期設定どおり(personal は owner が自分、shared は owner なし)", () => {

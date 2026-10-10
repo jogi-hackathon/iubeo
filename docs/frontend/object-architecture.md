@@ -165,6 +165,7 @@ function WorkspaceObject({object}: {object: GameObject}) {
 
 - ゲームとして要る部分(簡略版のルール)は、本番のコードに置く(room は本番で動くため。`dev/` には置かない)。
 - 他人として借りる・アイテムを出すなど、開発でしか使わない操作は `dev/` に残し、`LocalAuthority` の開発用のメソッドを通して使う。
+- 勝利フラグ(`bypassPermission` / `fireStarted`)の切り替えも開発用の操作。デバッグパネルの「team」欄から行い、`bypassPermission` を切り替えると、ライターの置き場(room・test の机の上)の使える・使えないが連動する。
 - 開発用のメソッドは `LocalAuthority` にだけある。`ServerAuthority` のシーンでは、デバッグパネルのこれらの操作は効かない。
 - 本番のコードは `dev/` を import しない(例外は `App` の動的 import の `DevTools` だけ)。ゲームの流れの開始ボタンなど、開発用のパネルは `dev/` に置く。
 
@@ -187,4 +188,5 @@ function WorkspaceObject({object}: {object: GameObject}) {
 ## 9. 後で片付けるもの・依頼事項
 
 - **PC のサーバー側の実装**: backend への依頼事項(id の約束も一緒に決める)。それまで sandbox には PC が出ない(room・test では動く)。キャンバスは #75 でサーバーに入った。
+- **ローカルの勝利フラグには、フェーズが無い**: `LocalAuthority` の規則は勝利フラグ(`team`)を持つ。ライターで火をつけると `fireStarted` は規則が立てるが、`bypassPermission` を立てるきっかけ(最後のフェーズを生き残る)はローカルに無いので、デバッグパネルの「team」欄で切り替える(→ §7)。火がついても決着はつけない。サーバーの `team.updated` はまだ受け取っていない(パネルも、サーバーの値は出さない)。
 - **sandbox にセッション無しで居る間のマッチング**: デバッグパネルのボタンは、sandbox にいる間は押せない(シーンの途中でオーソリティを切り替えないため)。room などへ移ってから始める。

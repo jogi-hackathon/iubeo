@@ -3,6 +3,7 @@ import {
   type LayoutItem,
   type SceneLayout,
 } from "../../objects/layout";
+import {LIGHTER_STAND_ON_DESK} from "../../objects/lighter_stand/stand";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
@@ -34,5 +35,16 @@ export const TEST_LAYOUT: SceneLayout = Object.fromEntries([
   ["workspace", {id: "workspace-1", position: [14, 0, -5]}],
   ["canvas", {id: "canvas-1", position: [11.5, 0, -5]}],
   ["pc", {id: "pc-1", position: [14, DESK_HEIGHT, -5.03]}],
+  [
+    "lighter_stand",
+    {
+      id: "lighter_stand-1",
+      position: [
+        14 + LIGHTER_STAND_ON_DESK[0],
+        LIGHTER_STAND_ON_DESK[1],
+        -5 + LIGHTER_STAND_ON_DESK[2],
+      ],
+    },
+  ],
   ...[4, 5, 6, 7, 8].map(spare),
 ]);

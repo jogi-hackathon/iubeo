@@ -6,10 +6,11 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import {authorityRegistry} from "../authority/registry";
+import {type AuthorityDev, authorityRegistry} from "../authority/registry";
 import {useDebugFlags} from "../core/debug/flags";
 import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
+import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
 import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
 import type {SceneLayout} from "../objects/layout";
@@ -131,6 +132,7 @@ export function GameDebugPanel() {
         </Fragment>
       ))}
       <div style={{marginTop: 4}}>last rejected: {rejected || "-"}</div>
+      <TeamRows source={authority?.dev ?? null} dev={dev} />
       <div style={headStyle}>items</div>
       <div style={rowStyle}>
         <span style={{flex: 1}}>held: {held ? held.id : "(none)"}</span>
@@ -198,5 +200,46 @@ function DirectoryRow({
         other returns
       </button>
     </div>
+  );
+}
+
+const TEAM_FLAGS: readonly (keyof Team)[] = ["bypassPermission", "fireStarted"];
+const NO_TEAM_SUBSCRIPTION = () => () => {};
+const NO_TEAM = (): Team | null => null;
+
+/**
+ * 勝利フラグ(team)の今の値と切り替え。ローカルのオーソリティでだけ使える(サーバーの値は読まない・変えない)。
+ * bypassPermission を立てると、ライターの置き場が使えるようになる。
+ * 値は窓口の dev(source)から読む(開発用の操作 dev は描画ごとに作り直すので、購読には使わない)
+ */
+function TeamRows({
+  source,
+  dev,
+}: {
+  source: AuthorityDev | null;
+  dev: LocalDevOps | null;
+}) {
+  const team = useSyncExternalStore(
+    source ? source.subscribeTeam : NO_TEAM_SUBSCRIPTION,
+    source ? source.getTeam : NO_TEAM,
+  );
+  return (
+    <>
+      <div style={headStyle}>team(勝利フラグ)</div>
+      {TEAM_FLAGS.map((flag) => (
+        <div key={flag} style={rowStyle}>
+          <span style={{flex: 1}}>
+            {flag}: {team ? String(team[flag]) : "-"}
+          </span>
+          <button
+            type="button"
+            disabled={!dev}
+            onClick={() => dev?.toggleTeamFlag(flag)}
+          >
+            toggle
+          </button>
+        </div>
+      ))}
+    </>
   );
 }

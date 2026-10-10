@@ -3,8 +3,10 @@ import {
   FILE_KIND,
   type Item,
   isCreatedStatus,
+  LIGHTER_KIND,
   parseFileData,
 } from "../../items";
+import type {Team} from "../../net/types";
 import type {
   GameObject,
   HeldItemRef,
@@ -19,6 +21,11 @@ import {
   type StockFile,
   parseDirectoryData,
 } from "../../objects/directory/data";
+import {
+  LIGHTER_STAND_KIND,
+  lighterIdOf,
+  parseLighterStandData,
+} from "../../objects/lighter_stand/data";
 import {
   WORKSPACE_ACTION_MS,
   WORKSPACE_KIND,
@@ -63,7 +70,9 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
  *   - 手ぶら + target: 在庫にあれば取り除き、そのファイルを手に持たせる(先着。無ければ not_found)。target が無ければ missing_item
  *   - ファイルを持って: 手持ちを消して、status で行き先を決める
  *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
- *   - ファイル以外を持って: missing_item
+ *   - ライターを持って: 勝利フラグの fireStarted を立てる(火をつける)。bypassPermission が立つ前は missing_item、もう火がついていれば unavailable
+ *     (実サーバーと同じ意味。燃やすのは演出なので、ファイルは消さず、ライターも持ったまま。ローカルにはセッションが無いので、決着はつけない)
+ *   - それ以外を持って: missing_item
  * - キャンバス(kind "canvas")の interact は、アニメーション(CANVAS_ACTION_MS)を待って結果を返す
  *   (実サーバーの interact.go のキャンバスの規則と同じ意味。docs/backend/state-schema.md §5.4.1):
  *   - 作業中(users に誰かいる)なら unavailable
@@ -76,6 +85,15 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
  *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "file_created"、色なし)を手に持たせて users から出る
  *   - 編集済みのファイル / 作成したファイル(作成系。作成したファイルは編集しない) / ファイル以外を持って: missing_item(アニメーションは始めない)
  *   - 終わる時点で手持ちが変わって条件を外れていたら、結果は適用せず users から出るだけ。作業中にワークスペースが消えたら、結果は適用しない
+ * - ライターの置き場(kind "lighter_stand")の interact(実サーバーの interact.go の置き場の規則と同じ意味。docs/backend/state-schema.md §5.5):
+ *   - 手ぶら: 置き場にライターがあれば、それ(id は lighterIdOf(置き場))を手に持つ。無ければ not_found
+ *   - その置き場のライターを持って: 置き場に戻す
+ *   - それ以外を持って、または要求の手持ちの主張が実際と食い違えば: missing_item
+ *   - 使えるのは勝利フラグの bypassPermission が立っている間だけ(置き場の availability。立つまでは共通の検証で unavailable)
+ *
+ * 勝利フラグ(team): サーバーではフェーズを生き残ると bypassPermission が、火をつけると fireStarted が立つ。
+ * ローカルにはフェーズが無いので、どちらも開発用の操作(dev.setTeam)で切り替える(火をつけたときは fireStarted も規則が立てる)。
+ * bypassPermission を切り替えると、置き場の availability が連動する
  *
  * 置いた物の追跡: deliver で、まだ無かった物を upsert した id を覚えておき、release で、その物だけを片付ける(外から置かれた物には触れない)
  */
@@ -115,6 +133,9 @@ export const createLocalRules = ({
   // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
   // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
   const achievedIds = new Set<string>();
+  // 勝利フラグ(サーバーが team.updated で配る物。ローカルには届け先が無いので、開発用の入口から読む)。変わるたびに別の参照にする
+  let team: Team = {bypassPermission: false, fireStarted: false};
+  const teamListeners = new Set<() => void>();
 
   const deliver = (message: AuthorityMessage): void => {
     if (message.type === "object.upsert") {
@@ -133,6 +154,47 @@ export const createLocalRules = ({
 
   const reject = (objectId: string, reason: RejectReason) =>
     deliver({type: "object.interactRejected", objectId, reason});
+
+  /**
+   * 勝利フラグを書き換える。bypassPermission が変われば、置き場の availability を合わせる。
+   * 下ろすときにライターを持っていれば、その置き場へ戻す(使えない置き場には戻せず、手が塞がったままになるため。
+   * サーバーは下ろさないが、切断・脱落でライターを置き場へ戻すのと同じ動き)
+   */
+  const setTeam = (patch: Partial<Team>): void => {
+    const next = {...team, ...patch};
+    if (
+      next.bypassPermission === team.bypassPermission &&
+      next.fireStarted === team.fireStarted
+    ) {
+      return;
+    }
+    const bypassChanged = next.bypassPermission !== team.bypassPermission;
+    team = next;
+    if (bypassChanged) {
+      const returning =
+        !next.bypassPermission && held?.kind === LIGHTER_KIND ? held.id : null;
+      for (const o of objects.getState().objects) {
+        if (o.kind === LIGHTER_STAND_KIND) {
+          deliver({
+            type: "object.upsert",
+            object: {
+              ...o,
+              availability: next.bypassPermission ? "available" : "unavailable",
+              ...(lighterIdOf(o.id) === returning && {
+                data: {hasLighter: true},
+              }),
+            },
+          });
+        }
+      }
+      if (returning !== null) {
+        setHeld(null);
+      }
+    }
+    for (const l of Array.from(teamListeners)) {
+      l();
+    }
+  };
 
   const setDirectory = (object: GameObject, data: DirectoryData) =>
     deliver({type: "object.upsert", object: {...object, data}});
@@ -163,6 +225,18 @@ export const createLocalRules = ({
         kind: FILE_KIND,
         data: {status: file.status, color: file.color},
       });
+      return;
+    }
+
+    // ライターを持っていれば火をつける(要求の主張が実際の手持ちと合うときだけ)
+    if (held && held.id === heldRef.id && held.kind === LIGHTER_KIND) {
+      if (!team.bypassPermission) {
+        reject(object.id, "missing_item");
+      } else if (team.fireStarted) {
+        reject(object.id, "unavailable");
+      } else {
+        setTeam({fireStarted: true});
+      }
       return;
     }
 
@@ -276,6 +350,37 @@ export const createLocalRules = ({
     }, CANVAS_ACTION_MS);
   };
 
+  const handleLighterStand = (object: GameObject, request: InteractRequest) => {
+    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(要求の主張と実際が食い違えば拒否)
+    if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    const {hasLighter} = parseLighterStandData(object.data);
+    const lighterId = lighterIdOf(object.id);
+    if (!held) {
+      if (!hasLighter) {
+        reject(object.id, "not_found");
+        return;
+      }
+      deliver({
+        type: "object.upsert",
+        object: {...object, data: {hasLighter: false}},
+      });
+      setHeld({id: lighterId, kind: LIGHTER_KIND, data: null});
+      return;
+    }
+    if (held.kind === LIGHTER_KIND && held.id === lighterId) {
+      deliver({
+        type: "object.upsert",
+        object: {...object, data: {hasLighter: true}},
+      });
+      setHeld(null);
+      return;
+    }
+    reject(object.id, "missing_item");
+  };
+
   /** 規則が置いた物を片付ける(そのうち今あるものだけ remove する)。手持ちも空にする */
   const release = (): void => {
     for (const id of Array.from(known)) {
@@ -295,6 +400,14 @@ export const createLocalRules = ({
     getHeldItem: () => held,
     setHeldItem: (item) => setHeld(item),
     getAchieved: () => achievedIds.size,
+    getTeam: () => team,
+    setTeam,
+    subscribeTeam: (listener) => {
+      teamListeners.add(listener);
+      return () => {
+        teamListeners.delete(listener);
+      };
+    },
   };
 
   return {
@@ -322,6 +435,10 @@ export const createLocalRules = ({
       }
       if (object.kind === CANVAS_KIND) {
         handleCanvas(object, request);
+        return;
+      }
+      if (object.kind === LIGHTER_STAND_KIND) {
+        handleLighterStand(object, request);
         return;
       }
       const using = object.users.includes(request.by);
