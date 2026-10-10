@@ -10,7 +10,6 @@ import {
   mix,
   sin,
   smoothstep,
-  step,
   texture,
   uniform,
   uv,
@@ -36,7 +35,7 @@ import {
  *  2. 色は three の色管理に任せる。テクスチャのサンプリングで sRGB → linear に変換され、出力で戻る。
  *     ブラウザの内容が実機と同じ見た目になる。
  *
- * それ以外（アパーチャーグリル、走査線、減光、ガラスの映り込み、電源投入時のラスタ収縮、ポインタの目印）は、
+ * それ以外（アパーチャーグリル、走査線、減光、ガラスの映り込み、電源投入時のラスタ収縮）は、
  * テクスチャの読み出しの後、線形の色の上で行う。
  */
 
@@ -47,9 +46,6 @@ export type CrtControls = {
   /** 起動成功後のラスタ展開 0..1 */
   boot: {value: number};
   time: {value: number};
-  /** ポインタ位置（UV）。x < 0 で目印を隠す */
-  cursor: {value: Vector2};
-  cursorOn: {value: number};
 };
 
 export const createCrtMaterial = (
@@ -60,8 +56,6 @@ export const createCrtMaterial = (
   const uTime = uniform(0);
   const uOn = uniform(0);
   const uBoot = uniform(0);
-  const uCursor = uniform(new Vector2(-1, -1));
-  const uCursorOn = uniform(0);
   const uResolution = uniform(new Vector2(width, height));
   const uMask = float(0.55);
   const uScanline = float(0.7);
@@ -133,14 +127,6 @@ export const createCrtMaterial = (
   col = col.add(vec3(0.006).mul(hum).mul(float(1).sub(tube)));
   col = col.mul(float(1).add(sin(uTime.mul(43)).mul(0.014).mul(uOn)));
 
-  // ポインタの位置の目印（レイキャストの位置と、見た目を一致させる）
-  const cursorD = uvNode.sub(uCursor).mul(uResolution.div(uResolution.y));
-  const ring = float(1).sub(
-    smoothstep(0.004, 0.012, abs(length(cursorD).sub(0.021))),
-  );
-  const cursorShown = step(0, uCursor.x).mul(uCursorOn);
-  col = mix(col, vec3(1).sub(col.mul(0.65)), ring.mul(cursorShown).mul(0.85));
-
   const material = new MeshBasicNodeMaterial();
   material.colorNode = vec4(col, 1);
   // ブラウザの内容を作者の意図どおりに見せる。トーンマッピングを掛けない
@@ -152,7 +138,5 @@ export const createCrtMaterial = (
     on: uOn,
     boot: uBoot,
     time: uTime,
-    cursor: uCursor,
-    cursorOn: uCursorOn,
   };
 };
