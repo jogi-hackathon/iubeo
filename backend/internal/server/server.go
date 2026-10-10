@@ -9,18 +9,22 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
 // Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
 type Server struct {
-	signer         *player.Signer
-	sessions       *session.Manager
-	matchmaker     *matchmaking.Matchmaker
-	allowedOrigins []string
-	wisp           *wisp.Issuer
-	wispURL        string
-	wispPass       string
+	signer            *player.Signer
+	sessions          *session.Manager
+	matchmaker        *matchmaking.Matchmaker
+	allowedOrigins    []string
+	wisp              *wisp.Issuer
+	wispURL           string
+	wispPass          string
+	voice             *voice.Issuer
+	voiceSignalingURL string
+	voiceMediaURL     string
 }
 
 var _ api.ServerInterface = (*Server)(nil)

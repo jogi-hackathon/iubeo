@@ -12,6 +12,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/server"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
@@ -38,6 +39,14 @@ func main() {
 	)
 	if cfg.WispKey != nil {
 		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL, cfg.WispPass)
+	}
+	if cfg.VCSeed != nil {
+		issuer, err := voice.NewIssuer(cfg.VCSeed, "", voice.DefaultTTL, time.Now)
+		if err != nil {
+			slog.Error("invalid VC key", "err", err)
+			os.Exit(1)
+		}
+		srv.WithVoice(issuer, cfg.VCSignalingURL, cfg.VCMediaURL)
 	}
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
 		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration,

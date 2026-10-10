@@ -11,3 +11,9 @@ allowed_origins = ["https://iubeo.thirdlf03.com"]
 
 # WISP トークンの発行に要る合言葉。空なら EC2 側は WISP のトークンを発行しない
 wisp_pass = "change-me"
+
+# Voice Chat。VC サービス(別ホスト)と同じ Ed25519 の種(base64url 32 バイト)と接続先。
+# 空なら VC のトークンを発行しない。種は VC ホストの /etc/vc/keys/private.jwk の d
+vc_private_key   = ""
+vc_signaling_url = "wss://vc.thirdlf03.com/v1/signaling"
+vc_media_url     = "https://media.thirdlf03.com:4443"

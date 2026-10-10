@@ -1204,6 +1204,30 @@ type TransformsMessageType string
 // Example: [1.25,0,-2.5]
 type Vec3 = []float64
 
+// VoiceToken defines model for VoiceToken.
+type VoiceToken struct {
+	// ExpiresAt トークンの期限
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// MediaUrl MoQ(WebTransport)の URL
+	//
+	// Example: https://media.example.test:4443
+	MediaUrl string `json:"mediaUrl"`
+
+	// Room 部屋の id(セッション id)。JWT の `room` と同じ
+	//
+	// Example: sess-abc123
+	Room string `json:"room"`
+
+	// SignalingUrl シグナリング(WebSocket)の URL
+	//
+	// Example: wss://vc.example.test/v1/signaling
+	SignalingUrl string `json:"signalingUrl"`
+
+	// Token VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
+	Token string `json:"token"`
+}
+
 // WispToken defines model for WispToken.
 type WispToken struct {
 	// ExpiresAt トークンの期限(接続を始めるのはこの前に)
@@ -1902,6 +1926,9 @@ type ServerInterface interface {
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
+	// GetVoiceToken Voice Chat に繋ぐためのトークンと接続先を返す
+	// (GET /api/v1/voice/token)
+	GetVoiceToken(w http.ResponseWriter, r *http.Request)
 	// GetWispToken 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
 	// (GET /api/v1/wisp/token)
 	GetWispToken(w http.ResponseWriter, r *http.Request, params GetWispTokenParams)
@@ -2046,6 +2073,20 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ConnectSession(w, r, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetVoiceToken operation middleware
+func (siw *ServerInterfaceWrapper) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVoiceToken(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2234,6 +2275,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/voice/token", wrapper.GetVoiceToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.JoinMatchmaking)
