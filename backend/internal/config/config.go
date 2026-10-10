@@ -33,7 +33,8 @@ type Config struct {
 	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
 	FireDuration time.Duration
 	// CpuFillAfter は、自動マッチングでこの時間たっても人数がそろわないとき、足りない分を CPU で埋める
-	// (IUBEO_CPU_FILL_AFTER。既定 30s。0 で無効。デバッグ用。人数がそろう通常の経路には影響しない)
+	// (IUBEO_CPU_FILL_AFTER。既定 30s。0 で無効。人数がそろう通常の経路には影響しない)。
+	// デバッグ用: 動作確認のたびに 3 人分のブラウザと Cookie をそろえるのが大変なので、1 人でも通しを試せるようにする
 	CpuFillAfter time.Duration
 	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
 	WispKey []byte

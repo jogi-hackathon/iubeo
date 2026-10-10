@@ -37,7 +37,8 @@ type Sessions interface {
 // Options はマッチングの設定
 type Options struct {
 	// FillAfter は、この時間たっても size に届かないとき、足りない分を CPU で埋めてセッションを作る。
-	// 0 で無効(既定)。デバッグ用で、人数がそろう通常の経路には影響しない
+	// 0 で無効(既定)。人数がそろう通常の経路には影響しない。
+	// デバッグ用: 1 戦の確認に 3 人分のブラウザと Cookie をそろえるのが大変なので、1 人でも遊べるようにする
 	FillAfter time.Duration
 	// NewCPUPlayerID は CPU の id を作る。既定は "cpu-" + ランダム
 	NewCPUPlayerID func() string

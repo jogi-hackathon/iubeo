@@ -187,8 +187,6 @@ function WorkspaceObject({object}: {object: GameObject}) {
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
 | F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
 
-確認の手順は [3 人で 1 戦を通しで遊ぶ手順](../playtest-3players.md)。
-
 残り:
 
 - マッチングのきっかけは room の仮のボタン(チュートリアルの終わりから呼ぶ形に置き換えるのは未実装。`MatchmakingButton.tsx` の TODO)。
