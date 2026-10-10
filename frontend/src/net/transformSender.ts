@@ -72,11 +72,6 @@ export const createTransformSender = ({
       stopTimer?.();
       stopTimer = null;
     },
-    /**
-     * サーバーが持つ自分の transform.seq に合わせる(snapshot を受け取ったとき)。
-     * 再読み込みなどで seq が 0 に戻ると、サーバーより小さい seq の更新が捨てられるため。
-     * 小さい値では戻さない。次は必ず送り直す
-     */
     syncSeq: (serverSeq: number) => {
       seq = Math.max(seq, serverSeq);
       lastSent = null;

@@ -4,17 +4,12 @@ import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
-// ダミーのサーバー役。読み込むと、ゲーム本体(開発時)と同じ id・位置で、確認用のオブジェクト(ディレクトリなど)が置かれる
-import "../dev/authority";
-import {ManagedObjects} from "../objects";
 import {type SceneName, sceneNames, scenes} from "../scenes";
+import {readinessOf} from "../scenes/readiness";
+import {ReportSceneReady} from "../scenes/ReportSceneReady";
+import {whenSceneReady} from "../scenes/sceneReady";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
-
-// dev 専用の AO ベイクページ(bake.html)。シーンを描画せずにマウントだけして、BVHCollider・BakeTarget に登録された
-// 静的 mesh の AO を WebGPU でベイクし、dev サーバー(scripts/bakeSavePlugin.ts)へ送って public/ao/ に保存する。
-// URL パラメータ: ?scene=<名前>(既定 test)&allowSoftware=1(ソフトウェア実装の adapter でも続行)
-// 終了時に window.__bakeResult を置く(scripts/bake-ao.ts が待つ)
 
 interface BakeResult {
   ok: boolean;
@@ -110,13 +105,20 @@ const save = async (
   }
 };
 
-function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
+function Runner({
+  scene,
+  onProgress,
+}: {
+  scene: SceneName;
+  onProgress: (p: BakeProgress) => void;
+}) {
   const gl = useThree((s) => s.gl) as unknown as WebGPURenderer;
 
   useEffect(() => {
     let adapter: Record<string, unknown> | undefined;
     (async () => {
       assertWebGPUBackend(gl);
+      await whenSceneReady(scene);
       adapter = await adapterInfo();
       console.info(`[bake] adapter: ${JSON.stringify(adapter)}`);
       const text = Object.values(adapter).join(" ");
@@ -161,7 +163,7 @@ function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
       window.__bakeResult = {ok: false, error, adapter};
     });
     // マウント時に1回だけ走らせる(StrictMode は使っていない)
-  }, [gl, onProgress]);
+  }, [gl, scene, onProgress]);
 
   return null;
 }
@@ -174,8 +176,11 @@ const statusStyle: CSSProperties = {
 function BakePage() {
   const [progress, setProgress] = useState<BakeProgress>({status: "起動中"});
 
-  const Scene = isSceneName(sceneName) ? scenes[sceneName] : undefined;
-  if (!Scene) {
+  const scene: SceneName | undefined = isSceneName(sceneName)
+    ? sceneName
+    : undefined;
+  const Scene = scene ? scenes[scene] : undefined;
+  if (!scene || !Scene) {
     const error = `不明なシーンです: ${sceneName}(${sceneNames.join(" / ")})`;
     window.__bakeResult = {ok: false, error};
     return <div style={statusStyle}>{error}</div>;
@@ -198,14 +203,12 @@ function BakePage() {
         frameloop="never"
         style={{width: 1, height: 1}}
       >
-        {/* Runner をシーンと同じ Suspense 境界に入れる。Suspense で読み込む prop(useGLTF / useLoader など)が
-            すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
-            useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
         <Suspense fallback={null}>
           <Scene />
-          {/* サーバーが置くオブジェクトのうち、動かない物(ディレクトリ)もベイクする。ゲーム本体(App)と同じ並び */}
-          <ManagedObjects />
-          <Runner onProgress={setProgress} />
+          {readinessOf(scene) === "mount" && (
+            <ReportSceneReady key={`ready:${scene}`} scene={scene} />
+          )}
+          <Runner scene={scene} onProgress={setProgress} />
         </Suspense>
       </Canvas>
     </>

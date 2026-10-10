@@ -8,9 +8,11 @@ import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {usePointerLocked} from "../../core/input";
 import {isPlayerControlLocked} from "../../core/playerControl";
+import {useSpectatePhase} from "../../core/spectate";
 import {objectManager} from "../objectStore";
 import {type AimHit, INTERACT_DISTANCE, resolveAim} from "./aim";
 import {getAimedObjectId, setAimedObjectId, useAimedObjectId} from "./aimStore";
+import {getClientTarget, hasClientTarget} from "./clientTargets";
 import {dispatchInteraction} from "./handlers";
 import {
   getTarget,
@@ -22,12 +24,12 @@ import {
 const CENTER = new Vector2(0, 0);
 
 const isTargetable = (id: string): boolean =>
-  objectManager.getObject(id)?.availability === "available";
+  objectManager.getObject(id)?.availability === "available" ||
+  hasClientTarget(id);
 
 type Candidates = {
   dirty: boolean;
   objects: Object3D[];
-  /** 候補のコライダー mesh → コライダー(enabled を見るため) */
   colliders: Map<Object3D, Collider>;
 };
 
@@ -37,11 +39,6 @@ const createCandidates = (): Candidates => ({
   colliders: new Map(),
 });
 
-/**
- * 候補は、オブジェクトの根と、それに属さないコライダー mesh(壁など)。
- * コライダーを持つオブジェクト(ディレクトリ)のコライダーは、根の子孫として根と一緒に判定されるので、重複して入れない。
- * 根のツリーを recursive に見るので、その中のコライダーも自分自身(オブジェクト)に当たり、遮蔽物にはならない
- */
 const refreshCandidates = (c: Candidates): void => {
   if (!c.dirty) {
     return;
@@ -63,10 +60,12 @@ const refreshCandidates = (c: Candidates): void => {
  *
  * - 狙えるのは、目の位置から INTERACT_DISTANCE 内で最初に当たったオブジェクト。壁などのコライダーに遮られたら狙わない
  * - 操作は、pointer lock 中だけ。ロックされていないクリックはロック取得用なので無視する。
- *   freeCamera(F8)中と、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)は、狙いも操作も止める
+ *   freeCamera(F8)中、脱落・観戦中、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)は、狙いも操作も止める
+ * - 狙った物がオーソリティのオブジェクトなら要求を送り、シーンが置いた操作対象(clientTargets)ならその処理を呼ぶ
  */
 export function Interaction() {
   const {freeCamera} = useDebugFlags();
+  const spectate = useSpectatePhase();
   const locked = usePointerLocked();
   const gl = useThree((s) => s.gl);
   const raycaster = useMemo(() => {
@@ -74,9 +73,8 @@ export function Interaction() {
     r.far = INTERACT_DISTANCE;
     return r;
   }, []);
-  const active = locked && !freeCamera;
+  const active = locked && !freeCamera && spectate === "alive";
 
-  // 狙いの候補(オブジェクトの根と、それ以外のコライダー)は、登録が変わったときだけ組み直す
   const candidates = useRef(createCandidates());
   useEffect(() => {
     const c = candidates.current;
@@ -97,14 +95,12 @@ export function Interaction() {
       setAimedObjectId(null);
       return;
     }
-    // FirstPersonCamera がこのフレームに書いた位置・向きで狙う(matrixWorld は描画時に更新されるので、ここで更新する)
     camera.updateMatrixWorld();
     raycaster.setFromCamera(CENTER, camera);
     const c = candidates.current;
     refreshCandidates(c);
     hits.current.length = 0;
     raycaster.intersectObjects(c.objects, true, hits.current);
-    // 最初の当たりだけを見る。無効なコライダーは、遮蔽物として数えない
     const first = hits.current.find(
       (h) => c.colliders.get(h.object)?.enabled !== false,
     );
@@ -124,11 +120,16 @@ export function Interaction() {
         return;
       }
       const id = getAimedObjectId();
-      const object = id === null ? undefined : objectManager.getObject(id);
-      if (!object) {
+      if (id === null) {
         return;
       }
-      dispatchInteraction(object, () => objectManager.interact(object.id));
+      const object = objectManager.getObject(id);
+      if (object) {
+        dispatchInteraction(object, () => objectManager.interact(object.id));
+        return;
+      }
+      // オーソリティのオブジェクトではない、シーンが置いた対象(サーバーへは送らない)
+      getClientTarget(id)?.interact();
     };
     doc.addEventListener("mousedown", onMouseDown);
     return () => doc.removeEventListener("mousedown", onMouseDown);
@@ -137,7 +138,6 @@ export function Interaction() {
   return <AimOutline />;
 }
 
-/** 狙っているオブジェクトを、ポストプロセスのアウトラインの対象にする(外周に 1 本。camera/postprocess/pipeline) */
 function AimOutline() {
   const aimed = useAimedObjectId();
 

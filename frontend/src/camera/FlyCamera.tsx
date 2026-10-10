@@ -5,6 +5,7 @@ import {Euler, Vector3} from "three";
 import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
+import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
 import {applyLook, type Look} from "../player";
 import {FLY_SPEED} from "./constants";
@@ -15,20 +16,20 @@ const right = new Vector3();
 const move = new Vector3();
 const UP = new Vector3(0, 1, 0);
 
-/** freeCamera 時のみ動く。自前の yaw/pitch を持ち、身体(PlayerState)には触れない */
+/** freeCamera 時、または観戦中に動く。自前の yaw/pitch を持ち、身体(PlayerState)には触れない */
 export function FlyCamera() {
   const {freeCamera} = useDebugFlags();
+  const spectate = useSpectatePhase();
   const keys = useKeys();
   const look = useRef<Look>({yaw: 0, pitch: 0});
   const active = useRef(false);
 
   useFrame(({camera}, delta) => {
-    if (!freeCamera) {
+    if (!freeCamera && spectate !== "spectating") {
       active.current = false;
       return;
     }
     if (!active.current) {
-      // freeCamera になった瞬間の姿勢から始める
       active.current = true;
       euler.setFromQuaternion(camera.quaternion, "YXZ");
       look.current.yaw = euler.y;

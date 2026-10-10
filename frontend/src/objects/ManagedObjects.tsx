@@ -1,83 +1,98 @@
-import {type ComponentType, useCallback} from "react";
+import {useCallback, useEffect, useMemo} from "react";
 import type {Object3D} from "three";
 
-import {aoModeUserData} from "../bake/aoMode";
-import {CanvasObject} from "./canvas/CanvasObject";
-import {CANVAS_KIND} from "./canvas/data";
-import {useObjectControlLock} from "./controlLock";
-import {DIRECTORY_KIND} from "./directory/data";
-import {DirectoryObject, useOverviewGuard} from "./directory/DirectoryObject";
-import {registerDirectoryInteraction} from "./directory/interaction";
+import {type AOMode, aoModeUserData} from "../bake/aoMode";
+import {useIsEnabled, useIsVisible} from "../core/toggles";
+import {useIsObjectDisabled} from "./disabledObjects";
+import {DummyObject} from "./DummyObject";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
+import {kindRenderers} from "./kinds";
+import {type SceneLayout, matchLayout} from "./layout";
+import {type LayoutSlot, LayoutItemContext} from "./layoutContext";
+import {ObjectStateContext} from "./objectContext";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
-import {WORKSPACE_KIND} from "./workspace/data";
-import {WorkspaceObject} from "./workspace/WorkspaceObject";
 
-// テスト用のダミー描画。白い世界で見分けがつくよう、状態ごとに色を変える
-const COLOR_IDLE = "#5b9bff";
-const COLOR_IN_USE = "#ff9f43";
-const COLOR_UNAVAILABLE = "#c8c8c8";
-const DUMMY_SIZE = 0.6;
-
-const colorOf = (o: GameObject): string => {
-  if (o.availability === "unavailable") {
-    return COLOR_UNAVAILABLE;
-  }
-  return o.users.length > 0 ? COLOR_IN_USE : COLOR_IDLE;
-};
-
-function DummyObject({object}: {object: GameObject}) {
-  return (
-    <mesh userData={aoModeUserData("realtime")}>
-      <boxGeometry args={[DUMMY_SIZE, DUMMY_SIZE, DUMMY_SIZE]} />
-      <meshStandardMaterial color={colorOf(object)} />
-    </mesh>
-  );
-}
-
-/** kind ごとの見た目。ここに無い kind は、ダミーの箱で描く。座標は object.position を原点とした相対 */
-const renderers: Record<string, ComponentType<{object: GameObject}>> = {
-  [DIRECTORY_KIND]: DirectoryObject,
-  [WORKSPACE_KIND]: WorkspaceObject,
-  [CANVAS_KIND]: CanvasObject,
-};
-
-// kind ごとに固有のインタラクトの処理(クライアント側で完結する分)を、汎用のインタラクト基盤に登録する
-registerDirectoryInteraction();
-
-/** 見た目の根。狙いの判定(interaction)が、当たった物からオブジェクトを引けるように、id を持たせて登録する */
-function ObjectRoot({object}: {object: GameObject}) {
+function ObjectRoot({
+  object,
+  slot,
+  ao,
+}: {
+  object: GameObject;
+  slot: LayoutSlot;
+  ao?: AOMode;
+}) {
   const {id} = object;
+  const {name, item} = slot;
+  const visible = useIsVisible(name);
+  const toggledOn = useIsEnabled(name);
+  const disabledByKind = useIsObjectDisabled(id);
+  const enabled = toggledOn && !disabledByKind;
   const register = useCallback(
-    (root: Object3D | null) => (root ? registerTarget(id, root) : undefined),
-    [id],
+    (root: Object3D | null) =>
+      root && enabled ? registerTarget(id, root) : undefined,
+    [id, enabled],
   );
-  const Renderer = renderers[object.kind] ?? DummyObject;
+  const state = useMemo(() => ({visible, enabled}), [visible, enabled]);
+  const Renderer = kindRenderers[object.kind] ?? DummyObject;
   return (
     <group
       ref={register}
-      userData={{[OBJECT_ID_KEY]: id}}
-      position={object.position}
+      userData={{[OBJECT_ID_KEY]: id, ...aoModeUserData(ao)}}
+      position={item.position}
+      rotation={[0, item.yaw ?? 0, 0]}
+      visible={visible}
     >
-      <Renderer object={object} />
+      <LayoutItemContext.Provider value={slot}>
+        <ObjectStateContext.Provider value={state}>
+          <Renderer object={object} />
+        </ObjectStateContext.Provider>
+      </LayoutItemContext.Provider>
     </group>
   );
 }
 
+const warnedIds = new Set<string>();
+
 /**
- * objectManager のオブジェクトをシーンに描画する。kind ごとに描画コンポーネントを振り分ける。
+ * objectManager のオブジェクトを、シーンのレイアウトに従って描画する。レイアウトの項目と id が一致した物だけ描く
+ * (一致しない物は描かない。開発時は id ごとに一度だけ警告する)
+ * kind ごとに描画コンポーネントを振り分ける(kinds.ts)。
  * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * (ディレクトリだけは動かないので、専用のコライダーを持ち、AO もベイクする。ワークスペースはモックなのでコライダーを持たない。キャンバスも動かないので、コライダーは持たずに AO だけベイクする)
+ * 項目名ごとに、core/toggles で表示・非表示と機能の ON・OFF を切り替えられる(非表示でも mesh は外さない。非表示は見た目・当たり判定・インタラクトを、機能 OFF はインタラクトだけを無効にする)。
  */
-export function ManagedObjects() {
+export function ManagedObjects({
+  layout,
+  ao,
+}: {
+  layout: SceneLayout;
+  ao?: AOMode;
+}) {
   const {objects} = useObjectsState();
-  useOverviewGuard(objects);
-  useObjectControlLock(objects);
+  const {assigned, unmatched} = useMemo(
+    () => matchLayout(layout, objects),
+    [layout, objects],
+  );
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return;
+    }
+    for (const o of unmatched) {
+      if (!warnedIds.has(o.id)) {
+        warnedIds.add(o.id);
+        console.warn(`レイアウトに無いオブジェクトは描かない: ${o.id}`);
+      }
+    }
+  }, [unmatched]);
   return (
     <>
-      {objects.map((o) => (
-        <ObjectRoot key={o.id} object={o} />
+      {assigned.map(({object, name, item}) => (
+        <ObjectRoot
+          key={object.id}
+          object={object}
+          slot={{name, item}}
+          ao={ao}
+        />
       ))}
     </>
   );

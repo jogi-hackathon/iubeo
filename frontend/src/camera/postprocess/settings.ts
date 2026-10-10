@@ -21,12 +21,10 @@ export interface PostProcessSettings {
     enabled: boolean;
     strength: number;
     radius: number;
-    /** 輝度(リニア)がこれを超える部分だけが光る */
     threshold: number;
   };
   pixelate: {
     enabled: boolean;
-    /** ブロック1辺(ドローイングバッファの px) */
     pixelSize: number;
   };
   /**
@@ -36,23 +34,14 @@ export interface PostProcessSettings {
    */
   skyNoise: {
     enabled: boolean;
-    /** 崩れの振幅(1 が既定)。層の受け渡しの位置(仰角で決まる)は変えない */
     intensity: number;
-    /**
-     * ブロックの大きさの倍率。1 で第1〜3層が 8 / 20 / 44px(ドローイングバッファの px)。
-     * pixelate が on のときは各層を pixelSize の倍数に切り上げる
-     */
     blockScale: number;
-    /** 崩れ始める仰角(度) */
     elevationStart: number;
-    /** 崩れが最大になる仰角(度) */
     elevationEnd: number;
-    /** 第1層の模様を更新する頻度(回/秒)。第2層は 1/2、第3層は 1/4 */
     updateRate: number;
   };
   vignette: {
     enabled: boolean;
-    /** 画面端の暗さ(0〜1) */
     intensity: number;
     smoothness: number;
   };
@@ -62,18 +51,12 @@ export interface PostProcessSettings {
    */
   ao: {
     enabled: boolean;
-    /** GTAO とベイク AO を合成した後の AO だけを白黒で表示する(調整用。GTAO が off でも使える) */
     showOnly: boolean;
-    /** GTAO のノイズを深度・法線を見ながらぼかす(AO と同じ解像度のパスが1枚増える) */
     denoise: boolean;
-    /** 遮蔽を探す半径(ワールド単位) */
     radius: number;
-    /** AO の強さ */
     scale: number;
-    /** 遮蔽物の厚みの想定。大きいほど細い物の裏側まで暗くなる */
     thickness: number;
     samples: number;
-    /** AO を計算する解像度(ドローイングバッファ比) */
     resolutionScale: number;
   };
   /** 事前ベイクした AO(src/bake/BakedAO.tsx が静的 mesh の aoMap に貼る) */

@@ -1,5 +1,5 @@
 export {EYE_HEIGHT} from "./constants";
-export {getLocalPlayerId, LOCAL_PLAYER_ID, localPlayer} from "./local";
+export {localPlayer} from "./local";
 export {applyLook} from "./look";
 export {PlayerController} from "./PlayerController";
 export {

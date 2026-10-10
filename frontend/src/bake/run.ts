@@ -68,7 +68,6 @@ export const bakeSceneAO = async (
   lap("geometry+bvh", t0);
 
   try {
-    // 隠れチャート(ほかの面に密着して見えない面)は最小のテクセル数に縮める
     t0 = performance.now();
     const widths = new Float32Array(chartCount);
     const heights = new Float32Array(chartCount);

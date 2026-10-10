@@ -1,0 +1,12 @@
+# Workers Static Assets のヘッダー(https://developers.cloudflare.com/workers/static-assets/headers/)。
+# 既定は "public, max-age=0, must-revalidate" で、再訪のたびに再検証(往復 1 回)が入る。
+# /assets/ 以下は Vite がファイル名に内容のハッシュを付けるので、中身が変わればファイル名も変わる。
+# 長くキャッシュし、再検証もさせない(index.html は既定のまま、毎回確かめる)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Gecko エンジン(PC の画面)は pthread のために SharedArrayBuffer を使うので、cross-origin isolation にする(開発サーバーは vite.config.ts が付ける)。
+# R2 のエンジンは CORS 付きで配るので、require-corp でも読める
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp

@@ -1,16 +1,13 @@
-# Devenv
 .devenv*
 devenv.local.nix
 devenv.local.yaml
 
-# direnv
 .direnv
 
-# pre-commit
 .pre-commit-config.yaml
 
-# Env
 .env
 
-# air(backend のホットリロード)のビルド出力
 backend/tmp
+
+frontend/engine-local/

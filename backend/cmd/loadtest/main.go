@@ -41,7 +41,6 @@ import (
 	"github.com/coder/websocket"
 )
 
-// result は 1 回の測定結果。比較チャートはこの JSON を読む
 type result struct {
 	Label          string    `json:"label"`
 	URL            string    `json:"url"`
@@ -89,7 +88,6 @@ type options struct {
 	binary    bool
 }
 
-// collector は全クライアントのサンプルを集める
 type collector struct {
 	mu           sync.Mutex
 	rtt          []float64
@@ -244,12 +242,11 @@ func run(opts options) (*result, error) {
 			defer wg.Done()
 			if err := runClient(clientCtx, opts, c, ready); err != nil {
 				c.fail("client %d: %v", n, err)
-				ready <- struct{}{} // 待ち続けない
+				ready <- struct{}{}
 			}
 		}(i)
 	}
 
-	// 全員が WebSocket につながるまで待つ(マッチング待ちを含む)
 	deadline := time.After(opts.warmup + opts.duration + 60*time.Second)
 	for range opts.clients {
 		select {
@@ -297,7 +294,6 @@ func run(opts options) (*result, error) {
 	return res, nil
 }
 
-// runClient は 1 人分。プレイヤーを作り、マッチングに並び、WebSocket で送受信する
 func runClient(ctx context.Context, opts options, c *collector, ready chan<- struct{}) error {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
@@ -340,7 +336,6 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 	defer func() { _ = conn.CloseNow() }()
 	conn.SetReadLimit(1 << 20)
 
-	// 送信した seq → 送信時刻。自分の transform が配信で戻ってきたら RTT を出す
 	var (
 		mu      sync.Mutex
 		pending = map[int64]time.Time{}
@@ -490,7 +485,6 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 			c.addBytes(0, len(body))
 			mu.Lock()
 			pending[seq] = time.Now()
-			// 戻ってこない seq を溜め込まないよう、古いものは捨てる
 			for s := range pending {
 				if s < seq-100 {
 					delete(pending, s)
@@ -558,7 +552,6 @@ func createPlayer(ctx context.Context, client *http.Client, baseURL string) (str
 	return me.PlayerId, nil
 }
 
-// joinMatchmaking は待機列に入り、成立するまで(1秒間隔で)ポーリングする
 func joinMatchmaking(ctx context.Context, client *http.Client, baseURL string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/v1/matchmaking", bytes.NewReader(nil))
 	if err != nil {
@@ -625,7 +618,6 @@ func summarize(samples []float64) stats {
 	}
 }
 
-// percentile は線形補間で分位点を求める(sorted は昇順であること)
 func percentile(sorted []float64, p float64) float64 {
 	if len(sorted) == 0 {
 		return 0

@@ -16,6 +16,8 @@ export type SocketState = {
   status: SocketStatus;
   /** 最後に閉じたときの close code。まだ閉じていなければ null */
   closeCode: number | null;
+  /** そのときの close reason(サーバーの理由。無ければ空文字)。まだ閉じていなければ null */
+  closeReason: string | null;
 };
 
 /** 使う分だけの WebSocket。テストで偽物に差し替える */
@@ -25,11 +27,10 @@ export type SocketLike = {
   close: (code?: number, reason?: string) => void;
   onopen: ((ev: unknown) => void) | null;
   onmessage: ((ev: {data: unknown}) => void) | null;
-  onclose: ((ev: {code: number}) => void) | null;
+  onclose: ((ev: {code: number; reason?: string}) => void) | null;
   onerror: ((ev: unknown) => void) | null;
 };
 
-/** WebSocket.OPEN。テストの偽物でもグローバルの WebSocket に頼らず判定できるよう、値を持つ */
 const OPEN = 1;
 
 // サーバーの close code(backend/internal/session/conn.go)
@@ -38,17 +39,11 @@ export const CLOSE_SESSION_ENDED = 4000;
 export const CLOSE_REPLACED = 4001;
 export const CLOSE_SLOW = 4002;
 
-/**
- * 閉じられても再接続しない close code。セッションが終わった・別の接続に置き換えられた(同じプレイヤーが
- * 2 つ目の接続を開いた)ときは、つなぎ直しても意味がないか、置き換えた側を切ってしまう。
- * 1000 は再接続する(サーバーは受信の失敗でも 1000 で閉じるため。自分から閉じたときは close() で止める)
- */
 const NO_RETRY_CODES: ReadonlySet<number> = new Set([
   CLOSE_SESSION_ENDED,
   CLOSE_REPLACED,
 ]);
 
-/** 受け取るメッセージの type。未知の type を捨てるのに使う(Record にして、スキーマとの過不足を型で検査する) */
 const SERVER_MESSAGE_TYPES = {
   snapshot: true,
   transforms: true,
@@ -71,7 +66,6 @@ const isServerMessage = (v: unknown): v is ServerMessage =>
   v !== null &&
   Object.hasOwn(SERVER_MESSAGE_TYPES, (v as {type?: unknown}).type as string);
 
-/** 確定状態のメッセージの seq。snapshot は session.seq に持つ。seq を持たない物(transforms など)は null */
 const seqOf = (message: ServerMessage): number | null => {
   if (message.type === "snapshot") {
     return message.session.seq;
@@ -135,12 +129,15 @@ export const createSessionConnection = ({
   maxDelayMs = 8000,
 }: SessionConnectionOptions) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
-  let state: SocketState = {status: "connecting", closeCode: null};
+  let state: SocketState = {
+    status: "connecting",
+    closeCode: null,
+    closeReason: null,
+  };
   const listeners = new Set<() => void>();
   const handlers = new Map<ServerMessageType, Set<(m: never) => void>>();
 
   let socket: SocketLike | null = null;
-  // 今の接続で受け取った snapshot の seq を起点にした、最新の seq。snapshot が届くまでは null
   let lastSeq: number | null = null;
   let retries = 0;
   let cancelRetry: (() => void) | null = null;
@@ -148,7 +145,6 @@ export const createSessionConnection = ({
   // 席 → playerId。バイナリの transforms はプレイヤーを席で表すので、snapshot と player.updated から覚えておく
   const playerOfSeat = new Map<number, string>();
 
-  // コールバックの例外が他のコールバック・状態更新に影響しないようにする
   const set = (next: SocketState) => {
     state = next;
     for (const l of Array.from(listeners)) {
@@ -165,7 +161,6 @@ export const createSessionConnection = ({
     if (!bucket) {
       return;
     }
-    // 通知中に追加されたコールバックは、今回のメッセージでは呼ばない
     for (const cb of Array.from(bucket)) {
       try {
         (cb as (m: ServerMessage) => void)(message);
@@ -233,23 +228,23 @@ export const createSessionConnection = ({
         receive(ev.data);
       }
     };
-    // 失敗は onclose でまとめて扱う
     s.onerror = () => {};
     s.onclose = (ev) => {
       if (socket !== s) {
         return;
       }
       socket = null;
+      const closeReason = ev.reason ?? "";
       if (closedByUser) {
         return;
       }
       if (NO_RETRY_CODES.has(ev.code) || retries >= maxRetries) {
-        set({status: "closed", closeCode: ev.code});
+        set({status: "closed", closeCode: ev.code, closeReason});
         return;
       }
       const delay = Math.min(baseDelayMs * 2 ** retries, maxDelayMs);
       retries += 1;
-      set({status: "reconnecting", closeCode: ev.code});
+      set({status: "reconnecting", closeCode: ev.code, closeReason});
       cancelRetry = schedule(() => {
         cancelRetry = null;
         open();
@@ -267,7 +262,6 @@ export const createSessionConnection = ({
         listeners.delete(listener);
       };
     },
-    /** type のメッセージを受け取る。戻り値で解除する */
     on: <T extends ServerMessageType>(
       type: T,
       callback: (message: ServerMessageOf<T>) => void,
@@ -282,7 +276,6 @@ export const createSessionConnection = ({
         bucket.delete(callback);
       };
     },
-    /** 開いている間だけ送り、送れたら true。閉じている間は捨てて false */
     send: (message: ClientMessage): boolean => {
       if (!socket || socket.readyState !== OPEN) {
         return false;
@@ -295,7 +288,6 @@ export const createSessionConnection = ({
       );
       return true;
     },
-    /** 自分から閉じる。再接続はしない */
     close: () => {
       if (closedByUser) {
         return;
@@ -306,7 +298,7 @@ export const createSessionConnection = ({
       const s = socket;
       socket = null;
       s?.close(CLOSE_NORMAL);
-      set({status: "closed", closeCode: CLOSE_NORMAL});
+      set({status: "closed", closeCode: CLOSE_NORMAL, closeReason: ""});
     },
   };
 };

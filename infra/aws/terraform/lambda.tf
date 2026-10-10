@@ -1,8 +1,3 @@
-# EC2 を Discord の /start /stop で起動・停止する Lambda。
-#
-# 目的は主に「自動停止」で、起動しっぱなしで $0.67/日 が漏れるのを防ぐこと。
-# Discord の公開鍵を入れるまでは Function URL を叩いても 401 になるが、
-# 直接 invoke で start / stop は動く。
 
 data "aws_caller_identity" "current" {}
 
@@ -47,14 +42,11 @@ resource "aws_iam_role_policy" "control" {
         Resource = "*"
       },
       {
-        # ヘルスチェックは Lambda から 8080 に届かない(SG が Cloudflare の
-        # IP しか許していない)ので、SSM でインスタンスの中から curl する
         Effect   = "Allow"
         Action   = ["ssm:SendCommand", "ssm:GetCommandInvocation"]
         Resource = "*"
       },
       {
-        # 自動停止の 1 回スケジュールを作り直せるようにする
         Effect   = "Allow"
         Action   = ["scheduler:CreateSchedule", "scheduler:DeleteSchedule", "scheduler:GetSchedule"]
         Resource = "arn:aws:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.name}-autostop"
@@ -74,8 +66,6 @@ resource "aws_iam_role_policy" "control" {
   })
 }
 
-# スケジュールから Lambda を呼ぶためのロール。
-# Lambda 自身のロールとは別に要る(呼ばれる側を許すため)
 resource "aws_iam_role" "scheduler" {
   name = "${local.name}-scheduler"
 
@@ -118,11 +108,10 @@ resource "aws_lambda_function" "control" {
 
   environment {
     variables = {
-      INSTANCE_ID       = aws_instance.backend.id
-      AUTO_STOP_HOURS   = tostring(var.auto_stop_hours)
-      SCHEDULE_NAME     = "${local.name}-autostop"
-      SCHEDULE_ROLE_ARN = aws_iam_role.scheduler.arn
-      # 自分の ARN は自分の中で参照できない(自己参照)ので組み立てる
+      INSTANCE_ID                = aws_instance.backend.id
+      AUTO_STOP_HOURS            = tostring(var.auto_stop_hours)
+      SCHEDULE_NAME              = "${local.name}-autostop"
+      SCHEDULE_ROLE_ARN          = aws_iam_role.scheduler.arn
       LAMBDA_ARN                 = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
       DISCORD_PUBLIC_KEY         = var.discord_public_key
       DISCORD_WEBHOOK_URL        = var.discord_webhook_url
@@ -136,8 +125,6 @@ resource "aws_lambda_function" "control" {
   tags = { Name = "${local.name}-control" }
 }
 
-# Discord の interactions エンドポイント。
-# 署名検証があるので公開してよい(検証に失敗したら 401 を返す)
 resource "aws_lambda_function_url" "control" {
   function_name      = aws_lambda_function.control.function_name
   authorization_type = "NONE"
@@ -166,9 +153,6 @@ resource "aws_iam_role_policy" "control_self_invoke" {
   })
 }
 
-# EC2 の状態変化で Lambda を呼ぶ。
-# 「コマンドを実行した時点」ではなく「実際に止まった時点」で Discord に投稿したいので、
-# ポーリングではなくイベントで受ける。CLI から止めた場合も拾える。
 resource "aws_cloudwatch_event_rule" "instance_state" {
   name        = "${local.name}-instance-state"
   description = "Notify Discord when the backend instance starts or stops."

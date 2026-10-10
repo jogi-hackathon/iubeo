@@ -33,24 +33,24 @@ const transform = (
   ...overrides,
 });
 
-// 時刻は進めたときだけ進む
-const make = () => {
+const make = (initialMe: string | null = null) => {
   let time = 1000;
-  const manager = createPlayerManager({now: () => time});
+  let me = initialMe;
+  const manager = createPlayerManager({now: () => time, myPlayerId: () => me});
   return {
     manager,
     at: (ms: number) => {
       time = ms;
     },
+    setMe: (id: string | null) => {
+      me = id;
+    },
   };
 };
 
 describe("createPlayerManager", () => {
-  it("初期状態は自分が決まっておらず、プレイヤーなし", () => {
-    expect(make().manager.getState()).toEqual({
-      localPlayerId: null,
-      players: [],
-    });
+  it("初期状態はプレイヤーなし", () => {
+    expect(make().manager.getState()).toEqual({players: []});
   });
 
   describe("apply", () => {
@@ -164,10 +164,8 @@ describe("createPlayerManager", () => {
         players: [{playerId: "a", transform: transform(2, 1)}],
       });
       const s = out();
-      // 1025 の位置 = 0 と 1 の中間
       expect(manager.sample("a", 1025 + INTERPOLATION_DELAY_MS, s)).toBe(true);
       expect(s.position.x).toBeCloseTo(0.5);
-      // 区間の速さ: 1m / 50ms = 20m/s。上下には動いていないので接地
       expect(s.velocity.x).toBeCloseTo(20);
       expect(s.onGround).toBe(true);
     });
@@ -210,7 +208,6 @@ describe("createPlayerManager", () => {
       });
       const s = out();
       manager.sample("a", 1050 + INTERPOLATION_DELAY_MS, s);
-      // -π / π をまたいで 0.2 だけ回る。中間は π(0 側を通らない)
       expect(Math.cos(s.yaw)).toBeCloseTo(-1);
     });
 
@@ -277,7 +274,6 @@ describe("createPlayerManager", () => {
         type: "transforms",
         players: [{playerId: "a", transform: transform(1, 0)}],
       });
-      // 5 秒止まっていて、4m/s で歩き出す
       at(6000);
       manager.apply({
         type: "transforms",
@@ -289,10 +285,8 @@ describe("createPlayerManager", () => {
         players: [{playerId: "a", transform: transform(3, 0.4)}],
       });
       const s = out();
-      // 受け取った瞬間は、まだ止まっていた位置
       manager.sample("a", 6000, s);
       expect(s.position.x).toBe(0);
-      // 遅延の後は、1 歩目の区間の途中を歩く速さで動いている
       manager.sample("a", 6075, s);
       expect(s.position.x).toBeCloseTo(0.1);
       expect(s.velocity.x).toBeCloseTo(4);
@@ -300,7 +294,6 @@ describe("createPlayerManager", () => {
 
     it("ジャンプの頂点をまたぐ区間で、接地に戻らない", () => {
       const {manager, at} = make();
-      // 地上 → 上昇 → 頂点をまたぐ(上下の差ほぼ 0)→ 下降
       const ys = [0, 0, 0.5, 0.8, 0.8, 0.5, 0];
       ys.forEach((y, i) => {
         at(1000 + i * 50);
@@ -319,10 +312,10 @@ describe("createPlayerManager", () => {
         manager.sample("a", ms + INTERPOLATION_DELAY_MS, s);
         return s.onGround;
       };
-      expect(groundAt(1025)).toBe(true); // 地上
-      expect(groundAt(1075)).toBe(false); // 上昇
-      expect(groundAt(1175)).toBe(false); // 頂点(0.8 → 0.8)
-      expect(groundAt(1275)).toBe(false); // 下降
+      expect(groundAt(1025)).toBe(true);
+      expect(groundAt(1075)).toBe(false);
+      expect(groundAt(1175)).toBe(false);
+      expect(groundAt(1275)).toBe(false);
     });
   });
 
@@ -352,9 +345,8 @@ describe("createPlayerManager", () => {
   });
 
   describe("自分", () => {
-    it("自分の位置は補間せず、snapshot の位置と向きだけ持つ", () => {
-      const {manager} = make();
-      manager.setLocalPlayerId("me");
+    it("自分の位置は届いても持たず(補間もしない)、他のプレイヤーは持つ", () => {
+      const {manager} = make("me");
       manager.apply({
         type: "reset",
         players: [
@@ -366,36 +358,32 @@ describe("createPlayerManager", () => {
         type: "transforms",
         players: [{playerId: "me", transform: transform(129)}],
       });
-      expect(manager.getLocalTransform()).toEqual(transform(128));
       expect(manager.sample("me", 5000, createPlayerState(0, 0, 0))).toBe(
         false,
       );
       expect(manager.sample("b", 5000, createPlayerState(0, 0, 0))).toBe(true);
+      expect(manager.getState().players.map((p) => p.playerId)).toEqual([
+        "me",
+        "b",
+      ]);
     });
 
-    it("snapshot の後に自分が決まっても、その snapshot の物を持ち、補間はしない", () => {
-      const {manager} = make();
+    it("自分の ID が無い間は、全員を他のプレイヤーとして持つ", () => {
+      const {manager} = make(null);
       manager.apply({
         type: "reset",
-        players: [{...status("me"), transform: transform(42)}],
+        players: [{...status("me"), transform: transform(1)}],
       });
-      manager.setLocalPlayerId("me");
-      expect(manager.getState().localPlayerId).toBe("me");
-      expect(manager.getLocalTransform()).toEqual(transform(42));
-      expect(manager.sample("me", 5000, createPlayerState(0, 0, 0))).toBe(
-        false,
-      );
+      expect(manager.sample("me", 5000, createPlayerState(0, 0, 0))).toBe(true);
     });
 
-    it("自分が別の id に変わったら、前の自分も他のプレイヤーと同じく、次の位置から補間する", () => {
-      const {manager} = make();
-      manager.setLocalPlayerId("x");
+    it("自分の ID が変わったら、前の自分も他のプレイヤーと同じく、次の位置から補間する", () => {
+      const {manager, setMe} = make("x");
       manager.apply({
         type: "reset",
         players: [{...status("x"), transform: transform(1)}],
       });
-      manager.setLocalPlayerId("y");
-      expect(manager.getLocalTransform()).toBeNull();
+      setMe("y");
       expect(manager.sample("x", 5000, createPlayerState(0, 0, 0))).toBe(false);
       manager.apply({
         type: "transforms",
@@ -404,13 +392,6 @@ describe("createPlayerManager", () => {
       const s = createPlayerState(0, 0, 0);
       expect(manager.sample("x", 5000, s)).toBe(true);
       expect(s.position.x).toBe(3);
-    });
-
-    it("自分が snapshot に居なければ null", () => {
-      const {manager} = make();
-      manager.setLocalPlayerId("me");
-      manager.apply({type: "reset", players: []});
-      expect(manager.getLocalTransform()).toBeNull();
     });
   });
 });

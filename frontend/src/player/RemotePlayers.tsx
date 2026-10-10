@@ -1,6 +1,7 @@
 import {useFrame} from "@react-three/fiber";
 import {useMemo, useState} from "react";
 
+import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {HeldItem} from "../items";
 import {playerManager} from "./playerStore";
@@ -9,20 +10,80 @@ import {createPlayerState} from "./state";
 import type {PlayerStatus} from "./types";
 import {usePlayersState} from "./usePlayers";
 
+/** CPU がその場でうろうろする円の半径(m)。区画の中で収まる大きさ */
+const CPU_WANDER_RADIUS = 0.9;
+/** CPU が円を 1 周する時間(秒) */
+const CPU_WANDER_SECONDS = 7;
+
+/**
+ * CPU の見た目のために、スポーンの周りを円を描いて歩かせる。
+ * 位置はサーバーが持たない(サーバーは CPU の transform を配らない)ので、見た目だけクライアントで作る。
+ * 遊びには影響しない(判定は位置を使わない)。
+ * 区画の中心から遠ざかる向きには動かさない(外壁・窓・仕切りへ寄って、外に出て見えないように)
+ */
+function wanderCpu(
+  state: ReturnType<typeof createPlayerState>,
+  t: number,
+  phase: number,
+): void {
+  const omega = (Math.PI * 2) / CPU_WANDER_SECONDS;
+  const w = (t / CPU_WANDER_SECONDS) * Math.PI * 2 + phase;
+  const x0 = state.position.x;
+  const z0 = state.position.z;
+  let ox = Math.cos(w) * CPU_WANDER_RADIUS;
+  let oz = Math.sin(w) * CPU_WANDER_RADIUS;
+  let vx = -Math.sin(w) * CPU_WANDER_RADIUS * omega;
+  let vz = Math.cos(w) * CPU_WANDER_RADIUS * omega;
+
+  const r = Math.hypot(x0, z0);
+  if (r > 1e-6) {
+    const ux = x0 / r;
+    const uz = z0 / r;
+    const outward = ox * ux + oz * uz;
+    if (outward > 0) {
+      ox -= outward * ux;
+      oz -= outward * uz;
+    }
+    const outwardV = vx * ux + vz * uz;
+    if (outwardV > 0) {
+      vx -= outwardV * ux;
+      vz -= outwardV * uz;
+    }
+  }
+
+  state.position.x = x0 + ox;
+  state.position.z = z0 + oz;
+  // 歩くアニメーションのために velocity を入れる(向きは実際に動く向き)
+  state.velocity.set(vx, 0, vz);
+  state.yaw = Math.atan2(-vx, -vz);
+  state.onGround = true;
+}
+
+/** プレイヤー id から、CPU ごとに違う開始角を作る(全員が同じ向きに動かないように) */
+const wanderPhase = (playerId: string): number => {
+  let h = 0;
+  for (const c of playerId) {
+    h = (h * 31 + c.charCodeAt(0)) % 1000;
+  }
+  return (h / 1000) * Math.PI * 2;
+};
+
 function RemotePlayer({player}: {player: PlayerStatus}) {
   const state = useMemo(() => createPlayerState(0, 0, 0), []);
-  const {playerId, heldItem} = player;
-  // 位置が 1 つも届いていない間は描かない(原点に立って見えないように)
+  const {playerId, heldItem, kind} = player;
   const [placed, setPlaced] = useState(false);
+  const phase = useMemo(() => wanderPhase(playerId), [playerId]);
 
-  useFrame(() => {
+  useFrame(({clock}) => {
     const ok = playerManager.sample(playerId, performance.now(), state);
+    if (ok && kind === "cpu") {
+      wanderCpu(state, clock.elapsedTime, phase);
+    }
     if (ok !== placed) {
       setPlaced(ok);
     }
   }, FRAME_PRIORITY.player);
 
-  // TODO: 脱落(life が eliminated に変わった瞬間。playerManager の lifeChanged)でラグドールに移す。今は立ったまま描く
   return (
     <PlayerSkeleton
       state={state}
@@ -35,20 +96,20 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
 
 /**
  * 自分以外のプレイヤーの身体。位置と向きは playerManager が補間した物を毎フレーム読む。
- * 切断中のプレイヤーは描かない(再接続すれば、また描く)。脱落したプレイヤーは描く。自分が決まるまでは誰も描かない
+ * 切断中のプレイヤーは描かない(再接続すれば、また描く)。脱落したプレイヤーは描く。自分が決まるまでは誰も描かない。
+ * CPU(kind=cpu)はサーバーが位置を配らないので、見た目だけクライアントでその場をうろうろさせる
  */
 export function RemotePlayers() {
-  const {localPlayerId, players} = usePlayersState();
-  // 自分が決まるまでは、自分の身体を他のプレイヤーとして描いてしまうので、誰も描かない
-  if (localPlayerId === null) {
+  const myPlayerId = useMyPlayerId();
+  const {players} = usePlayersState();
+  if (myPlayerId === null) {
     return null;
   }
   return (
     <>
       {players
         .filter(
-          (p) =>
-            p.playerId !== localPlayerId && p.connection !== "disconnected",
+          (p) => p.playerId !== myPlayerId && p.connection !== "disconnected",
         )
         .map((p) => (
           <RemotePlayer key={p.playerId} player={p} />

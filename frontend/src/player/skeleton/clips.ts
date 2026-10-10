@@ -1,10 +1,5 @@
 import {type Clip, mirrorPose, poseOf, type PoseSpec} from "./pose";
 
-/**
- * キーフレームの手書きデータ(関節位置)。座標系は joints.ts 参照。
- * 骨の長さは太もも・すねが約 0.4、上腕約 0.26、前腕約 0.24 で揃える(clips.test.ts で検証)
- */
-
 const IDLE_SPEC: PoseSpec = {
   head: [0, 1.6, 0],
   lShoulder: [-0.2, 1.38, 0],
@@ -25,7 +20,6 @@ const IDLE_SPEC: PoseSpec = {
 
 const idle = poseOf(IDLE_SPEC);
 
-/** 左足が前に着いた瞬間(右腕が前、左腕が後ろ)。胴は少し低い */
 const WALK_CONTACT = poseOf({
   ...IDLE_SPEC,
   head: [0, 1.58, 0],
@@ -45,7 +39,6 @@ const WALK_CONTACT = poseOf({
   rToe: [0.1, 0.03, 0.16],
 });
 
-/** 左足で立ち、右足が前へ振り出される途中。胴は少し高い */
 const WALK_PASSING = poseOf({
   ...IDLE_SPEC,
   head: [0, 1.62, 0],
@@ -65,7 +58,6 @@ const WALK_PASSING = poseOf({
   rToe: [0.1, 0.17, -0.15],
 });
 
-/** 1周期(2歩)。後半は前半の左右反転 */
 const walk: Clip = {
   loop: true,
   frames: [
@@ -76,7 +68,6 @@ const walk: Clip = {
   ],
 };
 
-/** 上昇(脚を伸ばし腕を振り上げる) → 頂点(膝を抱え腕を開く) → 落下(着地に備え腕を上げる) */
 const jump: Clip = {
   loop: false,
   frames: [
@@ -137,12 +128,6 @@ const jump: Clip = {
   ],
 };
 
-/**
- * アイテムを持つ姿勢(両腕を前に出し、両手でアイテムを挟む)。腕以外は使わないので他の関節は待機のまま。
- * 両手首の中点にアイテムを置く(held.ts)ので、一人称で手元が視野に入るよう、手首は目(高さ 1.6・前 0.2)の前下方に置く。
- * そのため腕はほぼ伸ばしているが、肘は肩と手首を結ぶ線より下に置き、反って(過伸展して)見えないようにする。
- * 肘・手首は骨の長さ(LIMBS)の範囲に収めている
- */
 const hold = poseOf({
   ...IDLE_SPEC,
   lElbow: [-0.16, 1.41, -0.26],
@@ -155,6 +140,5 @@ export const CLIPS = {
   idle: {loop: true, frames: [idle]},
   walk,
   jump,
-  /** 単一フレームのポーズ。腕だけを上書きするために使う(animator.ts) */
   hold: {loop: false, frames: [hold]},
 } as const satisfies Record<string, Clip>;

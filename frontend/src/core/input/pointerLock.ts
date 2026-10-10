@@ -66,32 +66,75 @@ const requestLock = (target: HTMLElement): void => {
   });
 };
 
+let suppressions = 0;
+
+let target: HTMLElement | null = null;
+
+/**
+ * マウスで画面（PC など）を操作している間、キャンバスのクリックで pointer lock を取らせない。
+ * 戻り値は解除関数（二重に呼んでも 1 回分しか解除しない）
+ */
+export const suppressPointerLock = (): (() => void) => {
+  suppressions++;
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    suppressions--;
+  };
+};
+
+/**
+ * 自分から pointer lock を取り直す（PC から離れて一人称へ戻った直後など、クリックを待たせたくない場面）。
+ *
+ * - 相手が未接続、すでにロック中、抑止中(suppressPointerLock)なら何もしない
+ * - ユーザーが操作したことのある document なら、クリック無しでも通る（ブラウザの要件。
+ *   ここへ来る時点で、PC を狙ったクリックか Esc があるので満たしている）
+ * - 通らなかった場合は黙って諦める。クリックでの取得(connectPointerLock)がそのまま残る
+ */
+export const resumePointerLock = (): void => {
+  const el = target;
+  if (el === null || suppressions > 0) {
+    return;
+  }
+  if (el.ownerDocument.pointerLockElement === el) {
+    return;
+  }
+  requestLock(el);
+};
+
 /** target のクリックで pointer lock を要求し、ロック中のマウス移動量を蓄積する。戻り値は解除関数 */
-export const connectPointerLock = (target: HTMLElement): (() => void) => {
-  const doc = target.ownerDocument;
+export const connectPointerLock = (element: HTMLElement): (() => void) => {
+  const doc = element.ownerDocument;
   const onClick = () => {
-    if (doc.pointerLockElement !== target) {
-      requestLock(target);
+    if (doc.pointerLockElement !== element && suppressions === 0) {
+      requestLock(element);
     }
   };
   const onMouseMove = (e: MouseEvent) => {
-    if (doc.pointerLockElement !== target) {
+    if (doc.pointerLockElement !== element) {
       return;
     }
     dx += e.movementX;
     dy += e.movementY;
   };
-  const onChange = () => setLocked(doc.pointerLockElement === target);
+  const onChange = () => setLocked(doc.pointerLockElement === element);
 
-  target.addEventListener("click", onClick);
+  target = element;
+  element.addEventListener("click", onClick);
   doc.addEventListener("mousemove", onMouseMove);
   doc.addEventListener("pointerlockchange", onChange);
   onChange();
 
   return () => {
-    target.removeEventListener("click", onClick);
+    element.removeEventListener("click", onClick);
     doc.removeEventListener("mousemove", onMouseMove);
     doc.removeEventListener("pointerlockchange", onChange);
+    if (target === element) {
+      target = null;
+    }
     setLocked(false);
   };
 };

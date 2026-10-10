@@ -4,11 +4,12 @@ import {
   connectPointerLock,
   consumeLookDelta,
   isPointerLocked,
+  resumePointerLock,
+  suppressPointerLock,
 } from "../pointerLock";
 
 type Handler = (e?: unknown) => void;
 
-/** DOM の最小モック。target と document(ownerDocument)だけを備える */
 const createDom = (
   requestPointerLock: (options?: unknown) => unknown = () => undefined,
 ) => {
@@ -146,5 +147,44 @@ describe("pointerLock 要求", () => {
     dom.setLock(true);
     dom.emit("click");
     expect(dom.mock.requestPointerLock).not.toHaveBeenCalled();
+  });
+});
+
+describe("pointerLock 取り直し", () => {
+  it("クリックを待たず、接続した相手へ unadjustedMovement 付きで要求する", () => {
+    const dom = createDom();
+    disconnect = connectPointerLock(dom.target);
+    resumePointerLock();
+    expect(dom.mock.requestPointerLock).toHaveBeenCalledTimes(1);
+    expect(dom.mock.requestPointerLock).toHaveBeenCalledWith({
+      unadjustedMovement: true,
+    });
+  });
+
+  it("接続前・接続が外れた後は何もしない", () => {
+    const dom = createDom();
+    const off = connectPointerLock(dom.target);
+    off();
+    resumePointerLock();
+    expect(dom.mock.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("すでにロック中なら要求しない", () => {
+    const dom = createDom();
+    disconnect = connectPointerLock(dom.target);
+    dom.setLock(true);
+    resumePointerLock();
+    expect(dom.mock.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("抑止中(PC を使っている間)は要求せず、抑止を解くと要求する", () => {
+    const dom = createDom();
+    disconnect = connectPointerLock(dom.target);
+    const release = suppressPointerLock();
+    resumePointerLock();
+    expect(dom.mock.requestPointerLock).not.toHaveBeenCalled();
+    release();
+    resumePointerLock();
+    expect(dom.mock.requestPointerLock).toHaveBeenCalledTimes(1);
   });
 });

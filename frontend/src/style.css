@@ -4,7 +4,7 @@ body,
   margin: 0;
   width: 100%;
   height: 100%;
-  background: #111;
+  background: #fff;
 }
 
 .boot-screen {
@@ -33,14 +33,77 @@ body,
   white-space: pre-wrap;
 }
 
-/* Canvas の上に被せる(ShaderWarmup の間)。下のシーンは描画を続ける */
-.boot-overlay {
+.cover-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10002;
-  background: #111;
+  z-index: 10000;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.cover-overlay[data-covered="true"] {
+  /*
+   * 完全に不透明(1)にしない。不透明な間はブラウザが下の Canvas を合成しないので、
+   * 外し始めた瞬間に初めて Canvas を合成する重い処理が走り、フェードのコマが飛んで一瞬で消えて見える(実測で約 0.46 秒止まる)。
+   * わずかに透かしておき、その処理を覆っている間に済ませる(目には白のまま)
+   */
+  opacity: 0.995;
+  pointer-events: auto;
+  transition-duration: 0.3s;
+}
+
+.cover-bar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 240px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  background: #e5e5e5;
+}
+
+.cover-bar-fill {
+  height: 100%;
+  background: #888;
+  transition: width 0.4s ease-out;
 }
 
 .boot-error {
+  background: #111;
   color: #f88;
+}
+
+/* 脱落の演出(HUD の EliminationFlash)。赤く暗転し、中央に「脱落」を出す */
+.elimination-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 0, 0, 0.6);
+  color: #fff;
+  font:
+    600 32px / 1 ui-monospace,
+    Menlo,
+    monospace;
+  letter-spacing: 0.4em;
+  pointer-events: none;
+  animation: elimination-flash 1.5s ease-out;
+}
+
+@keyframes elimination-flash {
+  0% {
+    background: rgba(180, 0, 0, 0.85);
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    background: rgba(120, 0, 0, 0.6);
+    opacity: 0.9;
+  }
 }

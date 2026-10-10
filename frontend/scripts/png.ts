@@ -1,4 +1,3 @@
-// 最小の PNG エンコーダ(8bit グレースケール・フィルタなし)。Node 専用
 import {deflateSync} from "node:zlib";
 
 let crcTable: Uint32Array | null = null;
@@ -30,6 +29,26 @@ const chunk = (type: string, data: Buffer): Buffer => {
   return Buffer.concat([len, typeBuf, data, crc]);
 };
 
+const predict = (filter: number, a: number, b: number, c: number): number => {
+  switch (filter) {
+    case 1:
+      return a;
+    case 2:
+      return b;
+    case 3:
+      return (a + b) >> 1;
+    case 4: {
+      const p = a + b - c;
+      const pa = Math.abs(p - a);
+      const pb = Math.abs(p - b);
+      const pc = Math.abs(p - c);
+      return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+    }
+    default:
+      return 0;
+  }
+};
+
 export const encodePNGGray8 = (
   width: number,
   height: number,
@@ -46,13 +65,33 @@ export const encodePNGGray8 = (
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 0; // color type: grayscale
-  // 10〜12: 圧縮・フィルタ・インターレースはすべて 0(既定)
+  ihdr[8] = 8;
+  ihdr[9] = 0;
   const raw = Buffer.alloc((width + 1) * height);
+  const candidates = Array.from({length: 5}, () => new Uint8Array(width));
   for (let y = 0; y < height; y++) {
-    raw[y * (width + 1)] = 0; // 行ごとのフィルタ種別: なし
-    raw.set(data.subarray(y * width, (y + 1) * width), y * (width + 1) + 1);
+    const row = data.subarray(y * width, (y + 1) * width);
+    const up = y > 0 ? data.subarray((y - 1) * width, y * width) : null;
+    let best = 0;
+    let bestSum = Infinity;
+    for (let filter = 0; filter < 5; filter++) {
+      const out = candidates[filter] as Uint8Array;
+      let sum = 0;
+      for (let x = 0; x < width; x++) {
+        const a = x > 0 ? (row[x - 1] as number) : 0;
+        const b = up ? (up[x] as number) : 0;
+        const c = x > 0 && up ? (up[x - 1] as number) : 0;
+        const v = ((row[x] as number) - predict(filter, a, b, c)) & 0xff;
+        out[x] = v;
+        sum += v < 128 ? v : 256 - v;
+      }
+      if (sum < bestSum) {
+        bestSum = sum;
+        best = filter;
+      }
+    }
+    raw[y * (width + 1)] = best;
+    raw.set(candidates[best] as Uint8Array, y * (width + 1) + 1);
   }
   return Buffer.concat([
     signature,

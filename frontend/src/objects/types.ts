@@ -1,10 +1,5 @@
 import type {JsonValue} from "../core/json";
 import type {PlayerId} from "../player/types";
-import type {Vec3} from "../props/types";
-
-// ここでいう「オブジェクト」は、ゲーム内で「オブジェクト」と呼ばれるもの(ワールドに置かれた、機能を持つ物体)。
-// three.js の Object3D や、見た目だけの部品である props/ とは別物なので、型名は GameObject にする。
-// 手に持つ物(ファイル・ライター)はアイテムで、items/ が別に扱う
 
 /** personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ) */
 export type ObjectScope = "personal" | "shared";
@@ -12,14 +7,16 @@ export type ObjectScope = "personal" | "shared";
 /** 使用不可(unavailable)は、users とは別軸。例: フラグが立つ前のライター */
 export type ObjectAvailability = "available" | "unavailable";
 
-/** kind ごとに決まる中身は data(JSON)に入れる。型は、kind が決まってから足す */
+/**
+ * サーバーのオブジェクトの形(スキーマと同じ)。位置・向きは持たない。置き場所と向きはシーンのレイアウト(./layout)が決める
+ * kind ごとに決まる中身は data(JSON)に入れる。型は、kind が決まってから足す
+ */
 export type GameObject = {
   id: string;
   kind: string;
   scope: ObjectScope;
   /** personal のときだけ */
   owner?: PlayerId;
-  position: Vec3;
   /** 今触っているプレイヤー。personal は最大 1 人、shared は複数人 */
   users: readonly PlayerId[];
   availability: ObjectAvailability;

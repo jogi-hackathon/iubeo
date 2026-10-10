@@ -60,7 +60,6 @@ func TestConnFlushesBeforeClose(t *testing.T) {
 		for _, b := range []string{"a", "b", "c"} {
 			c.enqueue([]byte(b))
 		}
-		// 書き出しを始める前に切っても、キューに残ったものは送る
 		c.CloseAfterFlush(CloseSessionEnded, string(ReasonFinished))
 		c.WriteLoop(r.Context())
 	}))

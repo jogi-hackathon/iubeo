@@ -1,7 +1,5 @@
 import {CENTER_CURSOR, type Cursor, moveCursor} from "./cursor";
 
-// 俯瞰の仮想カーソルの位置。毎フレーム動くので React の状態にはせず、DOM 側(OverviewCursor)が
-// 購読して style を直接書き換える。変わったときだけ通知する
 const cursor: Cursor = {...CENTER_CURSOR};
 const listeners = new Set<() => void>();
 

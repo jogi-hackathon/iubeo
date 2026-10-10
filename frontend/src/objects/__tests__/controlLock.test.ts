@@ -1,35 +1,72 @@
 import {describe, expect, it, vi} from "vitest";
 
+import {applyMessage} from "../../authority/apply";
+import {createLocalRules} from "../../authority/local/rules";
 import {isPlayerControlLocked} from "../../core/playerControl";
-import {createDummyAuthority} from "../../dev/dummyAuthority";
 import {createItemManager} from "../../items/itemManager";
-import {controlLockEffect, isWorkingAtObject} from "../controlLock";
+import {CANVAS_KIND} from "../canvas/data";
+import {controlLockEffect, isWorkingAt} from "../controlLock";
 import {createObjectManager} from "../objectManager";
+import type {GameObject, ObjectAvailability} from "../types";
+import {WORKSPACE_KIND} from "../workspace/data";
 
-// useObjectControlLock と同じ導出(状態 → 作業中か → 預かり)を、objectManager とつないで確かめる。
-// 預かり自体は実物(core/playerControl)で数える
 const setup = () => {
   const items = createItemManager();
   const timers: Array<() => void> = [];
-  let handle: Parameters<typeof createObjectManager>[0]["send"] = () => {};
   const objects = createObjectManager({
-    localPlayerId: "me",
     getHeldItem: () => {
       const held = items.getHeld();
       return held && {id: held.id, kind: held.kind};
     },
-    send: (r) => handle(r),
+    getAuthority: () => ({
+      playerId: "me",
+      kind: "local",
+      send: (r) => rules.handle(r),
+    }),
   });
-  const authority = createDummyAuthority({
-    localPlayerId: "me",
+  const rules = createLocalRules({
+    playerId: "me",
     objects,
-    items,
+    deliver: (message) =>
+      applyMessage({objects, items, myPlayerId: () => "me"}, message),
     schedule: (fn) => {
       timers.push(fn);
+      return () => {};
     },
   });
-  handle = authority.handle;
-  const working = () => isWorkingAtObject(objects.getState().objects, "me");
+  const put = (object: GameObject): string => {
+    rules.dev.deliver({type: "object.upsert", object});
+    return object.id;
+  };
+  const spawn = (id: string, kind: string): string =>
+    put({
+      id,
+      kind,
+      scope: "personal",
+      owner: "me",
+      users: [],
+      availability: "available",
+      data: null,
+    });
+  const authority = {
+    ...rules,
+    spawnWorkspace: (id: string): string => spawn(id, WORKSPACE_KIND),
+    spawnCanvas: (id: string): string => spawn(id, CANVAS_KIND),
+    setAvailability: (id: string, availability: ObjectAvailability): void => {
+      const object = objects.getObject(id);
+      if (object) {
+        put({...object, availability});
+      }
+    },
+    deleteHeldItem: (): void => rules.dev.setHeldItem(null),
+    removeObject: (id: string): void => {
+      rules.dev.deliver({type: "object.remove", id});
+    },
+  };
+  const working = (id: string) => {
+    const object = objects.getObject(id);
+    return object !== undefined && isWorkingAt(object, "me");
+  };
   return {
     objects,
     items,
@@ -39,51 +76,47 @@ const setup = () => {
   };
 };
 
-describe("isWorkingAtObject", () => {
-  it("ワークスペースの users に自分が入っている間だけ true", () => {
+describe("isWorkingAt(objectManager とローカルの窓口につないだ導出)", () => {
+  it("自分が users に入っている間だけ true", () => {
     const {objects, authority, working, finish} = setup();
-    const id = authority.spawnWorkspace([0, 0, -3]);
-    expect(working()).toBe(false);
+    const id = authority.spawnWorkspace("workspace-1");
+    expect(working(id)).toBe(false);
 
     objects.interact(id);
-    expect(working()).toBe(true);
+    expect(working(id)).toBe(true);
 
     finish();
-    expect(working()).toBe(false);
+    expect(working(id)).toBe(false);
   });
 
-  it("キャンバスの users に自分が入っている間も true", () => {
+  it("キャンバスも、自分が users に入っている間は true", () => {
     const {objects, authority, working, finish} = setup();
-    const id = authority.spawnCanvas([0, 0, -3]);
-    expect(working()).toBe(false);
+    const id = authority.spawnCanvas("canvas-1");
+    expect(working(id)).toBe(false);
 
     objects.interact(id);
-    expect(working()).toBe(true);
+    expect(working(id)).toBe(true);
 
     finish();
-    expect(working()).toBe(false);
+    expect(working(id)).toBe(false);
   });
 
-  it("ワークスペース・キャンバス以外のオブジェクトの users や、他のプレイヤーの作業では true にならない", () => {
+  it("他のプレイヤーが作業中の間は、自分は作業中にならない", () => {
     const {objects, authority, working} = setup();
-    const dummy = authority.spawnObject([0, 1, -3], "personal");
-    objects.interact(dummy);
-    expect(working()).toBe(false);
-
-    const ws = authority.spawnWorkspace([0, 0, -3]);
+    const ws = authority.spawnWorkspace("workspace-1");
     objects.apply({
       type: "upsert",
       object: {...objects.getObject(ws)!, users: ["other"]},
     });
-    expect(working()).toBe(false);
+    expect(working(ws)).toBe(false);
   });
 
   it("拒否されたとき(missing_item・unavailable)は、users に入らないので true にならない", () => {
-    const {objects, items, authority, working} = setup();
+    const {objects, authority, working} = setup();
     const onRejected = vi.fn();
     objects.on("interactRejected", onRejected);
-    const id = authority.spawnWorkspace([0, 0, -3]);
-    items.apply({type: "spawn", item: {id: "l", kind: "lighter", data: null}});
+    const id = authority.spawnWorkspace("workspace-1");
+    authority.dev.setHeldItem({id: "l", kind: "lighter", data: null});
 
     objects.interact(id);
 
@@ -91,7 +124,7 @@ describe("isWorkingAtObject", () => {
       objectId: id,
       reason: "missing_item",
     });
-    expect(working()).toBe(false);
+    expect(working(id)).toBe(false);
 
     authority.setAvailability(id, "unavailable");
     authority.deleteHeldItem();
@@ -100,18 +133,18 @@ describe("isWorkingAtObject", () => {
       objectId: id,
       reason: "unavailable",
     });
-    expect(working()).toBe(false);
+    expect(working(id)).toBe(false);
   });
 
-  it("作業中にワークスペースが remove されたら false に戻る", () => {
+  it("作業中にワークスペースが remove されたら、作業中のオブジェクトは無くなる", () => {
     const {objects, authority, working} = setup();
-    const id = authority.spawnWorkspace([0, 0, -3]);
+    const id = authority.spawnWorkspace("workspace-1");
     objects.interact(id);
-    expect(working()).toBe(true);
+    expect(working(id)).toBe(true);
 
     authority.removeObject(id);
 
-    expect(working()).toBe(false);
+    expect(working(id)).toBe(false);
   });
 });
 
@@ -140,6 +173,17 @@ describe("controlLockEffect", () => {
 
     expect(isPlayerControlLocked()).toBe(true);
     other?.();
+    expect(isPlayerControlLocked()).toBe(false);
+  });
+
+  it("二つのオブジェクトが同時に作業中でも、片方が終わっても預かりは残り、両方終わると外れる", () => {
+    const workspace = controlLockEffect(true);
+    const canvas = controlLockEffect(true);
+
+    workspace?.();
+    expect(isPlayerControlLocked()).toBe(true);
+
+    canvas?.();
     expect(isPlayerControlLocked()).toBe(false);
   });
 });

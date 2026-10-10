@@ -1,40 +1,48 @@
 import {useEffect} from "react";
 
 import {App} from "../App";
+import {CoverOverlay} from "../core/cover/CoverOverlay";
+import {bootStageCount} from "../core/cover/coverProgress";
+import {coverStore} from "../core/cover/coverStore";
+import {BOOT_STEPS} from "./boot";
 import {BootError} from "./BootError";
 import {BootErrorBoundary} from "./BootErrorBoundary";
 import {startBoot, useBootState} from "./bootStore";
 import {AppContextProvider} from "./context";
 
-/** 起動シーケンス完了までローディングを表示し、完了後に AppContext を提供して <App /> を描画する */
+const BOOT_COVER_STAGES = bootStageCount(BOOT_STEPS.length);
+
+/**
+ * 起動シーケンス。白い覆いと進捗バーを出し、完了後に AppContext を提供して <App /> を描画する。
+ * 覆いは App と一緒に残し、ウォームアップと最初のシーンの準備が終わったら外す(useBootCover)。エラー時は暗い画面のまま
+ */
 export function BootScreen() {
   const state = useBootState();
+  const bootIndex =
+    state.status === "running" ? (state.progress?.index ?? 0) : null;
 
   useEffect(() => {
     startBoot();
   }, []);
 
-  if (state.status === "ready") {
-    return (
-      <BootErrorBoundary>
-        <AppContextProvider value={state.ctx}>
-          <App />
-        </AppContextProvider>
-      </BootErrorBoundary>
-    );
-  }
+  useEffect(() => {
+    if (bootIndex !== null) {
+      coverStore.setBar(BOOT_COVER_STAGES, bootIndex);
+    }
+  }, [bootIndex]);
+
   if (state.status === "error") {
     return <BootError error={state.error} />;
   }
-  const {progress} = state;
+  if (state.status === "running") {
+    return <CoverOverlay />;
+  }
   return (
-    <div className="boot-screen">
-      <p>Loading...</p>
-      {progress && (
-        <p>
-          {progress.step} ({progress.index + 1}/{progress.total})
-        </p>
-      )}
-    </div>
+    <BootErrorBoundary>
+      <AppContextProvider value={state.ctx}>
+        <App />
+        <CoverOverlay />
+      </AppContextProvider>
+    </BootErrorBoundary>
   );
 }

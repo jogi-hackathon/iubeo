@@ -53,7 +53,6 @@ func TestMatchmakingFlow(t *testing.T) {
 		t.Errorf("GET after match = %+v, want matched to %s", st, *st2.SessionId)
 	}
 
-	// 参加中のセッションは /players/me にも出る
 	res = do(t, h, http.MethodGet, "/api/v1/players/me", c1)
 	if me := decode[api.Me](t, res); me.SessionId == nil || *me.SessionId != *st2.SessionId {
 		t.Errorf("me = %+v, want sessionId %s", me, *st2.SessionId)

@@ -9,10 +9,8 @@ import {
 } from "../../player";
 import {GRAVITY, JUMP_SPEED} from "../../player/constants";
 
-/** t 秒時点の状態を s に書く(物理は使わず、決まった動きをなぞるだけ) */
 type Script = (t: number, s: PlayerState) => void;
 
-/** 円周上を歩く。向きは進行方向 */
 const walkCircle =
   (cx: number, cz: number, radius: number, speed: number): Script =>
   (t, s) => {
@@ -26,7 +24,6 @@ const walkCircle =
 
 const JUMP_AIR_TIME = (2 * JUMP_SPEED) / GRAVITY;
 
-/** その場で周期的にジャンプする。yaw は原点(スポーン地点)側を向く */
 const jumpInPlace =
   (x: number, z: number, period: number): Script =>
   (t, s) => {
@@ -42,7 +39,6 @@ const jumpInPlace =
     s.yaw = Math.PI;
   };
 
-/** 立ち止まって原点側を向く */
 const stand =
   (x: number, z: number): Script =>
   (_, s) => {
@@ -54,7 +50,6 @@ const stand =
 
 interface DummyPlayerProps {
   script: Script;
-  /** true/false で固定。数値なら、その秒数ごとに持つ/持たないを切り替える */
   holding: boolean | number;
 }
 

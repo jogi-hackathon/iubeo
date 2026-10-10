@@ -5,44 +5,33 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
-      # Cloudflare Containers のイメージは cf が ../backend/Dockerfile から
-      # ビルドするので、backend の変更でも再デプロイが要る。
-      # これが無いと開発用のコンテナだけ古いままになる
       - "backend/**"
+      - "wisp/**"
       - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  # 直近に成功したデプロイの sha を取るため(gh run list)
   actions: read
 
 concurrency:
-  # 同時に 2 つ走るとデプロイが競合するので直列化する
   group: deploy-cloudflare
   cancel-in-progress: false
 
 jobs:
-  # CI が通ったときだけデプロイする
   ci:
     uses: ./.github/workflows/ci.yml
 
   deploy:
     needs: ci
-    # Cloudflare の API トークンは ref で絞れないので、本番へのデプロイは main からだけ許す。
-    # workflow_dispatch で別ブランチから実行しても、ここで skip される
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          # 今回の push で backend が変わったかを before..sha の差分で見るため、全履歴が要る
           fetch-depth: 0
 
-      # backend Worker が最後に確実に載ったコミット。直前の push だけを見ると、
-      # その push のデプロイが失敗していた場合に backend の変更を取りこぼすため、
-      # 「直近に成功したデプロイ」を基準にする
       - name: 直近に成功したデプロイのコミットを取得
         id: last
         env:
@@ -61,15 +50,11 @@ jobs:
           BEFORE: ${{ steps.last.outputs.sha }}
           SHA: ${{ github.sha }}
         run: |
-          # 判定できないときは安全側(再デプロイする)に倒す:
-          # 手動実行、直近の成功が無い、履歴に無い場合
           backend=true
           if [ "$EVENT_NAME" = "push" ] \
             && [ -n "$BEFORE" ] \
             && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            # backend か、この workflow 自体が直近の成功から変わっていなければ再デプロイしない。
-            # frontend だけの変更でコンテナを作り直すと、メモリ上のセッションが消えるため
             if git diff --quiet "$BEFORE" "$SHA" -- backend .github/workflows/deploy-cloudflare.yml; then
               backend=false
             fi
@@ -97,13 +82,24 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        # 署名鍵は既に Worker に保存されているので secrets file は要らない
         run: pnpm exec cf deploy --mode backend
+
+      # WISP(実サイトへ出るプロキシ)は backend の次、フロントの前にデプロイする。
+      # フロントがサービスバインディングで参照するため。トークンの検証鍵(WISP_KEY)は
+      # 既に Worker に保存されているので secrets file は要らない
+      - name: WISP Worker をデプロイ
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec cf deploy --mode wisp
 
       - name: フロント Worker をデプロイ
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        # 型検査も走る
+          IUBEO_WISP_ENABLED: "1"
+          VITE_ENGINE_BASE_URL: ${{ vars.VITE_ENGINE_BASE_URL }}
+          VITE_ENABLE_DEBUG: ${{ vars.VITE_ENABLE_DEBUG }}
         run: pnpm deploy

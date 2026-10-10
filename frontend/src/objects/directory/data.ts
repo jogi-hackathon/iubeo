@@ -2,6 +2,12 @@ import type {JsonValue} from "../../core/json";
 
 export const DIRECTORY_KIND = "directory";
 
+/**
+ * ディレクトリが持つ機能。トグル(core/toggles)のキーは「項目名:機能名」(例: directory:overview)。
+ * 機能 OFF にすると、手ぶらでインタラクトしても俯瞰に入らない(チュートリアル用)
+ */
+export const DIRECTORY_FEATURES = ["overview"] as const;
+
 /** 在庫の 1 ファイル。ファイル自体に色は付けず、color はアウトラインの色。status は編集前か編集済みか */
 export type StockFile = {
   id: string;
@@ -11,9 +17,13 @@ export type StockFile = {
 
 /**
  * ディレクトリの data。stock は「今ディレクトリの中にある」取り出し元のファイルだけ
- * (誰かが借りている間は含まれない)。outputs は成果物(新しく作ったファイル)の数
+ * (誰かが借りている間は含まれない)。outputs は成果物(新しく作ったファイル)の数。
+ * 山の大きさ(look)は data ではなく、置かれるシーンのレイアウトが決める
  */
-export type DirectoryData = {stock: StockFile[]; outputs: number};
+export type DirectoryData = {
+  stock: StockFile[];
+  outputs: number;
+};
 
 const parseStockFile = (value: JsonValue): StockFile | null => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

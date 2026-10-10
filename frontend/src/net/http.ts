@@ -70,12 +70,10 @@ export const createApiClient = ({
   };
 
   return {
-    /** 匿名プレイヤーを作り Cookie を発行する。既にあれば今のものを返す */
     createPlayer: () => request<Me>("POST", "/api/v1/players"),
     getMe: () => request<Me>("GET", "/api/v1/players/me"),
     joinMatchmaking: () =>
       request<MatchmakingStatus>("POST", "/api/v1/matchmaking"),
-    /** マッチング状況(ポーリング用)。待機列にいなければ 404 */
     getMatchmaking: () =>
       request<MatchmakingStatus>("GET", "/api/v1/matchmaking"),
     leaveMatchmaking: () => request<undefined>("DELETE", "/api/v1/matchmaking"),

@@ -13,7 +13,6 @@ import {listBakeTargets} from "./targets";
 
 const _center = new Vector3();
 
-/** ワールド座標のバウンディングボックス中心 */
 const worldCenter = (mesh: Mesh): [number, number, number] => {
   mesh.updateWorldMatrix(true, false);
   const geometry = mesh.geometry;
@@ -28,7 +27,6 @@ const worldCenter = (mesh: Mesh): [number, number, number] => {
   return [_center.x, _center.y, _center.z];
 };
 
-/** ワールド座標のバウンディングボックスのサイズ */
 const worldSize = (mesh: Mesh): [number, number, number] => {
   mesh.updateWorldMatrix(true, false);
   const geometry = mesh.geometry;
@@ -114,8 +112,6 @@ export const assignCharts = (
       chart[v] = id;
     }
   });
-  // どの三角形にも使われない頂点(SphereGeometry の極にできる重複頂点など)は、
-  // 同じ位置の割当済み頂点から番号を引き継ぐ(描画には使われないので見た目には影響しない)
   for (let v = 0; v < count; v++) {
     if (chart[v] !== UNSET) {
       continue;
@@ -134,7 +130,6 @@ export const assignCharts = (
         break;
       }
     }
-    // 孤立した頂点は描画にも使われないので、どのチャートでもよい
     chart[v] = found === UNSET ? 0 : found;
   }
   return {chart, chartCount: groups.length};

@@ -12,7 +12,6 @@ declare module "three-mesh-bvh/webgpu" {
   };
 
   interface BVHComputeData {
-    /** GPU に載せた storage buffer を解放する */
     dispose(): void;
   }
 }

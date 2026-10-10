@@ -1,11 +1,24 @@
-import {type CSSProperties, Fragment, useEffect, useState} from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
+import {authorityRegistry} from "../authority/registry";
+import {useTeamState} from "../authority/team";
 import {useDebugFlags} from "../core/debug/flags";
 import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
+import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
 import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
-import {dummyAuthority} from "./authority";
+import type {SceneLayout} from "../objects/layout";
+import {sceneLayouts} from "../scenes/layouts";
+import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
+import {useSceneState} from "../scenes/useScene";
+import {type LocalDevOps, getLocalDevOps} from "./localDevOps";
 
 // パネルは Canvas の外の DOM なので、操作するには Esc で pointer lock を解除してから使う。
 // SceneDebugPanel(左上)・PostProcessPanel(右上)と重ならないよう左下に置く
@@ -26,13 +39,25 @@ const headStyle: CSSProperties = {marginTop: 6, opacity: 0.7};
 
 /**
  * Shift+F10 で開くオブジェクト・アイテム管理パネル(VITE_ENABLE_DEBUG=true のときのみ)。
- * 操作はダミーのサーバー役を通す。interact だけは、実際のゲームと同じく objectManager から要求を送る
+ * 今の窓口(local / server / none)を表示する。開発用の操作(置く・外す・手持ち)は、窓口が dev を持つときだけ使える
+ * (ローカルのオーソリティが無ければ、押せないように無効にする)。interact だけは、実際のゲームと同じく objectManager から要求を送る
  */
 export function GameDebugPanel() {
   const {game} = useDebugFlags();
   const {objects} = useObjectsState();
   const {held} = useItemState();
+  const {current: sceneName} = useSceneState();
   const [rejected, setRejected] = useState("");
+  const authority = useSyncExternalStore(
+    authorityRegistry.subscribe,
+    authorityRegistry.current,
+  );
+  const dev = authority?.dev ? getLocalDevOps() : null;
+  const kind = authority ? authority.kind : "none";
+  const layout: SceneLayout = sceneLayouts[sceneName];
+  const hasSpares = Object.values(layout).some((item) =>
+    TEST_SPARE_IDS.includes(item.id),
+  );
 
   useEffect(
     () =>
@@ -48,24 +73,27 @@ export function GameDebugPanel() {
 
   return (
     <div style={panelStyle}>
-      <div style={headStyle}>objects</div>
-      <div style={rowStyle}>
-        {(["personal", "shared"] as const).map((scope) => (
-          <button
-            key={scope}
-            type="button"
-            onClick={() =>
-              // 続けて置いても重ならないよう、x をずらして並べる
-              dummyAuthority.spawnObject(
-                [((objects.length % 5) - 2) * 0.8, 1.5, -7],
-                scope,
-              )
-            }
-          >
-            spawn {scope}
-          </button>
-        ))}
-      </div>
+      <div style={headStyle}>authority: {kind}</div>
+      {hasSpares && (
+        <div style={rowStyle}>
+          {(["personal", "shared"] as const).map((scope) => (
+            <button
+              key={scope}
+              type="button"
+              disabled={!dev}
+              onClick={() => {
+                if (dev?.spawnSpareObject(scope) === undefined) {
+                  console.warn(
+                    "[debug] 予備のダミー(dummy-4〜8)はすべて置かれています",
+                  );
+                }
+              }}
+            >
+              spawn {scope}
+            </button>
+          ))}
+        </div>
+      )}
       {objects.length === 0 && <div style={{marginTop: 4}}>(none)</div>}
       {objects.map((o) => (
         <Fragment key={o.id}>
@@ -78,8 +106,9 @@ export function GameDebugPanel() {
             </button>
             <button
               type="button"
+              disabled={!dev}
               onClick={() =>
-                dummyAuthority.setAvailability(
+                dev?.setAvailability(
                   o.id,
                   o.availability === "available" ? "unavailable" : "available",
                 )
@@ -89,36 +118,46 @@ export function GameDebugPanel() {
             </button>
             <button
               type="button"
-              onClick={() => dummyAuthority.removeObject(o.id)}
+              disabled={!dev}
+              onClick={() => dev?.removeObject(o.id)}
             >
               remove
             </button>
           </div>
           {o.kind === DIRECTORY_KIND && (
-            <DirectoryRow id={o.id} data={o.data} />
+            <DirectoryRow id={o.id} data={o.data} dev={dev} />
           )}
         </Fragment>
       ))}
       <div style={{marginTop: 4}}>last rejected: {rejected || "-"}</div>
+      <TeamRows dev={dev} />
       <div style={headStyle}>items</div>
       <div style={rowStyle}>
         <span style={{flex: 1}}>held: {held ? held.id : "(none)"}</span>
-        <button type="button" onClick={() => dummyAuthority.spawnItem()}>
+        <button type="button" disabled={!dev} onClick={() => dev?.spawnItem()}>
           spawn item
         </button>
         <button
           type="button"
-          disabled={!held}
-          onClick={() => dummyAuthority.deleteHeldItem()}
+          disabled={!dev || !held}
+          onClick={() => dev?.deleteHeldItem()}
         >
           delete
         </button>
       </div>
       <div style={rowStyle}>
-        <button type="button" onClick={() => dummyAuthority.spawnNewFile()}>
+        <button
+          type="button"
+          disabled={!dev}
+          onClick={() => dev?.spawnNewFile()}
+        >
           new file
         </button>
-        <button type="button" onClick={() => dummyAuthority.editHeldFile()}>
+        <button
+          type="button"
+          disabled={!dev}
+          onClick={() => dev?.editHeldFile()}
+        >
           edit held file
         </button>
       </div>
@@ -126,22 +165,61 @@ export function GameDebugPanel() {
   );
 }
 
-/** ディレクトリの在庫・成果物・達成の数と、他のプレイヤーとしての貸し借り */
-function DirectoryRow({id, data}: {id: string; data: JsonValue}) {
+function DirectoryRow({
+  id,
+  data,
+  dev,
+}: {
+  id: string;
+  data: JsonValue;
+  dev: LocalDevOps | null;
+}) {
   const {stock, outputs} = parseDirectoryData(data);
   return (
     <div style={rowStyle}>
       <span style={{flex: 1}}>
         stock:{stock.length} outputs:{outputs} achieved:
-        {dummyAuthority.getAchieved()} borrowed:
-        {dummyAuthority.getBorrowedCount()}
+        {dev?.getAchieved() ?? "-"} borrowed:
+        {dev?.getBorrowedCount() ?? "-"}
       </span>
-      <button type="button" onClick={() => dummyAuthority.borrowAsOther(id)}>
+      <button
+        type="button"
+        disabled={!dev}
+        onClick={() => dev?.borrowAsOther(id)}
+      >
         other borrows
       </button>
-      <button type="button" onClick={() => dummyAuthority.returnAsOther(id)}>
+      <button
+        type="button"
+        disabled={!dev}
+        onClick={() => dev?.returnAsOther(id)}
+      >
         other returns
       </button>
     </div>
+  );
+}
+
+const TEAM_FLAGS: readonly (keyof Team)[] = ["bypassPermission", "fireStarted"];
+function TeamRows({dev}: {dev: LocalDevOps | null}) {
+  const team = useTeamState();
+  return (
+    <>
+      <div style={headStyle}>team(勝利フラグ)</div>
+      {TEAM_FLAGS.map((flag) => (
+        <div key={flag} style={rowStyle}>
+          <span style={{flex: 1}}>
+            {flag}: {String(team[flag])}
+          </span>
+          <button
+            type="button"
+            disabled={!dev}
+            onClick={() => dev?.toggleTeamFlag(flag)}
+          >
+            toggle
+          </button>
+        </div>
+      ))}
+    </>
   );
 }

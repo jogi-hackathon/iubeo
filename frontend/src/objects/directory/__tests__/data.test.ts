@@ -59,6 +59,13 @@ describe("parseDirectoryData", () => {
       outputs: 1,
     });
   });
+
+  it("山の大きさ(size)は data から読まない(置き場所のレイアウトが決める)", () => {
+    expect(parseDirectoryData({stock: [], outputs: 0, size: "small"})).toEqual({
+      stock: [],
+      outputs: 0,
+    });
+  });
 });
 
 describe("parseFileData", () => {

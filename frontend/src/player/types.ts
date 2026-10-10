@@ -34,22 +34,17 @@ export type PlayerTransform = {
 
 /** サーバー → クライアント。状態の正はサーバーで、ここは通知を反映するだけ */
 export type PlayerMessage =
-  /** 全員分を丸ごと入れ替える(接続・再接続時の snapshot) */
   | {
       type: "reset";
       players: ReadonlyArray<PlayerStatus & {transform: PlayerTransform}>;
     }
-  /** 1 人分の、位置と向き以外の変化(player.updated) */
   | {type: "upsert"; player: PlayerStatus}
-  /** 動いたプレイヤーの位置と向き(transforms。最大 20Hz) */
   | {
       type: "transforms";
       players: ReadonlyArray<{playerId: PlayerId; transform: PlayerTransform}>;
     };
 
 export type PlayerManagerState = {
-  /** 自分。決まるまでは null */
-  localPlayerId: PlayerId | null;
   /** 全員(自分を含む)。seat の昇順 */
   players: readonly PlayerStatus[];
 };

@@ -7,24 +7,26 @@
 }:
 
 {
-  # https://devenv.sh/basics/
   dotenv.enable = true;
 
-  # バックエンドの設定(backend/internal/config)。開発用の値。.env で上書きできる
-  env = {
+  # バックエンドの設定(backend/internal/config)。開発用の値。.env で上書きできる。
+  # dotenv は .env の値を lib.mkDefault(優先度 1000)で入れるので、ここの値はそれより弱い 1500 にする
+  # (そのままだと、ここの値が勝って .env が効かない。https://devenv.sh/integrations/dotenv/)
+  env = lib.mapAttrs (_: lib.mkOverride 1500) {
     IUBEO_ADDR = ":8080";
-    # 開発専用の署名鍵。本番では必ず別の秘密の値(32 バイト以上)を渡す
     IUBEO_SIGNING_KEY = "iubeo-dev-only-signing-key-do-not-use-in-prod";
-    # カンマ区切り。Vite の dev サーバー
     IUBEO_ALLOWED_ORIGINS = "http://localhost:5173";
     IUBEO_MATCH_SIZE = "3";
-    # フェーズの数・長さ・フェーズの間の長さ(time.ParseDuration の形)
     IUBEO_PHASE_COUNT = "3";
     IUBEO_PHASE_DURATION = "30s";
     IUBEO_INTERMISSION_DURATION = "10s";
+    IUBEO_BYPASS_DURATION = "30s";
+    IUBEO_FIRE_DURATION = "10s";
+    # 手元は 1 人でも通しを試せるように CPU で埋める(既定は 0 = 無効。0 にすれば本番と同じ挙動)。
+    # 短くしたいときは .env に IUBEO_CPU_FILL_AFTER=5s のように書く
+    IUBEO_CPU_FILL_AFTER = "30s";
   };
 
-  # https://devenv.sh/packages/
   packages = [
     pkgs.git
     pkgs.golangci-lint
@@ -34,7 +36,6 @@
     pkgs.commitizen
   ];
 
-  # https://devenv.sh/languages/
   languages.go = {
     enable = true;
     version = "1.27.1";
@@ -51,7 +52,6 @@
 
   languages.typescript.enable = true;
 
-  # https://devenv.sh/processes/
   processes.backend = {
     cwd = "backend";
     exec = "air";
@@ -61,7 +61,6 @@
     exec = "pnpm dev";
   };
 
-  # https://devenv.sh/scripts/
   scripts.fmt.exec = ''
     cd "$DEVENV_ROOT"
     gofmt -w backend
@@ -80,7 +79,6 @@
     if [ -f frontend/package.json ]; then pnpm --dir frontend test --if-present; fi
   '';
 
-  # backend/api/openapi.yaml を Swagger UI で見る(http://localhost:8090/docs/)
   scripts.swagger.exec = ''
     cd "$DEVENV_ROOT"
     echo "Swagger UI: http://localhost:8090/docs/"
@@ -92,16 +90,13 @@
     echo "node: $(node --version)  pnpm: $(pnpm --version)"
   '';
 
-  # https://devenv.sh/tests/
   enterTest = ''
     go version
     node --version
     pnpm --version
   '';
 
-  # https://devenv.sh/git-hooks/
   git-hooks.hooks = {
-    # 共通
     check-merge-conflicts.enable = true;
     detect-private-keys.enable = true;
     end-of-file-fixer.enable = true;
@@ -110,7 +105,6 @@
     nixfmt.enable = true;
     mdformat.enable = true;
 
-    # Go(backend/)
     gofmt = {
       enable = true;
       files = "^backend/.*\\.go$";
@@ -127,7 +121,6 @@
       stages = [ "pre-push" ];
     };
 
-    # Frontend(frontend/)
     oxfmt = {
       enable = true;
       files = "^frontend/";
@@ -145,7 +138,6 @@
       };
     };
 
-    # Conventional Commits
     commitizen.enable = true;
   };
 }

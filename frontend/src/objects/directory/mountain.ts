@@ -61,40 +61,73 @@ export type Mountain = {
   candidates: Candidate[];
 };
 
-/** 山の高さの上限(m) */
-export const MOUNTAIN_HEIGHT_MAX = 5.4;
-/** 山(芯と、束の端まで)が収まる、足元中心からの半径(m) */
-export const MOUNTAIN_REACH = 4.4;
-/** 俯瞰のカメラの、地面からの高さの下限(m)。真上からは、上の段が下の段の縁を隠すので、山の高さの約 2 倍から見て、下の段の上面を見えるようにする */
-export const VIEW_HEIGHT = MOUNTAIN_HEIGHT_MAX * 2;
+/**
+ * 山の大きさを決める値。段数・段の外側の半径(下の段と上の段。間の段は、同じ幅ずつ狭くなる)・高さの範囲(m)。
+ * 束の大きさ・本の積み方・はみ出す紙などは、大きさによらず共通
+ */
+export type MountainSize = {
+  tiers: number;
+  radiusBottom: number;
+  radiusTop: number;
+  heightMin: number;
+  heightMax: number;
+};
 
-const HEIGHT_MIN = 4.6;
-const HEIGHT_RANGE = MOUNTAIN_HEIGHT_MAX - HEIGHT_MIN;
-const TIERS = 7;
-/** 一番下の段と一番上の段の外側の半径(m)。段ごとに、同じ幅ずつ狭くなる */
-const RADIUS_BOTTOM = 3.6;
-const RADIUS_TOP = 0.6;
-/** 1 つの束(本の小さな山積み)の本の冊数の範囲。厚みは、束ごとに段の高さを不均等に分ける */
+export type MountainSizeName = "large" | "small";
+
+/** large は既定(test など)。small は room のような狭い部屋用 */
+export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
+  large: {
+    tiers: 7,
+    radiusBottom: 3.6,
+    radiusTop: 0.6,
+    heightMin: 4.6,
+    heightMax: 5.4,
+  },
+  small: {
+    tiers: 3,
+    radiusBottom: 1.6,
+    radiusTop: 0.6,
+    heightMin: 1.9,
+    heightMax: 2.2,
+  },
+};
+
+const REACH_MARGIN = 0.8;
+
+/** 山(芯と、束の端まで)が収まる、足元中心からの半径(m) */
+export const mountainReach = (size: MountainSizeName): number =>
+  MOUNTAIN_SIZES[size].radiusBottom + REACH_MARGIN;
+
+/** 山の高さの上限(m) */
+export const mountainHeightMax = (size: MountainSizeName): number =>
+  MOUNTAIN_SIZES[size].heightMax;
+
+/**
+ * 俯瞰のカメラの、地面からの高さの下限(m)。真上からは、上の段が下の段の縁を隠すので、
+ * 山の高さの約 2 倍から見て、下の段の上面を見えるようにする
+ */
+export const mountainViewHeight = (size: MountainSizeName): number =>
+  mountainHeightMax(size) * 2;
+
+/** large の値(後方互換) */
+export const MOUNTAIN_HEIGHT_MAX = mountainHeightMax("large");
+export const MOUNTAIN_REACH = mountainReach("large");
+export const VIEW_HEIGHT = mountainViewHeight("large");
+
 const BOOKS_PER_BUNDLE: [number, number] = [4, 6];
-/** 束の中で、向きが大きくずれて、はみ出す本の割合 */
 const ASKEW_RATE = 0.15;
-/** 束の幅・奥行き(m)。奥行きは、段の帯の幅(半径方向)に収まる大きさ */
 const BUNDLE_WIDTH: [number, number] = [0.55, 0.75];
 const BUNDLE_DEPTH: [number, number] = [0.36, 0.44];
-/** 束の中心どうしの周方向の間隔(m)の目安 */
 const BUNDLE_PITCH = 0.66;
 /** はみ出す紙の枚数 */
 export const LOOSE_COUNT = 64;
-/** 在庫ファイルの候補にする段の数(下から) */
 const CANDIDATE_TIERS = 4;
 /** 成果物として増やして見せる板の上限 */
 export const OUTPUT_MAX = 24;
 const CORE_SEGMENTS = 16;
-/** 芯の縁が、束のはみ出しより内側になる量(m)。束が芯を覆う */
 const CORE_INSET = 0.1;
-/** 芯の上面が、束の上面より下がる量(m)。同じ高さで重ねてちらつくのを避ける */
 const CORE_DROP = 0.05;
-/** 一番下の芯を、地面より下へ潜らせる量(m) */
 const CORE_SKIRT = 0.3;
 
 // 束は紙の白だけ(少し揺らす)。差し色は、薄いはみ出し紙の、ごく少数にだけ使う(大きな箱には使わない)
@@ -114,7 +147,6 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
     const r = outer - CORE_INSET;
     const y0 = t === 0 ? -CORE_SKIRT : t * tierHeight;
     const y1 = (t + 1) * tierHeight - CORE_DROP;
-    // 側面: 周を一周する帯(u が周方向、v が高さ)。継ぎ目の頂点は、uv が違うので重ねて持つ
     const bottom = positions.length / 3;
     [y0, y1].forEach((y, v) => {
       for (let j = 0; j <= CORE_SEGMENTS; j++) {
@@ -125,13 +157,11 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
     });
     const top = bottom + CORE_SEGMENTS + 1;
     const sideStart = indices.length;
-    // 面は外向き(側面は外、上面は上)
     for (let j = 0; j < CORE_SEGMENTS; j++) {
       indices.push(bottom + j, top + j + 1, bottom + j + 1);
       indices.push(bottom + j, top + j, top + j + 1);
     }
     groups.push({start: sideStart, count: indices.length - sideStart});
-    // 上面: 真上から見た平面の uv
     const ring = positions.length / 3;
     for (let j = 0; j < CORE_SEGMENTS; j++) {
       const a = (j / CORE_SEGMENTS) * Math.PI * 2;
@@ -150,30 +180,37 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
   return {positions, uvs, indices, groups};
 };
 
+/** ディレクトリの山の seed。山の形はこの値と大きさだけで決まる(id やシーンには依らない) */
+export const DIRECTORY_MOUNTAIN_SEED = "directory-1";
+
 /**
- * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed(ディレクトリの id)から決まる。
+ * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed から決まる(ディレクトリは固定の seed を使う)。
  * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(厚みの違う白い本を 4〜6 冊重ねた小さな山積み)を並べる。
- * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める
+ * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める。
+ * 段数・半径・高さは sizeName(MOUNTAIN_SIZES)で決まる(既定の large)
  */
-export const buildMountain = (seed: string): Mountain => {
+export const buildMountain = (
+  seed: string,
+  sizeName: MountainSizeName = "large",
+): Mountain => {
+  const size = MOUNTAIN_SIZES[sizeName];
+  const {tiers, radiusBottom, radiusTop} = size;
   const random = createRandom(hashString(`mountain:${seed}`));
   const range = ([a, b]: [number, number]) => a + random() * (b - a);
-  const height = HEIGHT_MIN + random() * HEIGHT_RANGE;
-  const tierHeight = height / TIERS;
-  const step = (RADIUS_BOTTOM - RADIUS_TOP) / (TIERS - 1);
+  const height = size.heightMin + random() * (size.heightMax - size.heightMin);
+  const tierHeight = height / tiers;
+  const step = (radiusBottom - radiusTop) / (tiers - 1);
   const tierRadii = Array.from(
-    {length: TIERS},
-    (_, t) => RADIUS_BOTTOM - t * step,
+    {length: tiers},
+    (_, t) => radiusBottom - t * step,
   );
 
   const sheets: Sheet[] = [];
   const candidates: Candidate[] = [];
-  // 成果物の板を載せられる束(候補にしなかった、下の方の段の束の上面)
   const outputSlots: Candidate[] = [];
-  // はみ出す紙の起点になる束(在庫ファイルの候補の束の上面は、真上から見えるようにしておくので除く)
   const looseSlots: Array<Candidate & {drop: number}> = [];
 
-  for (let t = 0; t < TIERS; t++) {
+  for (let t = 0; t < tiers; t++) {
     const outer = tierRadii[t] as number;
     const inner = tierRadii[t + 1] ?? 0;
     const band = outer - inner;
@@ -186,12 +223,10 @@ export const buildMountain = (seed: string): Mountain => {
       const r = mid + (random() - 0.5) * 0.14;
       const depth = Math.min(range(BUNDLE_DEPTH), band - 0.04);
       const width = range(BUNDLE_WIDTH);
-      // 幅の向きを周方向にそろえ、束ごとに少し崩す
       const yaw =
         Math.atan2(-Math.cos(theta), -Math.sin(theta)) + (random() - 0.5) * 0.8;
       const cx = Math.cos(theta) * r;
       const cz = Math.sin(theta) * r;
-      // 束は、厚みの違う本を 4〜6 冊積む。厚みは段の高さを不均等に分け、束の上面は段の高さにそろえる
       const books =
         BOOKS_PER_BUNDLE[0] +
         Math.floor(random() * (BOOKS_PER_BUNDLE[1] - BOOKS_PER_BUNDLE[0] + 1));
@@ -201,7 +236,6 @@ export const buildMountain = (seed: string): Mountain => {
       let top: Sheet | undefined;
       for (let j = 0; j < books; j++) {
         const thickness = ((weights[j] as number) / total) * tierHeight;
-        // 一番上の本は、在庫ファイルの候補の面になるので、大きさ・向きの崩しを控えめにする
         const isTop = j === books - 1;
         const askew = !isTop && random() < ASKEW_RATE;
         const w =
@@ -231,7 +265,6 @@ export const buildMountain = (seed: string): Mountain => {
           width: top.size[0],
           depth: top.size[2],
         };
-        // 束を 1 つおきに、在庫ファイルの候補と、成果物の置き場に分ける
         (i % 2 === 0 ? candidates : outputSlots).push(face);
         if (i % 2 !== 0) {
           looseSlots.push({...face, drop: tierHeight});
@@ -250,7 +283,6 @@ export const buildMountain = (seed: string): Mountain => {
     }
   }
 
-  // 成果物の板は、置き場の束の上に 1 枚ずつ。どの束に載せるかは seed から決まる(先頭から増える)
   const outputSheets = outputSlots
     .map((slot) => ({slot, order: random()}))
     .sort((a, b) => a.order - b.order)
@@ -269,7 +301,6 @@ export const buildMountain = (seed: string): Mountain => {
     const slot = looseSlots[
       Math.floor(random() * looseSlots.length)
     ] as Candidate & {drop: number};
-    // 束の外側(段の縁の側)へ、周方向を幅にして出す
     const theta = Math.atan2(slot.z, slot.x);
     const out = {x: Math.cos(theta), z: Math.sin(theta)};
     const yaw =
@@ -279,20 +310,16 @@ export const buildMountain = (seed: string): Mountain => {
     const depth = range([0.3, 0.5]);
     const mode = random();
     let tilt: number;
-    // 紙の内側の端が置かれる点(束の外側の縁)。外側の端は傾きで上下する
     let inner = {
       x: slot.x + out.x * (slot.depth / 2),
       z: slot.z + out.z * (slot.depth / 2),
     };
     let y = slot.topY;
     if (mode < 0.4) {
-      // 段の縁から、外へ垂れ下がる
       tilt = -(0.25 + random() * 0.65);
     } else if (mode < 0.7) {
-      // 外側の端が持ち上がって、斜めに立てかかる
       tilt = 0.8 + random() * 0.5;
     } else {
-      // 束の側面から、ほぼ水平に紙が出ている(内側の端は束の中に入れる)
       tilt = (random() - 0.5) * 0.3;
       inner = {x: inner.x - out.x * 0.12, z: inner.z - out.z * 0.12};
       y = slot.topY - random() * slot.drop * 0.3;
@@ -321,7 +348,12 @@ export const buildMountain = (seed: string): Mountain => {
     looseSheets,
     outputSheets,
     candidates: candidates.filter((c) =>
-      isVisibleFromAbove(c, tierRadii, tierHeight, VIEW_HEIGHT),
+      isVisibleFromAbove(
+        c,
+        tierRadii,
+        tierHeight,
+        mountainViewHeight(sizeName),
+      ),
     ),
   };
 };
@@ -342,11 +374,9 @@ export const isVisibleFromAbove = (
   for (let u = 0; u < tierRadii.length; u++) {
     const cornerR = tierRadii[u] as number;
     const cornerY = (u + 1) * tierHeight;
-    // 面より上の段の縁(外周の上端)だけが、視線を遮りうる
     if (cornerY <= face.topY + 1e-9 || cornerR >= r) {
       continue;
     }
-    // カメラ(0, cameraHeight)から面(r, topY)へ向かう視線が、縁の半径にいる高さ
     const lineY = cameraHeight - rise * (cornerR / r);
     if (lineY < cornerY + clearance) {
       return false;

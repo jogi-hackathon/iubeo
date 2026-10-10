@@ -1,34 +1,39 @@
-import {lazy, Suspense} from "react";
+import {lazy, Suspense, useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
+import {useBootCover} from "./core/cover/useBootCover";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
-import {Interaction, ManagedObjects, Reticle} from "./objects";
+import {Hud} from "./game/Hud";
+import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {scenes} from "./scenes";
+import {readinessOf} from "./scenes/readiness";
+import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
 
-// 開発時のみ読み込む。ダミーのサーバー役ごと、本番のバンドルには入らない
 const DevTools = import.meta.env.DEV
   ? lazy(() => import("./dev/DevTools"))
   : null;
 
 export function App() {
-  const sceneState = useSceneState();
-  // 遷移中は from のシーンを描画し続け、idle になった時点で to に切り替える
-  const sceneName =
-    sceneState.status === "idle" ? sceneState.current : sceneState.from;
+  const {current: sceneName} = useSceneState();
   const Scene = scenes[sceneName];
   const warmedUp = useShaderWarmupDone();
+  const [initialScene] = useState(sceneName);
+  useBootCover(initialScene, warmedUp);
+  const readiness = useMemo(() => readinessOf(sceneName), [sceneName]);
   return (
     <>
       <GameCanvas>
         {Scene && <Scene key={sceneName} />}
-        <ManagedObjects />
+        {readiness === "mount" && (
+          <ReportSceneReady key={`ready:${sceneName}`} scene={sceneName} />
+        )}
         <BakedAO scene={sceneName} />
         <PlayerController />
         <Interaction />
@@ -38,14 +43,9 @@ export function App() {
         <PostProcess />
         <ShaderWarmup />
       </GameCanvas>
-      {!warmedUp && (
-        <div className="boot-screen boot-overlay">
-          <p>Loading...</p>
-          <p>shaders</p>
-        </div>
-      )}
       <Reticle />
       <OverviewCursor />
+      <Hud />
       <PostProcessPanel />
       <SceneDebugPanel />
       {DevTools && (

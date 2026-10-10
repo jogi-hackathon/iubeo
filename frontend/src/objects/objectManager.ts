@@ -1,20 +1,18 @@
-import type {PlayerId} from "../player/types";
+import type {AuthorityHandle} from "../authority/registry";
 import type {
   GameObject,
   HeldItemRef,
   InteractOptions,
-  InteractRequest,
   ObjectEvents,
   ObjectManagerState,
   ObjectMessage,
 } from "./types";
 
 export type ObjectManagerOptions = {
-  localPlayerId: PlayerId;
   /** インタラクトの条件になる、今の手持ち */
   getHeldItem: () => HeldItemRef;
-  /** サーバーへの要求の送り先。開発時はダミーのサーバー役(dev/authority.ts)につなぐ */
-  send: (request: InteractRequest) => void;
+  /** 要求の送り先と、自分の ID。窓口(オーソリティ)が無ければ null で、要求は送らない */
+  getAuthority: () => AuthorityHandle | null;
 };
 
 /**
@@ -22,9 +20,8 @@ export type ObjectManagerOptions = {
  * 操作(interact)は要求として送るだけ。要求が通るかどうかはサーバーが決める
  */
 export const createObjectManager = ({
-  localPlayerId,
   getHeldItem,
-  send,
+  getAuthority,
 }: ObjectManagerOptions) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ObjectManagerState = {objects: []};
@@ -35,7 +32,6 @@ export const createObjectManager = ({
     interactRejected: new Set(),
   };
 
-  // コールバックの例外が他のコールバック・状態更新に影響しないようにする
   const set = (objects: readonly GameObject[]) => {
     state = {objects};
     for (const l of Array.from(listeners)) {
@@ -51,7 +47,6 @@ export const createObjectManager = ({
     event: K,
     payload: ObjectEvents[K],
   ) => {
-    // 通知中に追加されたコールバックは、今回のイベントでは呼ばない
     for (const cb of Array.from(handlers[event])) {
       try {
         cb(payload);
@@ -82,7 +77,6 @@ export const createObjectManager = ({
         handlers[event].delete(callback);
       };
     },
-    /** サーバーの通知を反映する。存在しない id の remove は無視する */
     apply: (message: ObjectMessage): void => {
       switch (message.type) {
         case "upsert": {
@@ -107,19 +101,15 @@ export const createObjectManager = ({
           return;
       }
     },
-    /**
-     * インタラクトの要求を送る。手持ちも一緒に渡す(インタラクトの条件になるため)。
-     * 手元に無いオブジェクトは送らず false を返す。要求が通るかは、サーバーが検証して決める。
-     * options.target は、対象の中から 1 つ選ぶ物(ディレクトリのファイルなど)で使う
-     */
     interact: (objectId: string, options: InteractOptions = {}): boolean => {
-      if (!find(objectId)) {
+      const authority = getAuthority();
+      if (!authority || !find(objectId)) {
         return false;
       }
-      send({
+      authority.send({
         type: "interact",
         objectId,
-        by: localPlayerId,
+        by: authority.playerId,
         heldItem: getHeldItem(),
         ...(options.target !== undefined && {target: options.target}),
       });

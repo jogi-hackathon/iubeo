@@ -37,6 +37,19 @@ variable "image_tag" {
   default     = "bootstrap"
 }
 
+variable "wisp_image_tag" {
+  description = "Initial value of the WISP image tag parameter. Release automation replaces it."
+  type        = string
+  default     = "bootstrap"
+}
+
+variable "wisp_pass" {
+  description = "Password required to issue WISP tokens on the instance (IUBEO_WISP_PASS). Empty leaves WISP token issuance disabled; the WISP process still runs but refuses everything."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "instance_type" {
   description = "EC2 instance type. t4g.small is burstable, run in unlimited mode so credits never throttle latency."
   type        = string

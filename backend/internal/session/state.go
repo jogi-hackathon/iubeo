@@ -22,15 +22,21 @@ type State struct {
 	Objects []ObjectState
 	Items   []ItemState
 	Team    api.Team
-	// Actions は作業中のワークスペースのアクション
-	Actions []WorkspaceAction
+	// Actions は作業中のワークスペース・キャンバスのアクション
+	Actions []ObjectAction
 	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
 	Phases PhaseRules
 	Phase  PhaseState
 	// Result は決着。決着前は Outcome が空
 	Result api.Result
-	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
-	rng rand.PCG
+	// BypassAt は最後のフェーズを生き残って bypassPermission を立てた時刻、FireAt は火をつけた時刻。まだならゼロ
+	BypassAt time.Time
+	FireAt   time.Time
+	rng      rand.PCG
+	// CpuNextAt は CPU が次にタスクを片付ける時刻(プレイヤー id ごと)。デバッグ用の CPU だけが使う
+	CpuNextAt map[string]time.Time
+	// CpuItemSeq は CPU が作ったファイルの id の連番
+	CpuItemSeq int
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -51,11 +57,9 @@ type PlayerState struct {
 	Life       api.LifeStatus
 	Transform  api.Transform
 	// ConnID は今の接続。無ければ 0
-	ConnID uint64
-	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)
+	ConnID   uint64
 	reported bool
-	// moved は前回の transforms の配信から動いたか
-	moved bool
+	moved    bool
 }
 
 // ObjectState はオブジェクトの内部状態。data は配るときに items から組み立てる
@@ -64,7 +68,6 @@ type ObjectState struct {
 	Kind         api.ObjectKind
 	Scope        api.ObjectScope
 	Owner        string
-	Position     api.Vec3
 	Users        []string
 	Availability api.ObjectAvailability
 }
@@ -89,9 +92,11 @@ type Location struct {
 type ItemState struct {
 	ID       string
 	Kind     api.ItemKind
-	Status   api.FileStatus // kind が file のときだけ
-	Color    string         // 在庫から取り出したファイルだけ
+	Status   api.FileStatus
+	Color    string
 	Location Location
+	// Home はライターの置き場(lighter_stand)の id。切断・脱落したらここに戻す
+	Home string
 }
 
 // Timeouts はセッションの時間の決まり
@@ -101,8 +106,9 @@ type Timeouts struct {
 }
 
 // NewMultiplayerState は自動マッチングでそろったプレイヤーの、開始前(waiting)の状態を作る。
-// playerIDs の並びが席の順。seed はタスクの分配に使う乱数の種
-func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
+// humanIDs の並びが席の順で、そのあとに cpuIDs が続く(CPU は接続しないので connected で作り、開始を待たせない)。
+// seed はタスクの分配に使う乱数の種
+func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
 		Mode:           api.SessionModeMultiplayer,
@@ -112,42 +118,60 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 		AbandonTimeout: timeouts.Abandon,
 		Phases:         phases,
 		rng:            *rand.NewPCG(seed, seed),
+		CpuNextAt:      map[string]time.Time{},
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
 		Kind:         api.Directory,
 		Scope:        api.Shared,
-		Position:     slices.Clone(directoryPosition),
 		Users:        []string{},
 		Availability: api.ObjectAvailabilityAvailable,
 	})
-	st.Items = initialItems()
-	for i, pid := range playerIDs {
+	ids := append(slices.Clone(humanIDs), cpuIDs...)
+	for i, pid := range ids {
 		seat := i + 1
+		kind, connection := api.Human, api.Connecting
+		if i >= len(humanIDs) {
+			kind, connection = api.Cpu, api.Connected
+		}
 		st.Players = append(st.Players, PlayerState{
 			ID:         pid,
-			Kind:       api.Human,
+			Kind:       kind,
 			Seat:       seat,
-			Connection: api.Connecting,
+			Connection: connection,
 			Life:       api.Alive,
-			Transform:  api.Transform{Position: slices.Clone(spawnPositions[seat])},
 		})
 		st.Objects = append(st.Objects, ObjectState{
 			ID:           workspaceID(seat),
 			Kind:         api.Workspace,
 			Scope:        api.Personal,
 			Owner:        pid,
-			Position:     slices.Clone(workspacePositions[seat]),
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityAvailable,
 		})
+		st.Objects = append(st.Objects, ObjectState{
+			ID:           canvasID(seat),
+			Kind:         api.Canvas,
+			Scope:        api.Personal,
+			Owner:        pid,
+			Users:        []string{},
+			Availability: api.ObjectAvailabilityAvailable,
+		})
+		st.Objects = append(st.Objects, ObjectState{
+			ID:           lighterStandID(seat),
+			Kind:         api.LighterStand,
+			Scope:        api.Personal,
+			Owner:        pid,
+			Users:        []string{},
+			Availability: api.ObjectAvailabilityUnavailable,
+		})
 	}
+	st.Items = st.initialItems()
 	return st
 }
 
-// initialItems はアイテムの初期状態(ディレクトリの初期在庫)を返す
-func initialItems() []ItemState {
-	items := make([]ItemState, 0, len(directoryStock))
+func (st State) initialItems() []ItemState {
+	items := make([]ItemState, 0, len(directoryStock)+len(st.Players))
 	for _, f := range directoryStock {
 		items = append(items, ItemState{
 			ID:       f.id,
@@ -157,10 +181,18 @@ func initialItems() []ItemState {
 			Location: Location{Kind: InDirectory, ObjectID: directoryID},
 		})
 	}
+	for _, p := range st.Players {
+		stand := lighterStandID(p.Seat)
+		items = append(items, ItemState{
+			ID:       lighterID(p.Seat),
+			Kind:     api.Lighter,
+			Location: Location{Kind: OnObject, ObjectID: stand},
+			Home:     stand,
+		})
+	}
 	return items
 }
 
-// clone は State の深いコピーを返す。Step は受け取った State を書き換えずに、コピーを変えて返す
 func (st State) clone() State {
 	c := st
 	c.Players = slices.Clone(st.Players)
@@ -169,12 +201,17 @@ func (st State) clone() State {
 	}
 	c.Objects = slices.Clone(st.Objects)
 	for i := range c.Objects {
-		c.Objects[i].Position = slices.Clone(st.Objects[i].Position)
 		c.Objects[i].Users = slices.Clone(st.Objects[i].Users)
 	}
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
 	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
+	if st.CpuNextAt != nil {
+		c.CpuNextAt = make(map[string]time.Time, len(st.CpuNextAt))
+		for k, v := range st.CpuNextAt {
+			c.CpuNextAt[k] = v
+		}
+	}
 	return c
 }
 
@@ -190,8 +227,6 @@ func (st *State) player(id string) *PlayerState {
 func (st State) HasPlayer(id string) bool {
 	return st.player(id) != nil
 }
-
-// ---------- 配る形への組み立て(state-schema.md §3.2) ----------
 
 func (st State) heldItem(playerID string) *api.Item {
 	for _, it := range st.Items {
@@ -246,7 +281,6 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 		Id:           o.ID,
 		Kind:         o.Kind,
 		Scope:        o.Scope,
-		Position:     slices.Clone(o.Position),
 		Users:        slices.Clone(o.Users),
 		Availability: o.Availability,
 		Data:         nil,
@@ -254,8 +288,13 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 	if o.Owner != "" {
 		g.Owner = &o.Owner
 	}
-	if o.Kind == api.Directory {
+	switch o.Kind {
+	case api.Directory:
 		g.Data = st.directoryData(o.ID)
+	case api.LighterStand:
+		g.Data = api.LighterStandData{HasLighter: slices.ContainsFunc(st.Items, func(it ItemState) bool {
+			return it.Kind == api.Lighter && it.Location.Kind == OnObject && it.Location.ObjectID == o.ID
+		})}
 	}
 	return g
 }
@@ -283,7 +322,7 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 			Connection: ps.Connection,
 			Life:       ps.Life,
 			HeldItem:   ps.HeldItem,
-			Transform:  cloneTransform(p.Transform),
+			Transform:  p.apiTransform(),
 		})
 	}
 	for _, o := range st.Objects {
@@ -298,6 +337,14 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 		snap.Game.Result = &result
 	}
 	return snap
+}
+
+func (p PlayerState) apiTransform() *api.Transform {
+	if !p.reported {
+		return nil
+	}
+	t := cloneTransform(p.Transform)
+	return &t
 }
 
 func cloneTransform(t api.Transform) api.Transform {

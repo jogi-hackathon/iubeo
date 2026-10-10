@@ -28,7 +28,6 @@ class FakeSocket implements SocketLike {
     this.readyState = 3;
   }
 
-  // サーバー側の操作
   serverOpen() {
     this.readyState = 1;
     this.onopen?.({});
@@ -41,9 +40,9 @@ class FakeSocket implements SocketLike {
           : JSON.stringify(message),
     });
   }
-  serverClose(code: number) {
+  serverClose(code: number, reason = "") {
     this.readyState = 3;
-    this.onclose?.({code});
+    this.onclose?.({code, reason});
   }
 }
 
@@ -79,7 +78,6 @@ const setup = (options: {maxRetries?: number} = {}) => {
     ...options,
   });
   const latest = () => sockets[sockets.length - 1]!;
-  /** 予約された再接続を実行する */
   const runTimers = () => {
     for (const t of timers.splice(0)) {
       if (!t.cancelled) {
@@ -114,12 +112,12 @@ describe("createSessionConnection", () => {
     const onTask = vi.fn();
     conn.on("task.completed", onTask);
 
-    latest().serverSend(taskCompleted(5)); // snapshot 前
+    latest().serverSend(taskCompleted(5));
     latest().serverSend(snapshot(10));
-    latest().serverSend(taskCompleted(10)); // 基準と同じ
-    latest().serverSend(taskCompleted(9)); // 古い
+    latest().serverSend(taskCompleted(10));
+    latest().serverSend(taskCompleted(9));
     latest().serverSend(taskCompleted(11));
-    latest().serverSend(taskCompleted(11)); // 重複
+    latest().serverSend(taskCompleted(11));
 
     expect(onTask.mock.calls.map(([m]) => m.seq)).toEqual([11]);
   });
@@ -283,25 +281,23 @@ describe("createSessionConnection", () => {
     expect(conn.getState()).toEqual({
       status: "reconnecting",
       closeCode: CLOSE_SLOW,
+      closeReason: "",
     });
     expect(timers.map((t) => t.ms)).toEqual([500]);
     runTimers();
     expect(sockets).toHaveLength(2);
 
-    // つながる前に、もう一度失敗する
     latest().serverClose(1006);
     expect(timers.map((t) => t.ms)).toEqual([1000]);
     runTimers();
 
     latest().serverOpen();
     expect(conn.getState().status).toBe("open");
-    // 再接続後は snapshot が届くまで、seq を持つメッセージを捨てる
     latest().serverSend(taskCompleted(11));
     latest().serverSend(snapshot(20));
     latest().serverSend(taskCompleted(21));
     expect(onTask.mock.calls.map(([m]) => m.seq)).toEqual([21]);
 
-    // snapshot が届いたので、待ち時間は最初に戻る
     latest().serverClose(1006);
     expect(timers.map((t) => t.ms)).toEqual([500]);
   });
@@ -321,8 +317,23 @@ describe("createSessionConnection", () => {
     const {conn, timers, latest} = setup();
     latest().serverOpen();
     latest().serverClose(code);
-    expect(conn.getState()).toEqual({status: "closed", closeCode: code});
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: code,
+      closeReason: "",
+    });
     expect(timers).toHaveLength(0);
+  });
+
+  it("close の reason を状態に持つ(サーバーの理由を HUD と console に出す用)", () => {
+    const {conn, latest} = setup();
+    latest().serverOpen();
+    latest().serverClose(CLOSE_SESSION_ENDED, "dissolved");
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: CLOSE_SESSION_ENDED,
+      closeReason: "dissolved",
+    });
   });
 
   it("再接続の上限を超えたら closed にする", () => {
@@ -333,7 +344,11 @@ describe("createSessionConnection", () => {
     runTimers();
     latest().serverClose(1006);
     expect(sockets).toHaveLength(3);
-    expect(conn.getState()).toEqual({status: "closed", closeCode: 1006});
+    expect(conn.getState()).toEqual({
+      status: "closed",
+      closeCode: 1006,
+      closeReason: "",
+    });
   });
 
   it("close() で閉じたら、予約した再接続も取り消す", () => {

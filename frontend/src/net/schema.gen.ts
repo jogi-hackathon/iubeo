@@ -58,6 +58,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/wisp/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
+     * @description WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人だけに、
+     *     期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
+     *     サーバーに合言葉(IUBEO_WISP_PASS)が設定されていれば、それを X-Iubeo-Wisp-Pass で送った人だけに返す
+     *     (PC が開発中で、開発メンバーだけが触る間の制限)。
+     */
+    get: operations["getWispToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/matchmaking": {
     parameters: {
       query?: never;
@@ -233,6 +256,18 @@ export interface components {
       /** @description 参加中のセッション。無ければ null */
       sessionId: string | null;
     };
+    WispToken: {
+      /**
+       * @description WISP の WebSocket の URL。`token` のクエリを含む
+       * @example wss://example.test/wisp/?token=abc.def
+       */
+      url: string;
+      /**
+       * Format: date-time
+       * @description トークンの期限(接続を始めるのはこの前に)
+       */
+      expiresAt: string;
+    };
     MatchmakingStatus: {
       /** @enum {string} */
       status: "queued" | "matched";
@@ -266,7 +301,7 @@ export interface components {
       id: string;
       kind: components["schemas"]["ItemKind"];
     };
-    /** @description ワールドに置かれた、機能を持つ物体 */
+    /** @description ワールドに置かれた、機能を持つ物体。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める */
     GameObject: {
       /** @example directory-1 */
       id: string;
@@ -274,11 +309,10 @@ export interface components {
       scope: components["schemas"]["ObjectScope"];
       /** @description scope が personal のときだけ */
       owner?: components["schemas"]["PlayerId"];
-      position: components["schemas"]["Vec3"];
       /** @description 今触っているプレイヤー。personal は最大 1 人、shared は複数人 */
       users: components["schemas"]["PlayerId"][];
       availability: components["schemas"]["ObjectAvailability"];
-      /** @description kind が directory なら DirectoryData。他は未定(null) */
+      /** @description kind が directory なら DirectoryData、lighter_stand なら LighterStandData。他は未定(null) */
       data: components["schemas"]["JsonValue"];
     };
     StockFile: {
@@ -291,6 +325,11 @@ export interface components {
       stock: components["schemas"]["StockFile"][];
       /** @description このフェーズで入れられた成果物(新しく作ったファイル)の数 */
       outputs: number;
+    };
+    /** @description ライターの置き場。bypassPermission が立つまでは availability が unavailable */
+    LighterStandData: {
+      /** @description 置き場にライターがあるか(持ち主が持っている間は false) */
+      hasLighter: boolean;
     };
     Transform: {
       /** @description 足元の位置 */
@@ -322,7 +361,8 @@ export interface components {
       heldItem: components["schemas"]["Item"] | null;
     };
     Player: components["schemas"]["PlayerStatus"] & {
-      transform: components["schemas"]["Transform"];
+      /** @description 最初の transform を受け取るまでは null。初期位置はサーバーが持たず、フロントが seat から決める */
+      transform: components["schemas"]["Transform"] | null;
     };
     Task: {
       taskId: string;
@@ -608,6 +648,15 @@ export interface components {
         "application/json": components["schemas"]["Error"];
       };
     };
+    /** @description 今は使えない(設定が無いなど) */
+    Unavailable: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["Error"];
+      };
+    };
     /** @description 今の状態ではできない(既にセッションに参加中など) */
     Conflict: {
       headers: {
@@ -700,6 +749,32 @@ export interface operations {
         };
       };
       401: components["responses"]["Unauthorized"];
+    };
+  };
+  getWispToken: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description WISP を使うための合言葉。サーバーに設定があるときだけ要る */
+        "X-Iubeo-Wisp-Pass"?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 接続先の URL(トークンを含む) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WispToken"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      503: components["responses"]["Unavailable"];
     };
   };
   getMatchmaking: {

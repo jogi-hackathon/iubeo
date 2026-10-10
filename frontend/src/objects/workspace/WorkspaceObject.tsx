@@ -3,6 +3,7 @@ import {useRef} from "react";
 import {BoxGeometry, CylinderGeometry, MeshStandardMaterial} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
+import {useControlLockWhileWorking} from "../controlLock";
 import type {GameObject} from "../types";
 import {
   DESK_HEIGHT,
@@ -15,7 +16,6 @@ import {
 
 const CYLINDER_SEGMENTS = 10;
 
-// 部品はみな同じ単位の形を scale で伸ばすので、ジオメトリとマテリアルは種類ごとに 1 つを共有する(手元のアイテムと同じ)
 const GEOMETRIES: Record<PartShape, BoxGeometry | CylinderGeometry> = {
   box: new BoxGeometry(1, 1, 1),
   cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
@@ -27,7 +27,6 @@ const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
   paper: new MeshStandardMaterial({color: "#fbfaf6"}),
 };
 
-// アニメーションのモックの、天板上の光る板(作業スペースいっぱいに出す)
 const PANEL_THICKNESS = 0.02;
 const PANEL_COLOR = "#7fd1ff";
 const PANEL_PULSE_HZ = 2;
@@ -81,8 +80,10 @@ export function WorkspaceActionAnimation() {
  * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
  * - モックなので、コライダーは持たない
  * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは机全体の外周に 1 本付く
+ * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
  */
 export function WorkspaceObject({object}: {object: GameObject}) {
+  useControlLockWhileWorking(object);
   return (
     <group userData={aoModeUserData("realtime")}>
       {DESK_PARTS.map((part, i) => (

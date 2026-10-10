@@ -27,7 +27,7 @@ describe("getEyePosition", () => {
   it("前は身体の向きに従い、水平距離は常に EYE_FORWARD(pitch には依らない)", () => {
     const s = createPlayerState(0, 0, 0);
     const out = new Vector3();
-    s.yaw = Math.PI / 2; // 前は -X
+    s.yaw = Math.PI / 2;
     s.pitch = 1;
     getEyePosition(s, out);
     expect(out.x).toBeCloseTo(-EYE_FORWARD);

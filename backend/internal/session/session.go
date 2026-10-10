@@ -30,7 +30,7 @@ type Config struct {
 	AbandonTimeout time.Duration
 	// TickInterval ごとに transforms を配る(20Hz = 50ms)
 	TickInterval time.Duration
-	// Phases はフェーズの数と長さ
+	// Phases はフェーズの数と長さ、決着までの長さ
 	Phases PhaseRules
 }
 
@@ -39,10 +39,15 @@ var DefaultConfig = Config{
 	StartTimeout:   30 * time.Second,
 	AbandonTimeout: 60 * time.Second,
 	TickInterval:   50 * time.Millisecond,
-	Phases:         PhaseRules{Count: 3, Duration: 30 * time.Second, Intermission: 10 * time.Second},
+	Phases: PhaseRules{
+		Count:        3,
+		Duration:     30 * time.Second,
+		Intermission: 10 * time.Second,
+		Bypass:       30 * time.Second,
+		Fire:         10 * time.Second,
+	},
 }
 
-// inboxSize はセッションの入力チャネルの長さ
 const inboxSize = 256
 
 // Session は 1 回のゲーム。状態は run の goroutine だけが持つ
@@ -141,7 +146,6 @@ func (s *Session) Snapshot(ctx context.Context) (api.SessionSnapshot, error) {
 	}
 }
 
-// runtime は run の goroutine が持つもの
 type runtime struct {
 	state State
 	conns map[uint64]*Conn
@@ -186,7 +190,6 @@ func (s *Session) run(st State, cfg Config, now func() time.Time, onEnd func()) 
 	}
 }
 
-// step は入力を規則に渡し、結果を行う。セッションが終わったら true
 func (rt *runtime) step(in Input) bool {
 	var out []Output
 	rt.state, out = Step(rt.state, in)
@@ -254,7 +257,6 @@ func (rt *runtime) deliver(c *Conn, msg any) {
 	}
 }
 
-// deliverBytes は transforms なら古いものと置き換え、それ以外は送信キューに入れる
 func deliverBytes(c *Conn, msg any, b []byte) {
 	if _, ok := msg.(api.TransformsMessage); ok {
 		c.replaceLatest(b)
@@ -280,20 +282,22 @@ func (m *Manager) Store() Store {
 	return m.store
 }
 
-// CreateMultiplayer は自動マッチングでそろったプレイヤーのセッションを作り、goroutine を立てる
-func (m *Manager) CreateMultiplayer(playerIDs []string) *Session {
+// CreateMultiplayer は自動マッチングでそろったプレイヤーのセッションを作り、goroutine を立てる。
+// cpuIDs はデバッグ用に足す CPU(接続しない)。席は人間、CPU の順
+func (m *Manager) CreateMultiplayer(humanIDs []string, cpuIDs []string) *Session {
+	playerIDs := append(slices.Clone(humanIDs), cpuIDs...)
 	s := &Session{
 		ID:        "sess-" + rand.Text(),
-		PlayerIDs: slices.Clone(playerIDs),
+		PlayerIDs: playerIDs,
 		CreatedAt: m.now(),
 		inbox:     make(chan any, inboxSize),
 		done:      make(chan struct{}),
 	}
 	timeouts := Timeouts{Start: m.config.StartTimeout, Abandon: m.config.AbandonTimeout}
-	st := NewMultiplayerState(s.ID, s.PlayerIDs, s.CreatedAt, timeouts, m.config.Phases, mrand.Uint64())
+	st := NewMultiplayerState(s.ID, humanIDs, cpuIDs, s.CreatedAt, timeouts, m.config.Phases, mrand.Uint64())
 	m.store.Add(s)
 	go s.run(st, m.config, m.now, func() { m.store.Remove(s.ID) })
-	slog.Info("session created", "session", s.ID, "players", s.PlayerIDs)
+	slog.Info("session created", "session", s.ID, "players", s.PlayerIDs, "cpus", len(cpuIDs))
 	return s
 }
 
@@ -307,6 +311,6 @@ func (m *Manager) SessionOf(playerID string) (string, bool) {
 }
 
 // Create は自動マッチングでそろったプレイヤーのセッションを作り、その ID を返す(matchmaking.Sessions)
-func (m *Manager) Create(playerIDs []string) string {
-	return m.CreateMultiplayer(playerIDs).ID
+func (m *Manager) Create(humanIDs []string, cpuIDs []string) string {
+	return m.CreateMultiplayer(humanIDs, cpuIDs).ID
 }

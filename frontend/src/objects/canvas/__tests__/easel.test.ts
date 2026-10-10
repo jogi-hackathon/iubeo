@@ -18,7 +18,6 @@ import {
 
 const PAPER = "paper";
 
-// 描画(CanvasObject・CanvasPaper)と同じく、単位の箱を scale で伸ばした mesh を組む。紙の mesh は userData.part が PAPER
 const buildEasel = () => {
   const group = new Group();
   const entries: [EaselPart | typeof PAPER, PaperPlacement][] = [
@@ -58,7 +57,6 @@ describe("easel", () => {
   it("脚は足を床に着け、全体は見上げるほど高くない(2m 以内)", () => {
     const {meshes} = buildEasel();
     const touching = meshes.filter((m) => bounds(m).min.y < 0.01);
-    // 前脚 2 本 + 後脚 1 本
     expect(touching.length).toBe(3);
     const top = Math.max(...meshes.map((m) => bounds(m).max.y));
     expect(top).toBeLessThanOrEqual(2);
@@ -76,7 +74,6 @@ describe("easel", () => {
       meshes.find((m) => m.userData.part === part)!;
     const bar = meshOf(TOP_BAR_PART);
     const rear = meshOf(REAR_LEG_PART);
-    // 単位の箱なので、局所座標の y=0.5 の面が後脚の上端。その 4 つの角が、横木の箱の中にある
     for (const x of [-0.5, 0.5]) {
       for (const z of [-0.5, 0.5]) {
         const corner = bar.worldToLocal(
@@ -88,7 +85,6 @@ describe("easel", () => {
       }
     }
 
-    // 木枠(CANVAS_SIZE の幅・高さを持つ部品)の上端より、横木の下面が上にある(正面から見える)
     const frame = meshes.find(
       (m) =>
         m.userData.part !== PAPER &&
@@ -110,7 +106,6 @@ describe("easel", () => {
         Math.abs(m.scale.x - CANVAS_SIZE[0]) < 1e-9 &&
         Math.abs(m.scale.y - CANVAS_SIZE[1]) < 1e-9,
     )!;
-    // 木枠の天面の、手前の縁・奥の縁の中央
     for (const z of [-0.5, 0.5]) {
       const p = clamp.worldToLocal(frame.localToWorld(new Vector3(0, 0.5, z)));
       expect(p.y).toBeCloseTo(-0.5, 6);

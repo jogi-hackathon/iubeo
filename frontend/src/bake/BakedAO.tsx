@@ -10,6 +10,7 @@ import {
   type Texture,
   TextureLoader,
 } from "three";
+import type {NodeMaterial} from "three/webgpu";
 
 import {
   getPostProcessSettings,
@@ -18,6 +19,7 @@ import {
 import {getSkipGTAO, setSkipGTAO} from "../camera/postprocess/skipGTAO";
 import {subscribeColliders} from "../core/bvh";
 import {holdShaderWarmup} from "../core/ShaderWarmup";
+import {erasableBakedAO} from "./aoErase";
 import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
 import {
   atlasUV,
@@ -36,12 +38,14 @@ type AOMaterial = Material & {
 
 const hasAOMap = (m: Material): m is AOMaterial => "aoMap" in m;
 
+const isNodeMaterial = (m: Material): m is AOMaterial & NodeMaterial =>
+  (m as {isNodeMaterial?: boolean}).isNodeMaterial === true;
+
 const materialsOf = (mesh: Mesh): Material[] =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
 const loadAtlas = async (url: string): Promise<Texture> => {
   const texture = await new TextureLoader().loadAsync(url);
-  // AO はリニアの値。アトラスはチャートを詰めてあるので mipmap は隣のチャートがにじむため使わない
   texture.colorSpace = NoColorSpace;
   texture.flipY = false;
   texture.generateMipmaps = false;
@@ -52,7 +56,6 @@ const loadAtlas = async (url: string): Promise<Texture> => {
   return texture;
 };
 
-/** 現在のシーンの静的 mesh にアトラスを貼る。貼れたら元に戻す関数を、合わなければ理由を返す */
 const applyAtlas = (
   root: Object3D,
   layout: BakedAOLayout,
@@ -79,7 +82,6 @@ const applyAtlas = (
       sharedWithOthers.add(m);
     }
   });
-  // GTAO を省けるかはマテリアル単位で決まるので、同じマテリアルを使う mesh の AO モードを集める
   const modesByMaterial = new Map<Material, AOMode[]>();
   for (const mesh of meshes) {
     for (const m of materialsOf(mesh)) {
@@ -126,21 +128,27 @@ const applyAtlas = (
         );
         continue;
       }
-      // 同じマテリアルを複数の mesh が使うと、2つ目以降では貼り済み
       if (material.aoMap === texture) {
         continue;
       }
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
+      const nodeMaterial = isNodeMaterial(material) ? material : null;
+      const prevAONode = nodeMaterial?.aoNode ?? null;
+      if (nodeMaterial) {
+        nodeMaterial.aoNode = erasableBakedAO();
+      }
       material.aoMap = texture;
-      // false も明示する(シェーダのキャッシュキーは値だけを並べるので、baked と both を区別するため)
       setSkipGTAO(material, skipsGTAO(modesByMaterial.get(material) ?? []));
       material.needsUpdate = true;
       materials.push(material);
       undos.push(() => {
         material.aoMap = prev;
         material.aoMapIntensity = prevIntensity;
+        if (nodeMaterial) {
+          nodeMaterial.aoNode = prevAONode;
+        }
         setSkipGTAO(material, prevSkip);
         material.needsUpdate = true;
       });
@@ -188,7 +196,6 @@ export function BakedAO({scene}: {scene: string}) {
     let apply: (() => void) | null = null;
     let lastMessage = "";
 
-    // 1回のコミットで複数のコライダーが登録されるので、マイクロタスクでまとめて1回だけ貼り直す
     let scheduled = false;
     const schedule = () => {
       if (scheduled) {
@@ -215,7 +222,6 @@ export function BakedAO({scene}: {scene: string}) {
     });
 
     const log = (level: "info" | "warn", message: string) => {
-      // 貼り直しのたびに同じ内容を出さない
       if (message === lastMessage) {
         return;
       }
@@ -229,17 +235,22 @@ export function BakedAO({scene}: {scene: string}) {
         atlas: `${import.meta.env.BASE_URL}${files.atlas}`,
         layout: `${import.meta.env.BASE_URL}${files.layout}`,
       };
+      const atlasPromise = loadAtlas(urls.atlas);
+      atlasPromise.catch(() => {});
       const res = await fetch(urls.layout);
-      // SPA フォールバックのあるホスティングでは、無いファイルが index.html(200)で返る
       if (!res.ok || res.headers.get("content-type")?.startsWith("text/html")) {
         log(
           "info",
           `${urls.layout} がありません。pnpm bake:ao --scene=${scene} でベイクできます`,
         );
+        atlasPromise.then(
+          (t) => t.dispose(),
+          () => {},
+        );
         return;
       }
       const layout = parseLayout(await res.arrayBuffer());
-      const atlas = await loadAtlas(urls.atlas);
+      const atlas = await atlasPromise;
       if (disposed) {
         atlas.dispose();
         return;
@@ -265,7 +276,6 @@ export function BakedAO({scene}: {scene: string}) {
         undo = result.undo;
         applied = result.materials;
         syncIntensity(applied);
-        // 貼り直しのたびに同じ警告を出さないよう、log の重複抑制に通す(警告があるときは情報ログの代わりに出す)
         const warning = [...new Set(result.warnings)].join(" / ");
         if (warning) {
           log("warn", warning);

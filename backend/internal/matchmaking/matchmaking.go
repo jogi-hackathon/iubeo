@@ -2,6 +2,7 @@
 package matchmaking
 
 import (
+	"crypto/rand"
 	"errors"
 	"slices"
 	"sync"
@@ -14,12 +15,9 @@ import (
 const StaleAfter = 10 * time.Second
 
 var (
-	// ErrInSession はセッションに参加中のため待機列に入れない
 	ErrInSession = errors.New("player is already in a session")
-	// ErrNotQueued は待機していない(マッチングも成立していない)
 	ErrNotQueued = errors.New("player is not in matchmaking")
-	// ErrMatched は既にマッチングが成立している
-	ErrMatched = errors.New("matchmaking has already succeeded")
+	ErrMatched   = errors.New("matchmaking has already succeeded")
 )
 
 // State はプレイヤーのマッチング状況
@@ -31,10 +29,19 @@ type State struct {
 
 // Sessions はマッチングが参照・作成するセッション
 type Sessions interface {
-	// SessionOf はプレイヤーが参加中のセッションの ID を返す
 	SessionOf(playerID string) (string, bool)
-	// Create はプレイヤーたちのセッションを作り、その ID を返す
-	Create(playerIDs []string) string
+	// Create は人間と CPU でセッションを作る。CPU は接続しないので、人数がそろわなくても開始できる
+	Create(humanIDs []string, cpuIDs []string) string
+}
+
+// Options はマッチングの設定
+type Options struct {
+	// FillAfter は、この時間たっても size に届かないとき、足りない分を CPU で埋めてセッションを作る。
+	// 0 で無効(既定)。人数がそろう通常の経路には影響しない。
+	// デバッグ用: 1 戦の確認に 3 人分のブラウザと Cookie をそろえるのが大変なので、1 人でも遊べるようにする
+	FillAfter time.Duration
+	// NewCPUPlayerID は CPU の id を作る。既定は "cpu-" + ランダム
+	NewCPUPlayerID func() string
 }
 
 type entry struct {
@@ -45,25 +52,36 @@ type entry struct {
 
 // Matchmaker は待機列。そろった順(先着)に size 人ずつ組んでセッションを作る
 type Matchmaker struct {
-	size     int
-	sessions Sessions
-	now      func() time.Time
+	size           int
+	sessions       Sessions
+	now            func() time.Time
+	fillAfter      time.Duration
+	newCPUPlayerID func() string
 
 	mu      sync.Mutex
 	queue   []*entry
-	matched map[string]State // マッチングが成立したプレイヤー。セッションが無くなったら消す
+	matched map[string]State
 }
 
 // New は size 人ずつ組む Matchmaker を作る
-func New(size int, sessions Sessions, now func() time.Time) *Matchmaker {
-	return &Matchmaker{size: size, sessions: sessions, now: now, matched: map[string]State{}}
+func New(size int, sessions Sessions, now func() time.Time, opts Options) *Matchmaker {
+	if opts.NewCPUPlayerID == nil {
+		opts.NewCPUPlayerID = func() string { return "cpu-" + rand.Text() }
+	}
+	return &Matchmaker{
+		size:           size,
+		sessions:       sessions,
+		now:            now,
+		fillAfter:      opts.FillAfter,
+		newCPUPlayerID: opts.NewCPUPlayerID,
+		matched:        map[string]State{},
+	}
 }
 
 func (m *Matchmaker) find(playerID string) int {
 	return slices.IndexFunc(m.queue, func(e *entry) bool { return e.playerID == playerID })
 }
 
-// matchedState は成立したマッチングを返す。セッションが無くなっていれば消して false
 func (m *Matchmaker) matchedState(playerID string) (State, bool) {
 	st, ok := m.matched[playerID]
 	if !ok {
@@ -76,12 +94,10 @@ func (m *Matchmaker) matchedState(playerID string) (State, bool) {
 	return st, true
 }
 
-// evictStale はポーリングが途絶えたプレイヤーを待機列から外す
 func (m *Matchmaker) evictStale(now time.Time) {
 	m.queue = slices.DeleteFunc(m.queue, func(e *entry) bool { return now.Sub(e.lastSeen) > StaleAfter })
 }
 
-// match は待機列の先頭から size 人ずつ組む
 func (m *Matchmaker) match() {
 	for len(m.queue) >= m.size {
 		group := m.queue[:m.size]
@@ -89,12 +105,36 @@ func (m *Matchmaker) match() {
 		for i, e := range group {
 			ids[i] = e.playerID
 		}
-		sessionID := m.sessions.Create(ids)
+		sessionID := m.sessions.Create(ids, nil)
 		for _, e := range group {
 			m.matched[e.playerID] = State{QueuedAt: e.queuedAt, SessionID: sessionID}
 		}
 		m.queue = slices.Delete(m.queue, 0, m.size)
 	}
+}
+
+// fillWithCPUs は、待機が FillAfter を超えた人がいるとき、足りない分を CPU で埋めてセッションを作る(デバッグ用)。
+// 人間が size 人そろう通常の経路(match)とは排他で、人数が足りないときだけ働く
+func (m *Matchmaker) fillWithCPUs(now time.Time) {
+	if m.fillAfter <= 0 || len(m.queue) == 0 || len(m.queue) >= m.size {
+		return
+	}
+	if now.Sub(m.queue[0].queuedAt) < m.fillAfter {
+		return
+	}
+	humanIDs := make([]string, len(m.queue))
+	for i, e := range m.queue {
+		humanIDs[i] = e.playerID
+	}
+	cpuIDs := make([]string, 0, m.size-len(humanIDs))
+	for range m.size - len(humanIDs) {
+		cpuIDs = append(cpuIDs, m.newCPUPlayerID())
+	}
+	sessionID := m.sessions.Create(humanIDs, cpuIDs)
+	for _, e := range m.queue {
+		m.matched[e.playerID] = State{QueuedAt: e.queuedAt, SessionID: sessionID}
+	}
+	m.queue = nil
 }
 
 // Join は待機列に入る。既に待機中なら今の状況を返す。セッションに参加中なら ErrInSession
@@ -113,6 +153,7 @@ func (m *Matchmaker) Join(playerID string) (State, error) {
 		m.queue = append(m.queue, &entry{playerID: playerID, queuedAt: now, lastSeen: now})
 	}
 	m.match()
+	m.fillWithCPUs(now)
 	return m.status(playerID)
 }
 
@@ -126,6 +167,7 @@ func (m *Matchmaker) Get(playerID string) (State, error) {
 	if i := m.find(playerID); i >= 0 {
 		m.queue[i].lastSeen = now
 	}
+	m.fillWithCPUs(now)
 	return m.status(playerID)
 }
 

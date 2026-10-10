@@ -25,7 +25,6 @@ export function useKeys(): RefObject<Set<string>> {
   useEffect(() => {
     const set = keys.current;
     const down = (e: KeyboardEvent) => {
-      // パネル操作中はゲームの入力として扱わない(矢印キーでのスライダー操作も妨げない)
       if (isEditableTarget(e.target)) {
         return;
       }

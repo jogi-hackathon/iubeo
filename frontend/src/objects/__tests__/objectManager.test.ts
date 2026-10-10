@@ -14,7 +14,6 @@ const object = (
   id,
   kind: "dummy",
   scope: "personal",
-  position: [0, 1, -3],
   users: [],
   availability: "available",
   data: null,
@@ -24,9 +23,8 @@ const object = (
 const make = (options: Partial<ObjectManagerOptions> = {}) => {
   const send = vi.fn<(r: InteractRequest) => void>();
   const manager = createObjectManager({
-    localPlayerId: "me",
     getHeldItem: () => null,
-    send,
+    getAuthority: () => ({playerId: "me", kind: "local", send}),
     ...options,
   });
   return {manager, send};
@@ -35,6 +33,18 @@ const make = (options: Partial<ObjectManagerOptions> = {}) => {
 describe("createObjectManager", () => {
   it("初期状態はオブジェクトなし", () => {
     expect(make().manager.getState()).toEqual({objects: []});
+  });
+
+  it("窓口(オーソリティ)が無ければ、要求は送らず、interact は false を返す", () => {
+    const send = vi.fn<(r: InteractRequest) => void>();
+    const manager = createObjectManager({
+      getHeldItem: () => null,
+      getAuthority: () => null,
+    });
+    manager.apply({type: "upsert", object: object("a")});
+
+    expect(manager.interact("a")).toBe(false);
+    expect(send).not.toHaveBeenCalled();
   });
 
   describe("apply", () => {

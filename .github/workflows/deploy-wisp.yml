@@ -1,0 +1,75 @@
+name: deploy-wisp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wisp/**"
+      - ".github/workflows/deploy-wisp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-wisp
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      # タグは ECR で immutable なので、同じ sha の再実行で push すると「already exists」で落ちる。
+      # 既にあれば build と push は飛ばし、SSM の更新だけを進める(失敗したジョブの再実行に備える)
+      - name: 同じタグのイメージが既にあるか確認
+        id: exists
+        env:
+          IMAGE: ${{ vars.ECR_WISP_REPOSITORY }}:release-${{ github.sha }}
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "既にあるので build と push は飛ばす: $IMAGE"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: arm64 のイメージをビルドして push
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          REPOSITORY: ${{ vars.ECR_WISP_REPOSITORY }}
+          TAG: release-${{ github.sha }}
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --provenance=false \
+            --tag "$REPOSITORY:$TAG" \
+            --push \
+            ./wisp
+
+      - name: デプロイ対象のタグを更新
+        env:
+          TAG: release-${{ github.sha }}
+        run: |
+          aws ssm put-parameter \
+            --name /iubeo-prototype/wisp-image-tag \
+            --value "$TAG" \
+            --type String \
+            --overwrite
+          echo "次に EC2 を起動したとき WISP は $TAG で動きます"

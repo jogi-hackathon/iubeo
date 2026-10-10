@@ -3,7 +3,6 @@ import {useEffect, useRef} from "react";
 import {getCursor, subscribeCursor} from "./cursorStore";
 import {useOverviewPhase} from "./overview";
 
-// OS 風のマウスポインタ。白塗りに暗い縁取りで、白い世界でも見える。先端(0,0)がカーソル位置
 const ARROW = "M1 1 L1 19 L5.2 15 L8.4 22.4 L11.4 21.1 L8.2 13.9 L14 13.9 Z";
 
 /**

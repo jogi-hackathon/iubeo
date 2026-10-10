@@ -16,7 +16,6 @@ describe("resolveAim", () => {
   });
 
   it("最初の当たりがコライダーだけの物(壁など)なら、奥のオブジェクトは狙わない", () => {
-    // 壁に当たった時点で、それが「最初の当たり」になる。奥の物は判定に渡らない
     expect(
       resolveAim({objectId: null, distance: 0.8}, {isTargetable: always}),
     ).toBeNull();
