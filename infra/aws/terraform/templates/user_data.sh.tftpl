@@ -30,6 +30,11 @@ if [ ! -f /etc/iubeo/env ]; then
     echo "IUBEO_WISP_URL=${wisp_url}"
     echo "IUBEO_WISP_PASS=${wisp_pass}"
 %{ endif ~}
+%{ if vc_private_key != "" ~}
+    echo "IUBEO_VC_PRIVATE_KEY=${vc_private_key}"
+    echo "IUBEO_VC_SIGNALING_URL=${vc_signaling_url}"
+    echo "IUBEO_VC_MEDIA_URL=${vc_media_url}"
+%{ endif ~}
   } > /etc/iubeo/env
   chmod 0600 /etc/iubeo/env
 

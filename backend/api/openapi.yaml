@@ -119,6 +119,29 @@ paths:
         "503":
           $ref: "#/components/responses/Unavailable"
 
+  /api/v1/voice/token:
+    get:
+      tags: [voice]
+      operationId: getVoiceToken
+      summary: Voice Chat に繋ぐためのトークンと接続先を返す
+      description: |
+        セッションの参加者にだけ、VC の JWT(EdDSA)と接続先を返す。room はセッション id で、
+        moq-relay はその room の中でだけ publish/subscribe を許す(vc の /v1/moq/auth)。
+        セッションに居ない場合は 403。
+      responses:
+        "200":
+          description: 接続情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
   /api/v1/matchmaking:
     post:
       tags: [matchmaking]
@@ -392,6 +415,29 @@ components:
           example: wss://example.test/wisp/?token=abc.def
         expiresAt:
           description: トークンの期限(接続を始めるのはこの前に)
+          type: string
+          format: date-time
+    VoiceToken:
+      type: object
+      required: [token, room, signalingUrl, mediaUrl, expiresAt]
+      properties:
+        token:
+          description: VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
+          type: string
+        room:
+          description: 部屋の id(セッション id)。JWT の `room` と同じ
+          type: string
+          example: sess-abc123
+        signalingUrl:
+          description: シグナリング(WebSocket)の URL
+          type: string
+          example: wss://vc.example.test/v1/signaling
+        mediaUrl:
+          description: MoQ(WebTransport)の URL
+          type: string
+          example: https://media.example.test:4443
+        expiresAt:
+          description: トークンの期限
           type: string
           format: date-time
     MatchmakingStatus:

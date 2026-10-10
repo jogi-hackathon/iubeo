@@ -50,6 +50,25 @@ variable "wisp_pass" {
   sensitive   = true
 }
 
+variable "vc_private_key" {
+  description = "Voice Chat の JWT を署名する Ed25519 の種(base64url 32 バイト)。VC サービスと同じ鍵を使う。空なら VC のトークンを発行しない"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "vc_signaling_url" {
+  description = "VC のシグナリング(WebSocket)の URL。例: wss://vc.thirdlf03.com/v1/signaling"
+  type        = string
+  default     = ""
+}
+
+variable "vc_media_url" {
+  description = "VC の MoQ(WebTransport)の URL。例: https://media.thirdlf03.com:4443"
+  type        = string
+  default     = ""
+}
+
 variable "instance_type" {
   description = "EC2 instance type. t4g.small is burstable, run in unlimited mode so credits never throttle latency."
   type        = string

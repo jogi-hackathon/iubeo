@@ -57,8 +57,9 @@ Discord の interactions エンドポイントには `control_function_url` を�
 
 ## 秘密情報の扱い
 
-- `discord_public_key`、`discord_webhook_url`、`cloudflare_api_token`、`wisp_pass` は `terraform.tfvars` から渡します。
-  **`wisp_pass` 以外は Lambda の環境変数として平文で入り、state にも残ります**（`wisp_pass` は user_data 経由で `/etc/iubeo/env` に入る。こちらも state に残ります）。
+- `discord_public_key`、`discord_webhook_url`、`cloudflare_api_token`、`wisp_pass`、`vc_private_key` は `terraform.tfvars` から渡します。
+  **`wisp_pass` 以外は Lambda の環境変数として平文で入り、state にも残ります**（`wisp_pass`・`vc_private_key` は user_data 経由で `/etc/iubeo/env` に入る。こちらも state に残ります）。
+  `vc_private_key` は Voice Chat の JWT を署名する鍵なので、取り扱いに注意してください（VC ホストの `/etc/vc/keys/private.jwk` と同じ鍵）。
 - `terraform.tfstate` と `terraform.tfvars` は `.gitignore` で除外しています。コミットしないでください。
 - state は現在ローカルに置いています。チームで共有する前に、暗号化されたリモート backend とロックを設定してください。
   それまでは `apply` を共有環境に対して実行しないでください。

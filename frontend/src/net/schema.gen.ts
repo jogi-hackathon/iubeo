@@ -81,6 +81,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/voice/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Voice Chat に繋ぐためのトークンと接続先を返す
+     * @description セッションの参加者にだけ、VC の JWT(EdDSA)と接続先を返す。room はセッション id で、
+     *     moq-relay はその room の中でだけ publish/subscribe を許す(vc の /v1/moq/auth)。
+     *     セッションに居ない場合は 403。
+     */
+    get: operations["getVoiceToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/matchmaking": {
     parameters: {
       query?: never;
@@ -265,6 +287,30 @@ export interface components {
       /**
        * Format: date-time
        * @description トークンの期限(接続を始めるのはこの前に)
+       */
+      expiresAt: string;
+    };
+    VoiceToken: {
+      /** @description VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う */
+      token: string;
+      /**
+       * @description 部屋の id(セッション id)。JWT の `room` と同じ
+       * @example sess-abc123
+       */
+      room: string;
+      /**
+       * @description シグナリング(WebSocket)の URL
+       * @example wss://vc.example.test/v1/signaling
+       */
+      signalingUrl: string;
+      /**
+       * @description MoQ(WebTransport)の URL
+       * @example https://media.example.test:4443
+       */
+      mediaUrl: string;
+      /**
+       * Format: date-time
+       * @description トークンの期限
        */
       expiresAt: string;
     };
@@ -770,6 +816,29 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WispToken"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      503: components["responses"]["Unavailable"];
+    };
+  };
+  getVoiceToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 接続情報 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceToken"];
         };
       };
       401: components["responses"]["Unauthorized"];

@@ -180,4 +180,33 @@ func TestLoadWisp(t *testing.T) {
 			t.Errorf("want key length error, got %v", err)
 		}
 	})
+
+	t.Run("VC は鍵と接続先の両方があれば有効", func(t *testing.T) {
+		seed := "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY"
+		m := map[string]string{
+			"IUBEO_VC_PRIVATE_KEY":   seed,
+			"IUBEO_VC_SIGNALING_URL": "wss://vc.example.test/v1/signaling",
+			"IUBEO_VC_MEDIA_URL":     "https://media.example.test:4443",
+		}
+		for k, v := range base {
+			m[k] = v
+		}
+		cfg, err := Load(env(m))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.VCSeed) != 32 || cfg.VCSignalingURL == "" || cfg.VCMediaURL == "" {
+			t.Errorf("VC config = %v / %q / %q", cfg.VCSeed, cfg.VCSignalingURL, cfg.VCMediaURL)
+		}
+
+		delete(m, "IUBEO_VC_MEDIA_URL")
+		if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "IUBEO_VC_MEDIA_URL") {
+			t.Errorf("want media URL error, got %v", err)
+		}
+		m["IUBEO_VC_MEDIA_URL"] = "https://media.example.test:4443"
+		m["IUBEO_VC_PRIVATE_KEY"] = "not base64!"
+		if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "base64url") {
+			t.Errorf("want base64url error, got %v", err)
+		}
+	})
 }
