@@ -1,6 +1,11 @@
 import {Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
+import {
+  LIGHTER_HELD_OUTLINE,
+  LIGHTER_HELD_REACH,
+  LIGHTER_HELD_SCALE,
+} from "../../../items/lighter";
 import {EYE_FORWARD, EYE_HEIGHT} from "../../constants";
 import {CLIPS} from "../clips";
 import {HELD_ITEM_OFFSET, writeHeldItemPosition} from "../held";
@@ -8,7 +13,7 @@ import {frameOf} from "../pose";
 
 /** GameCanvas のカメラ(縦 fov 75)の、上下それぞれの半角(度) */
 const HALF_FOV_DEG = 37.5;
-/** HeldItem の箱の一辺(0.1)の半分 */
+/** HeldItem の箱の一辺(0.1)の半分。手元のライターは、これより小さく描く(下のテスト) */
 const HALF_SIZE = 0.05;
 
 describe("writeHeldItemPosition", () => {
@@ -37,5 +42,14 @@ describe("writeHeldItemPosition", () => {
     expect(angle(below + HALF_SIZE, forward - HALF_SIZE)).toBeLessThan(
       HALF_FOV_DEG - 3,
     );
+  });
+
+  it("手元のライターは、中心から下と手前が縁取りまで含めて箱の半分(HALF_SIZE)に収まる(上の視野の前提を崩さない)", () => {
+    // 蓋を開くと横へ、炎で上へ伸びるが、視野の端にかかるのは下と手前だけ
+    for (const reach of [LIGHTER_HELD_REACH.below, LIGHTER_HELD_REACH.front]) {
+      expect(
+        (reach + LIGHTER_HELD_OUTLINE) * LIGHTER_HELD_SCALE,
+      ).toBeLessThanOrEqual(HALF_SIZE);
+    }
   });
 });

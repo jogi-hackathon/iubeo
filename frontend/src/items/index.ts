@@ -7,6 +7,16 @@ export {
   parseFileData,
 } from "./file";
 export {HeldItem} from "./HeldItem";
+export {
+  LIGHTER_CASE_PARTS,
+  LIGHTER_FOOTPRINT,
+  LIGHTER_KIND,
+  LIGHTER_LID_PART,
+  LIGHTER_LID_PIVOT,
+  type LighterPart,
+  type LighterPartLook,
+  type LighterPartShape,
+} from "./lighter";
 export {createItemManager, type ItemManager} from "./itemManager";
 export {itemManager} from "./itemStore";
 export type {Item, ItemEvents, ItemMessage, ItemState} from "./types";

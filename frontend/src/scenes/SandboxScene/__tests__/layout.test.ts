@@ -3,7 +3,17 @@ import {describe, expect, it} from "vitest";
 
 import {mountainReach} from "../../../objects/directory/mountain";
 import {overviewHeight} from "../../../objects/directory/overviewPose";
-import {TOP_SIZE} from "../../../objects/workspace/desk";
+import {
+  LIGHTER_STAND_ON_DESK,
+  STAND_FOOTPRINT,
+} from "../../../objects/lighter_stand/stand";
+import {MOUSE, TOWER} from "../../../objects/pc/dimensions";
+import {
+  DESK_HEIGHT,
+  ON_TOP,
+  TOP_SIZE,
+  WORK_AREA_SIZE,
+} from "../../../objects/workspace/desk";
 import {CAPSULE_RADIUS, EYE_HEIGHT} from "../../../player/constants";
 import {CHAIR_PARTS} from "../../../props/chairParts";
 import type {Vec3} from "../../../props/types";
@@ -11,6 +21,7 @@ import {
   APEX_HEIGHT,
   PARTITION_AXIS,
   PARTITION_THICKNESS,
+  PC_ON_DESK,
   SANDBOX_CIRCUMRADIUS,
   SANDBOX_LAYOUT,
   SANDBOX_INRADIUS,
@@ -26,6 +37,7 @@ import {
   ZONE_CHAIR,
   ZONE_COUNT,
   ZONE_FLOOR,
+  ZONE_LIGHTER_STAND,
   ZONE_PARTITION,
   ZONE_PC,
   ZONE_ROOF,
@@ -172,7 +184,13 @@ describe("sandbox の形", () => {
   });
 
   it("3 区画のオブジェクトは、区画 0 を 120° ずつ回した位置・向き(中心からの距離が同じ)", () => {
-    for (const local of [ZONE_WORKSPACE, ZONE_CHAIR, ZONE_PC, ZONE_CANVAS]) {
+    for (const local of [
+      ZONE_WORKSPACE,
+      ZONE_CHAIR,
+      ZONE_PC,
+      ZONE_CANVAS,
+      ZONE_LIGHTER_STAND,
+    ]) {
       const [p0, p1, p2] = ZONES.map((zone) => worldPlacement(zone, local));
       const dist = (p: Placement) => Math.hypot(p.position[0], p.position[2]);
       expect(dist(p1 as Placement)).toBeCloseTo(dist(p0 as Placement));
@@ -444,6 +462,18 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
     );
   });
 
+  it("ライターの置き場は机の天板の上(机ローカルの LIGHTER_STAND_ON_DESK)にあり、机と同じ向き", () => {
+    const stand = place(ZONE_LIGHTER_STAND);
+    const desk = place(ZONE_WORKSPACE);
+    const local = new Vector3(...stand.position)
+      .sub(new Vector3(...desk.position))
+      .applyAxisAngle(Y_AXIS, -desk.yaw);
+    expect(local.x).toBeCloseTo(LIGHTER_STAND_ON_DESK[0]);
+    expect(local.y).toBeCloseTo(DESK_HEIGHT);
+    expect(local.z).toBeCloseTo(LIGHTER_STAND_ON_DESK[2]);
+    expect(stand.yaw).toBeCloseTo(desk.yaw);
+  });
+
   it("スポーン地点は区画の三角形の中で、山・仕切り・外壁から離れ、中心(ディレクトリ)の方を向く", () => {
     const spawn = sandboxSpawnOf(zone + 1);
     expect(spawn.position[1]).toBeCloseTo(0.05);
@@ -503,5 +533,65 @@ describe("ディレクトリ・スポーン", () => {
       expect(spawn.position[2]).toBeCloseTo(expected.z);
       expect(spawn.yaw).toBeCloseTo(ZONE_SPAWN.yaw + zoneYaw(zone));
     }
+  });
+});
+
+describe("机の上のライターの置き場", () => {
+  /** 机ローカルの足跡(x の範囲・z の範囲) */
+  type Rect = [XZ, XZ];
+  const rect = ([x, , z]: Vec3, [hx, hz]: XZ): Rect => [
+    [x - hx, x + hx],
+    [z - hz, z + hz],
+  ];
+  const overlapsRect = (
+    [[ax0, ax1], [az0, az1]]: Rect,
+    [[bx0, bx1], [bz0, bz1]]: Rect,
+  ) => ax0 < bx1 && bx0 < ax1 && az0 < bz1 && bz0 < az1;
+  const stand = rect(LIGHTER_STAND_ON_DESK, [
+    STAND_FOOTPRINT[0] / 2,
+    STAND_FOOTPRINT[1] / 2,
+  ]);
+
+  it("台座は天板の内側に収まる", () => {
+    const [[x0, x1], [z0, z1]] = stand;
+    expect(x0).toBeGreaterThanOrEqual(-TOP_SIZE[0] / 2);
+    expect(x1).toBeLessThanOrEqual(TOP_SIZE[0] / 2);
+    expect(z0).toBeGreaterThanOrEqual(-TOP_SIZE[2] / 2);
+    expect(z1).toBeLessThanOrEqual(TOP_SIZE[2] / 2);
+  });
+
+  it("中央の作業スペースに掛からない", () => {
+    const work = rect(
+      [0, 0, 0],
+      [WORK_AREA_SIZE[0] / 2, WORK_AREA_SIZE[1] / 2],
+    );
+    expect(overlapsRect(stand, work)).toBe(false);
+  });
+
+  it("天板の小物(紙の束・ペン立て・ペン)と重ならない", () => {
+    for (const part of ON_TOP) {
+      // 回した部品は外接球の半径、円柱は半径、箱はそのままの半分の大きさで囲む(大きめに見積もる)
+      const [sx, sy, sz] = part.scale;
+      const half: XZ = part.rotation
+        ? [Math.hypot(sx, sy, sz) / 2, Math.hypot(sx, sy, sz) / 2]
+        : part.shape === "cylinder"
+          ? [sx, sz]
+          : [sx / 2, sz / 2];
+      expect(overlapsRect(stand, rect(part.position, half))).toBe(false);
+    }
+  });
+
+  it("PC のタワー・マウスと重ならない", () => {
+    const [px, , pz] = PC_ON_DESK;
+    const tower = rect(
+      [px + TOWER.x, 0, pz + TOWER.z],
+      [TOWER.width / 2, TOWER.depth / 2],
+    );
+    const mouse = rect(
+      [px + MOUSE.x, 0, pz + MOUSE.z],
+      [MOUSE.width / 2, MOUSE.depth / 2],
+    );
+    expect(overlapsRect(stand, tower)).toBe(false);
+    expect(overlapsRect(stand, mouse)).toBe(false);
   });
 });
