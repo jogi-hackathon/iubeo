@@ -10,6 +10,7 @@ import {
   type Texture,
   TextureLoader,
 } from "three";
+import type {NodeMaterial} from "three/webgpu";
 
 import {
   getPostProcessSettings,
@@ -18,6 +19,7 @@ import {
 import {getSkipGTAO, setSkipGTAO} from "../camera/postprocess/skipGTAO";
 import {subscribeColliders} from "../core/bvh";
 import {holdShaderWarmup} from "../core/ShaderWarmup";
+import {erasableBakedAO} from "./aoErase";
 import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
 import {
   atlasUV,
@@ -35,6 +37,9 @@ type AOMaterial = Material & {
 };
 
 const hasAOMap = (m: Material): m is AOMaterial => "aoMap" in m;
+
+const isNodeMaterial = (m: Material): m is AOMaterial & NodeMaterial =>
+  (m as {isNodeMaterial?: boolean}).isNodeMaterial === true;
 
 const materialsOf = (mesh: Mesh): Material[] =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -133,6 +138,12 @@ const applyAtlas = (
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
+      // ノードのマテリアルは、焼いた後で消えた物の影を消せるよう、消せる AO(aoErase)を引かせる
+      const nodeMaterial = isNodeMaterial(material) ? material : null;
+      const prevAONode = nodeMaterial?.aoNode ?? null;
+      if (nodeMaterial) {
+        nodeMaterial.aoNode = erasableBakedAO();
+      }
       material.aoMap = texture;
       // false も明示する(シェーダのキャッシュキーは値だけを並べるので、baked と both を区別するため)
       setSkipGTAO(material, skipsGTAO(modesByMaterial.get(material) ?? []));
@@ -141,6 +152,9 @@ const applyAtlas = (
       undos.push(() => {
         material.aoMap = prev;
         material.aoMapIntensity = prevIntensity;
+        if (nodeMaterial) {
+          nodeMaterial.aoNode = prevAONode;
+        }
         setSkipGTAO(material, prevSkip);
         material.needsUpdate = true;
       });

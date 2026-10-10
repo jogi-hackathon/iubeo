@@ -12,6 +12,10 @@ let finishing = false;
 let done = false;
 /** 終わるのを待たせている数(holdShaderWarmup) */
 let holds = 0;
+/** やり直しを頼まれたか(warmupShaders)。次のフレームで構成の見張りを最初からやり直す */
+let restartRequested = false;
+/** やり直しの終わりを待っている人 */
+let waiters: Array<() => void> = [];
 const listeners = new Set<() => void>();
 
 const finish = () => {
@@ -19,7 +23,25 @@ const finish = () => {
   for (const l of Array.from(listeners)) {
     l();
   }
+  const resolved = waiters;
+  waiters = [];
+  for (const resolve of resolved) {
+    resolve();
+  }
 };
+
+/**
+ * ウォームアップをもう一度走らせ、終わったら解決する(シーンの遷移で、新しいシーンの準備ができた後、覆いを外す前に呼ぶ)。
+ * 起動のウォームアップがまだ終わっていなければ、その終わりを待つだけ
+ */
+export const warmupShaders = (): Promise<void> =>
+  new Promise((resolve) => {
+    waiters.push(resolve);
+    if (finishing && done) {
+      finishing = false;
+      restartRequested = true;
+    }
+  });
 
 const subscribe = (l: () => void) => {
   listeners.add(l);
@@ -58,7 +80,8 @@ type DeviceLike = {queue: {onSubmittedWorkDone(): Promise<void>}};
  * アウトライン(OutlineNode)は選択の有無で非選択の深度パス・選択物のマスクパスを全 mesh に掛けるので、
  * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。力の縁取り(2 つ目の OutlineNode)も同じ選択で通す。
  * 構成が WARMUP_STABLE_MS 変わらなくなるまで(holdShaderWarmup の間は待つ)続け、元に戻したあと GPU の処理完了を待ってから終える。
- * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビューなど)やシーン遷移後のマテリアルは対象外
+ * シーンの遷移でも、新しいシーンの準備ができた後、覆いを外す前に走らせ直す(warmupShaders。sceneStore が呼ぶ)。
+ * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビュー、燃える演出の炎など)は対象外
  */
 export function ShaderWarmup() {
   const scene = useThree((s) => s.scene);
@@ -98,6 +121,10 @@ export function ShaderWarmup() {
     }
     const s = state.current;
     const now = performance.now();
+    if (restartRequested) {
+      restartRequested = false;
+      s.tracker = null;
+    }
     s.tracker ??= createWarmupTracker(now);
     if (!s.tracker.update(sceneSignature(scene), now, holds > 0)) {
       let firstMesh: Object3D | null = null;

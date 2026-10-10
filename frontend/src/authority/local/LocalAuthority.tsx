@@ -7,6 +7,7 @@ import type {SceneName} from "../../scenes";
 import {markSceneReady} from "../../scenes/sceneReady";
 import {applyMessage} from "../apply";
 import {authorityRegistry} from "../registry";
+import {teamStore} from "../team";
 import {
   LOCAL_AUTHORITY_PLAYER_ID,
   type LocalInitial,
@@ -46,12 +47,15 @@ export function LocalAuthority({
             objects: objectManager,
             items: itemManager,
             myPlayerId: () => playerId,
+            team: teamStore,
           },
           message,
         ),
     });
     // 手は空でマウントする(前のシーンの手持ちが残っていても、規則の手持ちと揃える)
     rules.dev.setHeldItem(null);
+    // 勝利フラグも最初の値から(規則の最初の値と揃える)
+    teamStore.reset();
     for (const object of planLocalObjects({layout, initial, playerId})) {
       rules.dev.deliver({type: "object.upsert", object});
     }
@@ -66,6 +70,7 @@ export function LocalAuthority({
       off();
       rules.dispose();
       rules.release();
+      teamStore.reset();
       setPlaced(false);
     };
   }, [layout, initial]);

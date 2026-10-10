@@ -7,6 +7,7 @@ import {
 import {coverStore} from "../core/cover/coverStore";
 import {DEBUG_REQUESTED} from "../core/debug/flags";
 import {lockPlayerControl} from "../core/playerControl";
+import {warmupShaders} from "../core/ShaderWarmup";
 import {bindNavigator} from "../flow/store";
 import {overview} from "../objects/directory/overview";
 import {pcSession} from "../objects/pc/session";
@@ -40,7 +41,9 @@ export const sceneTransitionManager = createSceneTransitionManager({
     releaseTransitionLock = lockPlayerControl();
     return coverScreen();
   },
-  waitReady: (scene) => showBarWhileWaiting(whenSceneReady(scene)),
+  // 準備ができたら、覆いを外す前に新しいシーンのシェーダーを作らせる(初めて視界に入ったときのカクつきを避ける)
+  waitReady: (scene) =>
+    showBarWhileWaiting(whenSceneReady(scene).then(warmupShaders)),
   finishTransition: () => {
     uncoverScreen();
     releaseTransitionLock?.();

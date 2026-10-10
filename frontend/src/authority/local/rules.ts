@@ -133,9 +133,8 @@ export const createLocalRules = ({
   // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
   // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
   const achievedIds = new Set<string>();
-  // 勝利フラグ(サーバーが team.updated で配る物。ローカルには届け先が無いので、開発用の入口から読む)。変わるたびに別の参照にする
+  // 勝利フラグ(規則が持ち、変わるたびに team.updated で通知する。サーバーの team.updated と同じ)
   let team: Team = {bypassPermission: false, fireStarted: false};
-  const teamListeners = new Set<() => void>();
 
   const deliver = (message: AuthorityMessage): void => {
     if (message.type === "object.upsert") {
@@ -191,9 +190,7 @@ export const createLocalRules = ({
         setHeld(null);
       }
     }
-    for (const l of Array.from(teamListeners)) {
-      l();
-    }
+    deliver({type: "team.updated", team});
   };
 
   const setDirectory = (object: GameObject, data: DirectoryData) =>
@@ -402,12 +399,6 @@ export const createLocalRules = ({
     getAchieved: () => achievedIds.size,
     getTeam: () => team,
     setTeam,
-    subscribeTeam: (listener) => {
-      teamListeners.add(listener);
-      return () => {
-        teamListeners.delete(listener);
-      };
-    },
   };
 
   return {

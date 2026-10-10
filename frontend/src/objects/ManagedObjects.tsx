@@ -3,6 +3,7 @@ import type {Object3D} from "three";
 
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {useIsEnabled, useIsVisible} from "../core/toggles";
+import {useIsObjectDisabled} from "./disabledObjects";
 import {DummyObject} from "./DummyObject";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import {kindRenderers} from "./kinds";
@@ -29,7 +30,10 @@ function ObjectRoot({
   const {id} = object;
   const {name, item} = slot;
   const visible = useIsVisible(name);
-  const enabled = useIsEnabled(name);
+  // 機能は、シーンのトグルが ON で、種類が止めていない(useDisableObjectWhile)ときだけ
+  const toggledOn = useIsEnabled(name);
+  const disabledByKind = useIsObjectDisabled(id);
+  const enabled = toggledOn && !disabledByKind;
   // 非表示・機能 OFF の間は狙いの対象から外す(登録しない)。mesh は外さず、見た目だけを group の visible で消す
   const register = useCallback(
     (root: Object3D | null) =>

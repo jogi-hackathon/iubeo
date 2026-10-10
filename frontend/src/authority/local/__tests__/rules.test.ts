@@ -22,6 +22,7 @@ import {
   WORKSPACE_KIND,
 } from "../../../objects/workspace/data";
 import {applyMessage} from "../../apply";
+import {createTeamStore} from "../../team";
 import {createLocalRules, DUMMY_ITEM_KIND} from "../rules";
 
 // ファイルの id は意味を持たない不透明な値(状態や色を混ぜない)。読みやすいよう定数にする
@@ -66,11 +67,12 @@ const setup = () => {
       },
     }),
   });
+  const team = createTeamStore();
   const rules = createLocalRules({
     playerId: "me",
     objects,
     deliver: (message) =>
-      applyMessage({objects, items, myPlayerId: () => "me"}, message),
+      applyMessage({objects, items, myPlayerId: () => "me", team}, message),
     schedule: (fn, ms) => {
       const timer = {at: now + ms, fn};
       timers.push(timer);
@@ -219,7 +221,7 @@ const setup = () => {
       rules.dev.deliver({type: "object.remove", id});
     },
   };
-  return {objects, items, authority, requests, advance};
+  return {objects, items, team, authority, requests, advance};
 };
 
 describe("createLocalRules", () => {
@@ -1152,13 +1154,11 @@ describe("createLocalRules", () => {
   describe("勝利フラグとライター", () => {
     const LIGHTER = {id: "lighter-1", kind: "lighter", data: null};
 
-    it("勝利フラグは最初どちらも false。bypassPermission を立てると置き場が使えるようになり、下ろすと戻る", () => {
-      const {objects, authority} = setup();
+    it("勝利フラグは最初どちらも false。bypassPermission を立てると置き場が使えるようになり、下ろすと戻る。変わるたびに team.updated で通知する", () => {
+      const {objects, team, authority} = setup();
       const stand = authority.spawnLighterStand("lighter_stand-1");
       const seen: boolean[] = [];
-      authority.dev.subscribeTeam(() =>
-        seen.push(authority.dev.getTeam().bypassPermission),
-      );
+      team.subscribe(() => seen.push(team.get().bypassPermission));
 
       expect(authority.dev.getTeam()).toEqual({
         bypassPermission: false,
@@ -1188,10 +1188,10 @@ describe("createLocalRules", () => {
     });
 
     it("値が変わらない書き換えでは、参照も変えず、通知もしない", () => {
-      const {authority} = setup();
+      const {team, authority} = setup();
       const before = authority.dev.getTeam();
       const listener = vi.fn();
-      authority.dev.subscribeTeam(listener);
+      team.subscribe(listener);
 
       authority.dev.setTeam({bypassPermission: false});
 
@@ -1261,7 +1261,7 @@ describe("createLocalRules", () => {
     });
 
     it("ライターを持ってディレクトリに触れると fireStarted が立つ。ファイルは消えず、ライターも持ったまま。2 回目は unavailable", () => {
-      const {objects, items, authority} = setup();
+      const {objects, items, team, authority} = setup();
       const dir = authority.spawnDirectory("directory-1", [
         {id: F1, color: "#ff0000", status: "unedited"},
       ]);
@@ -1277,6 +1277,8 @@ describe("createLocalRules", () => {
         bypassPermission: true,
         fireStarted: true,
       });
+      // 火がついたことは、team.updated で画面側(teamStore)にも届く
+      expect(team.get().fireStarted).toBe(true);
       expect(
         parseDirectoryData(objects.getObject(dir)?.data ?? null).stock,
       ).toHaveLength(1);

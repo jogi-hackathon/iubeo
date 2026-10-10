@@ -6,6 +6,7 @@ import {type DirectoryLook, featureKey} from "../layout";
 import {useLayoutSlot} from "../layoutContext";
 import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
+import {directoryCorruption} from "./corruption";
 import {parseDirectoryData, type StockFile} from "./data";
 import {buildCoreGeometry, buildSheetsGeometry} from "./geometry";
 import {directoryInteractionFor} from "./interaction";
@@ -66,6 +67,11 @@ export function useDirectory(
     [mountain],
   );
   useEffect(() => () => sheetsGeometry.dispose(), [sheetsGeometry]);
+  // 燃える演出の侵食は、山の足元からの高さの割合で前線を進めるので、足元と高さを渡す
+  useEffect(() => {
+    directoryCorruption.baseY.value = item.position[1];
+    directoryCorruption.height.value = mountain.height;
+  }, [item.position, mountain]);
   const paperMaterial = useMemo(() => createPaperMaterial({merged: true}), []);
   useEffect(() => () => paperMaterial.dispose(), [paperMaterial]);
   const overviewKey = featureKey(name, "overview");

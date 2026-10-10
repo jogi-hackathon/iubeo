@@ -6,7 +6,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import {type AuthorityDev, authorityRegistry} from "../authority/registry";
+import {authorityRegistry} from "../authority/registry";
+import {useTeamState} from "../authority/team";
 import {useDebugFlags} from "../core/debug/flags";
 import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
@@ -132,7 +133,7 @@ export function GameDebugPanel() {
         </Fragment>
       ))}
       <div style={{marginTop: 4}}>last rejected: {rejected || "-"}</div>
-      <TeamRows source={authority?.dev ?? null} dev={dev} />
+      <TeamRows dev={dev} />
       <div style={headStyle}>items</div>
       <div style={rowStyle}>
         <span style={{flex: 1}}>held: {held ? held.id : "(none)"}</span>
@@ -204,32 +205,19 @@ function DirectoryRow({
 }
 
 const TEAM_FLAGS: readonly (keyof Team)[] = ["bypassPermission", "fireStarted"];
-const NO_TEAM_SUBSCRIPTION = () => () => {};
-const NO_TEAM = (): Team | null => null;
-
 /**
- * 勝利フラグ(team)の今の値と切り替え。ローカルのオーソリティでだけ使える(サーバーの値は読まない・変えない)。
- * bypassPermission を立てると、ライターの置き場が使えるようになる。
- * 値は窓口の dev(source)から読む(開発用の操作 dev は描画ごとに作り直すので、購読には使わない)
+ * 勝利フラグ(team)の今の値と切り替え。値は teamStore(サーバーの値も入る)から読む。
+ * 切り替えはローカルのオーソリティでだけ使える(サーバーの値は変えない)。bypassPermission を立てると、ライターの置き場が使えるようになる
  */
-function TeamRows({
-  source,
-  dev,
-}: {
-  source: AuthorityDev | null;
-  dev: LocalDevOps | null;
-}) {
-  const team = useSyncExternalStore(
-    source ? source.subscribeTeam : NO_TEAM_SUBSCRIPTION,
-    source ? source.getTeam : NO_TEAM,
-  );
+function TeamRows({dev}: {dev: LocalDevOps | null}) {
+  const team = useTeamState();
   return (
     <>
       <div style={headStyle}>team(勝利フラグ)</div>
       {TEAM_FLAGS.map((flag) => (
         <div key={flag} style={rowStyle}>
           <span style={{flex: 1}}>
-            {flag}: {team ? String(team[flag]) : "-"}
+            {flag}: {String(team[flag])}
           </span>
           <button
             type="button"

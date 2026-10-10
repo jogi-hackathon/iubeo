@@ -66,6 +66,8 @@ export type ConnectDeps = {
   sender: Pick<TransformSender, "syncSeq">;
   objects: ApplyDeps["objects"];
   items: ApplyDeps["items"];
+  /** 勝利フラグの入れ物(snapshot の game.team と team.updated を書く) */
+  team?: ApplyDeps["team"];
   players: Pick<PlayerManager, "apply">;
   /** 自分のプレイヤー ID(このセッションでの)。手持ちの反映と、自分の位置の取り出しに使う */
   playerId: PlayerId;
@@ -89,6 +91,7 @@ export type ConnectDeps = {
  * - object.*: applyMessage(オブジェクトの通知)
  * - player.updated: プレイヤーの写し(playerManager)と、自分の手持ち(applyMessage)
  * - transforms: playerManager へ(自分の分は playerManager が捨てる)
+ * - team.updated: 勝利フラグ(applyMessage)。snapshot では game.team で入れ替える
  */
 export const connectSession = (deps: ConnectDeps): (() => void) => {
   const {connection, sender, players, playerId, spawnOf, onFirstSnapshot} =
@@ -98,6 +101,7 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
     objects: deps.objects,
     items: deps.items,
     myPlayerId: () => playerId,
+    team: deps.team,
   };
 
   const offs = [
@@ -106,6 +110,7 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
       applySnapshot(applyDeps, {
         objects: session.objects.map(toObject),
         heldItem: me ? (me.heldItem as Item | null) : null,
+        team: session.game.team,
       });
       players.apply({
         type: "reset",
@@ -156,6 +161,9 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
         },
       });
     }),
+    connection.on("team.updated", ({team}) =>
+      applyMessage(applyDeps, {type: "team.updated", team}),
+    ),
     connection.on("transforms", ({players: moved}) =>
       players.apply({
         type: "transforms",
