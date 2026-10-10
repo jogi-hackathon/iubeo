@@ -1,7 +1,9 @@
 import {describe, expect, it, vi} from "vitest";
 
+import {createGameStore} from "../../../game/gameStore";
 import {createItemManager} from "../../../items/itemManager";
 import type {
+  GamePhase,
   ServerMessage,
   ServerMessageOf,
   ServerMessageType,
@@ -46,17 +48,41 @@ const object = (
 
 const NO_TEAM = {bypassPermission: false, fireStarted: false};
 
+const gamePhase = (overrides: Partial<GamePhase> = {}): GamePhase => ({
+  number: 1,
+  status: "active",
+  startedAt: "2026-10-01T00:00:00Z",
+  deadlineAt: "2026-10-01T00:00:30Z",
+  tasks: [
+    {
+      taskId: "task-1-1",
+      type: "read_edit",
+      assigneePlayerId: "me",
+      targetFileId: "f1",
+      status: "pending",
+      completedAt: null,
+    },
+  ],
+  ...overrides,
+});
+
 const snapshot = (
   players: Player[],
   objects: GameObject[] = [],
   team = NO_TEAM,
+  game: {phase: GamePhase | null; result: SessionSnapshot["game"]["result"]} = {
+    phase: null,
+    result: null,
+  },
 ): ServerMessageOf<"snapshot"> => ({
   type: "snapshot",
   session: {
     seq: 1,
+    status: "playing",
+    serverTime: "2026-10-01T00:00:00Z",
     players,
     objects,
-    game: {phase: null, team, result: null},
+    game: {phase: game.phase, team, result: game.result},
   } as unknown as SessionSnapshot,
 });
 
@@ -86,26 +112,32 @@ const setup = (playerId = "me") => {
   });
   const sender = {syncSeq: vi.fn()};
   const team = createTeamStore();
+  const game = createGameStore({now: () => 0});
   const onFirstSnapshot = vi.fn();
+  const onFinished = vi.fn();
   const off = connectSession({
     connection: connection as never,
     objects,
     items,
     team,
+    game,
     players,
     sender,
     playerId,
     spawnOf,
     onFirstSnapshot,
+    onFinished,
   });
   const receive = (m: ServerMessage) => handlers.get(m.type)?.(m);
   return {
     objects,
     items,
     team,
+    game,
     players,
     sender,
     onFirstSnapshot,
+    onFinished,
     receive,
     off,
     handlers,
@@ -317,6 +349,65 @@ describe("connectSession", () => {
     expect(t.players.sample("other", 10_000, out)).toBe(true);
     expect(out.position.x).toBe(5);
     expect(t.players.sample("me", 10_000, out)).toBe(false);
+  });
+
+  it("snapshot の game(フェーズ・結果)と serverTime を game に流す", () => {
+    const t = setup();
+    t.receive(
+      snapshot([player("me", 1)], [], NO_TEAM, {
+        phase: gamePhase(),
+        result: null,
+      }),
+    );
+    expect(t.game.getState().sessionStatus).toBe("playing");
+    expect(t.game.getState().phase?.number).toBe(1);
+    // now は 0 固定なので、ずれは serverTime そのもの
+    expect(t.game.getState().serverOffsetMs).toBe(
+      Date.parse("2026-10-01T00:00:00Z"),
+    );
+  });
+
+  it("phase.started / task.completed / phase.ended を game に流す", () => {
+    const t = setup();
+    t.receive({
+      type: "phase.started",
+      seq: 2,
+      serverTime: "2026-10-01T00:00:10Z",
+      phase: gamePhase(),
+    });
+    expect(t.game.getState().phase?.number).toBe(1);
+    expect(t.game.getState().sessionStatus).toBe("playing");
+
+    t.receive({
+      type: "task.completed",
+      seq: 3,
+      taskId: "task-1-1",
+      completedAt: "2026-10-01T00:00:11Z",
+    });
+    expect(t.game.getState().phase?.tasks[0]?.status).toBe("completed");
+
+    t.receive({
+      type: "phase.ended",
+      seq: 4,
+      phaseNumber: 1,
+      eliminatedPlayerIds: [],
+      next: "intermission",
+    });
+    expect(t.game.getState().intermission).toBe(true);
+    expect(t.game.getState().phase?.status).toBe("intermission");
+  });
+
+  it("session.finished は結果を入れて onFinished を呼ぶ", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const t = setup();
+    const result = {
+      outcome: "victory" as const,
+      decidedAt: "2026-10-01T00:01:00Z",
+    };
+    t.receive({type: "session.finished", seq: 5, result});
+    expect(t.game.getState().result).toEqual(result);
+    expect(t.onFinished).toHaveBeenCalledWith(result);
+    log.mockRestore();
   });
 
   it("解除したら、何も流さない", () => {

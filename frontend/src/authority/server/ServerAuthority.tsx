@@ -1,5 +1,7 @@
 import {useEffect, useRef} from "react";
 
+import {resetSpectate} from "../../core/spectate";
+import {gameStore} from "../../game/gameStore";
 import {itemManager} from "../../items";
 import {
   createSessionConnection,
@@ -25,8 +27,13 @@ export type ServerAuthorityProps = {
   spawnOf: (seat: number) => Spawn;
   /** 最初の snapshot を受け取って、自分を置いた後(= シーンの準備完了の後)に呼ぶ */
   onReady?: () => void;
-  /** 接続が終わった(再接続を諦めた、またはセッション終了 4000 / 置き換え 4001)ときに呼ぶ。アンマウントでは呼ばない */
-  onClosed?: (code: number) => void;
+  /** 決着の通知(session.finished)を受けたときに呼ぶ(結果は gameStore に入っている) */
+  onFinished?: () => void;
+  /**
+   * 接続が終わった(再接続を諦めた、またはセッション終了 4000 / 置き換え 4001)ときに呼ぶ。
+   * reason はサーバーが close に付けた理由(finished / dissolved / abandoned / replaced など)。アンマウントでは呼ばない
+   */
+  onClosed?: (code: number, reason: string) => void;
 };
 
 const clearWorld = () => {
@@ -38,6 +45,8 @@ const clearWorld = () => {
     itemManager.apply({type: "delete", id: held.id});
   }
   teamStore.reset();
+  gameStore.reset();
+  resetSpectate();
 };
 
 /**
@@ -59,10 +68,11 @@ export function ServerAuthority({
   playerId,
   spawnOf,
   onReady,
+  onFinished,
   onClosed,
 }: ServerAuthorityProps) {
-  const latest = useRef({spawnOf, onReady, onClosed});
-  latest.current = {spawnOf, onReady, onClosed};
+  const latest = useRef({spawnOf, onReady, onFinished, onClosed});
+  latest.current = {spawnOf, onReady, onFinished, onClosed};
 
   useEffect(() => {
     let disposed = false;
@@ -89,6 +99,7 @@ export function ServerAuthority({
       objects: objectManager,
       items: itemManager,
       team: teamStore,
+      game: gameStore,
       players: playerManager,
       playerId,
       spawnOf: (seat) => latest.current.spawnOf(seat),
@@ -109,6 +120,7 @@ export function ServerAuthority({
         markSceneReady(scene);
         latest.current.onReady?.();
       },
+      onFinished: () => latest.current.onFinished?.(),
     });
     const offError = connection.on("error", (m) => {
       console.error("[ServerAuthority] サーバーのエラー", m);
@@ -134,7 +146,7 @@ export function ServerAuthority({
       if (!ready) {
         markSceneReady(scene);
       }
-      latest.current.onClosed?.(state.closeCode ?? 0);
+      latest.current.onClosed?.(state.closeCode ?? 0, state.closeReason ?? "");
     });
 
     return () => {

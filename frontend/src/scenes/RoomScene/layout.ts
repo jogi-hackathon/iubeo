@@ -136,3 +136,13 @@ export const ROOM_LAYOUT: SceneLayout = {
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
   pc: {id: "pc-1", position: PC_POSITION},
 };
+
+/**
+ * マッチングを始める仮のボタン(チュートリアルで置き換える。MatchmakingButton.tsx の TODO)。
+ * 机の天板の右手前。PC(中央)・キーボード(手前中央)・鉛筆立て(右奥)・紙の束(左)を避けた位置
+ */
+export const MATCHMAKING_BUTTON_POSITION: Vec3 = [
+  WORKSPACE_POSITION[0] + 0.62,
+  DESK_HEIGHT,
+  WORKSPACE_POSITION[2] + 0.3,
+];

@@ -74,3 +74,36 @@ body,
   background: #111;
   color: #f88;
 }
+
+/* 脱落の演出(HUD の EliminationFlash)。赤く暗転し、中央に「脱落」を出す */
+.elimination-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 0, 0, 0.6);
+  color: #fff;
+  font:
+    600 32px / 1 ui-monospace,
+    Menlo,
+    monospace;
+  letter-spacing: 0.4em;
+  pointer-events: none;
+  animation: elimination-flash 1.5s ease-out;
+}
+
+@keyframes elimination-flash {
+  0% {
+    background: rgba(180, 0, 0, 0.85);
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    background: rgba(120, 0, 0, 0.6);
+    opacity: 0.9;
+  }
+}

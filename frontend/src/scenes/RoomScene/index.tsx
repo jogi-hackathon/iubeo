@@ -9,6 +9,7 @@ import {Chair, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {ROOM_INITIAL} from "./initial";
 import {CHAIR_POSITION, ROOM_FLOOR, ROOM_LAYOUT, ROOM_WALLS} from "./layout";
+import {MatchmakingButton} from "./MatchmakingButton";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {WindowPlug} from "./WindowPlug";
 
@@ -24,6 +25,7 @@ function RoomProps() {
       ))}
       <WindowPlug visible={!windowVisible} />
       <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
+      <MatchmakingButton />
     </>
   );
 }

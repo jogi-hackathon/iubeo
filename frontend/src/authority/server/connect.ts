@@ -1,5 +1,7 @@
+import type {GameStore} from "../../game/gameStore";
 import type {Item} from "../../items";
 import type {
+  GameResult,
   ServerMessageOf,
   SessionConnection,
   TransformSender,
@@ -62,6 +64,16 @@ export type ConnectDeps = {
   items: ApplyDeps["items"];
   /** 勝利フラグの入れ物(snapshot の game.team と team.updated を書く) */
   team?: ApplyDeps["team"];
+  /** ゲームの状態(フェーズ・タスク・結果・時計)の入れ物。無ければフェーズ系の通知は捨てる */
+  game?: Pick<
+    GameStore,
+    | "applySnapshot"
+    | "started"
+    | "phaseStarted"
+    | "phaseEnded"
+    | "taskCompleted"
+    | "finished"
+  >;
   players: Pick<PlayerManager, "apply">;
   /** 自分のプレイヤー ID(このセッションでの)。手持ちの反映と、自分の位置の取り出しに使う */
   playerId: PlayerId;
@@ -72,6 +84,8 @@ export type ConnectDeps = {
    * 自分が snapshot に居なければ null(サーバーの不具合。置き場所は決められない)
    */
   onFirstSnapshot?: (placement: FirstPlacement | null) => void;
+  /** 決着の通知(session.finished)を受けた。結果を反映した後に呼ぶ(シーンの移動は呼び出し側の仕事) */
+  onFinished?: (result: GameResult) => void;
 };
 
 /**
@@ -81,15 +95,25 @@ export type ConnectDeps = {
  * 自分のプレイヤー ID は playerId を使う(playerManager の持ち物ではない)
  *
  * - snapshot: オブジェクトと手持ちを丸ごと入れ替え(applySnapshot)、プレイヤーを入れ替え、送る側の seq をサーバーに合わせる。
- *   位置がまだ無いプレイヤーは席のスポーン地点に置く。自分の置き場所は、最初の snapshot でだけ渡す(2 回目以降は動かさない)
+ *   位置がまだ無いプレイヤーは席のスポーン地点に置く。自分の置き場所は、最初の snapshot でだけ渡す(2 回目以降は動かさない)。
+ *   ゲームの状態(フェーズ・結果・サーバー時計)もここで入れ替える
  * - object.*: applyMessage(オブジェクトの通知)
  * - player.updated: プレイヤーの写し(playerManager)と、自分の手持ち(applyMessage)
  * - transforms: playerManager へ(自分の分は playerManager が捨てる)
  * - team.updated: 勝利フラグ(applyMessage)。snapshot では game.team で入れ替える
+ * - session.started / phase.started / phase.ended / task.completed / session.finished: ゲームの入れ物(game)へ。
+ *   決着は、結果を入れてから onFinished を呼ぶ(room へ戻すのは呼び出し側)
  */
 export const connectSession = (deps: ConnectDeps): (() => void) => {
-  const {connection, sender, players, playerId, spawnOf, onFirstSnapshot} =
-    deps;
+  const {
+    connection,
+    sender,
+    players,
+    playerId,
+    spawnOf,
+    onFirstSnapshot,
+    game,
+  } = deps;
   let firstSnapshot = true;
   const applyDeps: ApplyDeps = {
     objects: deps.objects,
@@ -105,6 +129,11 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
         objects: session.objects.map(toObject),
         heldItem: me ? (me.heldItem as Item | null) : null,
         team: session.game.team,
+      });
+      game?.applySnapshot({
+        status: session.status,
+        game: session.game,
+        serverTime: session.serverTime,
       });
       players.apply({
         type: "reset",
@@ -127,6 +156,18 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
               : {kind: "spawn", spawn: spawnOf(me.seat)},
         );
       }
+    }),
+    connection.on("session.started", () => game?.started()),
+    connection.on("phase.started", ({phase, serverTime}) =>
+      game?.phaseStarted(phase, serverTime),
+    ),
+    connection.on("phase.ended", ({next}) => game?.phaseEnded(next)),
+    connection.on("task.completed", ({taskId, completedAt}) =>
+      game?.taskCompleted(taskId, completedAt),
+    ),
+    connection.on("session.finished", ({result}) => {
+      game?.finished(result);
+      deps.onFinished?.(result);
     }),
     connection.on("object.upsert", (m) =>
       applyMessage(applyDeps, {

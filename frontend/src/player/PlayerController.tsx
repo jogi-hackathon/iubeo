@@ -5,6 +5,7 @@ import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
 import {isPlayerControlLocked} from "../core/playerControl";
+import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
 import {localPlayer} from "./local";
 import {applyLook} from "./look";
@@ -22,10 +23,11 @@ const input: MoveInput = {
 /** ローカルプレイヤーの身体を更新する(視点入力・移動・物理)。カメラには触れない */
 export function PlayerController() {
   const {freeCamera} = useDebugFlags();
+  const spectate = useSpectatePhase();
   const keys = useKeys();
 
   useFrame((_, delta) => {
-    if (freeCamera || isPlayerControlLocked()) {
+    if (freeCamera || spectate !== "alive" || isPlayerControlLocked()) {
       localPlayer.velocity.set(0, 0, 0);
       return;
     }

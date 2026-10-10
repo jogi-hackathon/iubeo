@@ -3,6 +3,7 @@ import type {MeshBasicNodeMaterial} from "three/webgpu";
 
 import {ServerAuthority} from "../../authority/server/ServerAuthority";
 import {gameFlow} from "../../flow/store";
+import {SpectateOnElimination} from "../../game/SpectateOnElimination";
 import {ManagedObjects} from "../../objects";
 import {RemotePlayers} from "../../player";
 import {Chair, Slab, Wall} from "../../props";
@@ -74,10 +75,12 @@ export function SandboxScene() {
             playerId={session.playerId}
             spawnOf={sandboxSpawnOf}
             onReady={gameFlow.sessionReady}
+            onFinished={gameFlow.sessionFinished}
             onClosed={gameFlow.sessionClosed}
           />
           <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
           <RemotePlayers />
+          <SpectateOnElimination />
         </>
       )}
     </>

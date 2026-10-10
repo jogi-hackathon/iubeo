@@ -378,6 +378,7 @@ describe("gameFlow", () => {
     };
 
     it("4001(別のタブに置き換えられた)は notice を付けて idle。自動では入り直さない", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const t = await inSession();
       t.flow.sessionClosed(CLOSE_REPLACED);
       expect(t.flow.getState()).toEqual({status: "idle", notice: "replaced"});
@@ -386,31 +387,75 @@ describe("gameFlow", () => {
       await t.flush();
       expect(t.api.createPlayer).toHaveBeenCalledTimes(1);
       expect(t.api.joinMatchmaking).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
 
-    it("4000(セッション終了)や再接続を諦めた close は、idle で room へ戻る(notice なし)", async () => {
-      for (const code of [CLOSE_SESSION_ENDED, 1006]) {
+    it("4000(セッション終了)の理由から通知を決める(dissolved / abandoned)", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      for (const [reason, notice] of [
+        ["dissolved", "dissolved"],
+        ["abandoned", "abandoned"],
+      ] as const) {
         const t = await inSession();
-        t.flow.sessionClosed(code);
-        expect(t.flow.getState()).toEqual({status: "idle"});
+        t.flow.sessionClosed(CLOSE_SESSION_ENDED, reason);
+        expect(t.flow.getState()).toEqual({status: "idle", notice});
         expect(t.navigator.enter).toHaveBeenCalledWith("room");
       }
+      warn.mockRestore();
+    });
+
+    it("再接続を諦めた close は、lost の通知を付けて room へ戻る", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const t = await inSession();
+      t.flow.sessionClosed(1006, "");
+      expect(t.flow.getState()).toEqual({status: "idle", notice: "lost"});
+      expect(t.navigator.enter).toHaveBeenCalledWith("room");
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("決着(finished)の close は通知を出さない(結果は gameStore が持つ)", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const t = await inSession();
+      t.flow.sessionClosed(CLOSE_SESSION_ENDED, "finished");
+      expect(t.flow.getState()).toEqual({status: "idle"});
+      expect(t.navigator.enter).toHaveBeenCalledWith("room");
+      warn.mockRestore();
+    });
+
+    it("sessionFinished(決着の通知)は idle にして room へ戻す", async () => {
+      const t = await inSession();
+      t.flow.sessionFinished();
+      expect(t.flow.getState()).toEqual({status: "idle"});
+      expect(t.flow.currentSession()).toBeNull();
+      expect(t.navigator.enter).toHaveBeenCalledWith("room");
+    });
+
+    it("決着の後で届く close(finished)は、二重に room へ移さない", async () => {
+      const t = await inSession();
+      t.flow.sessionFinished();
+      t.flow.sessionClosed(CLOSE_SESSION_ENDED, "finished");
+      expect(t.navigator.enter).toHaveBeenCalledTimes(1);
     });
 
     it("notice は次の start で消える", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const t = await inSession();
       t.flow.sessionClosed(CLOSE_REPLACED);
       void t.flow.startMatchmaking();
       expect(t.flow.getState()).toEqual({status: "issuing"});
+      warn.mockRestore();
     });
 
     it("入る途中(entering)で閉じても、room へ戻る", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const t = setup({createPlayer: seq(me("s1"))});
       await t.flow.startMatchmaking();
       t.navigator.enter.mockClear();
       t.flow.sessionClosed(1006);
-      expect(t.flow.getState()).toEqual({status: "idle"});
+      expect(t.flow.getState()).toEqual({status: "idle", notice: "lost"});
       expect(t.navigator.enter).toHaveBeenCalledWith("room");
+      warn.mockRestore();
     });
 
     it("セッションに居ないときの close は無視する(移動もしない)", () => {

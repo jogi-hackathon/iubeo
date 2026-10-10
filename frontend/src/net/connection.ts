@@ -15,6 +15,8 @@ export type SocketState = {
   status: SocketStatus;
   /** 最後に閉じたときの close code。まだ閉じていなければ null */
   closeCode: number | null;
+  /** そのときの close reason(サーバーの理由。無ければ空文字)。まだ閉じていなければ null */
+  closeReason: string | null;
 };
 
 /** 使う分だけの WebSocket。テストで偽物に差し替える */
@@ -24,7 +26,7 @@ export type SocketLike = {
   close: (code?: number, reason?: string) => void;
   onopen: ((ev: unknown) => void) | null;
   onmessage: ((ev: {data: unknown}) => void) | null;
-  onclose: ((ev: {code: number}) => void) | null;
+  onclose: ((ev: {code: number; reason?: string}) => void) | null;
   onerror: ((ev: unknown) => void) | null;
 };
 
@@ -118,7 +120,11 @@ export const createSessionConnection = ({
   maxDelayMs = 8000,
 }: SessionConnectionOptions) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
-  let state: SocketState = {status: "connecting", closeCode: null};
+  let state: SocketState = {
+    status: "connecting",
+    closeCode: null,
+    closeReason: null,
+  };
   const listeners = new Set<() => void>();
   const handlers = new Map<ServerMessageType, Set<(m: never) => void>>();
 
@@ -197,16 +203,17 @@ export const createSessionConnection = ({
         return;
       }
       socket = null;
+      const closeReason = ev.reason ?? "";
       if (closedByUser) {
         return;
       }
       if (NO_RETRY_CODES.has(ev.code) || retries >= maxRetries) {
-        set({status: "closed", closeCode: ev.code});
+        set({status: "closed", closeCode: ev.code, closeReason});
         return;
       }
       const delay = Math.min(baseDelayMs * 2 ** retries, maxDelayMs);
       retries += 1;
-      set({status: "reconnecting", closeCode: ev.code});
+      set({status: "reconnecting", closeCode: ev.code, closeReason});
       cancelRetry = schedule(() => {
         cancelRetry = null;
         open();
@@ -255,7 +262,7 @@ export const createSessionConnection = ({
       const s = socket;
       socket = null;
       s?.close(CLOSE_NORMAL);
-      set({status: "closed", closeCode: CLOSE_NORMAL});
+      set({status: "closed", closeCode: CLOSE_NORMAL, closeReason: ""});
     },
   };
 };
