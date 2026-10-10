@@ -22,6 +22,9 @@
     IUBEO_INTERMISSION_DURATION = "10s";
     IUBEO_BYPASS_DURATION = "30s";
     IUBEO_FIRE_DURATION = "10s";
+    # 手元は 1 人でも通しを試せるように CPU で埋める(既定は 0 = 無効。0 にすれば本番と同じ挙動)。
+    # 短くしたいときは .env に IUBEO_CPU_FILL_AFTER=5s のように書く
+    IUBEO_CPU_FILL_AFTER = "30s";
   };
 
   packages = [
