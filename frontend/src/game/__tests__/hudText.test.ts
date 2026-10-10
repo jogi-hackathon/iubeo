@@ -41,11 +41,15 @@ const game = (overrides: Partial<GameState> = {}): GameState => ({
 });
 
 describe("hudText", () => {
-  it("タスクは、達成でチェックを付ける", () => {
-    expect(taskLine(task())).toBe("☐ 読み込みと編集 (file-01)");
-    expect(taskLine(task({status: "completed"}))).toBe(
-      "☑ 読み込みと編集 (file-01)",
-    );
+  it("タスクは、達成でチェックを付け、対象ファイルがあれば色を付ける", () => {
+    expect(taskLine(task())).toEqual({text: "☐ 読み込みと編集"});
+    expect(taskLine(task({status: "completed"}))).toEqual({
+      text: "☑ 読み込みと編集",
+    });
+    expect(taskLine(task(), "#e63946")).toEqual({
+      text: "☐ 読み込みと編集",
+      color: "#e63946",
+    });
     expect(
       taskLine(
         task({
@@ -54,7 +58,7 @@ describe("hudText", () => {
           status: "completed",
         }),
       ),
-    ).toBe("☑ 画像生成");
+    ).toEqual({text: "☑ 画像生成"});
   });
 
   it("マッチングと待機の状態を出す", () => {

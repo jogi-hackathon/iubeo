@@ -1,16 +1,19 @@
-import {type CSSProperties, useEffect, useState} from "react";
+import {type CSSProperties, useEffect, useMemo, useState} from "react";
 
 import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {useSpectatePhase} from "../core/spectate";
 import {useGameFlow} from "../flow";
+import {useObjectsState} from "../objects";
 import {useGameState} from "./gameStore";
 import {
+  type HudLine,
   matchingLine,
   noticeLabels,
   phaseLine,
   resultLine,
   taskLine,
 } from "./hudText";
+import {stockColorsOf} from "./stockColors";
 
 /** 通知(解散・破棄・決着など)を出しておく時間(ms) */
 export const NOTICE_MS = 5000;
@@ -31,7 +34,6 @@ const panelStyle: CSSProperties = {
   background: "rgba(0,0,0,0.62)",
   borderRadius: 4,
   pointerEvents: "none",
-  whiteSpace: "pre-line",
   zIndex: 9999,
 };
 
@@ -62,7 +64,8 @@ const useTransient = (value: string | null, ms: number): string | null => {
 /**
  * ゲームの HUD(DOM のオーバーレイ。Canvas の外)。
  * マッチングと待機の状態、フェーズ番号と残り時間、自分のタスク一覧(達成でチェック)、intermission、
- * 決着の結果、切れた理由(数秒だけ 1 行)を出す。値はサーバーから来た物を見せるだけで、判定はしない(ADR-0003)
+ * 決着の結果、切れた理由(数秒だけ 1 行)を出す。読み込みと編集のタスクには、対象ファイルの色を付ける
+ * (山の紙の色と見比べて選べるように)。値はサーバーから来た物を見せるだけで、判定はしない(ADR-0003)
  */
 export function Hud() {
   const flow = useGameFlow();
@@ -70,6 +73,10 @@ export function Hud() {
   const myPlayerId = useMyPlayerId();
   const spectate = useSpectatePhase();
   const now = useNow(1000);
+  const {objects} = useObjectsState();
+
+  // 読み込みと編集の対象を、山の紙の色で見分けられるようにする(在庫にある間だけ分かる)
+  const stockColors = useMemo(() => stockColorsOf(objects), [objects]);
 
   const notice =
     flow.status === "idle" && flow.notice ? noticeLabels[flow.notice] : null;
@@ -78,31 +85,38 @@ export function Hud() {
     NOTICE_MS,
   );
 
-  const lines: string[] = [];
+  const lines: HudLine[] = [];
   const matching = matchingLine(flow, game, now);
   if (matching !== null) {
-    lines.push(matching);
+    lines.push({text: matching});
   }
   const phase = phaseLine(game, now);
   if (phase !== null) {
-    lines.push(phase);
+    lines.push({text: phase});
   }
   if (game.phase) {
     const mine = game.phase.tasks.filter(
       (task) => task.assigneePlayerId === myPlayerId,
     );
     if (mine.length > 0) {
-      lines.push("自分のタスク:");
+      lines.push({text: "自分のタスク:"});
       for (const task of mine) {
-        lines.push(taskLine(task));
+        lines.push(
+          taskLine(
+            task,
+            task.targetFileId === null
+              ? undefined
+              : stockColors.get(task.targetFileId),
+          ),
+        );
       }
     }
   }
   if (spectate === "spectating") {
-    lines.push("観戦中(物には触れられません)");
+    lines.push({text: "観戦中(物には触れられません)"});
   }
   if (shownNotice !== null) {
-    lines.push(shownNotice);
+    lines.push({text: shownNotice});
   }
 
   if (lines.length === 0) {
@@ -110,11 +124,36 @@ export function Hud() {
   }
   return (
     <>
-      <div style={panelStyle}>{lines.join("\n")}</div>
+      <div style={panelStyle}>
+        {lines.map((line, i) => (
+          <div key={i} style={lineStyle}>
+            {line.color !== undefined && (
+              <span style={{...swatchStyle, background: line.color}} />
+            )}
+            <span>{line.text}</span>
+          </div>
+        ))}
+      </div>
       <EliminationFlash />
     </>
   );
 }
+
+const lineStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+};
+
+/** 読み込みと編集の対象ファイルの色(山の紙の色と見比べる) */
+const swatchStyle: CSSProperties = {
+  width: 10,
+  height: 10,
+  boxSizing: "border-box",
+  border: "1px solid rgba(255,255,255,0.7)",
+  borderRadius: 2,
+  flex: "none",
+};
 
 /** 脱落した瞬間に出す簡単な演出(演出が終わると観戦へ移る。core/spectate) */
 function EliminationFlash() {

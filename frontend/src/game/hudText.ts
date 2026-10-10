@@ -16,11 +16,17 @@ export const noticeLabels: Record<FlowNotice, string> = {
   lost: "接続が切れ、再接続できませんでした",
 };
 
-/** 自分のタスク 1 行(達成でチェック) */
-export const taskLine = (task: GameTask): string =>
-  `${task.status === "completed" ? "☑" : "☐"} ${taskLabels[task.type]}${
-    task.targetFileId ? ` (${task.targetFileId})` : ""
-  }`;
+/**
+ * HUD の 1 行。color があれば、行の頭に色の四角を出す
+ * (読み込みと編集の対象ファイルを、山の紙の色で見分けられるようにするため)
+ */
+export type HudLine = {text: string; color?: string};
+
+/** 自分のタスク 1 行(達成でチェック)。対象ファイルがあれば、その在庫の色を付ける */
+export const taskLine = (task: GameTask, color?: string): HudLine => ({
+  text: `${task.status === "completed" ? "☑" : "☐"} ${taskLabels[task.type]}`,
+  ...(color === undefined ? {} : {color}),
+});
 
 /** マッチング・待機の 1 行。何も出さないときは null */
 export const matchingLine = (
