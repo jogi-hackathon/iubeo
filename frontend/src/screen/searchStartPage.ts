@@ -1,13 +1,5 @@
 import {SEARCH_PAGE_URL} from "./browserChrome";
 
-/**
- * 電源を入れて最初に出るページ。検索語を入れて検索へ飛ぶ入口になる。HUD の住所欄の代わりに、
- * 画面の中のこの入力欄で検索する。
- *
- * ASCII だけで書くのは意図的。エンジンの最小 GRE には CJK フォントが無く、日本語は豆腐（□）になる。
- * お題は机のメモ（3D）に出している。
- */
-
 /** エンジンへ渡せる URL の上限。data: URL のバイト数がこれを超えると静かに読み込めない */
 export const MAX_URL_BYTES = 8192;
 
@@ -23,7 +15,6 @@ const NETWORK_NOTE: Record<WispState, string> = {
     '<p class="warn">WISP proxy did not answer: results cannot load. Start <code>pnpm wisp</code>, then reload the app.</p>',
 };
 
-/** 本番向け。開発の手順（pnpm wisp）は出さない */
 const PRODUCTION_NETWORK_NOTE: Record<WispState, string> = {
   ok: NETWORK_NOTE.ok,
   none: '<p class="warn">Search is not available here: results cannot load.</p>',

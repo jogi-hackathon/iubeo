@@ -2,13 +2,8 @@ package session
 
 import "strconv"
 
-// オブジェクトの id と初期在庫。位置はサーバーが持たず、フロントが id(personal なら owner の席)から決める。
-// id の付け方はフロントとの約束(state-schema.md §6)
-
-// directoryID はディレクトリ(全員共通の 1 つ)の id
 const directoryID = "directory-1"
 
-// directoryStock は、ディレクトリの初期在庫(はっきり見分けられる 6 色)
 var directoryStock = []struct{ id, color string }{
 	{"3f0c6a52-8d1e-4b7a-9c35-1a2e4f6b8d01", "#e63946"},
 	{"7b19d4e3-2c58-4a06-8f71-5d3a9c0e2b02", "#f4a261"},

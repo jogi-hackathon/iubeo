@@ -33,7 +33,6 @@ describe("overviewHeight", () => {
     expect(small).toBeLessThan(overviewHeight("large"));
     expect(small).toBeGreaterThanOrEqual(mountainHeightMax("small") + 1.5);
     expect(small).toBeGreaterThanOrEqual(mountainViewHeight("small"));
-    // 山の端まで(縦の画角 75 度の 90% 以内)が画面に収まる
     expect(mountainReach("small") / small).toBeLessThan(
       0.9 * Math.tan((75 / 2) * (Math.PI / 180)),
     );
@@ -62,7 +61,6 @@ describe("overviewQuaternion", () => {
       expect(forward.x).toBeCloseTo(0);
       expect(forward.y).toBeCloseTo(-1);
       expect(forward.z).toBeCloseTo(0);
-      // 一人称の水平の前方 (-sin yaw, -cos yaw)
       expect(up.x).toBeCloseTo(-Math.sin(yaw));
       expect(up.y).toBeCloseTo(0);
       expect(up.z).toBeCloseTo(-Math.cos(yaw));

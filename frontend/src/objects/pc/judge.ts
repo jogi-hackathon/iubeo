@@ -8,29 +8,14 @@ import type {
   PageSnapshot,
 } from "../../judge/types";
 
-/**
- * Web Search のお題に、今の検索がふさわしいかを判定する。
- *
- * 本物の判定は Cloudflare の Clef (System One モデル) が行う。ブラウザから Workers AI の
- * binding を触らせないため、フロントの Worker (`worker/judge.ts`) の `/judge` を叩く。
- * 届かないときは、通信を待たせずその場で簡易判定 (語の重なり) に落とす。
- * どちらで判定したかは結果に持たせ、画面にも出す。
- *
- * **トリガーは無い**。プレイヤーが判定を要求するのではなく、ページが変わるたびに彼らが勝手に見る
- * (判定される側が判定を要求するのは、AI が上・人間が道具という世界観と逆になる)。
- * 画面に出すのは**外れたときの介入**が主で、合っているときは短い一言だけにする。
- */
-
 export type {JudgeRequest, JudgeResult, JudgeVerdict, PageSnapshot};
 
 /** 判定のエンドポイント。本番は Worker、開発は Vite のミドルウェアが受ける */
 export const JUDGE_ENDPOINT = import.meta.env.VITE_JUDGE_URL ?? "/judge";
 /** 判定の往復の上限 (ms)。Clef は速いので、これを過ぎたら簡易判定に落とす */
 export const JUDGE_TIMEOUT_MS = 8000;
-/** 一致とみなす下限、一部一致とみなす下限 (簡易判定) */
 const MATCH_AT = 0.6;
 const PARTIAL_AT = 0.25;
-/** 画面に出す長さ (ms)。介入は長く、合図は短く */
 const INTERVENE_MS = 9000;
 /** 「お題に合っている」の合図の長さ。合った判定は、この合図を見せてから PC を閉じる */
 export const CONFIRM_MS = 3000;
@@ -211,7 +196,6 @@ export const createJudgeStore = ({judge = runJudge}: Options = {}) => {
         listeners.delete(listener);
       };
     },
-    /** 判定する。新しい判定が始まれば、古い応答は捨てる */
     run: async (request: JudgeRequest): Promise<void> => {
       seq += 1;
       const id = seq;
@@ -235,12 +219,10 @@ export const createJudgeStore = ({judge = runJudge}: Options = {}) => {
         set({status: "done", task, url: page.url, result});
       }
     },
-    /** 判定を始められなかった（ページが読めないなど）。画面には理由を出す */
     fail: (task: string, url: string, message: string): void => {
       seq += 1;
       set({status: "error", task, url, message});
     },
-    /** 何も判定していない状態へ戻す (PC から離れたときなど) */
     reset: (): void => {
       seq += 1;
       if (state.status !== "idle") {

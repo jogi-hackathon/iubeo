@@ -25,9 +25,7 @@ export function PlayerController() {
   const keys = useKeys();
 
   useFrame((_, delta) => {
-    // 俯瞰ビューなど、別の演出がプレイヤーを預かっている間も止める(視点入力は、預かっている側が消費する)
     if (freeCamera || isPlayerControlLocked()) {
-      // 身体は止まっているので速度も止める。残すと骨格が動きの途中の姿勢で固まり、復帰時に慣性が飛ぶ
       localPlayer.velocity.set(0, 0, 0);
       return;
     }

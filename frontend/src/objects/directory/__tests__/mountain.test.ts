@@ -18,7 +18,6 @@ import {
 
 const SEEDS = ["a", "b", "directory-1", "directory-2", "x".repeat(20)];
 
-/** Y 軸まわりに yaw 回した板の、水平方向の 4 つの角(足元中心基準) */
 const corners = (s: {
   position: [number, number, number];
   yaw: number;
@@ -126,7 +125,6 @@ describe("buildMountain", () => {
   it("束は、厚みの違う本を 4〜6 冊積み、隙間なく段の高さまで重なる", () => {
     for (const seed of SEEDS) {
       const m = buildMountain(seed);
-      // 板は束ごとに下から順に並ぶ。底が段の高さに乗る板が、束の始まり
       const bundles: (typeof m.sheets)[] = [];
       for (const s of m.sheets) {
         const bottom = s.position[1] - s.size[1] / 2;
@@ -218,7 +216,6 @@ describe("buildMountain", () => {
           const tier = Math.round(c.topY / m.tierHeight) - 1;
           expect(tier).toBeLessThan(4);
           const r = Math.hypot(c.x, c.z);
-          // 上の段の外側の半径より外に、面の中心がある
           expect(r).toBeGreaterThan((m.tierRadii[tier + 1] ?? 0) + 0.1);
           expect(r).toBeLessThan((m.tierRadii[tier] as number) + 0.1);
         }
@@ -300,7 +297,6 @@ describe("山の大きさ", () => {
 });
 
 describe("buildMountain(small)", () => {
-  // 山の端を保証するので、SEEDS より多くの seed で確かめる
   const MANY = Array.from({length: 200}, (_, i) => `seed-${i}`);
   const reach = mountainReach("small");
 
@@ -365,7 +361,6 @@ describe("buildMountain(small)", () => {
   });
 
   describe("在庫ファイルの候補", () => {
-    // 低くて狭い山は、俯瞰の高さが山の高さの 2 倍だと、一番下の段が上の段に隠れやすく、候補が減る
     it("どの seed でも 2 個以上あり、room に置く id(directory-1)は在庫 6 個以上ある", () => {
       for (const seed of MANY) {
         expect(

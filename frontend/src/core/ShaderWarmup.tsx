@@ -9,7 +9,6 @@ import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 // 終了の状態はモジュールに置く。Fast Refresh でこのモジュールが再評価されたら、コンポーネント側も一緒にやり直す
 let finishing = false;
 let done = false;
-/** 終わるのを待たせている数(holdShaderWarmup) */
 let holds = 0;
 const listeners = new Set<() => void>();
 
@@ -64,7 +63,6 @@ export function ShaderWarmup() {
   const gl = useThree((s) => s.gl);
   const state = useRef<{
     tracker: ReturnType<typeof createWarmupTracker> | null;
-    /** カリングを切った mesh(元は frustumCulled=true だったもの) */
     culled: Set<Object3D>;
     frame: number;
   }>({tracker: null, culled: new Set(), frame: 0});
@@ -75,17 +73,14 @@ export function ShaderWarmup() {
       o.frustumCulled = true;
     }
     s.culled.clear();
-    // 狙いの選択(Interaction)を消さないよう、ウォームアップで選択を触ったときだけ戻す
     if (s.frame > 0) {
       s.frame = 0;
       setOutlineSelection([]);
     }
   };
 
-  // 途中でアンマウントされても、カリングを切ったまま残さない
   useEffect(() => restore, []);
 
-  // 描画(PostProcess)の直前に切り替える
   useFrame(() => {
     if (finishing) {
       return;
@@ -112,7 +107,6 @@ export function ShaderWarmup() {
     }
     finishing = true;
     restore();
-    // 直前のフレームまでに積んだパイプラインの生成・描画を待つ
     const {device} = (gl as unknown as {backend: {device: DeviceLike}}).backend;
     device.queue.onSubmittedWorkDone().then(finish, finish);
   }, FRAME_PRIORITY.warmup);

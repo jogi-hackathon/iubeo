@@ -15,7 +15,6 @@ import {taskStore} from "./task";
 export type PcCursor = {x: number; y: number};
 
 type Options = {
-  /** PC を使っている間だけ true。マウスは画面とメモへ向く（ポインタロックは解けている） */
   enabled: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
@@ -67,7 +66,6 @@ export function usePcPointer({
       return hit?.uv ? hit : null;
     };
 
-    /** 画面の上なら canvas 画素の座標を返す。原点は左上（テクスチャの V は上向き） */
     const screenPick = (event: PointerEvent | WheelEvent) => {
       const hit = hitOf(event, screenRef.current);
       if (!hit?.uv) {
@@ -126,7 +124,6 @@ export function usePcPointer({
     const onPointerMove = (event: PointerEvent) => {
       const pick = screenPick(event);
       if (!pick) {
-        // ボタンを押している間は直前の有効な座標を使い続ける（レイがガラスから外れてもドラッグを切らない）
         if (!dragging) {
           setHovering(false);
         }
@@ -182,7 +179,6 @@ export function usePcPointer({
       );
     };
 
-    // 画面の上では、ブラウザの右クリックメニューを出さない（エンジンの中のメニューを使う）
     const onContextMenu = (event: MouseEvent) => {
       if (hovering) {
         event.preventDefault();

@@ -3,7 +3,6 @@ import type {Look} from "./types";
 /** マウス視点の感度(rad/px) */
 export const LOOK_SENSITIVITY = 0.002;
 
-/** 真上・真下で yaw が不定になるのを避けるための余裕(rad) */
 const PITCH_EPSILON = 0.001;
 const PITCH_LIMIT = Math.PI / 2 - PITCH_EPSILON;
 

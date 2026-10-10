@@ -15,7 +15,6 @@ const allFrames = Object.entries(CLIPS).flatMap(([name, clip]) =>
   clip.frames.map((pose, i) => ({label: `${name}[${i}]`, pose})),
 );
 
-/** 骨(肢)ごとの基準長(m)。手書きデータのずれを ±TOLERANCE で許す */
 const LIMBS: readonly [JointName, JointName, number][] = [
   ["lHip", "lKnee", 0.4],
   ["rHip", "rKnee", 0.4],
@@ -61,10 +60,8 @@ describe("CLIPS", () => {
       Pose,
     ];
     expect(CLIPS.walk.loop).toBe(true);
-    // 左足が前の接触では左つま先が右より前(-Z 側)、反転した後半では逆
     expect(at(c, J.lToe * 3 + 2)).toBeLessThan(at(c, J.rToe * 3 + 2));
     expect(at(c2, J.rToe * 3 + 2)).toBeLessThan(at(c2, J.lToe * 3 + 2));
-    // 胴は接触で低く、通過で高い
     expect(at(c, J.lHip * 3 + 1)).toBeLessThan(at(p, J.lHip * 3 + 1));
     expect(at(c2, J.lHip * 3 + 1)).toBeLessThan(at(p2, J.lHip * 3 + 1));
   });
@@ -75,7 +72,6 @@ describe("CLIPS", () => {
       const [s, e, w] = [`${side}Shoulder`, `${side}Elbow`, `${side}Wrist`].map(
         (name) => J[name as JointName] * 3,
       ) as [number, number, number];
-      // 肘の前後(Z)位置に対応する、肩→手首の線上の高さ
       const t = (at(h, e + 2) - at(h, s + 2)) / (at(h, w + 2) - at(h, s + 2));
       const lineY = at(h, s + 1) + t * (at(h, w + 1) - at(h, s + 1));
       expect(at(h, e + 1)).toBeLessThan(lineY - 0.01);

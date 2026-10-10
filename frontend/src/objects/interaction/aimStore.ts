@@ -1,6 +1,5 @@
 import {useSyncExternalStore} from "react";
 
-// 今狙っているオブジェクトの id。毎フレーム Interaction が書き、アウトラインとレティクルが読む
 let aimed: string | null = null;
 const listeners = new Set<() => void>();
 

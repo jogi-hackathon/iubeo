@@ -6,8 +6,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// ---------- 入力 ----------
-
 // Input はセッションへの入力。セッションの goroutine が 1 つのチャネルから順番に Step に渡す
 type Input interface{ isInput() }
 
@@ -50,8 +48,6 @@ func (Disconnect) isInput()      {}
 func (ClientTransform) isInput() {}
 func (ClientInteract) isInput()  {}
 func (Tick) isInput()            {}
-
-// ---------- 出力 ----------
 
 // Output は Step の結果として、セッションの goroutine が行うこと
 type Output interface{ isOutput() }
@@ -98,8 +94,6 @@ const (
 	ReasonFinished CloseReason = "finished"
 )
 
-// ---------- 規則 ----------
-
 // Step は「状態 + 入力 → 新しい状態 + 行うこと」の純粋な関数。st は書き換えない
 func Step(st State, in Input) (State, []Output) {
 	if st.Ended {
@@ -128,7 +122,6 @@ func Step(st State, in Input) (State, []Output) {
 	return next, out
 }
 
-// inputTime は入力の時刻を返す。transform は時刻を持たない
 func inputTime(in Input) (time.Time, bool) {
 	switch in := in.(type) {
 	case Connect:
@@ -161,8 +154,6 @@ func (st *State) humans(pred func(PlayerState) bool) bool {
 	return true
 }
 
-// connect: 同じプレイヤーの古い接続は切る。本人には snapshot、他の人には player.updated を送る。
-// 開始前に人間全員がそろったら playing にして session.started を送り、第1フェーズを始める
 func (st *State) connect(in Connect) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil {
@@ -189,8 +180,6 @@ func (st *State) connect(in Connect) []Output {
 	return out
 }
 
-// disconnect: 今の接続が切れたときだけ disconnected にする(置き換えられた古い接続は無視する)。
-// 作業を取りやめ、手持ちのファイルはディレクトリに戻す
 func (st *State) disconnect(in Disconnect) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil || p.ConnID != in.ConnID {
@@ -210,7 +199,6 @@ func errorMessage(code, message string) api.ErrorMessage {
 	return api.ErrorMessage{Type: api.ErrorMessageTypeError, Code: code, Message: message}
 }
 
-// transform: seq が増えない更新は捨てる。配信は次の Tick でまとめて行う
 func (st *State) transform(in ClientTransform) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil {
@@ -228,7 +216,6 @@ func (st *State) transform(in ClientTransform) []Output {
 	return nil
 }
 
-// tick: (フェーズの締切と intermission の終わりは Step が先に advance で処理する)開始と破棄の期限を確かめ、期限が来たワークスペース・キャンバスのアクションを終え、前回から動いたプレイヤーの transforms を配る
 func (st *State) tick(in Tick) []Output {
 	if st.Status == api.SessionStatusWaiting && !in.Now.Before(st.CreatedAt.Add(st.StartTimeout)) {
 		st.Ended = true

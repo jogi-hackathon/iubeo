@@ -67,7 +67,6 @@ describe("bake format", () => {
   });
 
   it("atlasUV はチャートの端のテクセル中心に写す", () => {
-    // チャート 6(= 2つ目の mesh のチャート 0)は x=49, y=1, 6x4
     const uv = atlasUV([0, 0, 1, 1], [0, 0], 6, layout);
     expect(uv[0]).toBeCloseTo((49 + 0.5) / 64);
     expect(uv[1]).toBeCloseTo((1 + 0.5) / 32);

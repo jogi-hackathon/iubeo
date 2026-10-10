@@ -47,7 +47,6 @@ export type AuthorityRegistry = {
  * 同じ登録を 2 回外しても、何もしない
  */
 export const createAuthorityRegistry = (): AuthorityRegistry => {
-  // 登録の順(古い → 新しい)。窓口は末尾
   let stack: AuthorityHandle[] = [];
   const listeners = new Set<() => void>();
 
@@ -63,7 +62,6 @@ export const createAuthorityRegistry = (): AuthorityRegistry => {
 
   return {
     register: (handle) => {
-      // 同じ参照を 2 回登録しても、外すのは片方ずつになるように、登録ごとに別の箱に包む
       const entry: AuthorityHandle = {...handle};
       stack = [...stack, entry];
       notify();

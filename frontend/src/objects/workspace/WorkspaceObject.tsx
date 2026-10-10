@@ -16,7 +16,6 @@ import {
 
 const CYLINDER_SEGMENTS = 10;
 
-// 部品はみな同じ単位の形を scale で伸ばすので、ジオメトリとマテリアルは種類ごとに 1 つを共有する(手元のアイテムと同じ)
 const GEOMETRIES: Record<PartShape, BoxGeometry | CylinderGeometry> = {
   box: new BoxGeometry(1, 1, 1),
   cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
@@ -28,7 +27,6 @@ const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
   paper: new MeshStandardMaterial({color: "#fbfaf6"}),
 };
 
-// アニメーションのモックの、天板上の光る板(作業スペースいっぱいに出す)
 const PANEL_THICKNESS = 0.02;
 const PANEL_COLOR = "#7fd1ff";
 const PANEL_PULSE_HZ = 2;

@@ -15,7 +15,6 @@ export function FrameLimiter() {
     const interval = 1000 / fpsLimit;
     let last = performance.now();
     let id = 0;
-    // never モードの clock は advance に渡した値(秒)で進むため、初回に現在時刻で初期化する
     advance(last / 1000);
     const tick = (t: number) => {
       id = requestAnimationFrame(tick);

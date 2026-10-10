@@ -1,7 +1,6 @@
 import {aoModeUserData} from "../bake/aoMode";
 import type {GameObject} from "./types";
 
-// テスト用のダミー描画。白い世界で見分けがつくよう、状態ごとに色を変える
 const COLOR_IDLE = "#5b9bff";
 const COLOR_IN_USE = "#ff9f43";
 const COLOR_UNAVAILABLE = "#c8c8c8";

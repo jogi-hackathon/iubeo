@@ -17,15 +17,12 @@ const F1 = "0a1b2c3d-0001-4000-8000-000000000001";
 const F2 = "0a1b2c3d-0002-4000-8000-000000000002";
 const F3 = "0a1b2c3d-0003-4000-8000-000000000003";
 
-// テストごとに登録したオーソリティを外す(registry は共有の状態)
 let unregister: (() => void) | undefined;
 afterEach(() => {
   unregister?.();
   unregister = undefined;
 });
 
-// マネージャーとローカルの規則を、実際の配線と同じ形でつなぎ、規則を窓口として登録する。
-// 窓口が持つ dev(getLocalDevOps が借りる)が、開発用の操作の入口になる
 const setup = (random?: () => number) => {
   const items = createItemManager();
   const objects = createObjectManager({
@@ -58,7 +55,6 @@ const setup = (random?: () => number) => {
   }
   const authority = {
     ...ops,
-    /** 乱数を渡したとき(テストで決める)は、それを使う。無ければ既定(Math.random) */
     borrowAsOther: (directoryId: string) =>
       ops.borrowAsOther(directoryId, random),
   };
@@ -233,7 +229,6 @@ describe("localDevOps", () => {
         const {objects, authority, id} = setupDirectory();
         expect(authority.returnAsOther(id)).toBeNull();
 
-        // 1 つずつ取って、手元から捨てる(手は 1 つなので、持ったままでは次を取れない)
         for (const f of STOCK) {
           objects.interact(id, {target: f.id});
           authority.deleteHeldItem();

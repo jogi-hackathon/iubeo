@@ -1,4 +1,3 @@
-// 法線まわりの接線フレームと、隠れチャートの判定ロジック(レイキャスト結果は GPU 側が出す)。
 import {Vector3} from "three";
 
 import {
@@ -87,6 +86,6 @@ export const decideHidden = (
 ): boolean => {
   if (points.length === 0) {
     return false;
-  } // 判定できなければ安全側(通常解像度を維持)
+  }
   return points.every((p) => isHiddenPoint(p, rays));
 };

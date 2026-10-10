@@ -32,7 +32,6 @@ export const createObjectManager = ({
     interactRejected: new Set(),
   };
 
-  // コールバックの例外が他のコールバック・状態更新に影響しないようにする
   const set = (objects: readonly GameObject[]) => {
     state = {objects};
     for (const l of Array.from(listeners)) {
@@ -48,7 +47,6 @@ export const createObjectManager = ({
     event: K,
     payload: ObjectEvents[K],
   ) => {
-    // 通知中に追加されたコールバックは、今回のイベントでは呼ばない
     for (const cb of Array.from(handlers[event])) {
       try {
         cb(payload);
@@ -79,7 +77,6 @@ export const createObjectManager = ({
         handlers[event].delete(callback);
       };
     },
-    /** サーバーの通知を反映する。存在しない id の remove は無視する */
     apply: (message: ObjectMessage): void => {
       switch (message.type) {
         case "upsert": {
@@ -104,11 +101,6 @@ export const createObjectManager = ({
           return;
       }
     },
-    /**
-     * インタラクトの要求を送る。手持ちも一緒に渡す(インタラクトの条件になるため)。
-     * 手元に無いオブジェクトや、窓口が無い間は送らず false を返す。要求が通るかは、窓口が検証して決める。
-     * options.target は、対象の中から 1 つ選ぶ物(ディレクトリのファイルなど)で使う
-     */
     interact: (objectId: string, options: InteractOptions = {}): boolean => {
       const authority = getAuthority();
       if (!authority || !find(objectId)) {

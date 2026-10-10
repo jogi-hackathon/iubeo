@@ -16,8 +16,6 @@ export interface CoverState {
   booting: boolean;
 }
 
-// 初期状態は覆ったまま(起動の最初から白い覆いを出す)。
-// 開発中に HMR でこのモジュールが読み直されると、初期状態(覆ったまま)に戻る。そのときはページを再読み込みする
 let state: CoverState = {covered: true, bar: null, booting: true};
 const listeners = new Set<() => void>();
 
@@ -37,22 +35,17 @@ export const coverStore = {
       listeners.delete(l);
     };
   },
-  /**
-   * 覆う・外す。覆うときは前の進捗バーを消す。外すときはバーを残す(白と一緒にフェードアウトさせ、消すのは cover.ts の uncoverScreen)
-   */
   setCovered: (covered: boolean): void => {
     if (covered === state.covered) {
       return;
     }
     set({...state, covered, bar: covered ? null : state.bar});
   },
-  /** 起動の覆いを終える(以後、シーンの遷移を始められる) */
   finishBoot: (): void => {
     if (state.booting) {
       set({...state, booting: false});
     }
   },
-  /** 進捗バーを出す(段階が変わったときだけ since を取り直す) */
   setBar: (total: number, done: number): void => {
     const bar = state.bar;
     if (bar && bar.total === total && bar.done === done) {

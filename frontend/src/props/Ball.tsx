@@ -6,7 +6,6 @@ interface BallProps {
   position: Vec3;
   radius: number;
   color?: string;
-  /** AO の出し方(src/bake/aoMode.ts)。省略時は親の指定(無ければ baked) */
   ao?: AOMode;
 }
 

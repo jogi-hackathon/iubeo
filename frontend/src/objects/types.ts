@@ -1,10 +1,6 @@
 import type {JsonValue} from "../core/json";
 import type {PlayerId} from "../player/types";
 
-// ここでいう「オブジェクト」は、ゲーム内で「オブジェクト」と呼ばれるもの(ワールドに置かれた、機能を持つ物体)。
-// three.js の Object3D や、見た目だけの部品である props/ とは別物なので、型名は GameObject にする。
-// 手に持つ物(ファイル・ライター)はアイテムで、items/ が別に扱う
-
 /** personal は各プレイヤーの区画のもの。shared は全員共通(ディレクトリだけ) */
 export type ObjectScope = "personal" | "shared";
 

@@ -11,11 +11,6 @@ import {whenSceneReady} from "../scenes/sceneReady";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
 
-// dev 専用の AO ベイクページ(bake.html)。シーンを描画せずにマウントだけして、BVHCollider・BakeTarget に登録された
-// 静的 mesh の AO を WebGPU でベイクし、dev サーバー(scripts/bakeSavePlugin.ts)へ送って public/ao/ に保存する。
-// URL パラメータ: ?scene=<名前>(既定 test)&allowSoftware=1(ソフトウェア実装の adapter でも続行)
-// 終了時に window.__bakeResult を置く(scripts/bake-ao.ts が待つ)
-
 interface BakeResult {
   ok: boolean;
   error?: string;
@@ -110,10 +105,6 @@ const save = async (
   }
 };
 
-/**
- * ベイクを走らせる。シーンの準備(マウントと、物を置く窓口の登録)が終わってから始める
- * (シーンの LocalAuthority が置く物も、ベイクの対象に入るように)
- */
 function Runner({
   scene,
   onProgress,
@@ -212,13 +203,8 @@ function BakePage() {
         frameloop="never"
         style={{width: 1, height: 1}}
       >
-        {/* Runner をシーンと同じ Suspense 境界に入れる。Suspense で読み込む prop(useGLTF / useLoader など)が
-            すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
-            useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
         <Suspense fallback={null}>
-          {/* 物(ディレクトリなど)は、シーンの LocalAuthority が置いて、ManagedObjects が描く(一緒にベイクされる) */}
           <Scene />
-          {/* 準備を知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority / ServerAuthority が知らせる。Runner は、これが済むまで待つ) */}
           {readinessOf(scene) === "mount" && (
             <ReportSceneReady key={`ready:${scene}`} scene={scene} />
           )}

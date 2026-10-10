@@ -2,7 +2,6 @@ import type {WebGPURenderer} from "three/webgpu";
 
 import {EMBEDDED} from "./params";
 
-// renderer.backend.device は three の型に無いので、使う分だけ狭める
 type GpuDeviceLike = {
   addEventListener(
     type: "uncapturederror",

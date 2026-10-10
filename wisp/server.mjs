@@ -12,7 +12,6 @@ const PORT = Number(process.env.PORT ?? 8080);
 const TOKEN_KEY = process.env.IUBEO_WISP_KEY ?? "";
 const REQUIRE_TOKEN = process.env.IUBEO_WISP_REQUIRE_TOKEN === "1";
 
-// 'upgrade' の段階では HTTP レスポンスを自前で書く(素の TCP ソケットしか無い)
 const reject = (socket, status) => {
   socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`);
 };

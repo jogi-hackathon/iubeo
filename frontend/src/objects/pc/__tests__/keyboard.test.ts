@@ -12,7 +12,6 @@ describe("keyPositions", () => {
   });
 
   it("キーの粒が、実物に近い大きさと間隔で並ぶ", () => {
-    // 1u = 19mm。同じ列のキー（15 個ごと）の間隔がピッチと一致する
     const column = [0, 15, 30, 45, 60].map(
       (index) => positions[index]?.[1] ?? 0,
     );

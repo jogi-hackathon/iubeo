@@ -14,7 +14,6 @@ import (
 // CookieName はプレイヤーを識別する Cookie の名前
 const CookieName = "iubeo_player"
 
-// cookieMaxAge は Cookie の有効期間。トークン自体に期限は無く、ブラウザに残す長さだけ決める
 const cookieMaxAge = 30 * 24 * time.Hour
 
 var b64 = base64.RawURLEncoding

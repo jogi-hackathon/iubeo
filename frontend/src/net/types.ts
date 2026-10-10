@@ -1,8 +1,5 @@
 import type {components} from "./schema.gen";
 
-// backend/api/openapi.yaml から生成した型(schema.gen.ts)に、使う名前を付ける。
-// 生成は `pnpm gen:api`。schema.gen.ts は手で書き換えない
-
 type Schemas = components["schemas"];
 
 export type Me = Schemas["Me"];

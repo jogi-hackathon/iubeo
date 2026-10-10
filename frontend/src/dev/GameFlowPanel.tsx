@@ -6,7 +6,6 @@ import {gameFlow, useGameFlow} from "../flow";
 import {playerManager, usePlayersState} from "../player";
 import {useSceneState} from "../scenes/useScene";
 
-// SceneDebugPanel(左上)の下に置く。ゲームの流れ(マッチング → sandbox)の唯一の入口は、今はこのパネルのボタン
 const panelStyle: CSSProperties = {
   position: "fixed",
   top: 80,
@@ -23,7 +22,6 @@ const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
 
 const short = (id: string) => id.slice(0, 8);
 
-/** 待機を始めてからの秒数。1 秒ごとに数え直す */
 function Elapsed({since}: {since: string}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -34,7 +32,6 @@ function Elapsed({since}: {since: string}) {
   return <>{sec}秒</>;
 }
 
-/** 他のプレイヤーの位置を補間するか(比べる用) */
 function InterpolationToggle() {
   const [enabled, setEnabled] = useState(playerManager.getInterpolation);
   return (
@@ -52,7 +49,6 @@ function InterpolationToggle() {
   );
 }
 
-/** セッションの参加者(席・接続・生死)。ServerAuthority のシーンにいる間だけ出る */
 function Players() {
   const myPlayerId = useMyPlayerId();
   const {players} = usePlayersState();
@@ -114,7 +110,6 @@ export function GameFlowPanel() {
       <div style={rowStyle}>
         <button
           type="button"
-          // sandbox にいる間は、シーンの途中でオーソリティを切り替えられないので、room などから始める
           disabled={!idle || sceneName === "sandbox"}
           onClick={() => void gameFlow.startMatchmaking()}
         >

@@ -1,12 +1,3 @@
-// AO の GPU ベイクを1コマンドで完結させる。Vite の dev サーバー(vite.config.ts の保存プラグイン込み)を空きポートで起動し、
-// インストール済みの Google Chrome をヘッドレスで起動して bake.html を開き、完了か失敗まで待つ。
-// 結果は public/ao/<scene>.png / .bin に書かれ、ゲーム本体の BakedAO がそのまま読む(保存は dev サーバー側のプラグイン)。
-// 使い方: pnpm bake:ao [--scene=test] [--timeout=300] [--allow-software] [--headed] [--chrome-arg=<flag>]
-//   --scene           ベイクするシーン(src/scenes/index.ts のキー。既定 test)
-//   --timeout         秒(既定 300)
-//   --allow-software  ソフトウェア実装(SwiftShader など)の adapter でも続行する(既定は止める)
-//   --headed          ヘッドありで起動(デバッグ用)
-//   --chrome-arg      Chrome に渡す追加フラグ(複数指定可)
 import net from "node:net";
 import {fileURLToPath} from "node:url";
 
@@ -21,7 +12,6 @@ interface Options {
   chromeArgs: string[];
 }
 
-/** bake.html が完了時に window.__bakeResult に置く値(src/bake/page.tsx) */
 interface BakeResult {
   ok: boolean;
   error?: string;
@@ -69,7 +59,6 @@ const parseArgs = (argv: string[]): Options => {
   return opts;
 };
 
-// 空きポートを探す(起動中の他の dev サーバーとは衝突させない)
 const findFreePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -81,8 +70,6 @@ const findFreePort = (): Promise<number> =>
     });
   });
 
-// ヘッドレス Chrome で WebGPU を使うためのフラグ。macOS(Metal)はフラグ無しでも実 GPU で動く。
-// Linux は Vulkan 経由の明示が必要(出典はファイル末尾)
 const chromeFlags = (opts: Options): string[] => {
   const flags = ["--enable-unsafe-webgpu"];
   if (process.platform === "linux") {
@@ -163,7 +150,6 @@ const main = async (): Promise<number> => {
     let result: BakeResult;
     try {
       const handle = await page.waitForFunction(
-        // ページ内で評価される関数。Node 側の型に window は無いので globalThis で参照する
         () => (globalThis as {__bakeResult?: unknown}).__bakeResult,
         null,
         {timeout: opts.timeout * 1000, polling: 250},
@@ -199,7 +185,3 @@ const main = async (): Promise<number> => {
 };
 
 process.exit(await main());
-
-// ヘッドレス Chrome で WebGPU を有効にするフラグの出典:
-// - https://developer.chrome.com/blog/supercharge-web-ai-testing
-// - https://developer.chrome.com/docs/web-platform/webgpu/troubleshooting-tips

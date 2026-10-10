@@ -1,9 +1,6 @@
 import type {Vec3} from "../props/types";
 import type {GameObject} from "./types";
 
-// レイアウトは、シーンが「この id の物を、ここに、この向きと見た目で置く」と決めるデータ。
-// 部品や材質は import しない(純粋なデータなので、テストでそのまま読める)。
-
 /** レイアウトの項目。項目名(レイアウトのキー)はトグル(core/toggles)のキーにもなる */
 export type LayoutItem = {
   /** サーバー(またはローカルのオーソリティ)が付ける id。種類は id の接頭辞で決まる */

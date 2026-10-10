@@ -9,7 +9,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// withTasks はフェーズのタスクを決めたものに差し替える(分配は乱数なので、達成のテストでは固定する)
 func withTasks(st State, tasks ...TaskState) State {
 	st = st.clone()
 	st.Phase.Tasks = tasks
@@ -36,7 +35,6 @@ func TestFirstPhaseStarts(t *testing.T) {
 	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || !ph.StartedAt.Equal(t0) || !ph.DeadlineAt.Equal(t0.Add(30*time.Second)) {
 		t.Fatalf("phase = %+v", ph)
 	}
-	// 第1フェーズは 1 × 3 人 = 3 件。生存者 3 人で 1 件ずつ
 	if n := countBy(ph.Tasks, func(t TaskState) string { return t.Assignee }); !reflect.DeepEqual(n, map[string]int{"p1": 1, "p2": 1, "p3": 1}) {
 		t.Errorf("tasks per player = %v", n)
 	}
@@ -66,7 +64,6 @@ func TestFirstPhaseStarts(t *testing.T) {
 	}
 }
 
-// startPhaseWith は p3 を脱落させて第 number フェーズを始める
 func startPhaseWith(t *testing.T, seed uint64, number int) (State, []Output) {
 	t.Helper()
 	st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
@@ -76,7 +73,6 @@ func startPhaseWith(t *testing.T, seed uint64, number int) (State, []Output) {
 }
 
 func TestPhaseRedistributesToSurvivors(t *testing.T) {
-	// 第2フェーズは 2 × 3 人 = 6 件。生存者 2 人で割り切れる
 	st, out := startPhaseWith(t, 1, 2)
 	if n := countBy(st.Phase.Tasks, func(t TaskState) string { return t.Assignee }); !reflect.DeepEqual(n, map[string]int{"p1": 3, "p2": 3}) {
 		t.Errorf("phase 2: tasks per player = %v", n)
@@ -87,7 +83,6 @@ func TestPhaseRedistributesToSurvivors(t *testing.T) {
 		t.Errorf("phase.started = %+v", m)
 	}
 
-	// 第3フェーズは 9 件。4 件ずつで、端数の 1 件は乱数で誰かに足す
 	extra := map[string]bool{}
 	for seed := range uint64(50) {
 		st, _ := startPhaseWith(t, seed, 3)
@@ -109,7 +104,6 @@ func TestPhaseRedistributesToSurvivors(t *testing.T) {
 func TestPhaseReadEditTargets(t *testing.T) {
 	overlapped := false
 	for seed := range uint64(200) {
-		// 第3フェーズの 9 件を p1・p2 で分ける
 		st, _ := startPhaseWith(t, seed, 3)
 		targets := map[string][]string{}
 		for _, task := range st.Phase.Tasks {
@@ -118,7 +112,6 @@ func TestPhaseReadEditTargets(t *testing.T) {
 			}
 		}
 		for p, ids := range targets {
-			// 同じプレイヤーの中では重複させない(在庫は 6 つなので、1 人 6 件まで)
 			if len(slices.Compact(slices.Sorted(slices.Values(ids)))) != len(ids) || len(ids) > len(directoryStock) {
 				t.Fatalf("seed %d: %s's read_edit targets = %v", seed, p, ids)
 			}
@@ -128,7 +121,6 @@ func TestPhaseReadEditTargets(t *testing.T) {
 				}
 			}
 		}
-		// 別のプレイヤーとは重なってよい(コンフリクトを起こすため)
 		if slices.ContainsFunc(targets["p1"], func(id string) bool { return slices.Contains(targets["p2"], id) }) {
 			overlapped = true
 		}
@@ -139,7 +131,6 @@ func TestPhaseReadEditTargets(t *testing.T) {
 }
 
 func TestPhaseReadEditPerPlayerCap(t *testing.T) {
-	// 1 人に 9 件。read_edit は在庫の 6 つを超えず、超える分は write か image_generation になる
 	capped := false
 	for seed := range uint64(200) {
 		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
@@ -160,7 +151,6 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 }
 
 func TestPhaseTaskTypesAreEven(t *testing.T) {
-	// 3 人で第1フェーズを 3000 回(9000 件)。在庫を使い切らないので、3 種類がほぼ 3000 件ずつになる
 	n := map[api.TaskType]int{}
 	for seed := range uint64(3000) {
 		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
@@ -209,7 +199,6 @@ func wantNoTaskCompleted(t *testing.T, out []Output) {
 	}
 }
 
-// edit はプレイヤーに在庫のファイルを取り出して編集させる
 func edit(t *testing.T, st State, player, fileID string) State {
 	t.Helper()
 	st = take(t, st, player, fileID)
@@ -218,7 +207,6 @@ func edit(t *testing.T, st State, player, fileID string) State {
 	return st
 }
 
-// create はプレイヤーにワークスペースで新しいファイルを作らせる
 func create(t *testing.T, st State, player, newID string) State {
 	t.Helper()
 	in := interactIn(player, workspaceID(st.player(player).Seat), nil, "")
@@ -234,12 +222,10 @@ func TestCompleteReadEdit(t *testing.T) {
 		TaskState{ID: "task-1-2", Type: api.ReadEdit, Assignee: "p2", TargetFileID: f2},
 	)
 
-	// 編集前のまま入れても達成にならない
 	st = take(t, st, "p1", f1)
 	st, out := put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
 
-	// 他の人の対象を編集して入れても達成にならない
 	st = edit(t, st, "p1", f2)
 	st, out = put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
@@ -257,7 +243,6 @@ func TestCompleteReadEdit(t *testing.T) {
 		t.Errorf("snapshot task = %+v", task)
 	}
 
-	// 入れたファイルは編集前に戻る。取り出して入れ直しても、編集し直して入れても、済んだタスクはもう数えない
 	if it := st.item(f1); it.Status != api.FileStatusUnedited {
 		t.Errorf("file = %+v, want unedited after put", it)
 	}
@@ -275,7 +260,6 @@ func TestTwoPlayersShareReadEditTarget(t *testing.T) {
 		TaskState{ID: "task-1-2", Type: api.ReadEdit, Assignee: "p2", TargetFileID: f1},
 	)
 
-	// p1 が持って編集している間、p2 は取れない(コンフリクト)
 	st = edit(t, st, "p1", f1)
 	_, out := step(t, st, interactIn("p2", directoryID, nil, f1))
 	wantRejected(t, out, "p2", directoryID, api.RejectReasonNotFound)
@@ -286,12 +270,10 @@ func TestTwoPlayersShareReadEditTarget(t *testing.T) {
 		t.Fatal("p2's task completed by p1's file")
 	}
 
-	// p1 が戻したファイルは編集前なので、そのまま入れても p2 の達成にはならない
 	st = take(t, st, "p2", f1)
 	st, out = put(t, st, "p2")
 	wantNoTaskCompleted(t, out)
 
-	// p2 が編集し直して入れれば、p2 の達成になる
 	st = edit(t, st, "p2", f1)
 	_, out = put(t, st, "p2")
 	wantTaskCompleted(t, out, "task-1-2", t0)
@@ -305,7 +287,6 @@ func TestCompleteWrite(t *testing.T) {
 		TaskState{ID: "task-1-3", Type: api.Write, Assignee: "p2"},
 	)
 
-	// 在庫のファイルを編集して入れても write にはならない
 	st = edit(t, st, "p1", f1)
 	st, out := put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
@@ -317,7 +298,6 @@ func TestCompleteWrite(t *testing.T) {
 	st, out = put(t, st, "p1")
 	wantTaskCompleted(t, out, "task-1-2", t0)
 
-	// 自分の write が済んだあとに作ったファイルは、他の人の write にも数えない
 	st = create(t, st, "p1", "new-3")
 	st, out = put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
@@ -329,7 +309,6 @@ func TestCompleteWrite(t *testing.T) {
 	}
 }
 
-// paint はプレイヤーにキャンバスで画像を作らせる
 func paint(t *testing.T, st State, player, newID string) State {
 	t.Helper()
 	in := interactIn(player, canvasID(st.player(player).Seat), nil, "")
@@ -346,7 +325,6 @@ func TestCompleteImageGeneration(t *testing.T) {
 		TaskState{ID: "task-1-3", Type: api.ImageGeneration, Assignee: "p2"},
 	)
 
-	// ワークスペースで作ったファイルは write にだけ数え、image_generation にはしない
 	st = create(t, st, "p1", "new-1")
 	st, out := put(t, st, "p1")
 	wantTaskCompleted(t, out, "task-1-2", t0)
@@ -358,7 +336,6 @@ func TestCompleteImageGeneration(t *testing.T) {
 	st, out = put(t, st, "p1")
 	wantTaskCompleted(t, out, "task-1-1", t0)
 
-	// 自分の分が済んだあとに作った画像は、他の人の image_generation にも数えない
 	st = paint(t, st, "p1", "img-2")
 	st, out = put(t, st, "p1")
 	wantNoTaskCompleted(t, out)
@@ -388,7 +365,6 @@ func TestCompleteBeforeDeadlineOnly(t *testing.T) {
 	st, out := step(t, st, in)
 	wantTaskCompleted(t, out, "task-1-1", in.Now)
 
-	// 締切ちょうどに受け付けたものは締切後
 	st = create(t, st, "p1", "new-2")
 	in = interactIn("p1", directoryID, st.held("p1"), "")
 	in.Now = deadline
@@ -407,12 +383,10 @@ func TestDisconnectedFileDoesNotComplete(t *testing.T) {
 	st = create(t, st, "p1", "new-1")
 	st = edit(t, st, "p2", f1)
 
-	// 切断で手持ちがディレクトリに入っても、成果物・在庫にはなるが達成には数えない
 	st, out := step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
 	wantNoTaskCompleted(t, out)
 	st, out = step(t, st, Disconnect{PlayerID: "p2", ConnID: 2, Now: t0})
 	wantNoTaskCompleted(t, out)
-	// 編集済みのまま切断しても、在庫には編集前で戻る
 	if directoryOf(st).Outputs != 1 || !slices.Contains(stockIDs(st), f1) || st.item(f1).Status != api.FileStatusUnedited {
 		t.Errorf("directory = %+v", directoryOf(st))
 	}
@@ -422,14 +396,12 @@ func TestDisconnectedFileDoesNotComplete(t *testing.T) {
 		}
 	}
 
-	// 再接続して編集し直し、自分で入れれば達成になる
 	st, _ = step(t, st, Connect{PlayerID: "p2", ConnID: 3, Now: t0})
 	st = edit(t, st, "p2", f1)
 	_, out = put(t, st, "p2")
 	wantTaskCompleted(t, out, "task-1-2", t0)
 }
 
-// msgsOf は配る(Broadcast)メッセージのうち T のものを返す
 func msgsOf[T any](out []Output) []T {
 	var r []T
 	for _, b := range outputsOf[Broadcast](out) {
@@ -461,7 +433,6 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 	deadline := st.Phase.DeadlineAt
 	st = create(t, st, "p1", "new-1")
 	st, _ = put(t, st, "p1")
-	// p1 は在庫のファイル、p2 は作ったファイルを持ったまま、p3 は作業中のまま締切を迎える
 	st = take(t, st, "p1", f1)
 	st = create(t, st, "p2", "new-2")
 	st, _ = step(t, st, interactIn("p3", workspaceID(3), nil, ""))
@@ -473,7 +444,6 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 
 	st, out = step(t, st, Tick{Now: deadline.Add(20 * time.Millisecond)})
 	wantPhaseEnded(t, out, 1, []string{"p2", "p3"}, api.PhaseEndedMessageNextIntermission)
-	// 未達の人は eliminated になり、同時に落下の演出を送る
 	var fell []string
 	for i, b := range outputsOf[Broadcast](out) {
 		e, ok := b.Msg.(api.EffectMessage)
@@ -492,7 +462,6 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 	if st.player("p1").Life != api.Alive || st.Status != api.SessionStatusIntermission || st.Phase.Status != api.PhaseStatusIntermission {
 		t.Fatalf("after deadline: p1 %s, status %s, phase %s", st.player("p1").Life, st.Status, st.Phase.Status)
 	}
-	// 脱落者の手持ちはディレクトリへ。作業はすべて取りやめる
 	if len(st.Actions) != 0 || len(workspaceUsers(st, 3)) != 0 || st.held("p2") != nil || st.held("p1") == nil {
 		t.Errorf("actions = %+v, held p1 %v p2 %v", st.Actions, st.held("p1"), st.held("p2"))
 	}
@@ -500,13 +469,11 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 		t.Error("snapshot phase is not intermission")
 	}
 
-	// intermission の間は操作できない
 	in := interactIn("p1", directoryID, st.held("p1"), "")
 	in.Now = deadline.Add(time.Second)
 	_, out = step(t, st, in)
 	wantRejected(t, out, "p1", directoryID, api.RejectReasonUnavailable)
 
-	// intermission は締切から数える
 	st, out = step(t, st, Tick{Now: deadline.Add(DefaultConfig.Phases.Intermission - time.Millisecond)})
 	if len(msgsOf[api.PhaseStartedMessage](out)) != 0 {
 		t.Fatalf("next phase started early: %+v", out)
@@ -517,7 +484,6 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 	if len(started) != 1 || started[0].Phase.Number != 2 || !started[0].Phase.StartedAt.Equal(next) {
 		t.Fatalf("phase.started = %+v", started)
 	}
-	// 第2フェーズは 2 × 3 人 = 6 件を、生存者の p1 にすべて配る
 	if n := countBy(st.Phase.Tasks, func(t TaskState) string { return t.Assignee }); !reflect.DeepEqual(n, map[string]int{"p1": 6}) {
 		t.Errorf("tasks per player = %v", n)
 	}
@@ -525,7 +491,6 @@ func TestDeadlineEliminatesAndStartsNextPhase(t *testing.T) {
 		t.Errorf("status = %s, deadline = %s", st.Status, st.Phase.DeadlineAt)
 	}
 
-	// アイテムは初期状態に戻る(在庫は 6 つとも編集前、成果物と手持ちは消える)。phase.started の前に配る
 	if d := directoryOf(st); len(d.Stock) != len(directoryStock) || d.Outputs != 0 || st.held("p1") != nil || len(st.Items) != len(directoryStock)+3 {
 		t.Errorf("directory = %+v, items = %+v", d, st.Items)
 	}
@@ -591,7 +556,6 @@ func TestAllDoneEndsPhaseEarly(t *testing.T) {
 		t.Errorf("effects = %+v, endedAt = %s", msgsOf[api.EffectMessage](out), st.Phase.EndedAt)
 	}
 
-	// intermission は全員が完了した時刻から数える
 	st, out = step(t, st, Tick{Now: in.Now.Add(DefaultConfig.Phases.Intermission - time.Millisecond)})
 	if len(out) != 0 {
 		t.Errorf("out = %+v during intermission", out)
@@ -612,7 +576,6 @@ func TestAllEliminatedIsDefeat(t *testing.T) {
 	if len(fin) != 1 || fin[0].Result.Outcome != api.Defeat || !fin[0].Result.DecidedAt.Equal(deadline) {
 		t.Fatalf("session.finished = %+v", fin)
 	}
-	// 結果を送ってからセッションを終える
 	if e, ok := out[len(out)-1].(End); !ok || e.Reason != ReasonFinished {
 		t.Errorf("last = %+v, want End(finished)", out[len(out)-1])
 	}
@@ -637,7 +600,6 @@ func TestDisconnectedPlayerIsEliminatedAtDeadline(t *testing.T) {
 	st, _ = put(t, st, "p1")
 	st, _ = step(t, st, Disconnect{PlayerID: "p2", ConnID: 2, Now: t0})
 
-	// 切断中も life は保つが、締切で未達なら脱落する
 	st, out := step(t, st, Tick{Now: st.Phase.DeadlineAt})
 	wantPhaseEnded(t, out, 1, []string{"p2"}, api.PhaseEndedMessageNextIntermission)
 	if p := st.player("p2"); p.Life != api.Eliminated || p.Connection != api.Disconnected {

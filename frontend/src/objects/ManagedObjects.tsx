@@ -12,11 +12,6 @@ import {ObjectStateContext} from "./objectContext";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
 
-/**
- * 見た目の根。狙いの判定(interaction)が、当たった物からオブジェクトを引けるように、id を持たせて登録する。
- * 位置・向きはレイアウトの項目から取り、表示・機能のトグルは項目名で引く
- * 表示・機能の状態は、種類のコンポーネントが ObjectStateContext から読む
- */
 function ObjectRoot({
   object,
   slot,
@@ -30,7 +25,6 @@ function ObjectRoot({
   const {name, item} = slot;
   const visible = useIsVisible(name);
   const enabled = useIsEnabled(name);
-  // 非表示・機能 OFF の間は狙いの対象から外す(登録しない)。mesh は外さず、見た目だけを group の visible で消す
   const register = useCallback(
     (root: Object3D | null) =>
       root && enabled ? registerTarget(id, root) : undefined,
@@ -55,7 +49,6 @@ function ObjectRoot({
   );
 }
 
-// レイアウトに無い id は、開発時に一度だけ警告する(同じ id で何度も出さない)
 const warnedIds = new Set<string>();
 
 /**

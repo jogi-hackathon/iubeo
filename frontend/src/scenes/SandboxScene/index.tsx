@@ -24,11 +24,6 @@ import {
 
 const ZONES = Array.from({length: ZONE_COUNT}, (_, i) => i);
 
-/**
- * 1 人分の区画の部品(区画ローカルの値を、区画ごとに Y 軸まわりへ回した 1 つの group に入れる。
- * 将来、区画ごと落とす演出ができるよう、区画の部品はこの group にまとめる)。
- * partitionMaterial は、仕切り(すりガラス)のマテリアル。全区画で共有する
- */
 function SandboxZone({
   index,
   partitionMaterial,
@@ -66,8 +61,6 @@ function SandboxZone({
  * セッションが無いとき(デバッグパネルでの直接移動・AO のベイク)は、建物だけを出し、マウントで準備完了にする(mount)
  */
 export function SandboxScene() {
-  // セッションは、マウントのときに決める(シーンの途中でオーソリティを切り替えない)。
-  // readiness.ts の sandbox も、同じ currentSession を見て準備の条件(authority / mount)を決める
   const [session] = useState(() => gameFlow.currentSession());
   useLeaveSessionOnUnmount();
   return (

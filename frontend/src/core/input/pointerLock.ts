@@ -68,7 +68,6 @@ const requestLock = (target: HTMLElement): void => {
 
 let suppressions = 0;
 
-/** resumePointerLock が使う、いま接続されているロックの相手（キャンバス） */
 let target: HTMLElement | null = null;
 
 /**

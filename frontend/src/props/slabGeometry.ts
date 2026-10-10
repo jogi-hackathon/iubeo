@@ -5,7 +5,6 @@ import type {Vec3} from "./types";
 /** 多角形の板(柱)の仕様。polygon を offset だけ押し出した立体(buildSlabGeometry・Slab に渡す) */
 export type SlabSpec = {polygon: readonly Vec3[]; offset: Vec3};
 
-/** 扇状に三角形へ分けたときの、面積で重み付けした法線(= 反時計回りに見える側。長さは面積の 2 倍) */
 const fanNormal = (points: readonly Vector3[]): Vector3 => {
   const normal = new Vector3();
   const edgeA = new Vector3();
@@ -71,7 +70,6 @@ export const buildSlabGeometry = (
   const geometry = new BufferGeometry();
 
   for (const face of faces) {
-    // 外向きの法線にそろえる。面の並びが逆なら反転して、扇状の三角形の巻きを法線と一致させる
     let points = face;
     let normal = fanNormal(points);
     if (normal.dot(mean(points).sub(center)) < 0) {
@@ -83,7 +81,6 @@ export const buildSlabGeometry = (
     }
     normal.normalize();
 
-    // 面内の基底: u は最初の辺の向き、v は法線との外積(u, v, normal が右手系 = 面を外から見て uv が鏡像にならない)
     const origin = points[0] as Vector3;
     const u = new Vector3()
       .subVectors(points[1] as Vector3, origin)

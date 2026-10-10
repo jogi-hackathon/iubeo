@@ -14,7 +14,6 @@ func newState(players ...string) State {
 	return NewMultiplayerState("sess-1", players, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
 }
 
-// step は Step を呼び、元の状態が書き換わっていないことも確かめる
 func step(t *testing.T, st State, in Input) (State, []Output) {
 	t.Helper()
 	before := st.clone()
@@ -48,7 +47,6 @@ func TestInitialState(t *testing.T) {
 		t.Errorf("game = %+v, want no phase and no result", snap.Game)
 	}
 	for i, p := range snap.Players {
-		// 位置はサーバーが持たないので、最初の transform を受け取るまでは null
 		if p.Seat != i+1 || p.Connection != api.Connecting || p.Life != api.Alive || p.HeldItem != nil || p.Kind != api.Human || p.Transform != nil {
 			t.Errorf("player %d = %+v", i, p)
 		}
@@ -68,7 +66,6 @@ func TestInitialState(t *testing.T) {
 	if data.Stock[0].Color != "#e63946" || data.Stock[0].Status != api.StockFileStatusUnedited {
 		t.Errorf("stock[0] = %+v", data.Stock[0])
 	}
-	// personal のオブジェクトの id は席から決まる(フロントとの約束)
 	seats := map[string]string{"p1": "1", "p2": "2", "p3": "3"}
 	for _, o := range snap.Objects[1:] {
 		if o.Scope != api.Personal || o.Owner == nil {
@@ -85,7 +82,6 @@ func TestInitialState(t *testing.T) {
 				t.Errorf("canvas of %s = %+v", *o.Owner, o)
 			}
 		case api.LighterStand:
-			// bypassPermission が立つまでは使えない
 			if o.Id != "lighter_stand-"+seats[*o.Owner] || o.Data != (api.LighterStandData{HasLighter: true}) || o.Availability != api.ObjectAvailabilityUnavailable {
 				t.Errorf("lighter stand of %s = %+v", *o.Owner, o)
 			}
@@ -122,7 +118,6 @@ func TestConnectStartsWhenAllHumansConnected(t *testing.T) {
 	if st.Status != api.SessionStatusPlaying || !st.StartedAt.Equal(at(2*time.Second)) {
 		t.Fatalf("status = %s, startedAt = %s", st.Status, st.StartedAt)
 	}
-	// 本人には開始前の snapshot、その後で全員に session.started と phase.started
 	if _, ok := out[len(out)-3].(Send); !ok {
 		t.Errorf("snapshot should come before session.started: %+v", out)
 	}
@@ -154,7 +149,6 @@ func TestSecondConnectionReplacesOld(t *testing.T) {
 		t.Errorf("want snapshot to the new connection, got %+v", out)
 	}
 
-	// 置き換えられた古い接続が切れても、プレイヤーは接続したまま
 	st, out = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
 	if len(out) != 0 || st.player("p1").Connection != api.Connected || st.player("p1").ConnID != 5 {
 		t.Errorf("stale disconnect changed state: out=%+v player=%+v", out, *st.player("p1"))
@@ -193,13 +187,11 @@ func transformIn(player string, seq int64, x float64) ClientTransform {
 func TestTransforms(t *testing.T) {
 	st := newState("p1", "p2")
 
-	// 誰も動いていなければ送らない
 	st, out := step(t, st, Tick{Now: at(time.Second)})
 	if len(out) != 0 {
 		t.Fatalf("idle tick: out = %+v", out)
 	}
 
-	// 最初の transform は seq 0 でも受け付ける。seq が増えない更新は捨てる
 	st, _ = step(t, st, transformIn("p1", 0, 1))
 	st, _ = step(t, st, transformIn("p1", 3, 3))
 	st, _ = step(t, st, transformIn("p1", 2, 2))
@@ -220,12 +212,10 @@ func TestTransforms(t *testing.T) {
 	if st.Seq != 0 {
 		t.Errorf("transforms changed seq to %d", st.Seq)
 	}
-	// snapshot には、受け取った人の transform だけが入る(受け取っていない人は null)
 	if snap := st.Snapshot(at(2 * time.Second)); snap.Players[0].Transform == nil || snap.Players[0].Transform.Position[0] != 3 || snap.Players[1].Transform != nil {
 		t.Errorf("snapshot transforms = %+v, %+v", snap.Players[0].Transform, snap.Players[1].Transform)
 	}
 
-	// 配った後は、また動くまで送らない
 	if _, out = step(t, st, Tick{Now: at(3 * time.Second)}); len(out) != 0 {
 		t.Errorf("tick after broadcast: out = %+v", out)
 	}
@@ -257,7 +247,6 @@ func TestDissolveWhenNotAllConnected(t *testing.T) {
 	if e := outputsOf[End](out); len(e) != 1 || e[0].Reason != ReasonDissolved || !st.Ended {
 		t.Fatalf("out = %+v, want dissolved", out)
 	}
-	// 終わった後の入力は無視する
 	if _, out = step(t, st, Connect{PlayerID: "p2", ConnID: 2, Now: at(31 * time.Second)}); len(out) != 0 {
 		t.Errorf("input after end: out = %+v", out)
 	}
@@ -265,7 +254,6 @@ func TestDissolveWhenNotAllConnected(t *testing.T) {
 
 func TestNoDissolveAfterStart(t *testing.T) {
 	st := newState("p1")
-	// フェーズの締切で決着しないよう、長くしておく
 	st.Phases.Duration = 24 * time.Hour
 	st, _ = step(t, st, Connect{PlayerID: "p1", ConnID: 1, Now: t0})
 	if _, out := step(t, st, Tick{Now: at(time.Hour)}); len(outputsOf[End](out)) != 0 {
@@ -281,7 +269,6 @@ func TestAbandonWhenAllHumansGone(t *testing.T) {
 	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: at(10 * time.Second)})
 	st, _ = step(t, st, Disconnect{PlayerID: "p2", ConnID: 2, Now: at(20 * time.Second)})
 
-	// 誰かが戻れば破棄しない
 	back, _ := step(t, st, Connect{PlayerID: "p1", ConnID: 3, Now: at(50 * time.Second)})
 	if _, out := step(t, back, Tick{Now: at(2 * time.Minute)}); len(outputsOf[End](out)) != 0 {
 		t.Errorf("abandoned after a player came back: %+v", out)

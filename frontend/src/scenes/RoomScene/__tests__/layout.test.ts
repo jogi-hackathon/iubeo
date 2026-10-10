@@ -37,7 +37,6 @@ const wallBox = (wall: (typeof ROOM_WALLS)[number]) =>
     new Vector3(...wall.size),
   );
 
-/** 点が、どれかの壁の中にあるか */
 const insideWall = (x: number, y: number, z: number) =>
   ROOM_WALLS.some((w) => wallBox(w).containsPoint(new Vector3(x, y, z)));
 
@@ -76,11 +75,9 @@ describe("room layout", () => {
         const u = t + step / 2;
         const z = ROOM_INNER_Z_NORTH + ROOM_SIZE / 2 + u;
         const e = 0.1;
-        // 奥・手前・右の壁は、室内側の面のすぐ外が壁
         expect(insideWall(u, y, ROOM_INNER_Z_NORTH - e)).toBe(true);
         expect(insideWall(u, y, ROOM_INNER_Z_SOUTH + e)).toBe(true);
         expect(insideWall(ROOM_INNER_X + e, y, z)).toBe(true);
-        // 天井
         expect(insideWall(u, ROOM_SIZE + e, z)).toBe(true);
       }
     }
@@ -113,7 +110,6 @@ describe("room layout", () => {
     expect(plug.min.z).toBeCloseTo(windowZ0);
     expect(plug.max.z).toBeCloseTo(windowZ0 + WINDOW_SIZE);
     expect(plug.max.x).toBeCloseTo(-ROOM_INNER_X);
-    // 周りの壁と重ならない(内側の点はどの壁にも入らない)
     const c = plug.getCenter(new Vector3());
     expect(insideWall(c.x, c.y, c.z)).toBe(false);
   });
@@ -141,7 +137,6 @@ describe("room layout", () => {
     const [x, , z] = DIRECTORY_POSITION;
     expect(x).toBe(0);
     expect(z).toBeLessThanOrEqual(ROOM_INNER_Z_NORTH);
-    // 山の端(束の端まで)と、奥の壁の室内側の面の間
     expect(z + mountainReach("small") - ROOM_INNER_Z_NORTH).toBeLessThan(2);
   });
 
@@ -149,7 +144,6 @@ describe("room layout", () => {
     const [cx, , cz] = CANVAS_POSITION;
     const cos = Math.cos(CANVAS_YAW);
     const sin = Math.sin(CANVAS_YAW);
-    // rotation.y で回した足元の四隅(ワールド座標)
     const corners = [
       [-0.49, -0.62],
       [0.49, -0.62],
@@ -201,8 +195,6 @@ describe("room layout", () => {
   });
 
   it("PC の、机に載る部品はすべて天板(奥行き 0.8m)の内側に収まる", () => {
-    // PC の原点からの、各部品の z の張り出し(後ろ, 手前)。CRT の管の後端は
-    // 高い所にあるので対象外。台座の後端(-0.26)はモニタ群の中の一番後ろで机に触れる点
     const offsetZ = PC_POSITION[2] - WORKSPACE_POSITION[2];
     const parts: [string, number, number][] = [
       ["モニタ本体", MONITOR_Z - MONITOR_BODY_DEPTH / 2, MONITOR_Z + 0.2],
@@ -214,7 +206,6 @@ describe("room layout", () => {
         KEYBOARD.z + KEYBOARD.depth / 2,
       ],
       ["マウス", MOUSE.z - MOUSE.depth / 2, MOUSE.z + MOUSE.depth / 2],
-      // メモは傾けて立てる板。傾きの分だけ厚み側に広がるので、高さの半分を余分に見る
       ["メモ", MEMO.z - MEMO.height / 2, MEMO.z + MEMO.height / 2],
     ];
     for (const [name, back, front] of parts) {

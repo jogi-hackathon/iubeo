@@ -48,7 +48,6 @@ var DefaultConfig = Config{
 	},
 }
 
-// inboxSize はセッションの入力チャネルの長さ
 const inboxSize = 256
 
 // Session は 1 回のゲーム。状態は run の goroutine だけが持つ
@@ -134,7 +133,6 @@ func (s *Session) Snapshot(ctx context.Context) (api.SessionSnapshot, error) {
 	}
 }
 
-// runtime は run の goroutine が持つもの
 type runtime struct {
 	state State
 	conns map[uint64]*Conn
@@ -179,7 +177,6 @@ func (s *Session) run(st State, cfg Config, now func() time.Time, onEnd func()) 
 	}
 }
 
-// step は入力を規則に渡し、結果を行う。セッションが終わったら true
 func (rt *runtime) step(in Input) bool {
 	var out []Output
 	rt.state, out = Step(rt.state, in)
@@ -233,7 +230,6 @@ func (rt *runtime) deliver(c *Conn, msg any) {
 	}
 }
 
-// deliverBytes は transforms なら古いものと置き換え、それ以外は送信キューに入れる
 func deliverBytes(c *Conn, msg any, b []byte) {
 	if _, ok := msg.(api.TransformsMessage); ok {
 		c.replaceLatest(b)

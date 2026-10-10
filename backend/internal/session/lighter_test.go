@@ -8,7 +8,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// lastPhase は 1 フェーズだけのセッションで、p1・p2 が担当を終え、p3 が未達の状態を返す
 func lastPhase(t *testing.T) State {
 	t.Helper()
 	st := newState("p1", "p2", "p3")
@@ -28,7 +27,6 @@ func lastPhase(t *testing.T) State {
 	return st
 }
 
-// survived は lastPhase を締切まで進め、bypassPermission が立った状態を返す
 func survived(t *testing.T) State {
 	t.Helper()
 	st := lastPhase(t)
@@ -51,7 +49,6 @@ func TestSurvivingLastPhaseSetsBypass(t *testing.T) {
 
 	st, out := step(t, st, Tick{Now: deadline})
 	wantPhaseEnded(t, out, 1, []string{"p3"}, api.PhaseEndedMessageNextCompleted)
-	// 決着はまだつけず、bypassPermission を立てる
 	if len(msgsOf[api.SessionFinishedMessage](out)) != 0 || len(outputsOf[End](out)) != 0 || st.Ended {
 		t.Fatalf("finished on survival: %+v", out)
 	}
@@ -59,7 +56,6 @@ func TestSurvivingLastPhaseSetsBypass(t *testing.T) {
 	if len(tu) != 1 || !tu[0].Team.BypassPermission || tu[0].Team.FireStarted || tu[0].Seq != msgsOf[api.PhaseEndedMessage](out)[0].Seq+1 {
 		t.Errorf("team.updated = %+v", tu)
 	}
-	// 生存者のライターの置き場だけが使えるようになる
 	var opened []string
 	for _, m := range msgsOf[api.ObjectUpsertMessage](out) {
 		if m.Object.Kind == api.LighterStand && m.Object.Availability == api.ObjectAvailabilityAvailable {
@@ -89,7 +85,6 @@ func TestAllDoneInLastPhaseSetsBypass(t *testing.T) {
 func TestLighterStand(t *testing.T) {
 	stand := lighterStandID(1)
 
-	// bypassPermission が立つまでは使えない
 	_, out := step(t, lastPhase(t), interactIn("p1", stand, nil, ""))
 	wantRejected(t, out, "p1", stand, api.RejectReasonUnavailable)
 
@@ -97,11 +92,9 @@ func TestLighterStand(t *testing.T) {
 	now := st.BypassAt
 	_, out = step(t, st, interactAt(interactIn("p1", lighterStandID(2), nil, ""), now))
 	wantRejected(t, out, "p1", lighterStandID(2), api.RejectReasonNotOwner)
-	// 脱落した人は使えない
 	_, out = step(t, st, interactAt(interactIn("p3", lighterStandID(3), nil, ""), now))
 	wantRejected(t, out, "p3", lighterStandID(3), api.RejectReasonUnavailable)
 
-	// 手ぶらで触れれば持つ
 	st, out = step(t, st, interactAt(interactIn("p1", stand, nil, ""), now))
 	bc := outputsOf[Broadcast](out)
 	if len(bc) != 2 {
@@ -114,17 +107,14 @@ func TestLighterStand(t *testing.T) {
 		t.Errorf("player.updated = %+v", pu)
 	}
 
-	// ライターを持ってワークスペースに触れても使えない
 	_, out = step(t, st, interactAt(interactIn("p1", workspaceID(1), st.held("p1"), ""), now))
 	wantRejected(t, out, "p1", workspaceID(1), api.RejectReasonMissingItem)
 
-	// ライターを持って触れれば戻す
 	st, out = step(t, st, interactAt(interactIn("p1", stand, st.held("p1"), ""), now))
 	if len(outputsOf[Broadcast](out)) != 2 || st.held("p1") != nil || standOf(st, 1).Data != (api.LighterStandData{HasLighter: true}) {
 		t.Errorf("return: out = %+v", out)
 	}
 
-	// ファイルを持っていれば missing_item(ライターとファイルは同時に持てない)
 	st = take(t, st, "p1", f1)
 	_, out = step(t, st, interactAt(interactIn("p1", stand, st.held("p1"), ""), now))
 	wantRejected(t, out, "p1", stand, api.RejectReasonMissingItem)
@@ -147,16 +137,13 @@ func TestFireThenVictory(t *testing.T) {
 	if len(fx) != 1 || fx[0].Name != api.EffectMessageNameFire || *fx[0].PlayerId != "p1" || *fx[0].ObjectId != directoryID {
 		t.Errorf("effect = %+v", fx)
 	}
-	// 燃やすのは演出なので、ファイルは消さない。ライターも持ったまま
 	if !slices.Equal(stockIDs(st), stock) || st.held("p1") == nil || st.held("p1").Kind != api.Lighter {
 		t.Errorf("stock = %v, held = %+v", stockIDs(st), st.held("p1"))
 	}
 
-	// 2 人目からは拒否する
 	_, out = step(t, st, interactAt(interactIn("p2", directoryID, st.held("p2"), ""), fireAt))
 	wantRejected(t, out, "p2", directoryID, api.RejectReasonUnavailable)
 
-	// 火をつけたら、bypass の時間切れは来ない。演出の時間(10 秒)の後に victory
 	st, out = step(t, st, Tick{Now: bypassAt.Add(DefaultConfig.Phases.Bypass)})
 	if len(out) != 0 {
 		t.Fatalf("out = %+v at the bypass timeout after the fire", out)
@@ -187,7 +174,6 @@ func TestBypassTimesOutToVictory(t *testing.T) {
 	if len(out) != 0 {
 		t.Fatalf("out = %+v before the timeout", out)
 	}
-	// 誰も火をつけないまま時間切れでも victory(火はつかないまま)
 	st, out = step(t, st, Tick{Now: timeout})
 	fin := msgsOf[api.SessionFinishedMessage](out)
 	if len(fin) != 1 || fin[0].Result.Outcome != api.Victory || !fin[0].Result.DecidedAt.Equal(timeout) {

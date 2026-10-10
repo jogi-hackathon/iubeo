@@ -19,7 +19,6 @@ export const composeBone = (
   direction.subVectors(to, from);
   const length = direction.length();
   if (length < 1e-6) {
-    // 長さ 0 の骨は向きが決まらないので、潰して見えなくする
     return out.compose(from, rotation.identity(), size.setScalar(0));
   }
   rotation.setFromUnitVectors(UP, direction.divideScalar(length));

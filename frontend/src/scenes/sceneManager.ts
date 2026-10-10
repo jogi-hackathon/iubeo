@@ -32,15 +32,12 @@ export const createSceneManager = ({
         listeners.delete(listener);
       };
     },
-    /** 使えるシーンか */
     isAvailable: (scene: SceneName): boolean => available.includes(scene),
-    /** 今のシーンを to にする。現在と同じシーン・使えないシーンは無視する(通知もしない) */
     commit: (to: SceneName): void => {
       if (state.current === to || !available.includes(to)) {
         return;
       }
       state = {current: to};
-      // コールバックの例外が他のコールバック・状態更新に影響しないようにする
       for (const l of Array.from(listeners)) {
         try {
           l();

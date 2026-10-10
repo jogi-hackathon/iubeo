@@ -4,7 +4,6 @@ import {CanvasTexture, type Mesh, SRGBColorSpace} from "three/webgpu";
 import {MEMO} from "./dimensions";
 import {type TaskStore, taskStore, useTask} from "./task";
 
-/** メモの描画の解像度（縦横比は MEMO に合わせる） */
 const PIXELS = {width: 512, height: 358} as const;
 
 const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
@@ -80,7 +79,6 @@ export const paintMemo = (canvas: HTMLCanvasElement, task: string): void => {
   );
 };
 
-/** 語が maxWidth に収まる、最大のフォントサイズ(px)。小さすぎれば下限で止める */
 const fitFontSize = (
   ctx: CanvasRenderingContext2D,
   text: string,

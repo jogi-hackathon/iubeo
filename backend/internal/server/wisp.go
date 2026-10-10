@@ -49,7 +49,6 @@ func (s *Server) GetWispToken(w http.ResponseWriter, r *http.Request, params api
 	writeJSON(w, http.StatusOK, api.WispToken{Url: u.String(), ExpiresAt: expiresAt})
 }
 
-// wispPassMatches は合言葉が合っているか。合言葉が設定されていなければ、常に合っている
 func (s *Server) wispPassMatches(got *string) bool {
 	if s.wispPass == "" {
 		return true

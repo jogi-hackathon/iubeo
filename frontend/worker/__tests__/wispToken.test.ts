@@ -2,8 +2,6 @@ import {describe, expect, it} from "vitest";
 
 import {tokenFromUrl, verifyWispToken} from "../wispToken";
 
-// バックエンド(backend/internal/wisp/token_test.go)と同じ値。BACKEND_KEY で発行した固定のトークン（sub = p1）を、
-// 同じ鍵で検証できることで、形式が揃っていることを確かめる。KEY は別の鍵（検証で拒否される側）
 const KEY = "ffffffffffffffffffffffffffffffff";
 const BACKEND_KEY = "0123456789abcdef0123456789abcdef";
 const VECTOR_TOKEN =
@@ -29,7 +27,6 @@ describe("verifyWispToken", () => {
 
   it("中身を書き換えると拒否する（sub を変えても署名が合わない）", async () => {
     const [, sig] = VECTOR_TOKEN.split(".");
-    // sub を p2 にした payload を、元の署名に付け替える
     const forgedPayload = btoa(
       JSON.stringify({sub: "p2", exp: VECTOR_NOW + 300}),
     )

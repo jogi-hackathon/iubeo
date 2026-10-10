@@ -1,4 +1,3 @@
-// テクセル → レイの発射位置・法線・回転角(CPU 版と GPU 版で同じサンプルを使うための共通部分)。
 import {type ChartIndex, insetPosition, queryChart} from "./charts";
 import {rotFor} from "./params";
 

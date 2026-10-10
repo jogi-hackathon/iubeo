@@ -12,7 +12,6 @@ import {CHAIR_POSITION, ROOM_FLOOR, ROOM_LAYOUT, ROOM_WALLS} from "./layout";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {WindowPlug} from "./WindowPlug";
 
-/** イスと壁・床・窓。トグル(TogglesProvider)の配下に置く */
 function RoomProps() {
   const chairVisible = useIsVisible(CHAIR_KEY);
   const windowVisible = useIsVisible(WINDOW_KEY);
@@ -23,7 +22,6 @@ function RoomProps() {
       {ROOM_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
-      {/* 窓を非表示にすると、空洞を壁板でふさぐ */}
       <WindowPlug visible={!windowVisible} />
       <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
     </>

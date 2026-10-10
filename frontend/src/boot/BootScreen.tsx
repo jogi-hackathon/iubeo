@@ -10,7 +10,6 @@ import {BootErrorBoundary} from "./BootErrorBoundary";
 import {startBoot, useBootState} from "./bootStore";
 import {AppContextProvider} from "./context";
 
-/** 起動の段階の総数(起動のステップ + ウォームアップ + 最初のシーンの準備)。App の側で残りを進める */
 const BOOT_COVER_STAGES = bootStageCount(BOOT_STEPS.length);
 
 /**
@@ -38,7 +37,6 @@ export function BootScreen() {
   if (state.status === "running") {
     return <CoverOverlay />;
   }
-  // 覆いは境界の中に置く(エラーになったら覆いごと外れ、BootError が見えるようにする)
   return (
     <BootErrorBoundary>
       <AppContextProvider value={state.ctx}>

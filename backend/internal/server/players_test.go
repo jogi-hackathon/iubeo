@@ -80,7 +80,6 @@ func TestCreatePlayer(t *testing.T) {
 		t.Error("cookie value equals playerId")
 	}
 
-	// 有効な Cookie があれば、同じプレイヤーを 200 で返し、Cookie は発行し直さない
 	res = do(t, h, http.MethodPost, "/api/v1/players", cookie)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
@@ -92,7 +91,6 @@ func TestCreatePlayer(t *testing.T) {
 		t.Errorf("playerId = %q, want %q", again.PlayerId, me.PlayerId)
 	}
 
-	// 無効な Cookie なら新しく作る
 	res = do(t, h, http.MethodPost, "/api/v1/players", &http.Cookie{Name: player.CookieName, Value: me.PlayerId})
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("status = %d, want 201", res.StatusCode)

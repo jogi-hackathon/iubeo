@@ -1,9 +1,5 @@
 import {useSyncExternalStore} from "react";
 
-/**
- * カメラが、プレイヤーの目の位置から十分離れているか。俯瞰ビューへの移動中など、自分の身体(頭)が
- * 視界に入る間に true にする。毎フレーム書いてよく、値が変わったときだけ通知する(再レンダーは、しきい値をまたいだときだけ)
- */
 let detached = false;
 const listeners = new Set<() => void>();
 

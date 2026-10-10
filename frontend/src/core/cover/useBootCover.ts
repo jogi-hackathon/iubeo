@@ -26,7 +26,6 @@ export function useBootCover(initialScene: SceneName, warmedUp: boolean): void {
   }, [initialScene]);
 
   useEffect(() => {
-    // 段階の総数は、起動のステップを進めた BootScreen がバーに入れた値を使う(残りの 2 段階をここで進める)
     const total = coverStore.getState().bar?.total;
     if (total !== undefined) {
       coverStore.setBar(total, bootStageDone({total, warmedUp, sceneReady}));

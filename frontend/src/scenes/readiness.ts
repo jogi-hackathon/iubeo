@@ -8,7 +8,6 @@ import type {SceneName} from "./index";
  */
 export type SceneReadiness = "authority" | "mount";
 
-/** 条件。シーンが入る時点で決まる場合は関数(その時の状態で選ぶ) */
 type ReadinessRule = SceneReadiness | (() => SceneReadiness);
 
 export const sceneReadiness = {

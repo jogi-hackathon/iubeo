@@ -25,7 +25,6 @@ export class KeyboardCapture {
   private source: ScreenSource | null = null;
   private active = false;
   private composing = false;
-  /** keydown を画面へ送り、まだ keyup を送っていないキー（KeyboardEvent.code ごと） */
   private readonly pressed = new Map<string, ScreenKeyEvent>();
   private readonly teardown: Array<() => void> = [];
 
@@ -126,7 +125,6 @@ export class KeyboardCapture {
         this.source.insertText(text);
       }
     });
-    // エンジンは mousedown で canvas.focus() を呼ぶ。IME が効かなくなるので、textarea へ戻す
     on(
       "focusin",
       (event) => {
@@ -151,7 +149,6 @@ export class KeyboardCapture {
     if (!this.active || !this.source) {
       return;
     }
-    // 自分が投げたエコーはここへ戻ってくるだけなので除外する（除外しないと無限に再帰する）
     if ((event as unknown as {[SYNTHETIC_KEY]?: boolean})[SYNTHETIC_KEY]) {
       return;
     }
@@ -161,7 +158,6 @@ export class KeyboardCapture {
     if (isBrowserShortcut(event)) {
       return;
     }
-    // IME の候補を開いている間は、キーの所有権は IME にある
     if (this.composing || event.isComposing) {
       return;
     }
@@ -197,9 +193,7 @@ export class KeyboardCapture {
       if (text) {
         this.source?.insertText(text);
       }
-    } catch {
-      /* クリップボードの許可が下りなかった。打てる手は無い */
-    }
+    } catch {}
   }
 
   private handleKeyUp(event: KeyboardEvent): void {
@@ -215,7 +209,6 @@ export class KeyboardCapture {
     if (isBrowserShortcut(event) || this.composing) {
       return;
     }
-    // 使い始める前から押していたキーは、画面へ keydown を送っていない。keyup は移動側へ返す
     if (!this.pressed.delete(event.code)) {
       return;
     }
@@ -224,7 +217,6 @@ export class KeyboardCapture {
     this.source.key(toScreenKey(event, "up"));
   }
 
-  /** 自分の textarea 以外の、編集可能な要素（デバッグパネルの入力欄など）宛のイベントか */
   private isOtherEditable(target: EventTarget | null): boolean {
     return target !== this.field && isEditableTarget(target);
   }
@@ -247,7 +239,6 @@ const toScreenKey = (
 });
 
 const charCodeOf = (event: KeyboardEvent): number => {
-  // 修飾キー付きは文字入力ではない（エンジン側もそれを前提にしている）
   if (event.ctrlKey || event.metaKey || event.altKey) {
     return 0;
   }
@@ -263,9 +254,6 @@ const charCodeOf = (event: KeyboardEvent): number => {
   return 0;
 };
 
-/**
- * ブラウザ自身のショートカット。ページからは阻止できず、戦うとアプリが壊れるので触らずに通す
- */
 const isBrowserShortcut = (event: KeyboardEvent): boolean => {
   const key = event.key;
   const withCommand = event.ctrlKey || event.metaKey;

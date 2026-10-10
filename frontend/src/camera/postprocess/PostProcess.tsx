@@ -31,7 +31,6 @@ export function PostProcess() {
     if (pipeline.current && getPostProcessSettings().enabled) {
       pipeline.current.render();
     } else {
-      // 無効時・構築前は自動レンダーの代わりに素で描く
       gl.render(scene, camera);
     }
   }, FRAME_PRIORITY.render);
