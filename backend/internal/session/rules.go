@@ -227,6 +227,7 @@ func (st *State) tick(in Tick) []Output {
 	}
 
 	out := st.finishActions(in.Now)
+	out = append(out, st.cpuStep(in.Now)...)
 
 	msg := api.TransformsMessage{Type: api.Transforms, ServerTime: in.Now}
 	for i := range st.Players {

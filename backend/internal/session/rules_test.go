@@ -11,7 +11,7 @@ import (
 var t0 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
 func newState(players ...string) State {
-	return NewMultiplayerState("sess-1", players, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
+	return NewMultiplayerState("sess-1", players, nil, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
 }
 
 func step(t *testing.T, st State, in Input) (State, []Output) {

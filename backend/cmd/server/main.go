@@ -33,7 +33,7 @@ func main() {
 	srv := server.New(
 		player.NewSigner(cfg.SigningKey),
 		sessions,
-		matchmaking.New(cfg.MatchSize, sessions, time.Now),
+		matchmaking.New(cfg.MatchSize, sessions, time.Now, matchmaking.Options{FillAfter: cfg.CpuFillAfter}),
 		cfg.AllowedOrigins,
 	)
 	if cfg.WispKey != nil {

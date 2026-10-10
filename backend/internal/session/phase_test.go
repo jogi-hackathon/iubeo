@@ -66,7 +66,7 @@ func TestFirstPhaseStarts(t *testing.T) {
 
 func startPhaseWith(t *testing.T, seed uint64, number int) (State, []Output) {
 	t.Helper()
-	st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+	st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
 	st.player("p3").Life = api.Eliminated
 	out := st.startPhase(number, t0)
 	return st, out
@@ -133,7 +133,7 @@ func TestPhaseReadEditTargets(t *testing.T) {
 func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 	capped := false
 	for seed := range uint64(200) {
-		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
 		st.player("p2").Life = api.Eliminated
 		st.player("p3").Life = api.Eliminated
 		st.startPhase(3, t0)
@@ -153,7 +153,7 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 func TestPhaseTaskTypesAreEven(t *testing.T) {
 	n := map[api.TaskType]int{}
 	for seed := range uint64(3000) {
-		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
 		st.startPhase(1, t0)
 		for _, task := range st.Phase.Tasks {
 			n[task.Type]++

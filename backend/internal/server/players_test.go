@@ -30,7 +30,7 @@ func newTestServerSize(t *testing.T, size int) http.Handler {
 func newTestServerWith(t *testing.T, size int, cfg session.Config) http.Handler {
 	t.Helper()
 	sessions := session.NewManager(session.NewMemoryStore(), time.Now, cfg)
-	return New(player.NewSigner(testKey), sessions, matchmaking.New(size, sessions, time.Now), []string{testOrigin}).Handler()
+	return New(player.NewSigner(testKey), sessions, matchmaking.New(size, sessions, time.Now, matchmaking.Options{}), []string{testOrigin}).Handler()
 }
 
 func do(t *testing.T, h http.Handler, method, path string, cookies ...*http.Cookie) *http.Response {

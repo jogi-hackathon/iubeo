@@ -10,7 +10,7 @@ func TestManagerAndStore(t *testing.T) {
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	m := NewManager(store, func() time.Time { return now }, DefaultConfig)
 
-	s := m.CreateMultiplayer([]string{"p1", "p2"})
+	s := m.CreateMultiplayer([]string{"p1", "p2"}, nil)
 	if s.ID == "" || !s.CreatedAt.Equal(now) || !s.HasPlayer("p1") || s.HasPlayer("p3") {
 		t.Fatalf("session = %+v", s)
 	}
