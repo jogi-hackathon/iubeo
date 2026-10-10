@@ -1,11 +1,3 @@
-/**
- * キーボードのキーキャップの配置。実物の寸法に寄せる（1u = 19mm）。
- * 段は、数字段 + QWERTY 3 段 + スペース段の 5 段。右にテンキーを置く。
- *
- * 描画（PcModel の KeyCaps）から切り出してあるのは、机の上のどの位置に何個並ぶかを
- * 単体で確かめられるようにするため。
- */
-
 export const KEY_ROWS = 5;
 export const KEY_COLS = 15;
 export const KEY_PITCH = 0.019;

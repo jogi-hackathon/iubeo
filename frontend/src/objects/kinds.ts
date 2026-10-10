@@ -13,13 +13,10 @@ import {WORKSPACE_KIND} from "./workspace/data";
 import {WorkspaceObject} from "./workspace/WorkspaceObject";
 
 type KindEntry = {
-  /** 種類の見た目。ここに無い kind は DummyObject の箱で描く */
   Renderer: ComponentType<{object: GameObject}>;
-  /** 種類が持つ機能(トグルのキーは「項目名:機能名」になる) */
   features: readonly string[];
 };
 
-/** kind → 見た目と機能の表。機能の一覧は、各種類の data.ts が宣言する */
 const KINDS: Record<string, KindEntry> = {
   [DIRECTORY_KIND]: {Renderer: DirectoryObject, features: DIRECTORY_FEATURES},
   [WORKSPACE_KIND]: {Renderer: WorkspaceObject, features: []},

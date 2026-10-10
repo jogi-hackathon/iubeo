@@ -21,7 +21,6 @@ const me = (sessionId: string | null = null): Me => ({
   sessionId,
 });
 
-// 呼び出しごとの結果を、順に返す(値なら resolve、ApiError / Error なら reject)。尽きたら最後の値を返し続ける
 const seq =
   <T>(...results: Array<T | Error>) =>
   () => {
@@ -42,7 +41,6 @@ const setup = (
     ),
   };
   const navigator = {enter: vi.fn()};
-  // sleep は呼ばれた順に溜め、wake で 1 つずつ起こす
   const sleepers: Array<() => void> = [];
   const sleep = vi.fn(
     () => new Promise<void>((resolve) => sleepers.push(resolve)),
@@ -75,10 +73,10 @@ describe("gameFlow", () => {
     expect(t.flow.getState()).toMatchObject({status: "queued", playerId: "p1"});
     expect(t.flow.currentSession()).toBeNull();
 
-    await t.wake(); // 1 回目のポーリング: queued
+    await t.wake();
     expect(t.flow.getState().status).toBe("queued");
     expect(t.navigator.enter).not.toHaveBeenCalled();
-    await t.wake(); // 2 回目: matched
+    await t.wake();
     await done;
     expect(t.api.getMatchmaking).toHaveBeenCalledTimes(2);
     expect(t.flow.getState()).toEqual({
@@ -160,10 +158,10 @@ describe("gameFlow", () => {
     });
     const done = t.flow.startMatchmaking();
     await t.flush();
-    await t.wake(); // 404 → 入り直し(join 2 回目)→ queued
+    await t.wake();
     expect(t.api.joinMatchmaking).toHaveBeenCalledTimes(2);
     expect(t.flow.getState().status).toBe("queued");
-    await t.wake(); // matched
+    await t.wake();
     await done;
     expect(t.flow.getState()).toMatchObject({
       status: "entering",
@@ -196,7 +194,6 @@ describe("gameFlow", () => {
       await t.flow.cancelMatchmaking();
       expect(t.api.leaveMatchmaking).toHaveBeenCalledTimes(1);
       expect(t.flow.getState()).toEqual({status: "idle"});
-      // 寝ていたポーリングが起きても、もう見ない
       await t.wake();
       await done;
       expect(t.api.getMatchmaking).not.toHaveBeenCalled();
@@ -214,7 +211,7 @@ describe("gameFlow", () => {
       });
       void t.flow.startMatchmaking();
       await t.flush();
-      await t.wake(); // ポーリング中(応答待ち)
+      await t.wake();
       const cancel = t.flow.cancelMatchmaking();
       resolvePoll(matched("sX"));
       await cancel;
@@ -237,7 +234,6 @@ describe("gameFlow", () => {
       });
       expect(t.navigator.enter).toHaveBeenCalledTimes(1);
       expect(t.navigator.enter).toHaveBeenCalledWith("sandbox");
-      // 寝ていたポーリングは、もう何もしない(二重に入らない)
       await t.wake();
       await done;
       expect(t.api.getMatchmaking).not.toHaveBeenCalled();
@@ -429,7 +425,6 @@ describe("gameFlow", () => {
       t.flow.leftSession();
       expect(t.flow.getState()).toEqual({status: "idle"});
       expect(t.navigator.enter).not.toHaveBeenCalled();
-      // サーバーのセッションは残っているので、Me.sessionId で戻れる
       await t.flow.startMatchmaking();
       expect(t.flow.getState()).toMatchObject({
         status: "entering",

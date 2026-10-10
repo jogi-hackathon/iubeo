@@ -16,14 +16,12 @@ import {
 } from "../params";
 
 const RAYS = 32;
-/** 上向きで空が見える明るい点(見える) */
 const open: ProbePoint = {ao: 255, backHits: 0, misses: RAYS, ny: 1};
 
 describe("isHiddenPoint", () => {
   it("暗い/埋まり(AO)なら見えない", () => {
     expect(isHiddenPoint({...open, ao: 0}, RAYS)).toBe(true);
     expect(isHiddenPoint({...open, ao: EMBEDDED}, RAYS)).toBe(true);
-    // 閾値ちょうど(ao/255 = HIDDEN_AO_EPS 以上)は明るい扱い
     expect(
       isHiddenPoint({...open, ao: Math.ceil(HIDDEN_AO_EPS * 255)}, RAYS),
     ).toBe(false);
@@ -40,7 +38,6 @@ describe("isHiddenPoint", () => {
   it("下向きで大半のレイが何にも当たらなければ虚空(床の底面)", () => {
     const bottom = {ao: 255, backHits: 0, misses: RAYS, ny: -1};
     expect(isHiddenPoint(bottom, RAYS)).toBe(true);
-    // 下に床がある(当たる)なら見える: 張り出しの下面など
     expect(isHiddenPoint({...bottom, misses: RAYS / 2}, RAYS)).toBe(false);
   });
 

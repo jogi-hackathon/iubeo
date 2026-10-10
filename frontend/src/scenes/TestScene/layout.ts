@@ -7,9 +7,6 @@ import {LIGHTER_STAND_ON_DESK} from "../../objects/lighter_stand/stand";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
-// テストシーン(衝突確認用)のレイアウト。LocalAuthority が、ここの id と項目名でオブジェクトを置く(何を置くかは ./initial)
-
-/** ダミーの箱の番号 n の、スポーン直後の置き場所(スポーン地点から -Z 方向に 5 つ並べる) */
 const spareOffset = (n: number): Vec3 => [((n % 5) - 2) * 0.8, 1.5, -7];
 
 /** 予備のダミーの id。初期状態では置かず、デバッグパネルの「追加」で、空いている一番若い id から置く */
@@ -17,7 +14,6 @@ export const TEST_SPARE_IDS: readonly string[] = [4, 5, 6, 7, 8].map(
   (n) => `dummy-${n}`,
 );
 
-/** id の番号から、予備の置き場所を決める */
 const spare = (n: number): [string, LayoutItem] => [
   `dummy-${n}`,
   {id: `dummy-${n}`, position: spareOffset(n)},

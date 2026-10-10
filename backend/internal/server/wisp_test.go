@@ -32,7 +32,6 @@ func newWispTestServerWithPass(t *testing.T, withWisp bool, pass string) http.Ha
 	return srv.Handler()
 }
 
-// getWispToken は合言葉(空なら付けない)を付けて、トークンを求める
 func getWispToken(t *testing.T, h http.Handler, pass string, cookie *http.Cookie) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/wisp/token", nil)
@@ -87,7 +86,6 @@ func TestWispTokenIssuedForPlayer(t *testing.T) {
 	if token == "" || strings.Contains(body.Url, " ") {
 		t.Fatalf("token missing in %s", body.Url)
 	}
-	// 発行したトークンは、同じ鍵の検証で、このプレイヤーとして通る
 	id, ok := wisp.NewIssuer(wispKey, 0, time.Now).Verify(token)
 	if !ok {
 		t.Fatal("issued token does not verify")

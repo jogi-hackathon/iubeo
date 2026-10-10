@@ -56,7 +56,6 @@ func TestMatchesInArrivalOrder(t *testing.T) {
 		}
 		c.advance(time.Second)
 	}
-	// 2 回目の Join は待機を続け、queuedAt は変わらない
 	if st := mustJoin(t, m, "p1"); st.SessionID != "" || !st.QueuedAt.Equal(start) {
 		t.Fatalf("rejoin = %+v", st)
 	}
@@ -100,7 +99,6 @@ func TestInSession(t *testing.T) {
 		t.Errorf("Leave matched: err = %v, want ErrMatched", err)
 	}
 
-	// セッションが無くなったら、成立した状況も消える
 	delete(s.of, "p1")
 	if _, err := m.Get("p1"); !errors.Is(err, ErrNotQueued) {
 		t.Errorf("Get after session ended: err = %v, want ErrNotQueued", err)
@@ -133,7 +131,6 @@ func TestEvictsStalePlayers(t *testing.T) {
 	mustJoin(t, m, "gone")
 	c.advance(StaleAfter + time.Second)
 
-	// ポーリングが途絶えた人とは組まず、待機列から外す
 	if st := mustJoin(t, m, "late"); st.SessionID != "" {
 		t.Fatalf("Join(late) = %+v, want queued", st)
 	}

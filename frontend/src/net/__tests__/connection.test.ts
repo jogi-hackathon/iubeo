@@ -28,7 +28,6 @@ class FakeSocket implements SocketLike {
     this.readyState = 3;
   }
 
-  // サーバー側の操作
   serverOpen() {
     this.readyState = 1;
     this.onopen?.({});
@@ -76,7 +75,6 @@ const setup = (options: {maxRetries?: number} = {}) => {
     ...options,
   });
   const latest = () => sockets[sockets.length - 1]!;
-  /** 予約された再接続を実行する */
   const runTimers = () => {
     for (const t of timers.splice(0)) {
       if (!t.cancelled) {
@@ -111,12 +109,12 @@ describe("createSessionConnection", () => {
     const onTask = vi.fn();
     conn.on("task.completed", onTask);
 
-    latest().serverSend(taskCompleted(5)); // snapshot 前
+    latest().serverSend(taskCompleted(5));
     latest().serverSend(snapshot(10));
-    latest().serverSend(taskCompleted(10)); // 基準と同じ
-    latest().serverSend(taskCompleted(9)); // 古い
+    latest().serverSend(taskCompleted(10));
+    latest().serverSend(taskCompleted(9));
     latest().serverSend(taskCompleted(11));
-    latest().serverSend(taskCompleted(11)); // 重複
+    latest().serverSend(taskCompleted(11));
 
     expect(onTask.mock.calls.map(([m]) => m.seq)).toEqual([11]);
   });
@@ -212,20 +210,17 @@ describe("createSessionConnection", () => {
     runTimers();
     expect(sockets).toHaveLength(2);
 
-    // つながる前に、もう一度失敗する
     latest().serverClose(1006);
     expect(timers.map((t) => t.ms)).toEqual([1000]);
     runTimers();
 
     latest().serverOpen();
     expect(conn.getState().status).toBe("open");
-    // 再接続後は snapshot が届くまで、seq を持つメッセージを捨てる
     latest().serverSend(taskCompleted(11));
     latest().serverSend(snapshot(20));
     latest().serverSend(taskCompleted(21));
     expect(onTask.mock.calls.map(([m]) => m.seq)).toEqual([21]);
 
-    // snapshot が届いたので、待ち時間は最初に戻る
     latest().serverClose(1006);
     expect(timers.map((t) => t.ms)).toEqual([500]);
   });

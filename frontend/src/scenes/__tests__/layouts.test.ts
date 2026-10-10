@@ -16,7 +16,6 @@ const idsOf = (layout: Record<string, {id: string}>) =>
   Object.values(layout).map((item) => item.id);
 
 describe("シーンのレイアウト", () => {
-  // 俯瞰ビューは山の向きを考えないので、ディレクトリは回さない。見た目の名前の書き間違いは、黙って large になるので止める
   it("どのレイアウトも、ディレクトリの項目は向きを持たず、見た目は small か large", () => {
     for (const layout of Object.values(sceneLayouts)) {
       for (const item of Object.values(layout)) {

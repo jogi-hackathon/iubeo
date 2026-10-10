@@ -6,7 +6,6 @@ import {DebugInfo} from "./DebugInfo";
 import {useDebugFlags} from "./flags";
 import {useDebugHotkeys} from "./useDebugHotkeys";
 
-/** MeshBVHHelper は three r186 で描画されないため、コライダーのワールド AABB を自前で描く */
 function BvhBounds() {
   const [group] = useState(() => new Group());
 

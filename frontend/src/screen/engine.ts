@@ -1,11 +1,3 @@
-/**
- * `pnpm engine:link` が取り込んだ Gecko エンジン（engine-local/）の場所を探す。
- *
- * エンジンは約 34MB（zstd 圧縮の wasm）あるので、リポジトリには入れない。マニフェストが
- * 無ければ既知のパスを総当たりし、それも無ければ null を返す（例外は投げない。画面に
- * 「エンジンが無い」と出すのは呼び出し側）。
- */
-
 import type {GeckoModule} from "./geckoTypes";
 import {installWispTokenRewrite} from "./wispUrl";
 
@@ -79,9 +71,7 @@ const preferUncompressed = async (
     ) {
       return {url: raw, compressed: false};
     }
-  } catch {
-    /* 圧縮版のまま */
-  }
+  } catch {}
   return {url, compressed: true};
 };
 
@@ -102,9 +92,7 @@ export const resolveEngine = async (
           version: manifest.version,
         };
       }
-    } catch {
-      /* 次の候補へ */
-    }
+    } catch {}
   }
 
   for (const [url, compressed] of WASM_FALLBACKS) {
@@ -116,9 +104,7 @@ export const resolveEngine = async (
           wasm: {url: engineUrl(url), compressed},
         };
       }
-    } catch {
-      /* 次の候補へ */
-    }
+    } catch {}
   }
   return null;
 };
@@ -141,9 +127,7 @@ export const prewarmEngine = (search: string): void => {
     }
     try {
       await importEngine(resolved.entry);
-    } catch {
-      /* 本起動時に改めて判定する */
-    }
+    } catch {}
   })();
 };
 

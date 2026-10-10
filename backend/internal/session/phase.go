@@ -45,23 +45,14 @@ type TaskState struct {
 	CompletedAt time.Time
 }
 
-// taskTypes は配るタスクの種類。PC がまだ無いので、web_search は出さない
 var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.ImageGeneration}
 
-// creationTaskTypes は、read_edit の対象の在庫を使い切ったときに代わりに選ぶ種類
 var creationTaskTypes = []api.TaskType{api.Write, api.ImageGeneration}
 
 func taskID(phase, n int) string {
 	return "task-" + strconv.Itoa(phase) + "-" + strconv.Itoa(n)
 }
 
-// startPhase は第 number フェーズを始める。タスクを作って生存者に配り、phase.started を送る。
-//
-// 全体の件数は number × セッション開始時の人数。生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。
-// 種類は taskTypes から均等に乱数で選ぶ。read_edit の対象は在庫のファイルから乱数で選び、別のプレイヤーとは
-// 重なってよい(同じファイルを取り合うコンフリクトを起こすため)。同じプレイヤーの中では重複させず、
-// 自分の分で在庫を使い切ったら creationTaskTypes から乱数で選び直す
-// 第2フェーズからは、先にアイテムを初期状態に戻す
 func (st *State) startPhase(number int, now time.Time) []Output {
 	var out []Output
 	if number > 1 {
@@ -88,7 +79,6 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 
 	var tasks []TaskState
 	for i, pid := range alive {
-		// このプレイヤーにまだ割り当てていない在庫のファイル
 		left := slices.Clone(stock)
 		for range quota[i] {
 			t := TaskState{ID: taskID(number, len(tasks)+1), Type: taskTypes[r.IntN(len(taskTypes))], Assignee: pid}
@@ -116,7 +106,6 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
-// resetItems はアイテムを初期状態に戻す(ディレクトリの在庫を初期化し、成果物・手持ちは消す。state-schema.md §5.2)
 func (st *State) resetItems() []Output {
 	var holders []string
 	for _, it := range st.Items {
@@ -137,8 +126,6 @@ func (st *State) resetItems() []Output {
 	return out
 }
 
-// advance は時刻が進んだことで起きるフェーズの切り替えを行う。Step は時刻を持つ入力を処理する前に、まずこれを呼ぶ。
-// こうして締切を過ぎた後の入力は、締切の処理の後で扱う(締切と完了の順序。state-schema.md §5.1)
 func (st *State) advance(now time.Time) []Output {
 	switch {
 	case st.Status == api.SessionStatusPlaying && st.Phase.Status == api.PhaseStatusActive && !now.Before(st.Phase.DeadlineAt):
@@ -148,13 +135,11 @@ func (st *State) advance(now time.Time) []Output {
 	case !st.FireAt.IsZero() && !now.Before(st.FireAt.Add(st.Phases.Fire)):
 		return st.finish(api.Victory, st.FireAt.Add(st.Phases.Fire))
 	case st.FireAt.IsZero() && !st.BypassAt.IsZero() && !now.Before(st.BypassAt.Add(st.Phases.Bypass)):
-		// 誰も火をつけないまま時間切れ。最後のフェーズは生き残っているので victory
 		return st.finish(api.Victory, st.BypassAt.Add(st.Phases.Bypass))
 	}
 	return nil
 }
 
-// allTasksDone は生存者全員が担当のタスクを完了したか
 func (st *State) allTasksDone() bool {
 	for _, t := range st.Phase.Tasks {
 		if t.CompletedAt.IsZero() && st.player(t.Assignee).Life == api.Alive {
@@ -173,8 +158,6 @@ func (st *State) hasPendingTask(playerID string) bool {
 	return false
 }
 
-// endPhase はフェーズを終える。未達の生存者を脱落させ(player.updated と effect の fall)、作業中のアクションを取りやめ、
-// phase.ended を送る。生存者がいなければ defeat で決着をつけ、最後のフェーズを生き残ったら bypassPermission を立てる
 func (st *State) endPhase(at time.Time) []Output {
 	var out []Output
 	eliminated := []string{}
@@ -204,7 +187,6 @@ func (st *State) endPhase(at time.Time) []Output {
 	next := api.PhaseEndedMessageNextIntermission
 	if survivors == 0 || st.Phase.Number >= st.Phases.Count {
 		next = api.PhaseEndedMessageNextCompleted
-		// 最後のフェーズを生き残ったら、セッションは playing のまま(ライターを使える)
 		st.Phase.Status = api.PhaseStatusCompleted
 	} else {
 		st.Phase.Status = api.PhaseStatusIntermission
@@ -222,8 +204,6 @@ func (st *State) endPhase(at time.Time) []Output {
 	return out
 }
 
-// bypass は最後のフェーズを生き残ったときに bypassPermission を立て、生存者のライターの置き場を使えるようにする。
-// 決着はまだつけない(ライターで火をつけるか、時間切れで victory。ADR-0006)
 func (st *State) bypass(at time.Time) []Output {
 	st.Team.BypassPermission = true
 	st.BypassAt = at
@@ -239,7 +219,6 @@ func (st *State) bypass(at time.Time) []Output {
 	return out
 }
 
-// startFire は火をつける。fireStarted を立てて effect(fire)を送り、Phases.Fire の後に victory にする
 func (st *State) startFire(p *PlayerState, o *ObjectState, now time.Time) []Output {
 	st.Team.FireStarted = true
 	st.FireAt = now
@@ -250,7 +229,6 @@ func (st *State) startFire(p *PlayerState, o *ObjectState, now time.Time) []Outp
 	}
 }
 
-// finish は決着をつけ、session.finished を送ってからセッションを終える(ADR-0004)
 func (st *State) finish(outcome api.Outcome, at time.Time) []Output {
 	st.Status = api.SessionStatusFinished
 	st.Result = api.Result{Outcome: outcome, DecidedAt: at}
@@ -261,7 +239,6 @@ func (st *State) finish(outcome api.Outcome, at time.Time) []Output {
 	}
 }
 
-// stockFileIDs はディレクトリの在庫のファイルの id を、初期在庫の並びで返す
 func (st *State) stockFileIDs() []string {
 	var ids []string
 	for _, it := range st.Items {
@@ -272,13 +249,6 @@ func (st *State) stockFileIDs() []string {
 	return ids
 }
 
-// completeTask は、担当者がファイルをディレクトリに入れたときに、それで達成になるタスクを 1 つ完了にする(state-schema.md §5.1)。
-// status は入れる前(手に持っていたとき)のファイルの状態。read_edit は対象のファイルを編集済みで、
-// write はワークスペースで作ったファイル、image_generation はキャンバスで作ったファイルを入れたとき。
-// 締切より前に受け付けたものだけ数える。完了にしたら task.completed を返す。
-//
-// 編集済みは入れると編集前に戻る(§5.2.1)ので、同じファイルでも、別のプレイヤーが編集し直して入れればその人の達成になる。
-// 作ったファイルは成果物になって取り出せないので、2 回数えることはない
 func (st *State) completeTask(playerID, fileID string, status api.FileStatus, now time.Time) []Output {
 	ph := &st.Phase
 	if ph.Status != api.PhaseStatusActive || !now.Before(ph.DeadlineAt) {
@@ -299,7 +269,6 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 	return nil
 }
 
-// apiPhase はフェーズを配る形に組み立てる
 func (st State) apiPhase() api.Phase {
 	ph := api.Phase{
 		Number:     st.Phase.Number,

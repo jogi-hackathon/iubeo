@@ -8,7 +8,13 @@ const make = () => {
   const lock = vi.fn(() => release);
   const suppressPointerLock = vi.fn(() => releaseSuppress);
   const exitPointerLock = vi.fn();
-  const session = createPcSession({lock, suppressPointerLock, exitPointerLock});
+  const resumePointerLock = vi.fn();
+  const session = createPcSession({
+    lock,
+    suppressPointerLock,
+    exitPointerLock,
+    resumePointerLock,
+  });
   return {
     session,
     lock,
@@ -16,6 +22,7 @@ const make = () => {
     suppressPointerLock,
     releaseSuppress,
     exitPointerLock,
+    resumePointerLock,
   };
 };
 
@@ -55,8 +62,38 @@ describe("createPcSession", () => {
     expect(releaseSuppress).toHaveBeenCalledTimes(1);
   });
 
+  it("finish で pointer lock を取り直す（一人称へ戻った直後にクリックを求めない）", () => {
+    const {session, resumePointerLock} = make();
+    session.enter("pc-1");
+    session.leave();
+    expect(resumePointerLock).not.toHaveBeenCalled();
+    session.finish();
+    expect(resumePointerLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("取り直すのは、預かりと抑止を解いた後（解く前に要求しても弾かれる）", () => {
+    const order: string[] = [];
+    const session = createPcSession({
+      lock: () => () => order.push("release"),
+      suppressPointerLock: () => () => order.push("unsuppress"),
+      exitPointerLock: () => {},
+      resumePointerLock: () => order.push("resume"),
+    });
+    session.enter("pc-1");
+    session.leave();
+    session.finish();
+    expect(order).toEqual(["release", "unsuppress", "resume"]);
+  });
+
+  it("enter と reset では pointer lock を取り直さない（PC に入るとき・シーンを出るとき）", () => {
+    const {session, resumePointerLock} = make();
+    session.enter("pc-1");
+    session.reset();
+    expect(resumePointerLock).not.toHaveBeenCalled();
+  });
+
   it("使っていないときの leave と、離れ終わっていないときの finish は無視する", () => {
-    const {session, release} = make();
+    const {session, release, resumePointerLock} = make();
     session.leave();
     session.finish();
     expect(session.getState().phase).toBe("idle");
@@ -64,6 +101,7 @@ describe("createPcSession", () => {
     session.finish();
     expect(session.getState().phase).toBe("active");
     expect(release).not.toHaveBeenCalled();
+    expect(resumePointerLock).not.toHaveBeenCalled();
   });
 
   it("離れ始めている間は、新しく使い始められない", () => {

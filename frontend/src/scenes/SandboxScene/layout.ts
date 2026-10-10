@@ -9,11 +9,6 @@ import type {SlabSpec} from "../../props/slabGeometry";
 import type {Vec3} from "../../props/types";
 import type {Spawn} from "../spawn";
 
-// サンドボックスは、正三角形の床の上の「正三角柱 + 三角錐の屋根」(3 人用)。3 人それぞれの区画は、中心から 3 つの頂点へ引いた仕切り(壁より薄いすりガラスの板)で区切った三角形。
-// 座標は、部屋の中心(三角形の重心)が原点、床の上面が y=0。
-// 区画 k(0, 1, 2)は、「区画ローカル座標」を Y 軸まわりに seatYaw(座席 k+1) = k * 2π/3 回したもの(three の rotation.y と同じ向き)。区画 0 はローカル=ワールド。
-// 区画ローカルでは、外壁が +Z 側、中心(ディレクトリの山)が原点で、区画は三角形 (0, 0)・(-SIDE/2, r)・(SIDE/2, r) の室内。
-// 区画の部品(床・外壁・仕切り・屋根・イス)は、ローカル座標の値をそのまま 1 つの group(rotation = seatYaw)に入れて回す
 const SQRT3 = Math.sqrt(3);
 
 /** 室内の正三角形の一辺 */
@@ -34,7 +29,6 @@ export const ZONE_COUNT = 3;
 const t = WALL_THICKNESS;
 const pt = PARTITION_THICKNESS;
 const r = SANDBOX_INRADIUS;
-/** 外壁・床・屋根の外側の面まで含めた三角形(外壁の厚み t の分、外へ広がる): 内接円の半径・外壁の x の半幅・頂点までの距離 */
 const OUTER_INRADIUS = r + t;
 const OUTER_HALF_WIDTH = SQRT3 * OUTER_INRADIUS;
 const OUTER_CIRCUMRADIUS = 2 * OUTER_INRADIUS;
@@ -74,7 +68,6 @@ const windowRight = WINDOW_CENTER_X + WINDOW_SIZE / 2;
 const windowTop = WINDOW_SILL_HEIGHT + WINDOW_SIZE;
 const wallCenterZ = r + t / 2;
 
-/** 窓の脇の壁。x は (xFrom, xTo) の範囲、y は窓の高さ */
 const besideWindow = (xFrom: number, xTo: number): WallSpec => ({
   position: [
     (xFrom + xTo) / 2,
@@ -84,10 +77,6 @@ const besideWindow = (xFrom: number, xTo: number): WallSpec => ({
   size: [xTo - xFrom, WINDOW_SIZE, t],
 });
 
-/**
- * 外壁の上端を屋根の板の中へ延ばす量(m)。外壁の上端と屋根の室内面を突き合わせるだけだと、継ぎ目に 1px の隙間ができて外の空が線になって見える。
- * 外壁の外面(z=r+t)での屋根の板の上面(WALL_HEIGHT + 約 0.11)を超えない
- */
 const WALL_ROOF_OVERLAP = 0.1;
 const wallTop = WALL_HEIGHT + WALL_ROOF_OVERLAP;
 
@@ -118,7 +107,6 @@ export const ZONE_FLOOR: SlabSpec = {
   offset: [0, -t, 0],
 };
 
-/** 仕切りが中心から頂点へ向かう向き (x, z)(区画ローカルで、区画の左の頂点 (-SIDE/2, r) への単位ベクトル) */
 const PARTITION_DIRECTION = [-SQRT3 / 2, 1 / 2] as const;
 /** 仕切りの面の、水平方向の軸(区画ローカルの単位ベクトル。PARTITION_DIRECTION を 3 次元にしたもの)。すりガラスの面内座標(模様・格子)の横軸 */
 export const PARTITION_AXIS: Vec3 = [
@@ -126,10 +114,8 @@ export const PARTITION_AXIS: Vec3 = [
   0,
   PARTITION_DIRECTION[1],
 ];
-/** 仕切りの面の法線 (x, z)(区画の内側を向く) */
 const PARTITION_NORMAL = [1 / 2, SQRT3 / 2] as const;
 
-/** 屋根の室内側の面の高さの勾配。外壁の室内側の上端 (z=r, y=WALL_HEIGHT) と頂点 (0, APEX_HEIGHT, 0) を通る面は、z が 1 進むごとにこれだけ下がる */
 const ROOF_SLOPE = (APEX_HEIGHT - WALL_HEIGHT) / r;
 
 /**
@@ -139,7 +125,6 @@ const ROOF_SLOPE = (APEX_HEIGHT - WALL_HEIGHT) / r;
 export const ridgeHeight = (s: number): number =>
   APEX_HEIGHT - ((APEX_HEIGHT - WALL_HEIGHT) * s) / SANDBOX_CIRCUMRADIUS;
 
-/** 仕切りの中心線の上の、中心からの距離 s・高さ y の点を、面の法線方向に side * p/2 ずらしたもの */
 const partitionPoint = (s: number, y: number, side: -1 | 1): Vec3 => [
   s * PARTITION_DIRECTION[0] + (side * pt * PARTITION_NORMAL[0]) / 2,
   y,
@@ -161,7 +146,6 @@ export const ZONE_PARTITION: SlabSpec = {
   offset: [pt * PARTITION_NORMAL[0], 0, pt * PARTITION_NORMAL[1]],
 };
 
-/** 屋根の室内側の面(y + ROOF_SLOPE * z = APEX_HEIGHT)の法線 (0, 1, ROOF_SLOPE) の長さ。押し出す向きを正規化する用 */
 const roofNormalLength = Math.hypot(1, ROOF_SLOPE);
 const roofEaveHeight = APEX_HEIGHT - ROOF_SLOPE * OUTER_INRADIUS;
 
@@ -178,12 +162,6 @@ export const ZONE_ROOF: SlabSpec = {
   offset: [0, t / roofNormalLength, (t * ROOF_SLOPE) / roofNormalLength],
 };
 
-// オブジェクトの置き場所(区画ローカル。ワールドへは toWorld で区画ごとに回して置く)。
-// ディレクトリは全区画で 1 つ、中心(原点)の large の山。山は束の端まで mountainReach("large") = 4.4m で、3 区画にまたがり(仕切りが貫く)、室内の三角形(内接円の半径 r)の内側に収まる。
-// 机は右(+x 側)の外壁に付けて、手前(イス側)を中心へ向ける。イスはその手前から外壁の方を向く。キャンバスは左寄りで、スポーン地点の方を向く。
-// スポーン地点は、中心(ディレクトリ)の方(ローカルの -Z)を向く。イス・PC・キャンバスの足元は、room と同じ考え方
-
-/** 机の奥の縁と外壁の室内側の面の間の隙間(m)。机の奥行き TOP_SIZE[2] の半分だけ、中心が壁から離れる */
 const DESK_WALL_GAP = 0.15;
 const WORKSPACE_Z = r - TOP_SIZE[2] / 2 - DESK_WALL_GAP;
 
@@ -196,7 +174,6 @@ export const ZONE_CHAIR: Placement = {
   position: [3.5, 0, WORKSPACE_Z - 0.95],
   yaw: Math.PI,
 };
-/** 机ローカルの位置 local(原点は机の足元の中心、+Z が手前)を机の向きで回して、机の位置へ足したもの。向きは机と同じ */
 const onDesk = (local: Vec3): Placement => {
   const offset = rotateY(local, ZONE_WORKSPACE.yaw);
   return {
@@ -236,7 +213,6 @@ export const sandboxSpawnOf = (seat: number): Spawn => {
   return {position, yaw};
 };
 
-/** 座席ごとの項目(机・PC・キャンバス・ライターの置き場)。項目名は座席の番号つき(例: workspace-2)。位置・向きは座席で回した値 */
 const seatItems = (seat: number): [string, LayoutItem][] => {
   const place = (kind: string, local: Placement): [string, LayoutItem] => {
     const world = toWorld(local, seat);

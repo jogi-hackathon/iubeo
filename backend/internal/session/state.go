@@ -32,8 +32,7 @@ type State struct {
 	// BypassAt は最後のフェーズを生き残って bypassPermission を立てた時刻、FireAt は火をつけた時刻。まだならゼロ
 	BypassAt time.Time
 	FireAt   time.Time
-	// rng はタスクの分配に使う乱数。Step を純粋に保つため、状態に持って一緒に進める
-	rng rand.PCG
+	rng      rand.PCG
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -54,12 +53,9 @@ type PlayerState struct {
 	Life       api.LifeStatus
 	Transform  api.Transform
 	// ConnID は今の接続。無ければ 0
-	ConnID uint64
-	// reported はクライアントから transform を受け取ったか(初回は seq によらず受け付ける)。
-	// 受け取るまでは位置が無いので、snapshot の transform は null
+	ConnID   uint64
 	reported bool
-	// moved は前回の transforms の配信から動いたか
-	moved bool
+	moved    bool
 }
 
 // ObjectState はオブジェクトの内部状態。data は配るときに items から組み立てる
@@ -92,8 +88,8 @@ type Location struct {
 type ItemState struct {
 	ID       string
 	Kind     api.ItemKind
-	Status   api.FileStatus // kind が file のときだけ
-	Color    string         // 在庫から取り出したファイルだけ
+	Status   api.FileStatus
+	Color    string
 	Location Location
 	// Home はライターの置き場(lighter_stand)の id。切断・脱落したらここに戻す
 	Home string
@@ -150,7 +146,6 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 			Users:        []string{},
 			Availability: api.ObjectAvailabilityAvailable,
 		})
-		// ライターの置き場。bypassPermission が立つまでは使えない
 		st.Objects = append(st.Objects, ObjectState{
 			ID:           lighterStandID(seat),
 			Kind:         api.LighterStand,
@@ -164,7 +159,6 @@ func NewMultiplayerState(id string, playerIDs []string, createdAt time.Time, tim
 	return st
 }
 
-// initialItems はアイテムの初期状態(ディレクトリの初期在庫と、席ごとの置き場のライター)を返す
 func (st State) initialItems() []ItemState {
 	items := make([]ItemState, 0, len(directoryStock)+len(st.Players))
 	for _, f := range directoryStock {
@@ -188,7 +182,6 @@ func (st State) initialItems() []ItemState {
 	return items
 }
 
-// clone は State の深いコピーを返す。Step は受け取った State を書き換えずに、コピーを変えて返す
 func (st State) clone() State {
 	c := st
 	c.Players = slices.Clone(st.Players)
@@ -217,8 +210,6 @@ func (st *State) player(id string) *PlayerState {
 func (st State) HasPlayer(id string) bool {
 	return st.player(id) != nil
 }
-
-// ---------- 配る形への組み立て(state-schema.md §3.2) ----------
 
 func (st State) heldItem(playerID string) *api.Item {
 	for _, it := range st.Items {
@@ -331,7 +322,6 @@ func (st State) Snapshot(now time.Time) api.SessionSnapshot {
 	return snap
 }
 
-// apiTransform は配る transform。最初の transform を受け取るまでは nil(初期位置はフロントが席から決める)
 func (p PlayerState) apiTransform() *api.Transform {
 	if !p.reported {
 		return nil

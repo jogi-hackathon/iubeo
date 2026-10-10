@@ -1,15 +1,6 @@
-/**
- * WISP へ繋ぐトークンの検証。バックエンド(backend/internal/wisp/token.go)が発行する形式と揃えてある。
- * frontend/worker/wispToken.ts と同じ処理の、EC2 など Worker の手前に検証役が居ない環境向けの写し。
- *
- * 形式は `base64url(JSON{"sub": playerId, "exp": 期限(Unix 秒)}) + "." + base64url(HMAC-SHA256(鍵, 1つ目の部分))`。
- * 署名は 1 つ目の部分の文字列に対して取るので、デコードし直さずに検証できる。
- * 期限切れ・署名違い・形式違いは、すべて null を返す（理由は返さない）。
- */
 
 const encoder = new TextEncoder();
 
-/** base64url を、パディング無しでも読める形でバイト列にする。形式が違えば例外 */
 const decodeBase64Url = (text) => {
   if (!/^[A-Za-z0-9_-]*$/.test(text)) {
     throw new Error("not base64url");
@@ -49,7 +40,6 @@ export const verifyWispToken = async (token, key, nowSeconds = Math.floor(Date.n
     false,
     ["verify"],
   );
-  // 比較は crypto.subtle.verify が一定時間で行う
   const valid = await crypto.subtle.verify(
     "HMAC",
     cryptoKey,

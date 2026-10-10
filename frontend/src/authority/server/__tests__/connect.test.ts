@@ -62,7 +62,6 @@ const snapshot = (
 
 const file = {id: "f1", kind: "file" as const, data: {status: "unedited"}};
 
-// 席のスポーン地点(シーンが決める。ここでは席ごとにずらした固定値)
 const spawnOf = (seat: number) => ({
   position: [10 * seat, 0.5, 3] as [number, number, number],
   yaw: seat / 10,
@@ -185,7 +184,6 @@ describe("connectSession", () => {
       spawn: spawnOf(1),
     });
     expect(t.sender.syncSeq.mock.calls).toEqual([[0]]);
-    // 他人は、席 2 のスポーン地点から始まる
     const out = createPlayerState(0, 0, 0);
     expect(t.players.sample("other", 10_000, out)).toBe(true);
     expect(out.position.toArray()).toEqual([20, 0.5, 3]);
@@ -318,7 +316,6 @@ describe("connectSession", () => {
     const out = createPlayerState(0, 0, 0);
     expect(t.players.sample("other", 10_000, out)).toBe(true);
     expect(out.position.x).toBe(5);
-    // 自分の位置は、届いても持たない
     expect(t.players.sample("me", 10_000, out)).toBe(false);
   });
 

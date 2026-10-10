@@ -1,10 +1,3 @@
-/**
- * Web Search の判定で、画面 (クライアント) と Worker がやり取りする型。
- *
- * 依存を持たせない (React も DOM も three も読まない)。Worker はブラウザの型を持たないので、
- * 共有する型はここに置く。
- */
-
 /** 判定に渡す、今表示しているページの情報 */
 export type PageSnapshot = {
   /** 表示中の URL */

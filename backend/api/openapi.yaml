@@ -280,7 +280,6 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
-    # ---------- 基本の型 ----------
     PlayerId:
       type: string
       example: p1
@@ -314,7 +313,6 @@ components:
         message:
           type: string
 
-    # ---------- 列挙値 ----------
     SessionMode:
       type: string
       enum: [single, multiplayer]
@@ -370,7 +368,6 @@ components:
       type: string
       enum: [victory, defeat]
 
-    # ---------- HTTP ----------
     Me:
       type: object
       required: [playerId, sessionId]
@@ -414,7 +411,6 @@ components:
           type: string
           enum: [single]
 
-    # ---------- アイテム・オブジェクト ----------
     Item:
       description: 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個
       type: object
@@ -508,7 +504,6 @@ components:
           description: 置き場にライターがあるか(持ち主が持っている間は false)
           type: boolean
 
-    # ---------- プレイヤー ----------
     Transform:
       type: object
       required: [position, yaw, pitch, seq]
@@ -566,7 +561,6 @@ components:
               type: object
               nullable: true
 
-    # ---------- ゲーム進行 ----------
     Task:
       type: object
       required: [taskId, type, assigneePlayerId, targetFileId, status, completedAt]
@@ -678,7 +672,6 @@ components:
         game:
           $ref: "#/components/schemas/Game"
 
-    # ---------- WebSocket: クライアント → サーバー ----------
     ClientMessage:
       oneOf:
         - $ref: "#/components/schemas/TransformMessage"
@@ -728,7 +721,6 @@ components:
           description: "対象の中から 1 つ選ぶときの指定(例: 取り出すファイルの id)"
           type: string
 
-    # ---------- WebSocket: サーバー → クライアント ----------
     ServerMessage:
       oneOf:
         - $ref: "#/components/schemas/SnapshotMessage"

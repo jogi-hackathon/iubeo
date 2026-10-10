@@ -57,15 +57,12 @@ const t = WALL_THICKNESS;
 const pt = PARTITION_THICKNESS;
 const Y_AXIS = new Vector3(0, 1, 0);
 const ZONES = Array.from({length: ZONE_COUNT}, (_, i) => i);
-/** 区画 zone(0 始まり)の座席の回転。区画の番号は座席の番号 - 1 */
 const zoneYaw = (zone: number): number => seatYaw(zone + 1);
-/** 物の足元と、壁・仕切り・山との間に空けておく余裕(m) */
 const CLEAR = 0.3;
 const MOUNTAIN_REACH = mountainReach("large");
 
 type XZ = readonly [number, number];
 
-/** 足元の矩形(x の範囲・z の範囲。物のローカル)を yaw で回して置いた四隅(three の rotation.y と同じ向き。ワールド) */
 const footprint = (placement: Placement, [x0, x1]: XZ, [z0, z1]: XZ): XZ[] =>
   (
     [
@@ -79,7 +76,6 @@ const footprint = (placement: Placement, [x0, x1]: XZ, [z0, z1]: XZ): XZ[] =>
     return [placement.position[0] + p.x, placement.position[2] + p.z] as XZ;
   });
 
-/** 机(1.6m x 0.8m)の天板・イス(部品の足跡)・キャンバス(room のテストと同じ寸法)の、ローカルの足跡の範囲 */
 const DESK_RANGE: [XZ, XZ] = [
   [-TOP_SIZE[0] / 2, TOP_SIZE[0] / 2],
   [-TOP_SIZE[2] / 2, TOP_SIZE[2] / 2],
@@ -103,17 +99,14 @@ const CANVAS_RANGE: [XZ, XZ] = [
   [-0.62, 0.32],
 ];
 
-/** 区画 zone のオブジェクトの足跡(ワールド)を、区画ローカルへ戻す(three の回転を使って、layout の toWorld とは別に確かめる) */
 const toZoneLocal = (zone: number, [x, z]: XZ): XZ => {
   const p = new Vector3(x, 0, z).applyAxisAngle(Y_AXIS, -zoneYaw(zone));
   return [p.x, p.z];
 };
 
-/** 区画ローカルの点 p の、左右の仕切りの中心線までの、区画の内側向きの符号付き距離(中心から室内の頂点 (∓SIDE/2, r) へ引いた線) */
 const partitionDistances = ([x, z]: XZ): [number, number] => {
   const a = SANDBOX_SIDE / 2;
   const len = Math.hypot(a, r);
-  // 左: 頂点 (-a, r)、内側向きの法線 (r, a)。右: 頂点 (a, r)、内側向きの法線 (-r, a)
   return [(x * r + z * a) / len, (-x * r + z * a) / len];
 };
 
@@ -123,7 +116,6 @@ const polygonAxes = (poly: XZ[]): XZ[] =>
     return [-(q[1] - p[1]), q[0] - p[0]] as XZ;
   });
 
-/** 凸多角形 2 つが(辺で接するだけでなく)重なっているか。分離軸で調べる */
 const overlaps = (a: XZ[], b: XZ[]): boolean =>
   ![...polygonAxes(a), ...polygonAxes(b)].some(([ax, az]) => {
     const pa = a.map(([x, z]) => x * ax + z * az);
@@ -141,7 +133,6 @@ describe("sandbox の形", () => {
     const a = SANDBOX_SIDE / 2;
     expect(r).toBeCloseTo(6.928, 3);
     expect(SANDBOX_CIRCUMRADIUS).toBeCloseTo(2 * r);
-    // 区画 0 の三角形 (0,0)・(-a, r)・(a, r)
     expect(Math.hypot(a, r)).toBeCloseTo(SANDBOX_CIRCUMRADIUS);
     expect(2 * a).toBe(SANDBOX_SIDE);
   });
@@ -198,7 +189,6 @@ describe("sandbox の形", () => {
       expect((p1 as Placement).yaw - (p0 as Placement).yaw).toBeCloseTo(
         (2 * Math.PI) / 3,
       );
-      // 区画 1 の位置を -120° 回すと区画 0 の位置へ戻る
       const back = new Vector3(...(p1 as Placement).position).applyAxisAngle(
         Y_AXIS,
         -zoneYaw(1),
@@ -223,9 +213,7 @@ describe("外壁・窓", () => {
     const union = ZONE_WALLS.reduce((b, w) => b.union(box(w)), new Box3());
     expect(union.min.x).toBeCloseTo(-outerHalf);
     expect(union.max.x).toBeCloseTo(outerHalf);
-    // 床の板(y∈[-t, 0])の下面まで
     expect(union.min.y).toBeCloseTo(-t);
-    // 上端は屋根の室内面(z=r で WALL_HEIGHT)より上で、外壁の外面(z=r+t)での屋根の板の上面を超えない(外に突き出ない)
     const slope = (APEX_HEIGHT - WALL_HEIGHT) / r;
     const [, oy, oz] = ZONE_ROOF.offset;
     const roofTopAtOuterFace = APEX_HEIGHT - slope * (r + t) + slope * oz + oy;
@@ -256,15 +244,12 @@ describe("外壁・窓", () => {
     expect(WINDOW_SILL_HEIGHT).toBe(1);
     const left = WINDOW_CENTER_X - WINDOW_SIZE / 2;
     const right = WINDOW_CENTER_X + WINDOW_SIZE / 2;
-    // 室内側の面は、仕切りの面(中心線から pt/2)で切れる
     expect(WALL_INNER_HALF_WIDTH).toBeCloseTo(Math.sqrt(3) * r - pt);
     expect(left).toBeGreaterThan(-WALL_INNER_HALF_WIDTH + CLEAR);
     expect(right).toBeLessThan(WALL_INNER_HALF_WIDTH - CLEAR);
-    // 壁の室内側の面の左右の端で、区画の三角形(仕切りの面から t/2 の外)と一致する
     const [dl, dr] = partitionDistances([WALL_INNER_HALF_WIDTH, r]);
     expect(dr).toBeCloseTo(pt / 2);
     expect(dl).toBeGreaterThan(pt / 2);
-    // 窓は壁の高さの内側
     expect(WINDOW_SILL_HEIGHT + WINDOW_SIZE).toBeLessThan(WALL_HEIGHT);
   });
 
@@ -301,7 +286,6 @@ describe("床・仕切り・屋根", () => {
     expect(axis.y).toBe(0);
     expect(axis.length()).toBeCloseTo(1);
     const [x0, , z0] = ZONE_PARTITION.polygon[1] as Vec3;
-    // 多角形の 2 番目の点(中心線から -pt/2 ずれた、外側の頂点の下)も、軸の方向へ伸びる
     const along = new Vector3(x0, 0, z0).dot(axis);
     expect(along).toBeCloseTo(2 * (r + t));
   });
@@ -310,19 +294,16 @@ describe("床・仕切り・屋根", () => {
     const d = new Vector3(-Math.sqrt(3) / 2, 0, 0.5);
     const lateral = new Vector3(0.5, 0, Math.sqrt(3) / 2);
     const [offX, offY, offZ] = ZONE_PARTITION.offset;
-    // 厚さ pt(面の法線方向、水平)
     expect(offY).toBe(0);
     expect(Math.hypot(offX, offZ)).toBeCloseTo(pt);
     expect(new Vector3(offX, 0, offZ).dot(lateral)).toBeCloseTo(pt);
     const ss: number[] = [];
     for (const [x, y, z] of ZONE_PARTITION.polygon) {
       const p = new Vector3(x, 0, z);
-      // 多角形の面は中心線から -pt/2(反対側の面は offset で +pt/2)
       expect(p.dot(lateral)).toBeCloseTo(-pt / 2);
       const s = p.dot(d);
       ss.push(s);
       if (y !== 0) {
-        // 上端は屋根の稜線: 中心線上の点(x, z)での、屋根の室内側の面(外壁の室内上端と頂点を通る面)の高さ
         const centerZ = s * d.z;
         expect(y).toBeCloseTo(ridgeHeight(s));
         expect(y).toBeCloseTo(
@@ -335,13 +316,11 @@ describe("床・仕切り・屋根", () => {
     const ys = ZONE_PARTITION.polygon.map(([, y]) => y);
     expect(Math.min(...ys)).toBe(0);
     expect(Math.max(...ys)).toBeCloseTo(APEX_HEIGHT);
-    // 中心で頂点の高さ、室内の頂点 R で外壁の高さ
     expect(ridgeHeight(0)).toBe(APEX_HEIGHT);
     expect(ridgeHeight(SANDBOX_CIRCUMRADIUS)).toBeCloseTo(WALL_HEIGHT);
   });
 
   it("屋根は頂点 (0, APEX, 0) と外壁の室内上端 (z=r, y=WALL_HEIGHT) を通る平面上の三角形で、外向きに厚さ t", () => {
-    // 平面: y = APEX - (APEX - WALL_HEIGHT) / r * z
     const planeY = (z: number) =>
       APEX_HEIGHT - ((APEX_HEIGHT - WALL_HEIGHT) / r) * z;
     expect(planeY(r)).toBeCloseTo(WALL_HEIGHT);
@@ -350,12 +329,10 @@ describe("床・仕切り・屋根", () => {
     for (const [, y, z] of ZONE_ROOF.polygon) {
       expect(y).toBeCloseTo(planeY(z));
     }
-    // 底辺は z=r+t まで延ばした、外側の頂点どうし
     expect(b[2]).toBeCloseTo(r + t);
     expect(c[2]).toBeCloseTo(r + t);
     expect(b[0]).toBeCloseTo(-Math.sqrt(3) * (r + t));
     expect(c[0]).toBeCloseTo(Math.sqrt(3) * (r + t));
-    // 押し出す向きは平面に垂直で上向き、長さ t
     const offset = new Vector3(...ZONE_ROOF.offset);
     expect(offset.length()).toBeCloseTo(t);
     expect(offset.y).toBeGreaterThan(0);
@@ -364,7 +341,6 @@ describe("床・仕切り・屋根", () => {
   });
 
   it("屋根の三角形の左右の辺は、仕切りの中心線の真上(稜線)に載る", () => {
-    // 区画 0 の右の頂点への稜線(区画 1 の左の仕切りの中心線)
     const [, , c] = ZONE_ROOF.polygon as [Vec3, Vec3, Vec3];
     const dir = new Vector3(Math.sqrt(3) / 2, 0, 0.5);
     const along = new Vector3(c[0], 0, c[2]);
@@ -402,7 +378,6 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
         expect(Math.hypot(p[0], p[1])).toBeGreaterThanOrEqual(
           MOUNTAIN_REACH + CLEAR,
         );
-        // 外壁の室内側の面より手前
         expect(p[1]).toBeLessThanOrEqual(r + 1e-9);
       }
     },
@@ -428,17 +403,14 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
     const chairFront = Math.max(...chair.map((p) => p[1]));
     expect(chairFront).toBeLessThan(deskFront);
     expect(deskFront - chairFront).toBeLessThan(0.6);
-    // 机とイスは、外壁に向かって同じ x に並ぶ
     expect(ZONE_CHAIR.position[0]).toBe(ZONE_WORKSPACE.position[0]);
   });
 
   it("イスは外壁の方(机の方)を、机の手前は中心の方を向く", () => {
-    // yaw=0 で -Z(ワールド)を向く物の向きは (-sin yaw, -cos yaw)。イスはこれが +Z になる
     const facing = (yaw: number) => [-Math.sin(yaw), -Math.cos(yaw)];
     const chairLocalYaw = place(ZONE_CHAIR).yaw - zoneYaw(zone);
     expect(facing(chairLocalYaw)[0]).toBeCloseTo(0);
     expect(facing(chairLocalYaw)[1]).toBeCloseTo(1);
-    // 机の手前(既定は +Z)は、ローカルの -Z(中心側)へ向く
     const deskLocalYaw = place(ZONE_WORKSPACE).yaw - zoneYaw(zone);
     expect(Math.sin(deskLocalYaw)).toBeCloseTo(0);
     expect(Math.cos(deskLocalYaw)).toBeCloseTo(-1);
@@ -447,7 +419,6 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
   it("PC は机の天板の上(机の真上、奥側)にある", () => {
     const pc = new Vector3(...place(ZONE_PC).position);
     const deskPos = new Vector3(...place(ZONE_WORKSPACE).position);
-    // 机の向きの逆回しで、机ローカルの位置にする
     const local = pc
       .clone()
       .sub(deskPos)
@@ -456,7 +427,6 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
     expect(local.y).toBeCloseTo(0.95);
     expect(local.z).toBeCloseTo(-0.3);
     expect(Math.abs(local.z)).toBeLessThan(TOP_SIZE[2] / 2);
-    // 奥(外壁)側にある
     expect(toZoneLocal(zone, [pc.x, pc.z])[1]).toBeGreaterThan(
       toZoneLocal(zone, [deskPos.x, deskPos.z])[1],
     );
@@ -485,7 +455,6 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
     expect(Math.hypot(local[0], local[1])).toBeGreaterThanOrEqual(
       MOUNTAIN_REACH + CAPSULE_RADIUS,
     );
-    // 向き: (-sin yaw, -cos yaw) が、スポーン地点から原点(ディレクトリ)への向き
     const facing = [-Math.sin(spawn.yaw), -Math.cos(spawn.yaw)];
     const toCenter = [-spawn.position[0], -spawn.position[2]];
     const len = Math.hypot(toCenter[0] as number, toCenter[1] as number);
@@ -514,7 +483,6 @@ describe("ディレクトリ・スポーン", () => {
   it("ディレクトリは中心(原点)の large の山", () => {
     expect(SANDBOX_LAYOUT.directory?.position).toEqual([0, 0, 0]);
     expect(SANDBOX_LAYOUT.directory?.look).toBe("large");
-    // 山は外壁の室内側の面(r)より手前に収まる
     expect(MOUNTAIN_REACH).toBeLessThan(r);
   });
 

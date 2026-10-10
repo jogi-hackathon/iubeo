@@ -8,14 +8,6 @@ import {createCrtMaterial} from "../objects/pc/crtMaterial";
 import {PcModel} from "../objects/pc/PcModel";
 import {SCREEN_CANVAS} from "../screen/browserChrome";
 
-/**
- * dev 専用の PC モデル撮影ページ (pc.html)。ゲーム本体を起動せず、PcModel だけを
- * ゲームと同じライト・同じ CRT マテリアルで描く。pnpm shot:pc がヘッドレス Chrome で開き、
- * 3 つの視点を 1 枚に撮る（3D モデルの before / after を同じ条件で並べるため）。
- *
- * ゲームに入らなくても見た目を確認できるので、モデルのレビューと修正の比較に使う。
- */
-
 interface View {
   label: string;
   position: [number, number, number];
@@ -23,7 +15,6 @@ interface View {
   fov: number;
 }
 
-// PC の原点は机の天板の中心、正面は +Z。3 つとも同じライト・同じ画面テクスチャで撮る
 const VIEWS: readonly View[] = [
   {
     label: "正面",
@@ -45,17 +36,14 @@ const VIEWS: readonly View[] = [
   },
 ];
 
-/** 1 視点ぶんの撮影サイズ (3 枚を横に並べる) */
 const TILE = {width: 560, height: 500} as const;
 
 declare global {
   interface Window {
-    /** 撮影の準備ができたか (scripts/pc-shot.ts が待つ) */
     __pcShotReady?: boolean;
   }
 }
 
-/** 何フレームか描いたら準備完了にする (最初の数フレームはテクスチャが乗っていない)。3 枚そろってから */
 let readyCount = 0;
 function Ready({frames = 6}: {frames?: number}) {
   let count = 0;
@@ -71,7 +59,6 @@ function Ready({frames = 6}: {frames?: number}) {
   return null;
 }
 
-/** CRT に映す仮の検索ページ。エンジンを起動せずに、画面の見た目だけを作る */
 const screenTexture = (): CanvasTexture => {
   const canvas = document.createElement("canvas");
   canvas.width = SCREEN_CANVAS.width;
@@ -121,7 +108,6 @@ const screenTexture = (): CanvasTexture => {
   return texture;
 };
 
-/** 天板 (ゲームの机と同じ寸法・色)。PC の原点が天板の上面に来る */
 function DeskTop() {
   return (
     <mesh position={[0, -0.02, 0]}>
@@ -138,7 +124,6 @@ function Shot({view}: {view: View}) {
       SCREEN_CANVAS.width,
       SCREEN_CANVAS.height,
     );
-    // エンジンは起動しないので、電源が入りきった状態で撮る
     controls.on.value = 1;
     controls.boot.value = 1;
     return controls;
@@ -162,7 +147,6 @@ function Shot({view}: {view: View}) {
       }}
     >
       <color attach="background" args={["#eceae6"]} />
-      {/* ゲームの白い世界と同じ明るさの当て方 (半球光が主で、平行光は弱い) */}
       <hemisphereLight args={["#ffffff", "#d8d8d8", 2.2]} />
       <directionalLight position={[8, 20, 6]} intensity={0.7} />
       <directionalLight position={[-6, 8, 10]} intensity={0.25} />

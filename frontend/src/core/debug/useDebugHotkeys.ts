@@ -31,7 +31,6 @@ export const useDebugHotkeys = (): void => {
           toggleDebugFlag("postfx");
           break;
         case "F10":
-          // F11 は macOS の「デスクトップを表示」と競合するので Shift+F10 に割り当てる
           toggleDebugFlag(e.shiftKey ? "game" : "scene");
           break;
         default:

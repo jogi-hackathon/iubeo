@@ -44,7 +44,6 @@ func (st *State) item(id string) *ItemState {
 	return &st.Items[i]
 }
 
-// held はプレイヤーの実際の手持ち。無ければ nil
 func (st *State) held(playerID string) *ItemState {
 	i := slices.IndexFunc(st.Items, func(it ItemState) bool {
 		return it.Location.Kind == HeldBy && it.Location.PlayerID == playerID
@@ -55,7 +54,6 @@ func (st *State) held(playerID string) *ItemState {
 	return &st.Items[i]
 }
 
-// claimMatches は要求の手持ちの主張が、実際の手持ちと合っているか
 func claimMatches(claim *api.HeldItemRef, actual *ItemState) bool {
 	if claim == nil || actual == nil {
 		return claim == nil && actual == nil
@@ -71,15 +69,12 @@ func reject(playerID, objectID string, reason api.RejectReason) []Output {
 	return []Output{Send{To: playerID, Msg: api.InteractRejectedMessage{Type: api.ObjectInteractRejected, ObjectId: objectID, Reason: reason}}}
 }
 
-// interact はオブジェクトの操作の要求を検証し、通れば結果を全員に配る。負けた・通らない要求は本人にだけ拒否を返す。
-// 手持ちは要求の主張ではなく、サーバーが持つ実際の手持ちで判定する(state-schema.md §5.3)
 func (st *State) interact(in ClientInteract) []Output {
 	p := st.player(in.PlayerID)
 	if p == nil {
 		return nil
 	}
 	objectID := in.Msg.ObjectId
-	// 開始前・脱落後は操作できない
 	if st.Status != api.SessionStatusPlaying || p.Life != api.Alive {
 		return reject(p.ID, objectID, api.RejectReasonUnavailable)
 	}
@@ -106,9 +101,6 @@ func (st *State) interact(in ClientInteract) []Output {
 	return reject(p.ID, objectID, api.RejectReasonUnavailable)
 }
 
-// interactDirectory: 手ぶらなら target のファイルを在庫から取り出して持つ(先着)。ライターを持っていれば火をつける。
-// ファイルを持っていれば入れる(在庫のファイルは編集前に戻って在庫に戻り、作ったファイルは成果物になる)。
-// 入れたファイルで担当のタスクが達成になれば task.completed も送る(生存者全員が完了したら、フェーズを終える)
 func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
 	if !claimMatches(in.Msg.HeldItem, held) {
@@ -146,7 +138,6 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 	if held != nil {
 		if done := st.completeTask(p.ID, held.ID, put, in.Now); len(done) > 0 {
 			out = append(out, done...)
-			// 生存者全員が完了したら、締切前でもフェーズを終える
 			if st.allTasksDone() {
 				out = append(out, st.endPhase(in.Now)...)
 			}
@@ -155,16 +146,12 @@ func (st *State) interactDirectory(p *PlayerState, o *ObjectState, in ClientInte
 	return out
 }
 
-// uneditOnReturn は、在庫に戻すファイルの編集済みを編集前に戻す。編集済みは持っている間だけの状態で、
-// 戻したファイルは次の人がまた編集できる(state-schema.md §5.2.1)
 func uneditOnReturn(f *ItemState) {
 	if f.Status == api.FileStatusEdited {
 		f.Status = api.FileStatusUnedited
 	}
 }
 
-// interactDirectoryWithLighter: ライターを持ってディレクトリに触れたら火をつける。燃やすのは演出なので、ファイルは消さない。
-// 火は最初の 1 人がつけた時点で始まり、2 人目からは unavailable
 func (st *State) interactDirectoryWithLighter(p *PlayerState, o *ObjectState, now time.Time) []Output {
 	if !st.Team.BypassPermission {
 		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
@@ -175,8 +162,6 @@ func (st *State) interactDirectoryWithLighter(p *PlayerState, o *ObjectState, no
 	return st.startFire(p, o, now)
 }
 
-// interactWorkspace: 編集前のファイルを持っていれば編集、手ぶらなら新規作成を始める。
-// 受け付けたら users に入れ、結果は WorkspaceActionDuration の後の Tick で適用する
 func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	if len(o.Users) > 0 {
 		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
@@ -185,7 +170,6 @@ func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInte
 	if !claimMatches(in.Msg.HeldItem, held) {
 		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 	}
-	// 編集できるのは在庫から取り出した編集前のファイルだけ(作ったファイルは編集しない)
 	if held != nil && (held.Kind != api.File || held.Status != api.FileStatusUnedited) {
 		return reject(p.ID, o.ID, api.RejectReasonMissingItem)
 	}
@@ -197,8 +181,6 @@ func (st *State) interactWorkspace(p *PlayerState, o *ObjectState, in ClientInte
 	return st.startAction(p, o, action)
 }
 
-// interactCanvas: 手ぶらなら画像生成を始める(新しいファイルを手に持つので、何か持っていれば missing_item)。
-// 受け付けたら users に入れ、結果は CanvasActionDuration の後の Tick で適用する
 func (st *State) interactCanvas(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	if len(o.Users) > 0 {
 		return reject(p.ID, o.ID, api.RejectReasonUnavailable)
@@ -210,15 +192,12 @@ func (st *State) interactCanvas(p *PlayerState, o *ObjectState, in ClientInterac
 	return st.startAction(p, o, ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusImageCreated, DueAt: in.Now.Add(CanvasActionDuration)})
 }
 
-// startAction はアクションを受け付け、作業中のプレイヤーを users に入れる
 func (st *State) startAction(p *PlayerState, o *ObjectState, a ObjectAction) []Output {
 	st.Actions = append(st.Actions, a)
 	o.Users = []string{p.ID}
 	return []Output{Broadcast{Msg: st.objectUpsert(o)}}
 }
 
-// interactLighterStand: 手ぶらで触れれば置き場のライターを持ち、ライターを持って触れれば戻す。
-// ファイルを持っていれば missing_item、置き場にライターが無ければ not_found
 func (st *State) interactLighterStand(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	held := st.held(p.ID)
 	if !claimMatches(in.Msg.HeldItem, held) {
@@ -244,8 +223,6 @@ func (st *State) interactLighterStand(p *PlayerState, o *ObjectState, in ClientI
 	}
 }
 
-// finishActions は期限が来たアクションの結果を適用する。
-// その時点で手持ちが条件を外れていれば結果は適用せず、users から外すだけ
 func (st *State) finishActions(now time.Time) []Output {
 	var out []Output
 	var rest []ObjectAction
@@ -263,7 +240,6 @@ func (st *State) finishActions(now time.Time) []Output {
 func (st *State) finishAction(a ObjectAction) []Output {
 	o := st.object(a.ObjectID)
 	p := st.player(a.PlayerID)
-	// 作業中にオブジェクトが消えたら、結果は適用しない
 	if o == nil || p == nil {
 		return nil
 	}
@@ -286,7 +262,6 @@ func (st *State) finishAction(a ObjectAction) []Output {
 	return append(out, Broadcast{Msg: st.objectUpsert(o)})
 }
 
-// cancelActions は作業中のアクションをすべて取りやめる(フェーズの終わり)
 func (st *State) cancelActions() []Output {
 	var out []Output
 	for _, a := range st.Actions {
@@ -299,9 +274,6 @@ func (st *State) cancelActions() []Output {
 	return out
 }
 
-// releasePlayer は切断・脱落したプレイヤーの作業を取りやめ、手持ちのファイルをディレクトリに戻す
-// (在庫のファイルは在庫に、作ったファイルは成果物に)。ライターは置き場に戻す(state-schema.md §5.6)。
-// 本人が入れたのではないので、タスクの達成には数えない
 func (st *State) releasePlayer(p *PlayerState) []Output {
 	var out []Output
 	var rest []ObjectAction

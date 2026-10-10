@@ -12,7 +12,6 @@ import {
 } from "../charts";
 import {MAX_TEXELS, MIN_TEXELS, TEXEL} from "../params";
 
-// XY 平面上の (0,0)-(sx,sy) の四角形(法線 +Z、uv は [0,1]²)を 2 三角形で作る
 const plane = (sx: number, sy: number): ChartTri[] => {
   const n = [0, 0, 1];
   return [
@@ -101,7 +100,6 @@ describe("texelsFor", () => {
 
 describe("buildChartTriangles", () => {
   it("chart 属性ごとに三角形をグループ化する", () => {
-    // 2 つの四角形(チャート 0 / 1)。1 つめは z=0、2 つめは z=1
     const geometry = new BufferGeometry();
     const position = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0];
     const positions = [

@@ -24,7 +24,6 @@ const state = (
   yaw,
 });
 
-/** 十分な時間を回して、表示ポーズを目標に収束させる */
 const settle = (a: Animator, s: ReturnType<typeof state>, holding = false) =>
   updateAnimator(a, s, holding, 10);
 
@@ -47,11 +46,10 @@ describe("updateAnimator", () => {
   it("後退(向きと逆に動く)では位相が戻る。yaw を回しても向き基準", () => {
     const a = createAnimator();
     a.phase = 0.5;
-    updateAnimator(a, state(0, 0, 3, true, 0), false, 0.1); // yaw=0 の前は -Z
+    updateAnimator(a, state(0, 0, 3, true, 0), false, 0.1);
     expect(a.phase).toBeLessThan(0.5);
     const b = createAnimator();
     b.phase = 0.5;
-    // yaw=π/2 の前は -X
     updateAnimator(b, state(-3, 0, 0, true, Math.PI / 2), false, 0.1);
     expect(b.phase).toBeGreaterThan(0.5);
   });
@@ -111,7 +109,7 @@ describe("updateAnimator", () => {
   it("holding の腕は肩からの相対位置を保つ(歩行の上下動でずれない)", () => {
     const a = createAnimator();
     const hold = frameOf(CLIPS.hold, 0);
-    a.phase = 0.25; // 歩行の通過姿勢で胴が高い
+    a.phase = 0.25;
     updateAnimator(a, state(0, 0, -3, true), true, 10);
     const rel = (i: number) =>
       at(a.pose, J.rWrist * 3 + i) - at(a.pose, J.rShoulder * 3 + i);
@@ -126,7 +124,7 @@ describe("updateAnimator", () => {
     const a = createAnimator();
     updateAnimator(a, state(0, 0, 0, true), false, 1 / 60);
     const before = at(a.pose, J.lToe * 3 + 2);
-    updateAnimator(a, state(0, 0, 0, false), false, 1 / 60); // 空中へ
+    updateAnimator(a, state(0, 0, 0, false), false, 1 / 60);
     const target = at(a.target, J.lToe * 3 + 2);
     const after = at(a.pose, J.lToe * 3 + 2);
     expect(target).not.toBeCloseTo(before);

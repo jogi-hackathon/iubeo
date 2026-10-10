@@ -48,14 +48,12 @@ export function GameDebugPanel() {
   const {held} = useItemState();
   const {current: sceneName} = useSceneState();
   const [rejected, setRejected] = useState("");
-  // 窓口が変わったら(登録・解除)作り直す。窓口の参照そのものを見る
   const authority = useSyncExternalStore(
     authorityRegistry.subscribe,
     authorityRegistry.current,
   );
   const dev = authority?.dev ? getLocalDevOps() : null;
   const kind = authority ? authority.kind : "none";
-  // 予備のダミー(dummy-4〜8)は、そのシーンのレイアウトに入っているときだけ置ける
   const layout: SceneLayout = sceneLayouts[sceneName];
   const hasSpares = Object.values(layout).some((item) =>
     TEST_SPARE_IDS.includes(item.id),
@@ -83,7 +81,6 @@ export function GameDebugPanel() {
               key={scope}
               type="button"
               disabled={!dev}
-              // 予備の id(dummy-4〜8)の空いている一番若い物を置く。置き場所はテストシーンのレイアウトが決める
               onClick={() => {
                 if (dev?.spawnSpareObject(scope) === undefined) {
                   console.warn(
@@ -168,7 +165,6 @@ export function GameDebugPanel() {
   );
 }
 
-/** ディレクトリの在庫・成果物・達成の数と、他のプレイヤーとしての貸し借り */
 function DirectoryRow({
   id,
   data,

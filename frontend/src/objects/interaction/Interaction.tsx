@@ -27,7 +27,6 @@ const isTargetable = (id: string): boolean =>
 type Candidates = {
   dirty: boolean;
   objects: Object3D[];
-  /** 候補のコライダー mesh → コライダー(enabled を見るため) */
   colliders: Map<Object3D, Collider>;
 };
 
@@ -37,11 +36,6 @@ const createCandidates = (): Candidates => ({
   colliders: new Map(),
 });
 
-/**
- * 候補は、オブジェクトの根と、それに属さないコライダー mesh(壁など)。
- * コライダーを持つオブジェクト(ディレクトリ)のコライダーは、根の子孫として根と一緒に判定されるので、重複して入れない。
- * 根のツリーを recursive に見るので、その中のコライダーも自分自身(オブジェクト)に当たり、遮蔽物にはならない
- */
 const refreshCandidates = (c: Candidates): void => {
   if (!c.dirty) {
     return;
@@ -76,7 +70,6 @@ export function Interaction() {
   }, []);
   const active = locked && !freeCamera;
 
-  // 狙いの候補(オブジェクトの根と、それ以外のコライダー)は、登録が変わったときだけ組み直す
   const candidates = useRef(createCandidates());
   useEffect(() => {
     const c = candidates.current;
@@ -97,14 +90,12 @@ export function Interaction() {
       setAimedObjectId(null);
       return;
     }
-    // FirstPersonCamera がこのフレームに書いた位置・向きで狙う(matrixWorld は描画時に更新されるので、ここで更新する)
     camera.updateMatrixWorld();
     raycaster.setFromCamera(CENTER, camera);
     const c = candidates.current;
     refreshCandidates(c);
     hits.current.length = 0;
     raycaster.intersectObjects(c.objects, true, hits.current);
-    // 最初の当たりだけを見る。無効なコライダーは、遮蔽物として数えない
     const first = hits.current.find(
       (h) => c.colliders.get(h.object)?.enabled !== false,
     );
@@ -137,7 +128,6 @@ export function Interaction() {
   return <AimOutline />;
 }
 
-/** 狙っているオブジェクトを、ポストプロセスのアウトラインの対象にする(外周に 1 本。camera/postprocess/pipeline) */
 function AimOutline() {
   const aimed = useAimedObjectId();
 

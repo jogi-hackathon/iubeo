@@ -45,7 +45,6 @@ export const serveEnginePlugin = (): Plugin => {
           root,
           decodeURIComponent(path.slice("/engine/".length)),
         );
-        // `..` で配信ディレクトリの外へ出る要求は通さない
         if (
           !file.startsWith(root) ||
           !existsSync(file) ||
@@ -57,8 +56,6 @@ export const serveEnginePlugin = (): Plugin => {
         }
 
         res.setHeader("Content-Type", contentType(file));
-        // エンジンは差し替えながら使うので基本はキャッシュさせない。wasm だけは、ブラウザの
-        // streaming compile（コードキャッシュ）が HTTP キャッシュに紐づくので、キャッシュさせる
         res.setHeader(
           "Cache-Control",
           file.endsWith(".wasm") ? "public, max-age=3600" : "no-store",

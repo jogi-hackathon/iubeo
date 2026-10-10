@@ -9,11 +9,12 @@ import type {
 } from "../../screen/types";
 import {taskStore} from "./task";
 
-/** ガラスの上のポインタ位置（UV）と、いま当たっているか。CRT の目印の描画に使う */
-export type PcCursor = {x: number; y: number; active: boolean};
+/**
+ * ガラスの上のポインタ位置（UV）。ボタンを離した位置が画面の外へ出たとき、直前にいた位置を使うために覚える
+ */
+export type PcCursor = {x: number; y: number};
 
 type Options = {
-  /** PC を使っている間だけ true。マウスは画面とメモへ向く（ポインタロックは解けている） */
   enabled: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
@@ -65,7 +66,6 @@ export function usePcPointer({
       return hit?.uv ? hit : null;
     };
 
-    /** 画面の上なら canvas 画素の座標を返す。原点は左上（テクスチャの V は上向き） */
     const screenPick = (event: PointerEvent | WheelEvent) => {
       const hit = hitOf(event, screenRef.current);
       if (!hit?.uv) {
@@ -88,7 +88,6 @@ export function usePcPointer({
     const setHovering = (next: boolean) => {
       hovering = next;
       if (!next) {
-        cursor.active = false;
         canvas.style.cursor = "";
       }
     };
@@ -111,7 +110,6 @@ export function usePcPointer({
 
       cursor.x = pick.uv.x;
       cursor.y = pick.uv.y;
-      cursor.active = true;
       screen.pointer({
         type: "down",
         x: pick.x,
@@ -126,7 +124,6 @@ export function usePcPointer({
     const onPointerMove = (event: PointerEvent) => {
       const pick = screenPick(event);
       if (!pick) {
-        // ボタンを押している間は直前の有効な座標を使い続ける（レイがガラスから外れてもドラッグを切らない）
         if (!dragging) {
           setHovering(false);
         }
@@ -135,7 +132,6 @@ export function usePcPointer({
       hovering = true;
       cursor.x = pick.uv.x;
       cursor.y = pick.uv.y;
-      cursor.active = true;
       canvas.style.cursor = cursorCss(screen.cursorKind(pick.x, pick.y));
 
       screen.pointer({
@@ -183,7 +179,6 @@ export function usePcPointer({
       );
     };
 
-    // 画面の上では、ブラウザの右クリックメニューを出さない（エンジンの中のメニューを使う）
     const onContextMenu = (event: MouseEvent) => {
       if (hovering) {
         event.preventDefault();
@@ -209,7 +204,6 @@ export function usePcPointer({
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("contextmenu", onContextMenu);
       canvas.style.cursor = "";
-      cursor.active = false;
     };
   }, [enabled, gl, camera, screen, screenRef, memoRef, cursor]);
 }

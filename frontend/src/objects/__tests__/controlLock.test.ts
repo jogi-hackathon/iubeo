@@ -10,8 +10,6 @@ import {createObjectManager} from "../objectManager";
 import type {GameObject, ObjectAvailability} from "../types";
 import {WORKSPACE_KIND} from "../workspace/data";
 
-// useControlLockWhileWorking と同じ導出(状態 → 作業中か → 預かり)を、objectManager とつないで確かめる。
-// 預かり自体は実物(core/playerControl)で数える
 const setup = () => {
   const items = createItemManager();
   const timers: Array<() => void> = [];
@@ -26,7 +24,6 @@ const setup = () => {
       send: (r) => rules.handle(r),
     }),
   });
-  // 実際の配線と同じ形: 規則の通知は applyMessage で反映する
   const rules = createLocalRules({
     playerId: "me",
     objects,
@@ -37,7 +34,6 @@ const setup = () => {
       return () => {};
     },
   });
-  // 置く・消す・持たせるは、規則の通知(dev.deliver / dev.setHeldItem)で行う
   const put = (object: GameObject): string => {
     rules.dev.deliver({type: "object.upsert", object});
     return object.id;
@@ -67,7 +63,6 @@ const setup = () => {
       rules.dev.deliver({type: "object.remove", id});
     },
   };
-  // 作業中か(オブジェクトが無くなれば false)
   const working = (id: string) => {
     const object = objects.getObject(id);
     return object !== undefined && isWorkingAt(object, "me");
@@ -141,7 +136,6 @@ describe("isWorkingAt(objectManager とローカルの窓口につないだ導�
     expect(working(id)).toBe(false);
   });
 
-  // remove されるとコンポーネントがアンマウントされ、ロックはその後始末で外れる(ここではオブジェクトが無くなることだけを見る)
   it("作業中にワークスペースが remove されたら、作業中のオブジェクトは無くなる", () => {
     const {objects, authority, working} = setup();
     const id = authority.spawnWorkspace("workspace-1");

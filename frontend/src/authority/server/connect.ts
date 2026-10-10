@@ -15,11 +15,6 @@ import type {Vec3} from "../../props/types";
 import type {Spawn} from "../../scenes/spawn";
 import {type ApplyDeps, applyMessage, applySnapshot} from "../apply";
 
-// サーバーの形(生成物)を、フロントの型に写す。中身の形は同じで、JSON の自由な中身(data)と
-// Vec3(生成物では number[])だけ型が広いので、ここで絞る。サーバーは 3 要素で送る。
-// サーバーは位置を持たないので、オブジェクトの位置はシーンのレイアウトが、
-// まだ動いていないプレイヤーの位置は席のスポーン地点(spawnOf)が決める
-
 type NetPlayerStatus = ServerMessageOf<"player.updated">["player"];
 type NetTransform =
   ServerMessageOf<"transforms">["players"][number]["transform"];
@@ -43,7 +38,6 @@ const toTransform = (t: NetTransform): PlayerTransform => ({
   ...t,
   position: toVec3(t.position),
 });
-/** snapshot の transform。サーバーがまだ受け取っていない(null)なら、席のスポーン地点に置く */
 const toInitialTransform = (
   t: NetTransform | null,
   spawn: Spawn,
@@ -120,7 +114,6 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
         })),
       });
 
-      // 送る側の seq は、サーバーが持つ自分の seq に合わせる(無ければ 0 から)
       if (me) {
         sender.syncSeq(me.transform?.seq ?? 0);
       }

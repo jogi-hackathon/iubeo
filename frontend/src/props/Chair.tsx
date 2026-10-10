@@ -7,13 +7,9 @@ import {CHAIR_PARTS} from "./chairParts";
 import {PROP_COLOR, type Vec3} from "./types";
 
 interface ChairProps {
-  /** 足元の位置 */
   position: Vec3;
-  /** Y 軸まわりの向き(ラジアン)。0 で -Z を向く(背もたれが +Z 側) */
   yaw?: number;
-  /** false で見た目を消し、当たり判定も無効にする(mesh は外さない。ベイク AO の mesh 構成を変えないため) */
   visible?: boolean;
-  /** AO の出し方(src/bake/aoMode.ts)。省略時は親の指定(無ければ baked) */
   ao?: AOMode;
 }
 

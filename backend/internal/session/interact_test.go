@@ -13,7 +13,6 @@ var (
 	f2 = directoryStock[1].id
 )
 
-// playing は全員が接続して開始した状態を返す
 func playing(t *testing.T, players ...string) State {
 	t.Helper()
 	st := newState(players...)
@@ -37,7 +36,6 @@ func interactIn(player, objectID string, held *ItemState, target string) ClientI
 	return in
 }
 
-// take はプレイヤーにディレクトリからファイルを取り出させる
 func take(t *testing.T, st State, player, fileID string) State {
 	t.Helper()
 	st, out := step(t, st, interactIn(player, directoryID, nil, fileID))
@@ -47,7 +45,6 @@ func take(t *testing.T, st State, player, fileID string) State {
 	return st
 }
 
-// put はプレイヤーに手持ちのファイルをディレクトリへ入れさせる
 func put(t *testing.T, st State, player string) (State, []Output) {
 	t.Helper()
 	return step(t, st, interactIn(player, directoryID, st.held(player), ""))
@@ -101,7 +98,6 @@ func TestTakeFromDirectory(t *testing.T) {
 		t.Error("taken file is still in stock")
 	}
 
-	// 同じファイルを後から取ろうとした人は not_found(先着)
 	_, out = step(t, st, interactIn("p2", directoryID, nil, f1))
 	wantRejected(t, out, "p2", directoryID, api.RejectReasonNotFound)
 }
@@ -114,7 +110,6 @@ func TestTakeRejects(t *testing.T) {
 	_, out = step(t, st, interactIn("p1", directoryID, nil, "no-such-file"))
 	wantRejected(t, out, "p1", directoryID, api.RejectReasonNotFound)
 
-	// 手持ちの主張が実際と違えば missing_item
 	_, out = step(t, st, interactIn("p1", directoryID, &ItemState{ID: f1, Kind: api.File}, ""))
 	wantRejected(t, out, "p1", directoryID, api.RejectReasonMissingItem)
 	held := take(t, st, "p1", f1)
@@ -157,7 +152,6 @@ func TestPutIntoDirectory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// タスクの達成はここでは見ない
 			st := take(t, withTasks(playing(t, "p1")), "p1", f1)
 			st.held("p1").Status = tt.status
 
@@ -201,7 +195,6 @@ func TestWorkspaceEdit(t *testing.T) {
 		t.Fatalf("accept: out = %+v, want workspace with p1 in users", out)
 	}
 
-	// 2 秒たつまで結果は出ない
 	st, out = step(t, st, Tick{Now: t0.Add(WorkspaceActionDuration - time.Millisecond)})
 	if len(out) != 0 || st.held("p1").Status != api.FileStatusUnedited {
 		t.Fatalf("before 2s: out = %+v", out)
@@ -226,7 +219,6 @@ func TestWorkspaceEdit(t *testing.T) {
 		t.Errorf("actions = %+v", st.Actions)
 	}
 
-	// 編集済みはもう編集できない
 	_, out = step(t, st, interactIn("p1", ws, st.held("p1"), ""))
 	wantRejected(t, out, "p1", ws, api.RejectReasonMissingItem)
 }
@@ -247,7 +239,6 @@ func TestWorkspaceCreate(t *testing.T) {
 		t.Errorf("held data = %+v, want file_created without color", d)
 	}
 
-	// 作ったファイルは編集しない
 	_, out = step(t, st, interactIn("p1", ws, st.held("p1"), ""))
 	wantRejected(t, out, "p1", ws, api.RejectReasonMissingItem)
 }
@@ -260,7 +251,6 @@ func TestWorkspaceBusy(t *testing.T) {
 	_, out := step(t, st, interactIn("p1", ws, nil, ""))
 	wantRejected(t, out, "p1", ws, api.RejectReasonUnavailable)
 
-	// 結果は 1 回だけ適用される
 	st, _ = step(t, st, Tick{Now: t0.Add(WorkspaceActionDuration)})
 	st, out = step(t, st, Tick{Now: t0.Add(2 * WorkspaceActionDuration)})
 	if len(out) != 0 || len(slices.DeleteFunc(slices.Clone(st.Items), func(it ItemState) bool { return it.Status != api.FileStatusFileCreated })) != 1 {
@@ -312,7 +302,6 @@ func TestDisconnectReleases(t *testing.T) {
 		if pu.Player.Connection != api.Disconnected || pu.Player.HeldItem != nil {
 			t.Errorf("player.updated = %+v", pu)
 		}
-		// 取りやめたアクションは、期限が来ても結果を出さない
 		if _, out = step(t, st, Tick{Now: t0.Add(WorkspaceActionDuration)}); len(out) != 0 {
 			t.Errorf("tick after cancel: out = %+v", out)
 		}
@@ -345,7 +334,6 @@ func TestCanvasCreate(t *testing.T) {
 		t.Fatalf("accept: out = %+v, want canvas with p1 in users", out)
 	}
 
-	// 2 秒たつまで結果は出ない
 	st, out = step(t, st, Tick{Now: t0.Add(CanvasActionDuration - time.Millisecond)})
 	if len(out) != 0 || st.held("p1") != nil {
 		t.Fatalf("before 2s: out = %+v", out)
@@ -370,7 +358,6 @@ func TestCanvasCreate(t *testing.T) {
 		t.Errorf("actions = %+v", st.Actions)
 	}
 
-	// 入れると成果物になる
 	st, _ = put(t, st, "p1")
 	if d := directoryOf(st); d.Outputs != 1 || len(d.Stock) != 6 {
 		t.Errorf("directory = %+v", d)
@@ -385,12 +372,10 @@ func TestCanvasRejects(t *testing.T) {
 		_, out := step(t, st, interactIn("p1", cv, st.held("p1"), ""))
 		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
 
-		// 作った画像を持っていても同じ
 		st = paint(t, playing(t, "p1"), "p1", "img-1")
 		_, out = step(t, st, interactIn("p1", cv, st.held("p1"), ""))
 		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
 
-		// 手持ちの主張が実際と違っても missing_item
 		_, out = step(t, playing(t, "p1"), interactIn("p1", cv, &ItemState{ID: f1, Kind: api.File}, ""))
 		wantRejected(t, out, "p1", cv, api.RejectReasonMissingItem)
 	})
@@ -433,13 +418,11 @@ func TestCanvasDisconnectCancels(t *testing.T) {
 	if len(canvasUsers(st, 1)) != 0 || len(st.Actions) != 0 {
 		t.Errorf("users = %v, actions = %+v; want the action cancelled", canvasUsers(st, 1), st.Actions)
 	}
-	// 取りやめたアクションは、期限が来ても結果を出さない
 	st, out := step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
 	if len(out) != 0 || st.item("new-1") != nil {
 		t.Errorf("tick after cancel: out = %+v", out)
 	}
 
-	// 作った画像を持ったまま切断すると、成果物になる
 	st = paint(t, playing(t, "p1", "p2"), "p1", "img-1")
 	st, _ = step(t, st, Disconnect{PlayerID: "p1", ConnID: 1, Now: t0})
 	if d := directoryOf(st); d.Outputs != 1 || st.held("p1") != nil {

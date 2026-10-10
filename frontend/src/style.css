@@ -4,7 +4,6 @@ body,
   margin: 0;
   width: 100%;
   height: 100%;
-  /* 起動の白い覆い(core/cover)が出る前・外れた後のすき間も白くする(白い世界とつながるように) */
   background: #fff;
 }
 
@@ -34,10 +33,6 @@ body,
   white-space: pre-wrap;
 }
 
-/*
- * 白い覆い(起動・シーン遷移)。Canvas・照準・カーソル(10000)の上、開発パネル(10001 以上)の下。
- * 覆っている間は下の操作を受け付けない。フェードイン 0.3 秒・フェードアウト 0.5 秒(COVER_*_MS と合わせる)
- */
 .cover-overlay {
   position: fixed;
   inset: 0;
@@ -59,7 +54,6 @@ body,
   transition-duration: 0.3s;
 }
 
-/* 中央の細い進捗バー(文字は出さない) */
 .cover-bar {
   position: absolute;
   top: 50%;
@@ -73,12 +67,10 @@ body,
 .cover-bar-fill {
   height: 100%;
   background: #888;
-  /* 伸びる時間は core/cover/cover.ts の BAR_FILL_MS と合わせる(100% に伸び切ってから覆いを外す) */
   transition: width 0.4s ease-out;
 }
 
 .boot-error {
-  /* 起動のエラーは、読みやすいよう暗い画面のまま */
   background: #111;
   color: #f88;
 }

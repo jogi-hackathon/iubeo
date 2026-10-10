@@ -10,38 +10,16 @@ import * as backendEntry from "./worker/backend.ts" with {type: "cf-worker"};
 import * as frontendEntry from "./worker/frontend.ts" with {type: "cf-worker"};
 import * as wispEntry from "./worker/wisp.ts" with {type: "cf-worker"};
 
-// cf と cloudflare.config.ts はベータなので、更新時は
-// https://developers.cloudflare.com/cf/ で設定形式を確認する。
-//
-// Worker を 2 つに分けている。コンテナを持つ Worker は Worker Previews に
-// 対応していないため、プレビューが要る静的アセット側を分けた。
-//
-//   cf deploy                → iubeo-frontend(静的アセット + プロキシ)
-//   cf deploy --mode backend → iubeo-backend(コンテナ + DO)
-//   cf deploy --mode wisp    → iubeo-wisp(WISP のコンテナ + DO。実サイトへ出るプロキシ)
 const FRONTEND_NAME = "iubeo-frontend";
 const BACKEND_NAME = "iubeo-backend";
 const WISP_NAME = "iubeo-wisp";
 
-/**
- * フロントから WISP の Worker を参照するか。WISP を deploy してから `IUBEO_WISP_ENABLED=1` を付けて
- * フロントを deploy する。付けない環境（PR のプレビュー、WISP より先の deploy）では binding を作らない
- * （無い Worker を参照すると deploy が失敗するため）。
- */
 const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
 
-/**
- * Go サーバーを動かす Container。
- *
- * `schedulingPolicy: "durable-object"` が必要。既定の schedulingPolicy だと実行時に
- * `container.images` が空になり、`start({image, env})` に渡す image が取れないので、
- * 署名鍵をコンテナの環境変数として渡せない(実機で確認済み)。
- */
 const backendContainer = defineContainer({
   name: "iubeo-backend-app",
   schedulingPolicy: "durable-object",
   images: {
-    // backend/ をビルドコンテキストにする
     base: {dockerfile: "../backend/Dockerfile"},
   },
 });
@@ -58,7 +36,6 @@ const wispContainer = defineContainer({
   },
 });
 
-/** バックエンドの Worker。コンテナと DO を持ち、転送先を KV で決める */
 const backendWorker = defineWorker({
   name: BACKEND_NAME,
   compatibilityDate: "2026-10-01",
@@ -71,21 +48,13 @@ const backendWorker = defineWorker({
     }),
   },
   env: {
-    // Go サーバーの IUBEO_SIGNING_KEY。secrets file か `cf workers secrets` で登録する
     IUBEO_SIGNING_KEY: bindings.secret(),
-    // WISP 接続用トークンの署名鍵。WISP の Worker と同じ値を入れる(未設定なら WISP のトークンは発行されない)
     IUBEO_WISP_KEY: bindings.secret(),
-    // WISP のトークンを発行する合言葉。開発メンバーは ?wisppass=<合言葉> で開く(未設定なら WISP は無効)
     IUBEO_WISP_PASS: bindings.secret(),
-    // "target" が "ec2" なら本番相当(EC2 + EIP)へ、それ以外は Containers へ。
-    // Lambda(Discord の /ec2start /ec2stop)がこの値を書き換える
     TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
   },
 });
 
-/**
- * WISP の Worker。トークンを検証してから、WISP のコンテナへ流す。
- */
 const wispWorker = defineWorker({
   name: WISP_NAME,
   compatibilityDate: "2026-10-01",
@@ -98,10 +67,7 @@ const wispWorker = defineWorker({
     }),
   },
   env: {
-    // トークンの検証鍵。バックエンドの IUBEO_WISP_KEY と同じ値を secrets file か `cf workers secrets` で登録する
-    // (EC2 経路では EC2 側の鍵で検証するので使われない)
     WISP_KEY: bindings.secret(),
-    // "target" が "ec2" なら EC2 上の WISP(8081)へ流す。backend worker と同じ KV
     TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
   },
 });
@@ -116,8 +82,6 @@ const frontendWorker = defineWorker({
   entrypoint: frontendEntry,
   observability: {enabled: true},
   assets: {
-    // `cf` が検出した Vite のビルド出力を配信する
-    // クライアント側ルーティング(index.html へフォールバック)
     notFoundHandling: "single-page-application",
     // 画面と API を同じオリジンにして Cookie(SameSite=Lax)を通すため、
     // Worker が先に受けてバックエンドへ転送する。/judge は Worker 自身が受ける(SPA へ落とさない)
@@ -126,18 +90,11 @@ const frontendWorker = defineWorker({
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
     ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
-    // Web Search の判定(Clef)に使う Workers AI の binding。
-    // 従量課金のみで鍵は要らない。無ければ /judge は 503(画面は簡易判定に落ちる)
     AI: bindings.ai(),
-    // /judge の回数の上限(Workers AI の使いすぎを防ぐ)。超えたら 429 で、画面は簡易判定に落ちる。
-    // namespace はアカウント内で一意な数字の文字列。上限はロケーションごとの近似
-    // (https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
-    // IP ごと: ページを開くたびに 1 回なので、普通に辿る分には届かない量
     JUDGE_IP_LIMIT: bindings.rateLimit({
       namespace: "1001",
       simple: {limit: 20, period: 60},
     }),
-    // 全体: 複数人で遊んでも届かず、連打されても Workers AI の使用量が青天井にならない量
     JUDGE_GLOBAL_LIMIT: bindings.rateLimit({
       namespace: "1002",
       simple: {limit: 300, period: 60},
@@ -146,7 +103,6 @@ const frontendWorker = defineWorker({
 });
 
 export default defineConfig(({mode}) => {
-  // バックエンドはコンテナを持つので別モードにしてある
   if (mode === "backend") {
     return {
       worker: backendWorker,

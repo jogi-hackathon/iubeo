@@ -64,14 +64,12 @@ describe("cursorRay", () => {
   it("カーソルを右へ動かすと、視線は画面の右方向(上方向はプレイヤーの向き)へ動く", () => {
     const yaw = 0.4;
     const {direction} = cursorRay({x: 0.5, y: 0}, origin, q, FOV, 16 / 9);
-    // 画面の右 = 水平の前方 (-sin yaw, -cos yaw) を、上から見て右へ回した向き (cos yaw, -sin yaw)
     expect(
       direction.x * Math.cos(yaw) + direction.z * -Math.sin(yaw),
     ).toBeGreaterThan(0);
   });
 });
 
-/** 世界の点 (x, y, z) の、俯瞰カメラの画面上の位置(NDC) */
 const project = (
   x: number,
   y: number,
@@ -90,7 +88,6 @@ const project = (
   };
 };
 
-/** 決まった乱数(テスト用) */
 const seeded = (seed: number) => {
   let a = seed >>> 0;
   return () => {

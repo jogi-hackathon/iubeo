@@ -59,11 +59,9 @@ import {
 } from "./settings";
 import {isSkipGTAO} from "./skipGTAO";
 
-/** 狙ったオブジェクトのアウトラインの色。手元のアイテム・プレイヤーの骨格の反転ハルと同じ */
 const OUTLINE_COLOR = "#1a1a1a";
 /** アウトラインの太さ(OutlineNode の edgeThickness。ぼかしの半径で、大きいほど太くぼやける。細めの線にするので 1.5) */
 const OUTLINE_THICKNESS = 1.5;
-/** アウトラインの強さ(辺のマスクに掛ける倍率)。ぼかして薄まった縁をくっきりさせる。掛けた後は 0〜1 に収める */
 const OUTLINE_STRENGTH = 4;
 
 /*
@@ -98,14 +96,12 @@ export interface PostProcessPipeline {
   dispose(): void;
 }
 
-/** outputNode の組み直しが必要になる設定の組。数値パラメータは含めない */
 const structureKey = (s: PostProcessSettings): string =>
   [
     s.bloom.enabled,
     s.pixelate.enabled,
     s.vignette.enabled,
     s.toneMapping,
-    // GTAO が off のときは denoise は効かないので、キーにも含めない。showOnly は GTAO と独立
     s.ao.enabled,
     s.ao.showOnly,
     s.ao.enabled && s.ao.denoise,
@@ -154,7 +150,6 @@ export const createPostProcessPipeline = (
   const pipeline = new RenderPipeline(renderer);
   pipeline.outputColorTransform = false;
 
-  // 数値パラメータはすべて uniform。再構築なしで反映する
   const exposure = uniform(1);
   const pixelSize = uniform(1);
   const vignetteIntensity = uniform(0);
@@ -184,16 +179,10 @@ export const createPostProcessPipeline = (
     raw: aoPass.getTextureNode().sample(screenUV).r,
     denoised: denoised.sample(screenUV).r,
   };
-  // scene pass の各マテリアルの getAO に差し込む。AO が off のときは contextNode を外すので、
-  // pre-pass と GTAO はグラフから外れて計算されない
   const aoContexts = {
     raw: gtaoContext(aoValues.raw),
     denoised: gtaoContext(aoValues.denoised),
   };
-  // 調整用の「AO だけ表示」専用のパス。マテリアルが実際に使う AO(ベイク AO と GTAO の合成後)を MRT で書き出す。
-  // scene pass の MRT を切り替えると、外したあとも描画先のアタッチメント数が戻らず WebGPU の検証エラーになるので、
-  // 別のパスにしてある(表示中だけグラフに入るので、普段は描かれない)。
-  // ambientOcclusion は AO の無いマテリアルでは既定値 1。g は「何か描かれた」印(背景がクリア色なら 0 のまま。backgroundNode の空は球として描かれ g=1・AO=1 になるので、どちらでも白)
   const aoOnlyPass = pass(scene, camera, {samples: 0});
   aoOnlyPass.setMRT(mrt({output, ao: vec4(ambientOcclusion, 1, 0, 1)}));
 
@@ -277,8 +266,6 @@ export const createPostProcessPipeline = (
       p.needsUpdate = true;
     }
     if (s.ao.showOnly) {
-      // 調整用: 合成後の AO だけを白黒で出す。トーンマップ・露出は掛けない。
-      // 何も描かれていない背景(g がクリア値の 0)は AO なし(白)として出す
       const aoTex = aoOnlyPass.getTextureNode("ao");
       return renderOutput(
         vec4(vec3(mix(float(1), aoTex.r, aoTex.g)), 1),
@@ -291,13 +278,10 @@ export const createPostProcessPipeline = (
       ? sceneColor.add(bloomNode)
       : sceneColor;
 
-    // ピクセレートの前に合成して、線もブロックに揃える。hiddenEdge(隠れた部分)は使わない。
-    // 力の縁取りを先に、狙いの縁取りを後に重ねる(力のあるライターを狙ったときも、狙いの黒い線が見える)
     color = vec4(
       mix(
         color.rgb,
         powerOutlineColor,
-        // 離れると薄くする(powerOutlineFade。カメラからの距離で PostProcess が毎フレーム決める)
         clamp(powerEdge, 0, 1).mul(powerOutlineFade),
       ),
       color.a,
@@ -312,8 +296,6 @@ export const createPostProcessPipeline = (
     );
 
     if (s.pixelate.enabled) {
-      // Bloom 合成後の画像を最近傍のテクスチャに落とし、量子化した UV でサンプルする。
-      // scene / bloom の各テクスチャを個別に量子化するより経路が1本で済み、bloom もブロックに揃う
       pixelated = rtt(color, null, null, {
         minFilter: NearestFilter,
         magFilter: NearestFilter,
@@ -328,7 +310,6 @@ export const createPostProcessPipeline = (
       );
     }
 
-    // 出力変換。exposure は変換の前に掛ける
     const mapped =
       s.toneMapping === "none"
         ? vec4(color.rgb.mul(exposure).clamp(), color.a)
@@ -354,9 +335,7 @@ export const createPostProcessPipeline = (
       aoPass.scale.value = s.ao.scale;
       aoPass.thickness.value = s.ao.thickness;
       aoPass.samples.value = s.ao.samples;
-      // uniform ではないが、GTAO が毎フレームの setSize で読むので再構築は要らない
       aoPass.resolutionScale = s.ao.resolutionScale;
-      // denoise のカーネル幅は入力(AO)の解像度で決まるので、出力を AO と同じ解像度にしても結果は変わらない
       denoised.setResolutionScale(s.ao.resolutionScale);
 
       const next = structureKey(s);

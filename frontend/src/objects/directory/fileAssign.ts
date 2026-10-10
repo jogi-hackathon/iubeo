@@ -24,7 +24,6 @@ export const createFileAssigner = (
       }
     }
     if (free.length === 0) {
-      // 候補を使い切ったら、いま在庫に無い(借りられている)ファイルの束を借りる
       const inUse = new Set(
         [...assigned].filter(([k]) => present.has(k)).map(([, v]) => v),
       );
@@ -39,7 +38,6 @@ export const createFileAssigner = (
   };
 
   return {
-    /** いま在庫にあるファイルに、束が割り当てられていなければ足す。既にあるものは動かさない */
     sync: (ids: readonly string[]): void => {
       const present = new Set(ids);
       for (const id of ids) {
@@ -48,7 +46,6 @@ export const createFileAssigner = (
         }
       }
     },
-    /** ファイルに割り当てられた候補の番号 */
     get: (id: string): number | undefined => assigned.get(id),
   };
 };
@@ -97,7 +94,6 @@ export const pickFile = (
 ): string | null => {
   let best: {id: string; t: number} | null = null;
   for (const p of plates) {
-    // 下向きの視線だけが、板の上面に当たる
     if (direction.y >= 0 || origin.y <= p.y) {
       continue;
     }

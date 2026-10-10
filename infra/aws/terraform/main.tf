@@ -5,7 +5,6 @@ locals {
     Environment = var.environment
   })
 
-  # Cloudflare がオリジンに接続してくる IP 帯(https://www.cloudflare.com/ips/)
   cloudflare_ipv4 = jsondecode(data.http.cloudflare_ips.response_body).result.ipv4_cidrs
 }
 
@@ -18,7 +17,6 @@ data "aws_ssm_parameter" "al2023_arm64" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
 }
 
-# オリジンへの到達を Cloudflare 経由だけに絞るために IP 帯を取得する
 data "http" "cloudflare_ips" {
   url = "https://api.cloudflare.com/client/v4/ips"
 }
@@ -37,8 +35,6 @@ resource "aws_internet_gateway" "main" {
   tags = { Name = "${local.name}-igw" }
 }
 
-# インスタンスは 1 台なのでサブネットも 1 つで足りる。
-# ALB を置かないので 2 AZ に分ける必要がない。
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, 0)
@@ -64,8 +60,6 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Go サーバーには Cloudflare からしか到達させない。
-# SSH は開けない(操作は SSM Session Manager 経由にする)。
 resource "aws_security_group" "backend" {
   name        = "${local.name}-backend"
   description = "Allow the game server only from Cloudflare."
@@ -79,8 +73,6 @@ resource "aws_security_group" "backend" {
     cidr_blocks = local.cloudflare_ipv4
   }
 
-  # WISP(実サイトへ出るプロキシ)。ゲームのブラウザはここ経由で出るので、
-  # 出口はこのインスタンスの EIP になる(Cloudflare の共有IPではない)
   ingress {
     description = "WISP proxy from Cloudflare."
     from_port   = 8081
@@ -131,8 +123,6 @@ resource "aws_ecr_repository" "wisp" {
   tags = { Name = "${local.name}-wisp" }
 }
 
-# インスタンスが ECR からイメージを引くためのロール。
-# SSM は SSH を開けずに操作するために付ける。
 resource "aws_iam_role" "instance" {
   name = "${local.name}-instance"
 
@@ -158,8 +148,6 @@ resource "aws_iam_role_policy_attachment" "instance_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# 起動時に「どのイメージタグを動かすか」を SSM から読む。
-# CI はインスタンスを起こさずここを書き換えるだけなので、停止中でもデプロイできる。
 resource "aws_iam_role_policy" "instance_read_image_tag" {
   name = "${local.name}-read-image-tag"
   role = aws_iam_role.instance.id
@@ -182,10 +170,6 @@ resource "aws_iam_instance_profile" "instance" {
   role = aws_iam_role.instance.name
 }
 
-# 署名鍵は初回起動時にインスタンス上で生成して /etc/iubeo/env に置く。
-# セッションはメモリ上にしか無いので、鍵が変わっても実害はない
-# (インスタンスを作り直した時点で全セッションが消えるため)。
-# Secrets Manager を使わないので $0.40/月 が浮き、state にも秘密が入らない。
 resource "aws_instance" "backend" {
   ami                    = data.aws_ssm_parameter.al2023_arm64.value
   instance_type          = var.instance_type
@@ -217,15 +201,11 @@ resource "aws_instance" "backend" {
     image_tag_parameter      = aws_ssm_parameter.image_tag.name
     wisp_image_tag_parameter = aws_ssm_parameter.wisp_image_tag.name
     wisp_pass                = var.wisp_pass
-    # ブラウザが繋ぐ公開側の WISP URL。backend がトークンに載せて返す。
-    # 先頭の許可オリジンを ws に書き換える(wss://iubeo.../wisp/)
-    wisp_url = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
+    wisp_url                 = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
   })
 
-  # user_data を変えてもインスタンスは作り直さない(起動後に手で反映する)
   user_data_replace_on_change = false
 
-  # AMI は「最新」を取るので、意図しない作り直しを避ける
   lifecycle {
     ignore_changes = [ami]
   }
@@ -233,8 +213,6 @@ resource "aws_instance" "backend" {
   tags = { Name = "${local.name}-backend" }
 }
 
-# アドレスを固定する。停止しても解放されず、起動しても変わらないので
-# Cloudflare 側の向き先を書き換えずに済む
 resource "aws_eip" "backend" {
   domain = "vpc"
 

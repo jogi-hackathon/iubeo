@@ -9,18 +9,13 @@ import (
 	"github.com/coder/websocket"
 )
 
-// 送信の決まり(state-schema.md §7.4)
 const (
-	// sendQueueSize は確定状態(seq を持つメッセージなど)の送信キューの長さ。あふれたら接続を切る
 	sendQueueSize = 64
-	// writeTimeout は 1 メッセージの書き込みの期限
-	writeTimeout = 5 * time.Second
-	// pingInterval ごとに ping で死活を確かめ、pingTimeout までに pong が来なければ切る
-	pingInterval = 15 * time.Second
-	pingTimeout  = 10 * time.Second
+	writeTimeout  = 5 * time.Second
+	pingInterval  = 15 * time.Second
+	pingTimeout   = 10 * time.Second
 )
 
-// WebSocket の close のコード(アプリケーション定義の 4000 番台)。reason は CloseReason
 const (
 	// CloseSessionEnded はセッションが終わった(決着・解散・破棄)
 	CloseSessionEnded websocket.StatusCode = 4000
@@ -39,15 +34,14 @@ type Conn struct {
 	PlayerID string
 	ws       *websocket.Conn
 
-	queue  chan []byte // 確定状態など。あふれたら切る
-	latest chan []byte // transforms。最新の 1 つだけ持ち、古いものは捨てる
+	queue  chan []byte
+	latest chan []byte
 
 	closeOnce sync.Once
 	closed    chan struct{}
 	code      websocket.StatusCode
 	reason    string
-	// flush なら、切る前に送信キューに残ったメッセージを送る
-	flush bool
+	flush     bool
 }
 
 // NewConn は ws の送信側を作る。WriteLoop を別の goroutine で回すこと
@@ -84,7 +78,6 @@ func (c *Conn) Done() <-chan struct{} {
 	return c.closed
 }
 
-// enqueue は確定状態のメッセージを送信キューに入れる。あふれたら接続を切る
 func (c *Conn) enqueue(b []byte) {
 	select {
 	case c.queue <- b:
@@ -93,7 +86,6 @@ func (c *Conn) enqueue(b []byte) {
 	}
 }
 
-// replaceLatest は transforms を、まだ送っていない古いものと置き換える
 func (c *Conn) replaceLatest(b []byte) {
 	for {
 		select {
@@ -145,7 +137,6 @@ func (c *Conn) WriteLoop(ctx context.Context) {
 	}
 }
 
-// drain は送信キューに残ったメッセージを書き出す
 func (c *Conn) drain(ctx context.Context) {
 	for {
 		select {

@@ -48,7 +48,6 @@ export abstract class CanvasScreenSource implements ScreenSource {
     this.frame = frame;
 
     const canvas = document.createElement("canvas");
-    // 一部のエンジン（GPU モード）は id でサーフェスを探す。安定した id を持たせておく
     canvas.id = canvasId;
     canvas.width = width;
     canvas.height = height;
@@ -62,7 +61,6 @@ export abstract class CanvasScreenSource implements ScreenSource {
     document.body.appendChild(frame);
 
     this.texture = new CanvasTexture(canvas);
-    // sRGB → linear の変換はサンプリング時に行われる（色管理は three に任せる）
     this.texture.colorSpace = SRGBColorSpace;
     this.texture.generateMipmaps = false;
     this.texture.anisotropy = 4;
@@ -83,10 +81,6 @@ export abstract class CanvasScreenSource implements ScreenSource {
     this.markDirty();
   }
 
-  /**
-   * エンジンが絵を描く前の画面に、状態を書く。HUD を使わない代わりに、画面そのもので
-   * 「起動中」「エンジンが無い」を伝える。エンジンが描き始めたら上書きされる。
-   */
   protected paintNotice(): void {
     if (this.status === "ready") {
       return;
@@ -119,15 +113,12 @@ export abstract class CanvasScreenSource implements ScreenSource {
     this.dirty = false;
   }
 
-  tick(): void {
-    /* 自前でアニメーションするソースが上書きする */
-  }
+  tick(): void {}
 
   cursorKind(_x: number, _y: number): CursorKind {
     return "default";
   }
 
-  /** 合成した DOM イベントを投げ、エンジン本来の入力パイプラインを駆動する */
   protected dispatchPointer(event: ScreenPointerEvent): void {
     const rect = this.canvas.getBoundingClientRect();
     const type =
@@ -207,8 +198,6 @@ export abstract class CanvasScreenSource implements ScreenSource {
     this.canvas.dispatchEvent(domEvent);
   }
 
-  // ---- サブクラスが実装するフック ------------------------------------------
-
   abstract boot(): Promise<void>;
 
   pointer(_event: ScreenPointerEvent): void {}
@@ -229,7 +218,6 @@ export abstract class CanvasScreenSource implements ScreenSource {
   }
 }
 
-/** 状態ごとに画面へ出す行。先頭は見出し */
 const noticeLines = (status: ScreenStatus, detail: string): string[] => {
   switch (status) {
     case "booting":

@@ -3,10 +3,6 @@ import type {Team} from "../net/types";
 import type {GameObject, ObjectManager, RejectReason} from "../objects";
 import type {PlayerId} from "../player/types";
 
-// オーソリティ(ローカルのルール、またはサーバー)からの通知を、フロントの Manager に反映する。
-// ローカルの規則もサーバーの経路(authority/server/connect.ts)も、この同じ関数で反映する。
-// ここはオブジェクトと自分の手持ちと勝利フラグを扱う(プレイヤーの位置・席・接続は、それぞれの経路が扱う)
-
 /** オブジェクトの通知(サーバーの object.upsert / object.remove / object.interactRejected と同じ形) */
 export type ObjectMessage =
   | {type: "object.upsert"; object: GameObject}
@@ -43,7 +39,6 @@ export const syncHeld = (
 ): void => {
   const held = items.getHeld();
   if (heldItem) {
-    // 同じ id でも、中身(編集済みなど)が変わっていれば spawn で更新する
     if (JSON.stringify(held) !== JSON.stringify(heldItem)) {
       items.apply({type: "spawn", item: heldItem});
     }

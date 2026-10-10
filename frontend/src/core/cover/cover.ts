@@ -24,7 +24,6 @@ export const coverScreen = async (): Promise<void> => {
 export const uncoverScreen = (): void => {
   coverStore.setCovered(false);
   setTimeout(() => {
-    // フェードアウトの間に覆い直していたら、そちらのバーなので消さない
     if (!coverStore.getState().covered) {
       coverStore.hideBar();
     }

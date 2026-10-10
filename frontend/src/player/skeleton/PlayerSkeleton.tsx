@@ -21,10 +21,8 @@ import {BONES, J, JOINT_COUNT} from "./joints";
 import {applyLean} from "./lean";
 import {writePoints} from "./pose";
 
-/** IUBEO は色の無い世界なので、白い世界に溶ける真っ白な身体に、暗い縁取りを付けて輪郭だけ残す */
 const FILL_COLOR = "#ffffff";
 const OUTLINE_COLOR = "#1a1a1a";
-/** 縁取りの太さ(m)。一回り大きい裏面メッシュをはみ出させて作る */
 const OUTLINE_WIDTH = 0.008;
 const BONE_RADIUS = 0.015;
 const JOINT_RADIUS = 0.03;
@@ -43,14 +41,10 @@ setSkipGTAO(FILL_MATERIAL, true);
 setSkipGTAO(OUTLINE_MATERIAL, true);
 
 interface PlayerSkeletonProps {
-  /** 描画元。毎フレーム読むだけで、変更しない */
   state: PlayerState;
-  /** アイテムを持っているか(ホールドの腕にする)。暫定の入力で、PlayerState に持たせる方針が決まったらそちらへ移す */
   holding?: boolean;
-  /** 手元に出す物。両手首の中点の少し前・上(held.ts)に置く */
   handItem?: ReactNode;
   visible?: boolean;
-  /** 頭と首の骨を隠す。自分の身体を一人称で見せるとき(頭がカメラと重なる)に使う */
   hideHead?: boolean;
 }
 
@@ -63,11 +57,9 @@ const matrix = new Matrix4();
 interface Layer {
   bones: InstancedMesh;
   joints: InstancedMesh;
-  /** 半径に足す太さ(m)。本体は 0、縁取りは OUTLINE_WIDTH */
   grow: number;
 }
 
-/** points(頭・首を含む描画用の点)から、1 層ぶんの骨と関節の行列を書く */
 const writeLayer = (layer: Layer, points: Float32Array, hideHead: boolean) => {
   const {bones, joints, grow} = layer;
   for (let i = 0; i < JOINT_COUNT; i++) {
@@ -148,7 +140,6 @@ export function PlayerSkeleton({
     );
   }, FRAME_PRIORITY.skeleton);
 
-  // インスタンスの境界球は初期値のまま更新しないので、視錐台カリングを切る
   return (
     <group ref={group} visible={visible}>
       <instancedMesh

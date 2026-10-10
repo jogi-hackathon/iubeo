@@ -39,19 +39,14 @@ import {
 import {applyCorruption} from "./corruption";
 import {AVG_FACTOR, LINE_STRENGTH, LINE_WIDTH, STRIPE_PITCH} from "./stripe";
 
-// 縞の計算は stripe.ts、本の描き分けは book.ts(どちらも純粋関数)と同じ式を TSL で書いたもの。
-// 線ごとのばらつき(位置・太さ・濃さ)は、何本目の縞か(位相の整数部)と、インスタンスごとの seed から決める
-
 const hashNode = (x: Node<"float">) =>
   fract(sin(x.mul(127.1).add(311.7)).mul(43758.5453));
 
-/** 境界を 1px ぶんだけぼかした step(遠くでのギザギザ・ちらつきを避ける)。x が edge を超えると 1 */
 const aastep = (edge: Node<"float">, x: Node<"float">) => {
   const w = max(fwidth(x), 1e-5);
   return smoothstep(edge.sub(w), edge.add(w), x);
 };
 
-/** 距離 d(m)が 0 の所に引く、太さ width(m)の線の被覆率(0〜1) */
 const lineNode = (d: Node<"float">, width: number) =>
   float(1).sub(aastep(float(width / 2), abs(d)));
 
@@ -65,7 +60,6 @@ const stripeFactorNode = (phase: Node<"float">, seed: Node<"float">) => {
   const d = abs(f.sub(center));
   const line = float(1).sub(smoothstep(width.mul(0.5), width, d));
   const factor = float(1).sub(line.mul(LINE_STRENGTH).mul(n.mul(0.6).add(0.4)));
-  // 位相の変化が大きい(縞が 1px 未満)ほど、平均の濃さにぼかして、モアレ・ちらつきを避ける
   const fade = smoothstep(0.35, 0.9, fwidth(phase));
   return mix(factor, float(AVG_FACTOR), fade);
 };
@@ -106,7 +100,6 @@ export const createPaperMaterial = ({
     .sub(1);
   const isSpine = step(0.5, n.z.mul(sign));
 
-  // ページの小口: 上下の表紙の断面と、背の側の背表紙の板の断面を除いた所
   const cover = min(float(COVER_THICKNESS), h.mul(COVER_RATIO_MAX));
   const fromTop = float(0.5).sub(p.y).mul(h);
   const edgeY = float(0.5).sub(abs(p.y)).mul(h);
@@ -124,11 +117,9 @@ export const createPaperMaterial = ({
   const phase = p.y.add(0.5).mul(h).div(STRIPE_PITCH);
   const pageFactor = stripeFactorNode(phase, seed).mul(shade);
 
-  // 背バンド: 背表紙を横切る 2 本の線(幅の中心から ±BAND_POSITION)
   const band = lineNode(abs(p.x).sub(BAND_POSITION).mul(w), BAND_WIDTH)
     .mul(isSpine)
     .mul(float(1).sub(isFlat));
-  // 表紙の枠線: 上面の、縁から FRAME_INSET 内側
   const edge = min(
     float(0.5).sub(abs(p.x)).mul(w),
     float(0.5).sub(abs(p.z)).mul(d),

@@ -29,7 +29,6 @@ export type ServerAuthorityProps = {
   onClosed?: (code: number) => void;
 };
 
-/** 場を空ける(前のシーンの物が残っていても、サーバーの snapshot で入れ替える前に見えないようにする) */
 const clearWorld = () => {
   for (const o of objectManager.getState().objects) {
     objectManager.apply({type: "remove", id: o.id});
@@ -62,7 +61,6 @@ export function ServerAuthority({
   onReady,
   onClosed,
 }: ServerAuthorityProps) {
-  // 呼び出し側が毎回作り直す関数でも、つなぎ直さない
   const latest = useRef({spawnOf, onReady, onClosed});
   latest.current = {spawnOf, onReady, onClosed};
 
@@ -122,13 +120,11 @@ export function ServerAuthority({
         connection.send({
           type: "interact",
           objectId,
-          // kind はフロントでは string。値の正しさはサーバーが検証する
           heldItem: heldItem as InteractMessage["heldItem"],
           ...(target !== undefined && {target}),
         });
       },
     });
-    // 再接続を諦めた(closed)か、セッション終了・置き換え(4000 / 4001)で閉じた
     const offState = connection.subscribe(() => {
       const state = connection.getState();
       if (disposed || state.status !== "closed") {
@@ -136,7 +132,6 @@ export function ServerAuthority({
       }
       sender.stop();
       if (!ready) {
-        // 最初の snapshot の前に終わっても、シーンの覆いが外れなくならないようにする
         markSceneReady(scene);
       }
       latest.current.onClosed?.(state.closeCode ?? 0);

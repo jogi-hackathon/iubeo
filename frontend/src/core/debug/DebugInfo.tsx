@@ -5,7 +5,6 @@ import {useAppContext} from "../../boot/context";
 
 const INTERVAL_MS = 500;
 
-/** WebGPURenderer から読む項目だけを型付けする */
 interface RendererLike {
   domElement: HTMLCanvasElement;
   getPixelRatio(): number;

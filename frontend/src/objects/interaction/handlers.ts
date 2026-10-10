@@ -6,7 +6,6 @@ import type {GameObject} from "../types";
  */
 export type InteractionHandler = (object: GameObject) => boolean;
 
-// 種類ではなく objectId で引く。同じ種類でも、オブジェクトごとに描画しているコンポーネントが自分の処理を登録する(useInteraction)
 const handlers = new Map<string, InteractionHandler>();
 
 /** オブジェクトに処理を登録する。同じ id は上書き。戻り値は解除関数 */

@@ -14,12 +14,9 @@ import (
 const StaleAfter = 10 * time.Second
 
 var (
-	// ErrInSession はセッションに参加中のため待機列に入れない
 	ErrInSession = errors.New("player is already in a session")
-	// ErrNotQueued は待機していない(マッチングも成立していない)
 	ErrNotQueued = errors.New("player is not in matchmaking")
-	// ErrMatched は既にマッチングが成立している
-	ErrMatched = errors.New("matchmaking has already succeeded")
+	ErrMatched   = errors.New("matchmaking has already succeeded")
 )
 
 // State はプレイヤーのマッチング状況
@@ -31,9 +28,7 @@ type State struct {
 
 // Sessions はマッチングが参照・作成するセッション
 type Sessions interface {
-	// SessionOf はプレイヤーが参加中のセッションの ID を返す
 	SessionOf(playerID string) (string, bool)
-	// Create はプレイヤーたちのセッションを作り、その ID を返す
 	Create(playerIDs []string) string
 }
 
@@ -51,7 +46,7 @@ type Matchmaker struct {
 
 	mu      sync.Mutex
 	queue   []*entry
-	matched map[string]State // マッチングが成立したプレイヤー。セッションが無くなったら消す
+	matched map[string]State
 }
 
 // New は size 人ずつ組む Matchmaker を作る
@@ -63,7 +58,6 @@ func (m *Matchmaker) find(playerID string) int {
 	return slices.IndexFunc(m.queue, func(e *entry) bool { return e.playerID == playerID })
 }
 
-// matchedState は成立したマッチングを返す。セッションが無くなっていれば消して false
 func (m *Matchmaker) matchedState(playerID string) (State, bool) {
 	st, ok := m.matched[playerID]
 	if !ok {
@@ -76,12 +70,10 @@ func (m *Matchmaker) matchedState(playerID string) (State, bool) {
 	return st, true
 }
 
-// evictStale はポーリングが途絶えたプレイヤーを待機列から外す
 func (m *Matchmaker) evictStale(now time.Time) {
 	m.queue = slices.DeleteFunc(m.queue, func(e *entry) bool { return now.Sub(e.lastSeen) > StaleAfter })
 }
 
-// match は待機列の先頭から size 人ずつ組む
 func (m *Matchmaker) match() {
 	for len(m.queue) >= m.size {
 		group := m.queue[:m.size]

@@ -9,11 +9,8 @@ import (
 	"strings"
 )
 
-// seriesColor は比較チャートの棒の色。x86_64 と ARM64 を見分けやすくする
 var seriesColor = []string{"#4A6FA5", "#E07A3F", "#4C9A6A", "#A85CA8"}
 
-// renderCompare は result の JSON を読み、比較チャートの SVG を書く。
-// out が空なら標準出力に出す。
 func renderCompare(files, labels []string, title, out string) error {
 	results := make([]*result, 0, len(files))
 	names := make([]string, 0, len(files))
@@ -55,7 +52,6 @@ func buildChart(results []*result, names []string, title string) string {
 		height = 700.0
 	)
 
-	// 左: RTT、右: 配信間隔
 	rtt := make([][]float64, len(results))
 	tick := make([][]float64, len(results))
 	for i, r := range results {
@@ -68,7 +64,6 @@ func buildChart(results []*result, names []string, title string) string {
 	fmt.Fprintf(&b, `<rect width="%[1]v" height="%[2]v" fill="#FFFFFF"/>`, width, height)
 	text(&b, 40, 46, title, 22, "700", "#1A1A1A")
 
-	// 測定条件(全系列で同じはず)
 	if len(results) > 0 {
 		r := results[0]
 		text(&b, 40, 70, fmt.Sprintf("クライアント %d / セッション %d / %d Hz / %0.0f 秒 (助走 %0.0f 秒を除く)",
@@ -80,7 +75,6 @@ func buildChart(results []*result, names []string, title string) string {
 	drawPanel(&b, "体感レイテンシ RTT (低いほど良い)", []string{"p50", "p95", "p99"}, rtt, names, 40, 140, 440, 300, "ms")
 	drawPanel(&b, "配信間隔のばらつき (20Hz = 50ms に近いほど良い)", []string{"p50", "p95", "p99"}, tick, names, 520, 140, 440, 300, "ms")
 
-	// 数値の表
 	tableY := 480.0
 	text(&b, 40, tableY, "数値", 15, "700", "#1A1A1A")
 	rows := [][]string{{"指標", "n", "p50", "p95", "p99", "max"}}
@@ -102,7 +96,6 @@ func buildChart(results []*result, names []string, title string) string {
 		}
 	}
 
-	// 差分のまとめ(2 系列のときだけ)
 	if len(results) == 2 {
 		diffY := tableY + 26 + float64(len(rows))*22 + 16
 		text(&b, 40, diffY, conclusion(results[0], results[1], names[0], names[1]), 14, "700", "#1A1A1A")
@@ -115,7 +108,6 @@ func buildChart(results []*result, names []string, title string) string {
 	return b.String()
 }
 
-// conclusion は p95 の比較から 1 行の結論を作る
 func conclusion(a, b *result, an, bn string) string {
 	d := func(x, y float64) string {
 		if y == 0 {
@@ -155,7 +147,6 @@ func legend(b *strings.Builder, names []string, x, y float64) {
 	}
 }
 
-// drawPanel はカテゴリごとに系列の棒を並べたパネルを描く
 func drawPanel(b *strings.Builder, title string, cats []string, values [][]float64, names []string, x, y, w, h float64, unit string) {
 	const (
 		padLeft   = 56.0
@@ -178,7 +169,6 @@ func drawPanel(b *strings.Builder, title string, cats []string, values [][]float
 		return
 	}
 
-	// 目盛り
 	for i := 0; i <= 4; i++ {
 		v := maxV * float64(i) / 4
 		gy := plotY + plotH - plotH*float64(i)/4
@@ -223,7 +213,6 @@ func maxOf(values [][]float64) float64 {
 	return m
 }
 
-// niceMax は目盛りが読みやすいように切り上げる
 func niceMax(v float64) float64 {
 	if v <= 0 {
 		return 0
@@ -237,5 +226,4 @@ func niceMax(v float64) float64 {
 	return 10 * mag
 }
 
-// floatLen は SVG の当て推量の文字幅(左寄せ補正に使う)
 func floatLen(s string) float64 { return float64(len([]rune(s))) }

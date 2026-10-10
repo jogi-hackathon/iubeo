@@ -38,18 +38,10 @@ export const DUMMY_OBJECT_KIND = "dummy";
 export const DUMMY_ITEM_KIND = "dummy_item";
 
 type Deps = {
-  /** このオーソリティから見た自分の ID(要求の by と、自分の個人のオブジェクトの owner) */
   playerId: PlayerId;
-  /** オブジェクトを読む。書くのは deliver だけ */
   objects: Pick<ObjectManager, "getObject" | "getState">;
-  /**
-   * サーバーと同じ形の通知を出す(object.upsert / object.remove / object.interactRejected、手持ちは player.updated)。
-   * 反映は呼び出し側(LocalAuthority は apply.ts の applyMessage)が行う
-   */
   deliver: (message: AuthorityMessage) => void;
-  /** ms 後に fn を呼ぶ(ワークスペースのアニメーション待ち)。戻り値で取り消せる。テストで時間を進める用。既定は setTimeout */
   schedule?: (fn: () => void, ms: number) => () => void;
-  /** 新しいファイルの id を採番する。テストで固定する用。既定は crypto.randomUUID */
   newId?: () => string;
 };
 
@@ -104,14 +96,9 @@ export const createLocalRules = ({
   schedule = defaultSchedule,
   newId = () => crypto.randomUUID(),
 }: Deps) => {
-  // 規則が置いた物の id(まだ無かった物を upsert したときだけ覚える。release で片付ける物)。
-  // 外から置かれた物は、規則が users などを書き換えても覚えない(release で消さない)
   const known = new Set<string>();
-  // 手持ち(規則が持つ。変わるたびに player.updated で通知する)
   let held: Item | null = null;
-  // 未完了のアニメーション待ち(dispose で取り消す)
   const pending = new Set<() => void>();
-  // 時間が来たら fn を呼ぶ。来る前に dispose されていれば呼ばない
   const later = (fn: () => void, ms: number): void => {
     let done = false;
     let cancel: (() => void) | null = null;
@@ -120,7 +107,6 @@ export const createLocalRules = ({
         return;
       }
       done = true;
-      // schedule がその場で呼ぶ実装(テスト用など)でも動くよう、cancel はまだ無いことがある
       if (cancel) {
         pending.delete(cancel);
       }
@@ -130,8 +116,6 @@ export const createLocalRules = ({
       pending.add(cancel);
     }
   };
-  // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
-  // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
   const achievedIds = new Set<string>();
   // 勝利フラグ(規則が持ち、変わるたびに team.updated で通知する。サーバーの team.updated と同じ)
   let team: Team = {bypassPermission: false, fireStarted: false};
@@ -225,7 +209,6 @@ export const createLocalRules = ({
       return;
     }
 
-    // ライターを持っていれば火をつける(要求の主張が実際の手持ちと合うときだけ)
     if (held && held.id === heldRef.id && held.kind === LIGHTER_KIND) {
       if (!team.bypassPermission) {
         reject(object.id, "missing_item");
@@ -237,7 +220,6 @@ export const createLocalRules = ({
       return;
     }
 
-    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(data は要求に載らない)
     const file =
       held && held.id === heldRef.id && held.kind === FILE_KIND
         ? parseFileData(held.data)
@@ -249,7 +231,6 @@ export const createLocalRules = ({
     if (isCreatedStatus(file.status)) {
       setDirectory(object, {...data, outputs: data.outputs + 1});
     } else {
-      // 貸出方式: 取り出し元のファイルは、編集の有無によらず在庫に戻る
       const back: StockFile = {
         id: held.id,
         color: file.color ?? "#ffffff",
@@ -276,7 +257,6 @@ export const createLocalRules = ({
     }
   };
 
-  /** 手持ちが、ディレクトリから取り出した編集前のファイルで、id が合っているか(合っていれば、そのファイルの data を返す)。作成したファイルは編集できない */
   const heldUnedited = (id: string) => {
     const file =
       held && held.id === id && held.kind === FILE_KIND
@@ -290,7 +270,6 @@ export const createLocalRules = ({
       reject(object.id, "unavailable");
       return;
     }
-    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(要求の主張と実際が食い違えば拒否)
     if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
       reject(object.id, "missing_item");
       return;
@@ -301,10 +280,8 @@ export const createLocalRules = ({
     }
     const editingId = held?.id ?? null;
 
-    // 受理: 即 users に入る(作業中)。結果はアニメーションの後に、手持ちを確かめ直して適用する
     setUsers(object.id, [request.by]);
     later(() => {
-      // 作業中に机が消えたら、結果は適用しない
       if (!objects.getObject(object.id)) {
         return;
       }
@@ -327,16 +304,13 @@ export const createLocalRules = ({
       reject(object.id, "unavailable");
       return;
     }
-    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める。新しいファイルを手に持つので、手は空いている必要がある
     if (held || request.heldItem !== null) {
       reject(object.id, "missing_item");
       return;
     }
 
-    // 受理: 即 users に入る(作業中)。結果はアニメーションの後に、手が空いているか確かめ直して適用する
     setUsers(object.id, [request.by]);
     later(() => {
-      // 作業中にキャンバスが消えたら、結果は適用しない
       if (!objects.getObject(object.id)) {
         return;
       }
@@ -348,7 +322,6 @@ export const createLocalRules = ({
   };
 
   const handleLighterStand = (object: GameObject, request: InteractRequest) => {
-    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(要求の主張と実際が食い違えば拒否)
     if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
       reject(object.id, "missing_item");
       return;
@@ -378,7 +351,6 @@ export const createLocalRules = ({
     reject(object.id, "missing_item");
   };
 
-  /** 規則が置いた物を片付ける(そのうち今あるものだけ remove する)。手持ちも空にする */
   const release = (): void => {
     for (const id of Array.from(known)) {
       if (objects.getObject(id)) {
@@ -389,7 +361,6 @@ export const createLocalRules = ({
     setHeld(null);
   };
 
-  /** 低レベルの入口(開発用の操作が、窓口の dev として借りる)。読む・書くはここだけで行う */
   const dev: AuthorityDev = {
     deliver,
     getObject: (id) => objects.getObject(id),
@@ -439,16 +410,13 @@ export const createLocalRules = ({
       deliver({type: "object.upsert", object: {...object, users}});
     },
 
-    /** 未完了のアニメーション待ちを全部取り消す(オーソリティを外すとき。取り消した後は、結果は適用されない) */
     dispose: (): void => {
       for (const cancel of Array.from(pending)) {
         cancel();
       }
       pending.clear();
     },
-    /** 規則が置いた物と手持ちを片付ける(LocalAuthority がアンマウントで呼ぶ) */
     release,
-    /** 低レベルの入口(窓口の dev に渡す。LocalAuthority は placement もこれで行う) */
     dev,
   };
 };

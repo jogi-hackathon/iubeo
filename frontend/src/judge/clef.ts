@@ -9,21 +9,6 @@ import type {JudgeRequest, JudgeResult, JudgeVerdict} from "./types";
 
 export {clip, MAX_PAGE_TEXT, MAX_PAGE_TITLE};
 
-/**
- * Clef (Cloudflare の System One モデル) に投げる問い合わせと、返ってきた答えの畳み方。
- *
- * Clef は文字列を生成しない。state と「型の付いた質問」を渡すと、選んだ選択肢・確率・confidence が
- * 構造化された形で返る。だからこのファイルは、1) 質問を組み立て、2) 答えを画面に出せる形へ畳む、
- * の 2 つだけを行う (文字列の生成も、回答のパースも要らない)。
- *
- * 呼び出しは Workers AI の binding 経由。/judge を受けるフロントの Worker (worker/judge.ts) が
- * 使うので、外部 API への往復も API キーも要らない。
- *
- * 質問は「お題の語を指しているか」「ページ自体がお題についてか」に分けて聞き、最後に
- * 一致 / 一部一致 / 不一致 の 1 つを選ばせる。分けた質問は、そのまま画面に出す理由になる
- * (分解してコードでまとめる、という System One の使い方)。
- */
-
 /** Workers AI のモデル ID (env.AI.run の第 1 引数)。latency 重視なので 9B の flash を使う */
 export const CLEF_MODEL_ID = "@cf/cloudflare/clef-flash";
 /** リクエスト本体の model フィールド (System One API のセレクタ) */
@@ -41,8 +26,6 @@ export const RELEVANCE_LEVELS = [
 
 /** 最後に選ばせる 1 つ。画面の「一致 / 一部一致 / 不一致」に対応する */
 export const VERDICT_OPTIONS = {
-  // 検索結果ページそのものは判定に回さないので（browserChrome.isSearchResultsUrl）、
-  // 「開いたサイト」が合っているかだけを聞く
   match: "The page fits the task: it is about the task term",
   partial:
     "The page is related to the task term but is not really about it (a mention, a homonym, or an unrelated result on the same page)",
@@ -223,7 +206,6 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
 const isVerdict = (value: unknown): value is JudgeVerdict =>
   value === "match" || value === "partial" || value === "mismatch";
 
-/** Noul の答え (0..1)。無ければ null */
 const noulOf = (value: unknown): number | null => {
   const record = asRecord(value);
   const noul = record?.noul;
@@ -232,13 +214,11 @@ const noulOf = (value: unknown): number | null => {
     : null;
 };
 
-/** Score の答えを 0..1 にする。目盛りの数が違えば null */
 const scoreOf = (value: unknown): number | null => {
   const score = asRecord(value)?.score;
   if (typeof score !== "number" || !Number.isFinite(score)) {
     return null;
   }
-  // 表示に使うので、割り切れない値 (2.4/3 など) を丸めておく
   const ratio = score / (RELEVANCE_LEVELS.length - 1);
   return clamp01(Math.round(ratio * 1000) / 1000);
 };

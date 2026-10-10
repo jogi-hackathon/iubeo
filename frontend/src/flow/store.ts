@@ -7,8 +7,6 @@ import {
   type GameFlowState,
 } from "./gameFlow";
 
-// シーンを import しない(循環を避ける)。シーンの移動は、scenes/sceneStore.ts が bindNavigator で後から結ぶ
-
 let navigator: FlowNavigator = {enter: () => {}};
 
 /** シーンの移動を結ぶ(scenes/sceneStore.ts が呼ぶ)。戻り値で外す */
