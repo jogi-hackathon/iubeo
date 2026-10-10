@@ -13,7 +13,7 @@ import (
 
 // benchPlaying は接続済み・プレイ中の 3 人のセッションを作る
 func benchPlaying() State {
-	st := NewMultiplayerState("sess-bench", []string{"p1", "p2", "p3"}, time.Unix(0, 0), Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
+	st := NewMultiplayerState("sess-bench", []string{"p1", "p2", "p3"}, nil, time.Unix(0, 0), Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
 	st.Status = api.SessionStatusPlaying
 	for i := range st.Players {
 		st.Players[i].ConnID = uint64(i + 1)
