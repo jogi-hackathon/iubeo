@@ -1,6 +1,9 @@
 import {useSyncExternalStore} from "react";
 
-import {suppressPointerLock} from "../../core/input/pointerLock";
+import {
+  resumePointerLock,
+  suppressPointerLock,
+} from "../../core/input/pointerLock";
 import {lockPlayerControl} from "../../core/playerControl";
 
 /**
@@ -29,6 +32,8 @@ type Options = {
   suppressPointerLock?: () => () => void;
   /** pointer lock が掛かっていれば解く（マウスで画面を触るため） */
   exitPointerLock?: () => void;
+  /** pointer lock を取り直す（一人称へ戻った直後に、クリックを待たずマウスルックへ戻す） */
+  resumePointerLock?: () => void;
 };
 
 const exitDocumentPointerLock = (): void => {
@@ -41,6 +46,7 @@ export const createPcSession = ({
   lock = lockPlayerControl,
   suppressPointerLock: suppress = suppressPointerLock,
   exitPointerLock = exitDocumentPointerLock,
+  resumePointerLock: resume = resumePointerLock,
 }: Options = {}) => {
   let state = IDLE;
   let releases: Array<() => void> = [];
@@ -82,14 +88,17 @@ export const createPcSession = ({
         set({...state, phase: "leaving"});
       }
     },
-    /** 戻る補間が終わった。プレイヤーを返す */
+    /** 戻る補間が終わった。プレイヤーを返し、マウスルック（pointer lock）を取り直す */
     finish: (): void => {
       if (state.phase === "leaving") {
         releaseAll();
         set(IDLE);
+        // 抑止を解いた後に取り直す。クリックを待たずに一人称のマウスルックへ戻る
+        // （ブラウザに拒否されたら何も起きない。クリックでの取得がそのまま残る）
+        resume();
       }
     },
-    /** 補間を待たずに一人称へ戻す（シーンを出るときなど） */
+    /** 補間を待たずに一人称へ戻す（シーンを出るときなど）。ロックは取り直さない */
     reset: (): void => {
       if (state.phase !== "idle") {
         releaseAll();
