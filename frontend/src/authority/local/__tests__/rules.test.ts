@@ -1211,7 +1211,6 @@ describe("createLocalRules", () => {
       const rejected = vi.fn();
       objects.on("interactRejected", rejected);
 
-      // 置き場 1 のライターを持って、置き場 2 には戻せない
       objects.interact(stand);
       objects.interact(other);
       expect(rejected).toHaveBeenLastCalledWith({
@@ -1219,7 +1218,6 @@ describe("createLocalRules", () => {
         reason: "missing_item",
       });
 
-      // 手ぶらで、空の置き場 1 に触れる
       authority.deleteHeldItem();
       objects.interact(stand);
       expect(rejected).toHaveBeenLastCalledWith({
@@ -1252,7 +1250,6 @@ describe("createLocalRules", () => {
         bypassPermission: true,
         fireStarted: true,
       });
-      // 火がついたことは、team.updated で画面側(teamStore)にも届く
       expect(team.get().fireStarted).toBe(true);
       expect(
         parseDirectoryData(objects.getObject(dir)?.data ?? null).stock,

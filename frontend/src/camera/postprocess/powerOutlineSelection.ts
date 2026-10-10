@@ -1,14 +1,6 @@
 import {type Object3D, Vector3} from "three";
 import {uniform} from "three/tsl";
 
-/*
- * 力の縁取り(赤く波打つ太めのアウトライン。pipeline の 2 つ目の OutlineNode)を付けるオブジェクトの管理。
- * 狙いの縁取り(outlineSelection)とは別で、複数の物が同時に入る(例: bypassPermission の後の、各席の机に置いてあるライター)。
- * 画面上で太さが決まる縁取りなので、離れると物に対して縁が太すぎて見える。カメラから FADE_START を超えると薄くし、FADE_END で消す。
- * 登録(addPowerOutline)と、OutlineNode に渡す選択(powerOutlineSelection)を分け、毎フレーム updatePowerOutline で
- * 距離を測って選択と濃さ(powerOutlineFade)を決める。FADE_END より遠い物は選択から外すので、縁取りのパスも止まる
- */
-
 /** 薄くし始める距離(m) */
 export const POWER_OUTLINE_FADE_START = 3;
 /** 消えきる距離(m) */

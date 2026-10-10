@@ -14,7 +14,6 @@ import type {DirectoryModel} from "./useDirectory";
 
 const CORE_COLOR = "#e4e4e1";
 
-/** 芯のマテリアル。燃える演出の侵食(corruption.ts)を重ねる */
 const createCoreMaterial = (): MeshStandardNodeMaterial => {
   const m = new MeshStandardNodeMaterial({flatShading: true});
   applyCorruption(m, colorNode(CORE_COLOR).rgb);

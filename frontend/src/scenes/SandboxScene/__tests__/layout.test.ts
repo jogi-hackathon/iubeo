@@ -505,7 +505,6 @@ describe("ディレクトリ・スポーン", () => {
 });
 
 describe("机の上のライターの置き場", () => {
-  /** 机ローカルの足跡(x の範囲・z の範囲) */
   type Rect = [XZ, XZ];
   const rect = ([x, , z]: Vec3, [hx, hz]: XZ): Rect => [
     [x - hx, x + hx],
@@ -538,7 +537,6 @@ describe("机の上のライターの置き場", () => {
 
   it("天板の小物(紙の束・ペン立て・ペン)と重ならない", () => {
     for (const part of ON_TOP) {
-      // 回した部品は外接球の半径、円柱は半径、箱はそのままの半分の大きさで囲む(大きめに見積もる)
       const [sx, sy, sz] = part.scale;
       const half: XZ = part.rotation
         ? [Math.hypot(sx, sy, sz) / 2, Math.hypot(sx, sy, sz) / 2]

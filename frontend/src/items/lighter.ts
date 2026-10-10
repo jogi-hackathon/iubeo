@@ -3,16 +3,8 @@ import type {Vector3Tuple} from "three";
 /** アイテムの kind。ライターは data を持たない(null) */
 export const LIGHTER_KIND = "lighter";
 
-/*
- * ライター(Zippo 型のオイルライター)の寸法(m)と部品の配置。実物の大きさ(幅 3.8cm・高さ 5.7cm・厚さ 1.3cm)。
- * 座標は底面の中心が原点で、幅が x、厚さが z(広い面が ±Z を向く)。
- * 置き場(objects/lighter_stand)と手元(HeldItem)の両方が、ここの部品を単位の箱・円柱の scale で伸ばして描く。
- * 置き場では蓋を閉じたまま、手元では蓋を蝶番で開き(LIGHTER_LID_OPEN_ANGLE)、中身(チムニーとヤスリ車)の上に炎を灯す
- */
-
 const WIDTH = 0.038;
 const DEPTH = 0.013;
-/** 下の胴(ケース)と、上の蓋の高さ。継ぎ目は胴の上端 */
 const CASE_HEIGHT = 0.037;
 const LID_HEIGHT = 0.02;
 /** 全体の高さ(蓋を閉じたとき) */
@@ -20,22 +12,17 @@ export const LIGHTER_HEIGHT = CASE_HEIGHT + LID_HEIGHT;
 /** 底面の足跡(幅 x・厚さ z)。置き場では、厚さの半分だけ浮かせて寝かせる */
 export const LIGHTER_FOOTPRINT = [WIDTH, DEPTH] as const;
 
-/** 継ぎ目の帯。胴より少しだけ張り出して、暗い線に見せる(蓋を開くと、胴の口の縁になる) */
 const SEAM_HEIGHT = 0.0015;
 const SEAM_PROTRUDE = 0.0005;
-/** 蝶番。右(+x)の側面に、継ぎ目をまたいで縦に付ける */
 const HINGE_RADIUS = 0.0022;
 const HINGE_LENGTH = 0.012;
 
-/** 中身のチムニー(風よけの筒)。胴の口から上に出て、閉じた蓋の内側に収まる。蝶番と反対の左寄り */
 const CHIMNEY_SIZE: Vector3Tuple = [0.02, 0.016, 0.011];
 const CHIMNEY_X = -0.005;
-/** ヤスリ車。チムニーの右(蝶番の側)で、軸は z(厚さの向き) */
 const WHEEL_RADIUS = 0.0045;
 const WHEEL_WIDTH = 0.006;
 const WHEEL_X = 0.0105;
 const WHEEL_Y = CASE_HEIGHT + 0.009;
-/** 芯。チムニーの上面の中央から少し顔を出す暗い綿芯。炎の根元がここに繋がる */
 const WICK_RADIUS = 0.0013;
 const WICK_PROTRUDE = 0.003;
 
@@ -150,17 +137,13 @@ export const LIGHTER_HELD_REACH = {
 
 /** 手に持ってから、蓋が開ききって止まるまで(ミリ秒) */
 export const LIGHTER_OPEN_MS = 260;
-/** 蓋が止め(開ききった角度)に当たる時刻の、LIGHTER_OPEN_MS に対する割合。当たった後、残りの時間で跳ね返りが収まる */
 const LID_HIT_AT = 0.6;
-/** 止めに当たったときの跳ね返りの大きさ(開く角度に対する比)。Zippo の蓋が「カチッ」と開いて小さく震える分 */
 const LID_REBOUND = 0.06;
 /** 手に持ってから、火がつき始めるまで(ミリ秒)。蓋が開ききってから、ヤスリ車を擦る間を置く */
 export const LIGHTER_IGNITE_DELAY_MS = 340;
 /** 火がつき始めてから、炎が落ち着くまで(ミリ秒) */
 export const LIGHTER_IGNITE_MS = 220;
-/** 火がついた瞬間に膨らむ大きさ(落ち着いた大きさに対する比)。気化したオイルに一気に火が回って、縮んで落ち着く */
 const IGNITE_PUFF = 1.35;
-/** 火がつき始めてから、膨らみきるまでの時刻(LIGHTER_IGNITE_MS に対する割合) */
 const IGNITE_PUFF_AT = 0.4;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -168,7 +151,6 @@ const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 const easeOutQuad = (t: number) => 1 - (1 - t) ** 2;
 const easeInOut = (t: number) => t * t * (3 - 2 * t);
 
-/** 蓋の開き具合(0〜1、一時的に 1 を超えない)。勢いよく開いて止めに当たり(LID_HIT_AT)、少し跳ね返って収まる */
 const lidOpening = (t: number): number => {
   if (t < LID_HIT_AT) {
     return easeOutCubic(t / LID_HIT_AT);
@@ -177,7 +159,6 @@ const lidOpening = (t: number): number => {
   return 1 - LID_REBOUND * Math.sin(Math.PI * settle) * (1 - settle);
 };
 
-/** 炎の大きさ(0〜1。途中で IGNITE_PUFF まで膨らむ)。一気に膨らんでから、縮んで落ち着く */
 const flameSize = (t: number): number => {
   if (t < IGNITE_PUFF_AT) {
     return IGNITE_PUFF * easeOutQuad(t / IGNITE_PUFF_AT);

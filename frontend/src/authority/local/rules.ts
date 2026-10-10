@@ -117,7 +117,6 @@ export const createLocalRules = ({
     }
   };
   const achievedIds = new Set<string>();
-  // 勝利フラグ(規則が持ち、変わるたびに team.updated で通知する。サーバーの team.updated と同じ)
   let team: Team = {bypassPermission: false, fireStarted: false};
 
   const deliver = (message: AuthorityMessage): void => {
@@ -138,11 +137,6 @@ export const createLocalRules = ({
   const reject = (objectId: string, reason: RejectReason) =>
     deliver({type: "object.interactRejected", objectId, reason});
 
-  /**
-   * 勝利フラグを書き換える。bypassPermission が変われば、置き場の availability を合わせる。
-   * 下ろすときにライターを持っていれば、その置き場へ戻す(使えない置き場には戻せず、手が塞がったままになるため。
-   * サーバーは下ろさないが、切断・脱落でライターを置き場へ戻すのと同じ動き)
-   */
   const setTeam = (patch: Partial<Team>): void => {
     const next = {...team, ...patch};
     if (

@@ -53,7 +53,6 @@ export function LocalAuthority({
         ),
     });
     rules.dev.setHeldItem(null);
-    // 勝利フラグも最初の値から(規則の最初の値と揃える)
     teamStore.reset();
     for (const object of planLocalObjects({layout, initial, playerId})) {
       rules.dev.deliver({type: "object.upsert", object});

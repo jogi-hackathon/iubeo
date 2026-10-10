@@ -201,10 +201,6 @@ function DirectoryRow({
 }
 
 const TEAM_FLAGS: readonly (keyof Team)[] = ["bypassPermission", "fireStarted"];
-/**
- * 勝利フラグ(team)の今の値と切り替え。値は teamStore(サーバーの値も入る)から読む。
- * 切り替えはローカルのオーソリティでだけ使える(サーバーの値は変えない)。bypassPermission を立てると、ライターの置き場が使えるようになる
- */
 function TeamRows({dev}: {dev: LocalDevOps | null}) {
   const team = useTeamState();
   return (

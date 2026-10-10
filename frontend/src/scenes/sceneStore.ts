@@ -38,7 +38,6 @@ export const sceneTransitionManager = createSceneTransitionManager({
     releaseTransitionLock = lockPlayerControl();
     return coverScreen();
   },
-  // 準備ができたら、覆いを外す前に新しいシーンのシェーダーを作らせる(初めて視界に入ったときのカクつきを避ける)
   waitReady: (scene) =>
     showBarWhileWaiting(whenSceneReady(scene).then(warmupShaders)),
   finishTransition: () => {

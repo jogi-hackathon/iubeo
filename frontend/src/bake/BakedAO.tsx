@@ -134,7 +134,6 @@ const applyAtlas = (
       const prev = material.aoMap;
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
-      // ノードのマテリアルは、焼いた後で消えた物の影を消せるよう、消せる AO(aoErase)を引かせる
       const nodeMaterial = isNodeMaterial(material) ? material : null;
       const prevAONode = nodeMaterial?.aoNode ?? null;
       if (nodeMaterial) {

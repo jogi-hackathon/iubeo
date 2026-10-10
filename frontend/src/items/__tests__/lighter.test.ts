@@ -30,7 +30,6 @@ describe("heldLighterPose", () => {
       (_, i) => heldLighterPose((LIGHTER_OPEN_MS * i) / 50).lidAngle,
     );
     for (const angle of steps) {
-      // 開く向きは負なので、開ききった角度より小さく(手前に)ならない
       expect(angle).toBeGreaterThanOrEqual(LIGHTER_LID_OPEN_ANGLE - 1e-9);
     }
     const hit = steps.findIndex(
@@ -38,7 +37,6 @@ describe("heldLighterPose", () => {
     );
     expect(hit).toBeGreaterThan(0);
     expect(hit).toBeLessThan(50);
-    // 当たった後に一度戻る(角度の絶対値が小さくなる)
     const rebound = Math.min(
       ...steps.slice(hit + 1, 50).map((a) => Math.abs(a)),
     );
@@ -54,9 +52,7 @@ describe("heldLighterPose", () => {
         heldLighterPose(LIGHTER_IGNITE_DELAY_MS + (LIGHTER_IGNITE_MS * i) / 50)
           .flame,
     );
-    // 途中で落ち着いた大きさ(1)を超えて膨らむ
     expect(Math.max(...steps)).toBeGreaterThan(1);
-    // 根元から膨らみ始める(いきなり大きくならない)
     expect(steps[1]).toBeLessThan(0.5);
     expect(
       heldLighterPose(LIGHTER_IGNITE_DELAY_MS + LIGHTER_IGNITE_MS).flame,

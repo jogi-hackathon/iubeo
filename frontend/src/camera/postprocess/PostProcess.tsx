@@ -33,7 +33,6 @@ export function PostProcess() {
 
   useFrame(() => {
     if (pipeline.current && getPostProcessSettings().enabled) {
-      // 力の縁取りは、カメラからの距離で選択と濃さを決め直してから描く
       updatePowerOutline(camera.getWorldPosition(cameraPosition));
       pipeline.current.render();
     } else {

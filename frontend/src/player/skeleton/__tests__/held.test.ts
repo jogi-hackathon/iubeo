@@ -39,7 +39,6 @@ describe("writeHeldItemPosition", () => {
   });
 
   it("手元のライターは、中心から下と手前が縁取りまで含めて箱の半分(HALF_SIZE)に収まる(上の視野の前提を崩さない)", () => {
-    // 蓋を開くと横へ、炎で上へ伸びるが、視野の端にかかるのは下と手前だけ
     for (const reach of [LIGHTER_HELD_REACH.below, LIGHTER_HELD_REACH.front]) {
       expect(
         (reach + LIGHTER_HELD_OUTLINE) * LIGHTER_HELD_SCALE,

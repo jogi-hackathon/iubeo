@@ -10,13 +10,6 @@ import {
 } from "three/tsl";
 import type {Node} from "three/webgpu";
 
-/*
- * ベイク AO を、決めた円の中だけ消す仕組み。焼いた後で消えた物(燃えて抜けたディレクトリの山)の影が、
- * 床などに焼き付いたまま残らないようにする。
- * BakedAO が、アトラスを貼るノードのマテリアル(NodeMaterial)の aoNode に erasableBakedAO を付ける
- * (普通のマテリアルは aoNode を持たないので、消せない。消したい物はノードのマテリアルにする)。
- * 円と消す強さは、消える物の側(DirectoryFire)が書く。シーンにディレクトリは 1 つなので、共有の uniform にする
- */
 export const bakedAOErase = {
   /** 円の中心(ワールドの x, z) */
   center: uniform(new Vector2()),
@@ -26,7 +19,6 @@ export const bakedAOErase = {
   amount: uniform(0),
 };
 
-/** 消す円の縁の、ぼかす幅(半径に対する割合) */
 const EDGE_RATIO = 0.2;
 
 /** ベイク AO(materialAO。強さ込み)を、円の中だけ amount に応じて 1(影なし)へ寄せたもの */

@@ -66,7 +66,6 @@ export function useDirectory(
     [mountain],
   );
   useEffect(() => () => sheetsGeometry.dispose(), [sheetsGeometry]);
-  // 燃える演出の侵食は、山の足元からの高さの割合で前線を進めるので、足元と高さを渡す
   useEffect(() => {
     directoryCorruption.baseY.value = item.position[1];
     directoryCorruption.height.value = mountain.height;

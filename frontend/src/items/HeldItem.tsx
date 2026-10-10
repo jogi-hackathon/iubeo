@@ -64,8 +64,6 @@ const outlineOf = (item: Item): MeshBasicMaterial => {
 const SIZE = 0.1;
 const OUTLINE_SCALE = 1.12;
 
-// ライターは、置き場と同じ部品(items/lighter)を白い身体で描き、白い部品ごとに縁取る(蓋が開いて外形が変わるので、外形 1 つでは囲めない)。
-// 継ぎ目・蝶番・ヤスリ車・芯は縁取りと同じ暗色。炎(lighterFlame)は世界の色に合わせたくすんだ赤の形に、細い赤茶の縁取りを付ける
 const ACCENT_MATERIAL = new MeshBasicMaterial({color: OUTLINE_COLOR});
 setSkipGTAO(ACCENT_MATERIAL, true);
 const LIGHTER_MATERIALS: Record<LighterPartLook, MeshBasicMaterial> = {
@@ -80,7 +78,6 @@ const UNIT_GEOMETRIES: Record<
   box: new BoxGeometry(1, 1, 1),
   cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
 };
-/** 部品 1 つ。白い部品(body)は、裏面の縁取りも付ける */
 function LighterPartMesh({part}: {part: LighterPart}) {
   const outline =
     part.look === "body"
@@ -113,11 +110,6 @@ function LighterPartMesh({part}: {part: LighterPart}) {
   );
 }
 
-/**
- * 手元のライター。原点(両手首の中点)に、閉じたライターの中心が来るように置く。
- * 持った瞬間から、蓋を蝶番で開き、少し遅れて芯の上に炎を灯す(heldLighterPose)。炎の揺らぎは炎のシェーダーが付ける(lighterFlame)。
- * 持ち替えるとマウントし直すので、持つたびに最初から開く
- */
 function HeldLighter() {
   const lid = useRef<Group>(null);
   const flame = useRef<Group>(null);
@@ -147,7 +139,6 @@ function HeldLighter() {
         <group ref={lid} position={LIGHTER_LID_PIVOT}>
           <LighterPartMesh part={LIGHTER_LID_PART} />
         </group>
-        {/* 炎は根元を原点にした単位の形(lighterFlame)を、LIGHTER_FLAME_SIZE に伸ばす。縁取りも同じ形・同じ揺らぎ。灯る(ignite)間は group の scale で膨らませる */}
         <group
           ref={flame}
           name="lighter-flame"

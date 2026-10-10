@@ -11,9 +11,7 @@ import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 let finishing = false;
 let done = false;
 let holds = 0;
-/** やり直しを頼まれたか(warmupShaders)。次のフレームで構成の見張りを最初からやり直す */
 let restartRequested = false;
-/** やり直しの終わりを待っている人 */
 let waiters: Array<() => void> = [];
 const listeners = new Set<() => void>();
 
@@ -89,7 +87,6 @@ export function ShaderWarmup() {
     tracker: ReturnType<typeof createWarmupTracker> | null;
     culled: Set<Object3D>;
     frame: number;
-    /** ウォームアップで力の縁取りに足した物を外す(足していなければ null) */
     offPower: (() => void) | null;
   }>({tracker: null, culled: new Set(), frame: 0, offPower: null});
 
@@ -135,7 +132,6 @@ export function ShaderWarmup() {
       const target = s.frame % 2 === 0 ? scene : firstMesh;
       setOutlineSelection(target ? [target] : []);
       s.offPower?.();
-      // 距離では薄くしない(シーン全体の原点がカメラから遠くても、パスを通す)
       s.offPower = target
         ? addPowerOutline(target, {ignoreDistance: true})
         : null;

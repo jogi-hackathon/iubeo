@@ -24,8 +24,6 @@ import {HIT_SIZE, LIGHTER_REST, MARK_COLOR, MARK_HEIGHT} from "./stand";
 
 const CYLINDER_SEGMENTS = 10;
 
-// 部品はみな同じ単位の形を scale で伸ばすので、ジオメトリとマテリアルは種類ごとに 1 つを共有する(机と同じ)。
-// 色は机に揃える(ライターの継ぎ目・蝶番は金物の暗色。跡は天板より一段暗い白)
 const GEOMETRIES: Record<LighterPartShape, BoxGeometry | CylinderGeometry> = {
   box: new BoxGeometry(1, 1, 1),
   cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
@@ -47,12 +45,9 @@ function LighterPartMesh({part}: {part: LighterPart}) {
   );
 }
 
-/** 寝かせたライター(蓋は閉じたまま)。原点は天板の上面で、ライターの中心の真下 */
 function RestingLighter() {
   return (
-    // 背面が天板に着くよう、厚さの半分だけ浮かせる
     <group position={[0, LIGHTER_FOOTPRINT[1] / 2, 0]}>
-      {/* x 軸まわりに -90° 倒して正面(+Z)を上へ向け、底面の中心が原点のライターを、長さの半分だけ手前へずらして中心を合わせる */}
       <group
         position={[0, 0, LIGHTER_HEIGHT / 2]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -60,7 +55,6 @@ function RestingLighter() {
         {LIGHTER_CASE_PARTS.map((part, i) => (
           <LighterPartMesh key={i} part={part} />
         ))}
-        {/* 蓋は閉じたまま(回さない)。蝶番の位置からの相対で置く */}
         <group position={LIGHTER_LID_PIVOT}>
           <LighterPartMesh part={LIGHTER_LID_PART} />
         </group>
@@ -87,7 +81,6 @@ function RestingLighter() {
 export function LighterStandObject({object}: {object: GameObject}) {
   const {hasLighter} = parseLighterStandData(object.data);
   const empowered = hasLighter && object.availability === "available";
-  // 力の縁取りは、置いてあるライター(寝かせた向きの group)だけに付ける。見えない当たり判定は入れない
   const lighter = useRef<Group>(null);
   useEffect(() => {
     const g = lighter.current;

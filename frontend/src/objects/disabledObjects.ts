@@ -1,11 +1,5 @@
 import {useEffect, useSyncExternalStore} from "react";
 
-/*
- * 種類のコンポーネントが、自分のオブジェクトの機能を一時的に止める申告(例: 燃えて抜けていくディレクトリ)。
- * 止めている間、ObjectRoot は狙いの対象に登録しない(シーンのトグルで機能 OFF にしたのと同じ。見た目と当たり判定は残る)。
- * トグル(core/toggles)は項目名ごとにシーンが決める物、こちらはオブジェクトの id ごとに、その種類が状態から決める物
- */
-
 const disabled = new Set<string>();
 const listeners = new Set<() => void>();
 
