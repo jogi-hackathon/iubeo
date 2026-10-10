@@ -201,7 +201,7 @@ resource "aws_instance" "backend" {
     image_tag_parameter      = aws_ssm_parameter.image_tag.name
     wisp_image_tag_parameter = aws_ssm_parameter.wisp_image_tag.name
     wisp_pass                = var.wisp_pass
-    wisp_url = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
+    wisp_url                 = "${replace(var.allowed_origins[0], "https://", "wss://")}/wisp/"
   })
 
   user_data_replace_on_change = false

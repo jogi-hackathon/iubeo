@@ -108,10 +108,10 @@ resource "aws_lambda_function" "control" {
 
   environment {
     variables = {
-      INSTANCE_ID       = aws_instance.backend.id
-      AUTO_STOP_HOURS   = tostring(var.auto_stop_hours)
-      SCHEDULE_NAME     = "${local.name}-autostop"
-      SCHEDULE_ROLE_ARN = aws_iam_role.scheduler.arn
+      INSTANCE_ID                = aws_instance.backend.id
+      AUTO_STOP_HOURS            = tostring(var.auto_stop_hours)
+      SCHEDULE_NAME              = "${local.name}-autostop"
+      SCHEDULE_ROLE_ARN          = aws_iam_role.scheduler.arn
       LAMBDA_ARN                 = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-control"
       DISCORD_PUBLIC_KEY         = var.discord_public_key
       DISCORD_WEBHOOK_URL        = var.discord_webhook_url
