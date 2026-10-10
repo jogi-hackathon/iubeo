@@ -38,11 +38,11 @@ const INIT = `
   } catch (_) {}
   const check = () => {
     const p = window.__perf;
-    // 起動画面(BootScreen)は .boot-screen。ウォームアップの被せ(.boot-overlay)も同じクラスを持つので除く
-    const boot = document.querySelector(".boot-screen:not(.boot-overlay)");
-    const overlay = document.querySelector(".boot-overlay");
+    // 起動画面(正常時は BootError の .boot-screen だけが出る)。ウォームアップの覆いは .cover-overlay
+    const boot = document.querySelector(".boot-screen");
+    const cover = document.querySelector('.cover-overlay[data-covered="true"]');
     if (p.bootGoneAt === null && !boot && document.querySelector("canvas")) p.bootGoneAt = performance.now();
-    if (p.bootGoneAt !== null && p.overlayGoneAt === null && !overlay) {
+    if (p.bootGoneAt !== null && p.overlayGoneAt === null && !cover) {
       p.overlayGoneAt = performance.now();
       p.readyAt = p.overlayGoneAt;
       return;

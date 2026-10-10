@@ -17,7 +17,7 @@ const browser = await chromium.launch({executablePath: CHROME_PATH, headless: tr
 try {
   const page = await browser.newPage({viewport: {width: 1280, height: 800}, deviceScaleFactor: 1});
   await page.goto(srv.url + query);
-  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector(".boot-overlay"), null, {timeout: 120000});
+  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector('.cover-overlay[data-covered="true"]'), null, {timeout: 120000});
   await page.waitForTimeout(2000);
   await page.screenshot({path: join(outDir, "shot-still.png")});
   await page.keyboard.down("KeyW");

@@ -11,7 +11,7 @@ const browser = await chromium.launch({executablePath: CHROME_PATH, headless: tr
 try {
   const page = await browser.newPage({viewport: {width: 1280, height: 800}, deviceScaleFactor: Number(args.dpr)});
   await page.goto(args.url);
-  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector(".boot-overlay"), null, {timeout: 300000});
+  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector('.cover-overlay[data-covered="true"]'), null, {timeout: 300000});
   await page.waitForTimeout(Number(args.wait) * 1000);
   console.log(`dpr ${args.dpr}`);
   console.log(await page.evaluate(() => [...document.querySelectorAll("pre")].map((p) => p.textContent).join("\n---\n")));

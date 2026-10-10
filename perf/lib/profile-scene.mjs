@@ -21,7 +21,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(url);
-  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector(".boot-overlay") && !document.querySelector(".boot-screen:not(.boot-overlay)"), null, {timeout: 300000, polling: 100});
+  await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector('.cover-overlay[data-covered="true"]'), null, {timeout: 300000, polling: 100});
   await page.waitForTimeout(2000);
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Profiler.enable");

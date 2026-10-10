@@ -29,7 +29,7 @@ try {
   for (let run = 0; run < Number(args.runs); run++) {
     const page = await browser.newPage({viewport: {width: 1280, height: 800}, deviceScaleFactor: Number(args.dpr)});
     await page.goto(baseUrl + (args.scene ? `?scene=${args.scene}` : ""));
-    await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector(".boot-overlay"), null, {timeout: 300000});
+    await page.waitForFunction(() => document.querySelector("canvas") && !document.querySelector('.cover-overlay[data-covered="true"]'), null, {timeout: 300000});
     await page.waitForTimeout(1500);
     for (const [name, patch] of SCENARIOS) {
       const fps = await page.evaluate(async ([patch, secs]) => {
