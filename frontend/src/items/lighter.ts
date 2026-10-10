@@ -17,7 +17,7 @@ const CASE_HEIGHT = 0.037;
 const LID_HEIGHT = 0.02;
 /** 全体の高さ(蓋を閉じたとき) */
 export const LIGHTER_HEIGHT = CASE_HEIGHT + LID_HEIGHT;
-/** 底面の足跡(幅 x・厚さ z)。置き場の敷物の大きさの基準 */
+/** 底面の足跡(幅 x・厚さ z)。置き場では、厚さの半分だけ浮かせて寝かせる */
 export const LIGHTER_FOOTPRINT = [WIDTH, DEPTH] as const;
 
 /** 継ぎ目の帯。胴より少しだけ張り出して、暗い線に見せる(蓋を開くと、胴の口の縁になる) */

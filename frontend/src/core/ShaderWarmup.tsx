@@ -3,6 +3,7 @@ import {useEffect, useRef, useSyncExternalStore} from "react";
 import type {Object3D} from "three";
 
 import {setOutlineSelection} from "../camera/postprocess/outlineSelection";
+import {addPowerOutline} from "../camera/postprocess/powerOutlineSelection";
 import {FRAME_PRIORITY} from "./frameOrder";
 import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 
@@ -55,7 +56,7 @@ type DeviceLike = {queue: {onSubmittedWorkDone(): Promise<void>}};
  * renderer.compileAsync は視錐台カリングが効くうえ、ポストプロセスの各パス(pre-pass・MSAA の scene pass)と
  * 描画先が違ってキャッシュが当たらないので使わず、実際の描画経路(PostProcess)にそのまま描かせる。
  * アウトライン(OutlineNode)は選択の有無で非選択の深度パス・選択物のマスクパスを全 mesh に掛けるので、
- * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。
+ * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。力の縁取り(2 つ目の OutlineNode)も同じ選択で通す。
  * 構成が WARMUP_STABLE_MS 変わらなくなるまで(holdShaderWarmup の間は待つ)続け、元に戻したあと GPU の処理完了を待ってから終える。
  * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビューなど)やシーン遷移後のマテリアルは対象外
  */
@@ -67,7 +68,9 @@ export function ShaderWarmup() {
     /** カリングを切った mesh(元は frustumCulled=true だったもの) */
     culled: Set<Object3D>;
     frame: number;
-  }>({tracker: null, culled: new Set(), frame: 0});
+    /** ウォームアップで力の縁取りに足した物を外す(足していなければ null) */
+    offPower: (() => void) | null;
+  }>({tracker: null, culled: new Set(), frame: 0, offPower: null});
 
   const restore = () => {
     const s = state.current;
@@ -75,6 +78,9 @@ export function ShaderWarmup() {
       o.frustumCulled = true;
     }
     s.culled.clear();
+    // 力の縁取りは、ウォームアップで足した物だけを外す(他の物が足した物は残す)
+    s.offPower?.();
+    s.offPower = null;
     // 狙いの選択(Interaction)を消さないよう、ウォームアップで選択を触ったときだけ戻す
     if (s.frame > 0) {
       s.frame = 0;
@@ -105,9 +111,13 @@ export function ShaderWarmup() {
         }
       });
       s.frame++;
-      setOutlineSelection(
-        s.frame % 2 === 0 ? [scene] : firstMesh ? [firstMesh] : [],
-      );
+      const target = s.frame % 2 === 0 ? scene : firstMesh;
+      setOutlineSelection(target ? [target] : []);
+      s.offPower?.();
+      // 距離では薄くしない(シーン全体の原点がカメラから遠くても、パスを通す)
+      s.offPower = target
+        ? addPowerOutline(target, {ignoreDistance: true})
+        : null;
       return;
     }
     finishing = true;

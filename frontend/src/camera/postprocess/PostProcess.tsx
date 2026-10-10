@@ -1,10 +1,14 @@
 import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect, useRef} from "react";
+import {Vector3} from "three";
 import type {Renderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
+import {updatePowerOutline} from "./powerOutlineSelection";
 import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
+
+const cameraPosition = new Vector3();
 
 /** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける。レンダラーは WebGPURenderer 固定(core/renderer.ts) */
 export function PostProcess() {
@@ -29,6 +33,8 @@ export function PostProcess() {
 
   useFrame(() => {
     if (pipeline.current && getPostProcessSettings().enabled) {
+      // 力の縁取りは、カメラからの距離で選択と濃さを決め直してから描く
+      updatePowerOutline(camera.getWorldPosition(cameraPosition));
       pipeline.current.render();
     } else {
       // 無効時・構築前は自動レンダーの代わりに素で描く

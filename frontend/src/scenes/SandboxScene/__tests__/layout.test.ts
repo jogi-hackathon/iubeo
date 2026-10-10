@@ -552,7 +552,7 @@ describe("机の上のライターの置き場", () => {
     STAND_FOOTPRINT[1] / 2,
   ]);
 
-  it("台座は天板の内側に収まる", () => {
+  it("置き場(見えない当たり判定)は天板の内側に収まる", () => {
     const [[x0, x1], [z0, z1]] = stand;
     expect(x0).toBeGreaterThanOrEqual(-TOP_SIZE[0] / 2);
     expect(x1).toBeLessThanOrEqual(TOP_SIZE[0] / 2);

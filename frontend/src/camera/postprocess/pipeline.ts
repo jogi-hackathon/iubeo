@@ -24,22 +24,34 @@ import {
   float,
   min,
   mix,
+  max,
   mrt,
   normalView,
   output,
   pass,
   renderOutput,
   rtt,
+  screenSize,
   screenUV,
+  sin,
+  texture,
+  time,
   toneMapping,
   uniform,
+  vec2,
   vec3,
   vec4,
 } from "three/tsl";
-import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
+import {
+  type Node,
+  type Renderer,
+  type RenderTarget,
+  RenderPipeline,
+} from "three/webgpu";
 
 import {pixelateUV} from "./nodes/pixelate";
 import {outlineSelection} from "./outlineSelection";
+import {powerOutlineFade, powerOutlineSelection} from "./powerOutlineSelection";
 import {
   type PostProcessSettings,
   type ToneMappingKind,
@@ -53,6 +65,23 @@ const OUTLINE_COLOR = "#1a1a1a";
 const OUTLINE_THICKNESS = 1.5;
 /** アウトラインの強さ(辺のマスクに掛ける倍率)。ぼかして薄まった縁をくっきりさせる。掛けた後は 0〜1 に収める */
 const OUTLINE_STRENGTH = 4;
+
+/*
+ * 力の縁取り(powerOutlineSelection。bypassPermission の後の、机に置いてあるライター)。強大な力を持ったアイテムだと伝えるため、
+ * 狙いの縁取りより太い澄んだ赤の線を、ぼかさずにくっきり描く。
+ * OutlineNode の縁取りは、1 画素の縁をぼかして太さを出すので、太くするほど裾が長くにじむ。そこで OutlineNode の縁は使わず、
+ * OutlineNode が内部で作る「選んだ物のマスク」(元の解像度。手前の物に隠れているかも区別した物)を、POWER_OUTLINE_WIDTH 画素だけ
+ * 外へ膨らませて、物の外側を塗る(周りの画素を同心円状に読み、見えている選んだ物が 1 つでもあれば縁)。
+ * マスクは OutlineNode の公開されていない中身(_renderTargetMaskBuffer)なので、three を上げたときは、名前と中身が変わっていないか確かめる。
+ * 縁の波打ち(マスクを読む UV を、画面の位置と時間でずらす)は、今は止めている(POWER_WOBBLE_PX)。
+ * 画面上で太さが決まるので、離れると物に対して縁が太すぎる。カメラから 3m を超えると薄くし、4m で消す(powerOutlineSelection)
+ */
+/** 力の縁取りの色(リニアに直す前の sRGB) */
+const POWER_OUTLINE_COLOR = "#ff1f2e";
+/** 縁の太さ(画素)。読む点の数は太さに比例して増える(太さ 4 で 64 点) */
+const POWER_OUTLINE_WIDTH = 4;
+/** 縁を波打たせる、UV のずれの大きさ(画素)。今は試しに止めている(0)。波打たせるなら 2 前後 */
+const POWER_WOBBLE_PX = 0;
 
 const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
   aces: ACESFilmicToneMapping,
@@ -180,6 +209,54 @@ export const createPostProcessPipeline = (
     edgeGlow: float(0),
   });
   const outlineColor = uniform(new Color(OUTLINE_COLOR));
+  // 力の縁取り。選択が空のあいだは自分のパスを全部飛ばすので、狙いの縁取りと同じくグラフには常に入れておく
+  // OutlineNode は選んだ物のマスクを作るためだけに使う(縁・ぼかしのパスも走るが、結果は使わない)
+  const powerOutlinePass = outline(scene, camera, {
+    selectedObjects: powerOutlineSelection,
+    edgeGlow: float(0),
+  });
+  const powerOutlineColor = uniform(new Color(POWER_OUTLINE_COLOR));
+  // 縁のマスクを読む UV のずれ。周期の合わない波を重ね、x は画面の縦位置、y は横位置で変えて、縁がうねるようにする
+  const powerWobble = vec2(
+    sin(screenUV.y.mul(90).add(time.mul(7))).add(
+      sin(screenUV.y.mul(37).sub(time.mul(4.3))).mul(0.5),
+    ),
+    sin(screenUV.x.mul(80).add(time.mul(6.1))).add(
+      sin(screenUV.x.mul(41).add(time.mul(3.7))).mul(0.5),
+    ),
+  )
+    .mul(POWER_WOBBLE_PX / 1.5)
+    .div(screenSize);
+  // 選んだ物のマスク。r は選んだ物の上で 0(それ以外は 1)、g は選んだ物が他の物に隠れていれば 1
+  // (OutlineNode は、選んだ物が他の物の深さより奥のとき g = 1 と書く。見えているのは g = 0)
+  const powerMask = texture(
+    (powerOutlinePass as unknown as {_renderTargetMaskBuffer: RenderTarget})
+      ._renderTargetMaskBuffer.texture,
+  );
+  /** 画面上で (dx, dy) 画素ずれた所に、見えている選んだ物があれば 1 */
+  const visibleSelectedAt = (dx: number, dy: number): Node<"float"> => {
+    const m = powerMask.sample(
+      screenUV.add(powerWobble).add(vec2(dx, dy).div(screenSize)),
+    );
+    return m.g.oneMinus().mul(m.r.oneMinus());
+  };
+  // 半径 1〜POWER_OUTLINE_WIDTH の同心円上を読む(内側の円は 8 方向、外側は 16 方向)。どれか 1 つでも当たれば縁
+  let powerCover: Node<"float"> = float(0);
+  for (let radius = 1; radius <= POWER_OUTLINE_WIDTH; radius++) {
+    const directions = radius <= 2 ? 8 : 16;
+    for (let k = 0; k < directions; k++) {
+      const angle = (k / directions) * Math.PI * 2;
+      powerCover = max(
+        powerCover,
+        visibleSelectedAt(radius * Math.cos(angle), radius * Math.sin(angle)),
+      );
+    }
+  }
+  // 選んだ物の上には塗らない(外側だけを縁にする)。OutlineNode を描画のグラフに入れて、毎フレームのマスクの更新を走らせるため、
+  // 結果に影響しない形(0 倍)でつなぐ
+  const powerEdge = powerCover
+    .mul(powerMask.sample(screenUV).r)
+    .add(powerOutlinePass.visibleEdge.mul(0));
 
   let pixelated: ReturnType<typeof rtt> | null = null;
   let key = "";
@@ -214,7 +291,17 @@ export const createPostProcessPipeline = (
       ? sceneColor.add(bloomNode)
       : sceneColor;
 
-    // ピクセレートの前に合成して、線もブロックに揃える。hiddenEdge(隠れた部分)は使わない
+    // ピクセレートの前に合成して、線もブロックに揃える。hiddenEdge(隠れた部分)は使わない。
+    // 力の縁取りを先に、狙いの縁取りを後に重ねる(力のあるライターを狙ったときも、狙いの黒い線が見える)
+    color = vec4(
+      mix(
+        color.rgb,
+        powerOutlineColor,
+        // 離れると薄くする(powerOutlineFade。カメラからの距離で PostProcess が毎フレーム決める)
+        clamp(powerEdge, 0, 1).mul(powerOutlineFade),
+      ),
+      color.a,
+    );
     color = vec4(
       mix(
         color.rgb,
@@ -285,6 +372,7 @@ export const createPostProcessPipeline = (
       pixelated?.dispose();
       bloomNode.dispose();
       outlinePass.dispose();
+      powerOutlinePass.dispose();
       denoised.dispose();
       denoiseNode.dispose();
       aoPass.dispose();
