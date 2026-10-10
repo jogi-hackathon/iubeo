@@ -10,8 +10,10 @@
   # https://devenv.sh/basics/
   dotenv.enable = true;
 
-  # バックエンドの設定(backend/internal/config)。開発用の値。.env で上書きできる
-  env = {
+  # バックエンドの設定(backend/internal/config)。開発用の値。.env で上書きできる。
+  # dotenv は .env の値を lib.mkDefault(優先度 1000)で入れるので、ここの値はそれより弱い 1500 にする
+  # (そのままだと、ここの値が勝って .env が効かない。https://devenv.sh/integrations/dotenv/)
+  env = lib.mapAttrs (_: lib.mkOverride 1500) {
     IUBEO_ADDR = ":8080";
     # 開発専用の署名鍵。本番では必ず別の秘密の値(32 バイト以上)を渡す
     IUBEO_SIGNING_KEY = "iubeo-dev-only-signing-key-do-not-use-in-prod";
