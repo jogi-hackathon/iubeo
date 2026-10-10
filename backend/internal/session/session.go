@@ -41,8 +41,8 @@ var DefaultConfig = Config{
 	TickInterval:   50 * time.Millisecond,
 	Phases: PhaseRules{
 		Count:        3,
-		Duration:     30 * time.Second,
-		Intermission: 10 * time.Second,
+		Duration:     time.Minute,
+		Intermission: 15 * time.Second,
 		Bypass:       30 * time.Second,
 		Fire:         10 * time.Second,
 	},

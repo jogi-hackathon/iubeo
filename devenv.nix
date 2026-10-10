@@ -18,8 +18,8 @@
     IUBEO_ALLOWED_ORIGINS = "http://localhost:5173";
     IUBEO_MATCH_SIZE = "3";
     IUBEO_PHASE_COUNT = "3";
-    IUBEO_PHASE_DURATION = "30s";
-    IUBEO_INTERMISSION_DURATION = "10s";
+    IUBEO_PHASE_DURATION = "1m";
+    IUBEO_INTERMISSION_DURATION = "15s";
     IUBEO_BYPASS_DURATION = "30s";
     IUBEO_FIRE_DURATION = "10s";
     # 手元は 1 人でも通しを試せるように CPU で埋める(既定は 0 = 無効。0 にすれば本番と同じ挙動)。

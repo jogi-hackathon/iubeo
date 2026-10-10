@@ -27,7 +27,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MatchSize != 3 {
 		t.Errorf("MatchSize = %d, want 3", cfg.MatchSize)
 	}
-	if cfg.PhaseCount != 3 || cfg.PhaseDuration != 30*time.Second || cfg.IntermissionDuration != 10*time.Second {
+	if cfg.PhaseCount != 3 || cfg.PhaseDuration != time.Minute || cfg.IntermissionDuration != 15*time.Second {
 		t.Errorf("phases = %d, %s, %s, want 3, 30s, 10s", cfg.PhaseCount, cfg.PhaseDuration, cfg.IntermissionDuration)
 	}
 	if cfg.BypassDuration != 30*time.Second || cfg.FireDuration != 10*time.Second {

@@ -23,9 +23,9 @@ type Config struct {
 	MatchSize int
 	// PhaseCount はフェーズの数(IUBEO_PHASE_COUNT。既定 3。1 以上)
 	PhaseCount int
-	// PhaseDuration はフェーズの長さ(IUBEO_PHASE_DURATION。既定 30s。time.ParseDuration の形で、正の値)
+	// PhaseDuration はフェーズの長さ(IUBEO_PHASE_DURATION。既定 1m。time.ParseDuration の形で、正の値)
 	PhaseDuration time.Duration
-	// IntermissionDuration はフェーズの間の長さ(IUBEO_INTERMISSION_DURATION。既定 10s。time.ParseDuration の形で、正の値)
+	// IntermissionDuration はフェーズの間の長さ(IUBEO_INTERMISSION_DURATION。既定 15s。time.ParseDuration の形で、正の値)
 	IntermissionDuration time.Duration
 	// BypassDuration は、最後のフェーズを生き残ってから、火がつかなくても victory にするまでの長さ
 	// (IUBEO_BYPASS_DURATION。既定 30s。time.ParseDuration の形で、正の値)
@@ -51,8 +51,8 @@ func Load(getenv func(string) string) (Config, error) {
 		Addr:                 ":8080",
 		MatchSize:            3,
 		PhaseCount:           3,
-		PhaseDuration:        30 * time.Second,
-		IntermissionDuration: 10 * time.Second,
+		PhaseDuration:        time.Minute,
+		IntermissionDuration: 15 * time.Second,
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
 		// CPU 埋めは既定で無効。使う環境(デバッグ)だけ IUBEO_CPU_FILL_AFTER を明示する

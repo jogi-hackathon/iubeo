@@ -389,6 +389,8 @@ func doTask(t *testing.T, ws *websocket.Conn, task api.Task) {
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1", HeldItem: &held})
 	case api.ImageGeneration:
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "canvas-1"})
+	case api.WebSearch:
+		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "pc-1"})
 	default:
 		write(t, ws, api.InteractMessage{Type: api.Interact, ObjectId: "workspace-1"})
 	}

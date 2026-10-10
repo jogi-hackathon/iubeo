@@ -60,9 +60,12 @@ func (st *State) cpuFinishOneTask(p *PlayerState, now time.Time) []Output {
 			it.Status = api.FileStatusEdited
 			out := upsertDirectory(st, dir)
 			return append(out, st.completeTask(p.ID, it.ID, api.FileStatusEdited, now)...)
-		case api.Write, api.ImageGeneration:
+		case api.Write, api.WebSearch, api.ImageGeneration:
 			status := api.FileStatusFileCreated
-			if t.Type == api.ImageGeneration {
+			switch t.Type {
+			case api.WebSearch:
+				status = api.FileStatusSearchCreated
+			case api.ImageGeneration:
 				status = api.FileStatusImageCreated
 			}
 			st.CpuItemSeq++

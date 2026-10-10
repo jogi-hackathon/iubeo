@@ -52,8 +52,8 @@ func TestInitialState(t *testing.T) {
 		}
 	}
 
-	if len(snap.Objects) != 10 {
-		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 canvases + 3 lighter stands", len(snap.Objects))
+	if len(snap.Objects) != 13 {
+		t.Fatalf("objects = %d, want directory + 3 workspaces + 3 canvases + 3 pcs + 3 lighter stands", len(snap.Objects))
 	}
 	dir := snap.Objects[0]
 	if dir.Id != "directory-1" || dir.Kind != api.Directory || dir.Scope != api.Shared || dir.Owner != nil {
@@ -80,6 +80,10 @@ func TestInitialState(t *testing.T) {
 		case api.Canvas:
 			if o.Id != "canvas-"+seats[*o.Owner] || o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable {
 				t.Errorf("canvas of %s = %+v", *o.Owner, o)
+			}
+		case api.Pc:
+			if o.Id != "pc-"+seats[*o.Owner] || o.Data != nil || o.Availability != api.ObjectAvailabilityAvailable {
+				t.Errorf("pc of %s = %+v", *o.Owner, o)
 			}
 		case api.LighterStand:
 			if o.Id != "lighter_stand-"+seats[*o.Owner] || o.Data != (api.LighterStandData{HasLighter: true}) || o.Availability != api.ObjectAvailabilityUnavailable {

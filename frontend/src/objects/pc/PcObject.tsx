@@ -4,14 +4,17 @@ import {Euler, Matrix4, type Mesh, Quaternion, Vector3} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {itemManager} from "../../items/itemStore";
 import {getEyePosition, localPlayer} from "../../player";
 import {isSearchResultsUrl} from "../../screen/browserChrome";
 import {prewarmEngine} from "../../screen/engine";
 import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
+import {objectManager} from "../objectStore";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
+import {createSearchDeliverable} from "./deliverable";
 import {pcInteraction} from "./interaction";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
 import {PcModel} from "./PcModel";
@@ -88,6 +91,14 @@ export function PcObject({object}: {object: GameObject}) {
   const currentUrl = useRef("");
   const judged = useRef<string | null>(null);
   const settle = useRef<number | undefined>(undefined);
+  const deliverable = useMemo(
+    () =>
+      createSearchDeliverable({
+        interact: (id) => objectManager.interact(id),
+        held: () => itemManager.getHeld() !== null,
+      }),
+    [],
+  );
 
   const judgeNow = useCallback(
     (url: string) => {
@@ -180,14 +191,23 @@ export function PcObject({object}: {object: GameObject}) {
     return () => window.clearTimeout(timer);
   }, [using, judge]);
 
+  // 判定が通ったら、使っている PC へ interact を送る（成果物はオーソリティが手に持たせる）
+  useEffect(() => {
+    if (!using) {
+      return;
+    }
+    deliverable.onJudge(judge, object.id);
+  }, [using, judge, object.id, deliverable]);
+
   useEffect(() => {
     if (!using) {
       judgeStore.reset();
       currentUrl.current = "";
       judged.current = null;
       window.clearTimeout(settle.current);
+      deliverable.reset();
     }
-  }, [using]);
+  }, [using, deliverable]);
 
   useEffect(() => {
     if (!using) {
@@ -289,7 +309,9 @@ const viewPose = (mesh: Mesh): {position: Vector3; quaternion: Quaternion} => {
   const normal = new Vector3(0, 0, 1).applyQuaternion(
     mesh.getWorldQuaternion(new Quaternion()),
   );
-  const position = center.addScaledVector(normal, VIEW_DISTANCE);
+  // center は書き換えない(addScaledVector は自分自身を動かすので、clone してから正面へ離す。
+  // 同じ物を渡すと lookAt が見る向きを失い、PC の向きに関係なくワールド -Z を向いてしまう)
+  const position = center.clone().addScaledVector(normal, VIEW_DISTANCE);
   const quaternion = new Quaternion().setFromRotationMatrix(
     new Matrix4().lookAt(position, center, UP),
   );

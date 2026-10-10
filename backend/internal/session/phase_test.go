@@ -32,7 +32,7 @@ func TestFirstPhaseStarts(t *testing.T) {
 	st := playing(t, "p1", "p2", "p3")
 
 	ph := st.Phase
-	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || !ph.StartedAt.Equal(t0) || !ph.DeadlineAt.Equal(t0.Add(30*time.Second)) {
+	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || !ph.StartedAt.Equal(t0) || !ph.DeadlineAt.Equal(t0.Add(time.Minute)) {
 		t.Fatalf("phase = %+v", ph)
 	}
 	if n := countBy(ph.Tasks, func(t TaskState) string { return t.Assignee }); !reflect.DeepEqual(n, map[string]int{"p1": 1, "p2": 1, "p3": 1}) {
@@ -44,12 +44,12 @@ func TestFirstPhaseStarts(t *testing.T) {
 			if !slices.Contains(stockIDs(st), task.TargetFileID) {
 				t.Errorf("read_edit target %q is not in stock", task.TargetFileID)
 			}
-		case api.Write, api.ImageGeneration:
+		case api.Write, api.WebSearch, api.ImageGeneration:
 			if task.TargetFileID != "" {
 				t.Errorf("%s has a target: %+v", task.Type, task)
 			}
 		default:
-			t.Errorf("type = %s, want read_edit, write or image_generation", task.Type)
+			t.Errorf("type = %s, want read_edit, write, web_search or image_generation", task.Type)
 		}
 	}
 
@@ -138,7 +138,7 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 		st.player("p3").Life = api.Eliminated
 		st.startPhase(3, t0)
 		n := countBy(st.Phase.Tasks, func(t TaskState) string { return string(t.Type) })
-		if n[string(api.ReadEdit)]+n[string(api.Write)]+n[string(api.ImageGeneration)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
+		if n[string(api.ReadEdit)]+n[string(api.Write)]+n[string(api.WebSearch)]+n[string(api.ImageGeneration)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
 			t.Fatalf("seed %d: tasks = %v", seed, n)
 		}
 		if n[string(api.ReadEdit)] == len(directoryStock) {
@@ -159,12 +159,12 @@ func TestPhaseTaskTypesAreEven(t *testing.T) {
 			n[task.Type]++
 		}
 	}
-	if len(n) != 3 {
-		t.Fatalf("types = %v, want read_edit, write and image_generation", n)
+	if len(n) != 4 {
+		t.Fatalf("types = %v, want read_edit, write, web_search and image_generation", n)
 	}
 	for typ, c := range n {
-		if c < 2700 || c > 3300 {
-			t.Errorf("types = %v, %s is not about a third", n, typ)
+		if c < 2000 || c > 2500 {
+			t.Errorf("types = %v, %s is not about a quarter", n, typ)
 		}
 	}
 }
@@ -316,6 +316,49 @@ func paint(t *testing.T, st State, player, newID string) State {
 	st, _ = step(t, st, in)
 	st, _ = step(t, st, Tick{Now: t0.Add(CanvasActionDuration)})
 	return st
+}
+
+func browse(t *testing.T, st State, player, newID string) State {
+	t.Helper()
+	in := interactIn(player, pcID(st.player(player).Seat), nil, "")
+	in.NewID = newID
+	st, _ = step(t, st, in)
+	st, _ = step(t, st, Tick{Now: t0.Add(PcActionDuration)})
+	return st
+}
+
+func TestCompleteWebSearch(t *testing.T) {
+	st := withTasks(playing(t, "p1", "p2"),
+		TaskState{ID: "task-1-1", Type: api.WebSearch, Assignee: "p1"},
+		TaskState{ID: "task-1-2", Type: api.Write, Assignee: "p1"},
+		TaskState{ID: "task-1-3", Type: api.WebSearch, Assignee: "p2"},
+	)
+
+	st = create(t, st, "p1", "new-1")
+	st, out := put(t, st, "p1")
+	wantTaskCompleted(t, out, "task-1-2", t0)
+	if !taskOf(st, "task-1-1").CompletedAt.IsZero() {
+		t.Fatal("web_search completed by a written file")
+	}
+
+	st = browse(t, st, "p1", "search-1")
+	st, out = put(t, st, "p1")
+	wantTaskCompleted(t, out, "task-1-1", t0)
+
+	st = browse(t, st, "p1", "search-2")
+	st, out = put(t, st, "p1")
+	wantNoTaskCompleted(t, out)
+	if !taskOf(st, "task-1-3").CompletedAt.IsZero() {
+		t.Error("p2's task completed by p1's search")
+	}
+
+	st = browse(t, st, "p2", "search-3")
+	st, out = put(t, st, "p2")
+	wantTaskCompleted(t, out, "task-1-3", t0)
+	wantPhaseEnded(t, out, 1, []string{}, api.PhaseEndedMessageNextIntermission)
+	if directoryOf(st).Outputs != 4 {
+		t.Errorf("outputs = %d, want 4", directoryOf(st).Outputs)
+	}
 }
 
 func TestCompleteImageGeneration(t *testing.T) {

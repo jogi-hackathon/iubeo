@@ -41,7 +41,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `TaskStatus` | `pending` / `completed` |
 | `ItemKind` | `file` / `lighter` |
 | `FileStatus` | `unedited` / `edited`(ディレクトリの在庫から取り出したもの。`edited` は持っている間だけで、ディレクトリに戻すと `unedited` に戻る)/ `file_created` / `search_created` / `image_created`(新しく作ったもの。編集はしない) |
-| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ pc はサーバーが未実装で、canvas・pc の名前は暫定。lighter_stand はライターの置き場で、名前は変えない) |
+| `ObjectKind` | `directory` / `workspace` / `canvas` / `pc` / `lighter_stand`(※ canvas・pc の名前は暫定。lighter_stand はライターの置き場で、名前は変えない) |
 | `ObjectScope` | `personal` / `shared` |
 | `ObjectAvailability` | `available` / `unavailable` |
 | `RejectReason` | `not_found` / `not_owner` / `unavailable` / `too_far` / `missing_item` |
@@ -169,13 +169,13 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `type` | 完了条件 |
 |---|---|
 | `read_edit` | 担当者が、`targetFileId` の在庫ファイルを **編集済み(`status=edited`)で** ディレクトリに入れた |
-| `write` / `web_search` / `image_generation` | 担当者が、対応する作成系の新しいファイル(`file_created` / `search_created` / `image_created`)をディレクトリに入れた。`file_created` はワークスペース(§5.4)、`image_created` はキャンバス(§5.4.1)で作る |
+| `write` / `web_search` / `image_generation` | 担当者が、対応する作成系の新しいファイル(`file_created` / `search_created` / `image_created`)をディレクトリに入れた。`file_created` はワークスペース(§5.4)、`image_created` はキャンバス(§5.4.1)、`search_created` は PC(§5.4.2)で作る |
 
 - 完了時刻はクライアントの送信時刻ではなく、**サーバーが受け付けた時刻**(`serverAcceptedAt`)とする。
 - `serverAcceptedAt < deadlineAt` なら締切内、`>=` なら締切後。締切処理と完了処理はセッションごとに単一の順序で処理する。サーバーは時刻を持つ入力を処理する前に締切を確かめるので、締切を過ぎてから届いた `interact` は、Tick より先に届いても締切の処理の後で扱う(その時点では `intermission` なので `unavailable` で拒否される)。
 - 1回入れて達成になるタスクは1つだけ。編集済みのファイルはディレクトリに入れると `unedited` に戻るので(§5.2.1)、取り出して入れ直しても増えない。同じファイルでも、別のプレイヤーが取り出して編集し直し、入れれば、その人のタスクの達成になる。作ったファイルは成果物になって取り出せないので、2回数えることはない。
 - 達成になるのは、担当者が自分で `interact` で入れたときだけ。切断で手持ちのファイルがディレクトリに入った場合(§5.6)は、在庫・成果物にはなるが、誰のタスクの達成にも数えない(「作ってすぐ切断すれば達成」という抜け道を作らないため。回線が不安定な人に優しくはないが、達成はサーバーが確かめた本人の操作だけにする)。
-- 検索(PC)で新しいファイルが作られる操作の要求の形は未確定(§9)。
+- 検索(PC)の成否(お題に合っているか)はクライアントが判定し、通ったときだけ §5.4.2 の `interact` が届く。サーバーは成否を確かめない(§5.4.2・§9)。
 
 ### 5.2 フェーズ進行
 
@@ -206,19 +206,19 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | 環境変数 | 既定 | 意味 |
 |---|---|---|
 | `IUBEO_PHASE_COUNT` | `3` | フェーズの数 |
-| `IUBEO_PHASE_DURATION` | `30s` | フェーズの長さ(開始から締切まで) |
-| `IUBEO_INTERMISSION_DURATION` | `10s` | フェーズの間(`intermission`)の長さ。フェーズが終わった時刻(締切、または全員が完了した時刻)から数える |
+| `IUBEO_PHASE_DURATION` | `1m` | フェーズの長さ(開始から締切まで) |
+| `IUBEO_INTERMISSION_DURATION` | `15s` | フェーズの間(`intermission`)の長さ。フェーズが終わった時刻(締切、または全員が完了した時刻)から数える |
 | `IUBEO_BYPASS_DURATION` | `30s` | 最後のフェーズを生き残って `bypassPermission` を立ててから、火がつかなくても `victory` にするまで |
 | `IUBEO_FIRE_DURATION` | `10s` | 火をつけてから `victory` にするまで(燃える演出の時間) |
 
-数値はすべて仮で、遊んでみて調整する。まず短い数値で流れを確かめるため、1 ゲームが数分で終わる値にしている。今の値だと、第3フェーズで生存者が 1 人のとき 30 秒で 9 件になり、ほぼ達成できない。
+数値はすべて仮で、遊んでみて調整する。1 ゲームが数分で終わる値にしている。今の値だと、第3フェーズで生存者が 1 人のとき 1 分で 9 件になり、ほぼ達成できない。
 
 #### 5.2.1 タスクの分配
 
 - 第 n フェーズの全体の件数は **n × セッション開始時の人数**。
 - 生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。脱落者が出たら、全体の件数はそのままで生存者に再分配する(例: 3 人で始めて 1 人脱落 → 第3フェーズは 9 件を 4・5 件に分ける)。
-- 種類は `read_edit` / `write` / `image_generation` の 3 つから均等に乱数で選ぶ。PC がまだ無いので、`web_search` は出さない。
-- `read_edit` の `targetFileId` は在庫のファイルから乱数で選ぶ。**別のプレイヤーとは重なってよい**。同じファイルが要る人どうしで取り合いになり、「今それ編集しようとしてたのに」というコンフリクトを起こすため。同じプレイヤーの中では重複させず、自分の分で在庫を使い切ってから `read_edit` を引いたら、`write` と `image_generation` から乱数で選び直す(3 種類の割合をなるべく崩さないため)。在庫はフェーズごとに初期状態に戻る。
+- 種類は `read_edit` / `write` / `web_search` / `image_generation` の 4 つから均等に乱数で選ぶ。
+- `read_edit` の `targetFileId` は在庫のファイルから乱数で選ぶ。**別のプレイヤーとは重なってよい**。同じファイルが要る人どうしで取り合いになり、「今それ編集しようとしてたのに」というコンフリクトを起こすため。同じプレイヤーの中では重複させず、自分の分で在庫を使い切ってから `read_edit` を引いたら、`write` / `web_search` / `image_generation` から乱数で選び直す(read_edit 以外の割合をなるべく崩さないため)。在庫はフェーズごとに初期状態に戻る。
 - 同じファイルを何人もが編集できるように、編集済み(`edited`)は持っている間だけの状態にする。ディレクトリに入れたら(達成の判定の後で)`unedited` に戻し、次の人がまた取り出して編集できる。達成にならないまま入れた場合も、切断で戻った場合も同じく `unedited` に戻る(編集は無駄になる)。
 - タスクの id は `task-{フェーズ番号}-{連番}`。乱数はセッションごとの種から作り、状態に持って進める(規則の関数を純粋に保つため)。
 
@@ -253,6 +253,18 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 作業中はそのプレイヤーを `users` に入れ、終わったら外す
 - 作業中に手が塞がった・切断した・キャンバスが消えた場合は、結果は適用しない(ワークスペースと同じ)
 - 作ったファイルをディレクトリに入れると成果物になり、担当者の `image_generation` の達成になる(§5.1)。手持ちの `FileItemData` は他のファイルと同じ形で、画像用の情報は持たない
+
+#### 5.4.2 PC(検索)
+
+PC は各プレイヤーの区画にある personal のオブジェクト(`pc-{席}`)。検索がお題に合っているかの判定はクライアントが行い、合ったときに `interact` を送る。アクションは 2 秒(`PcActionDuration`)かかり、結果はその後に反映する。
+
+- 手ぶらで `interact` → 2 秒後に、新しいファイル(`search_created`。色なし)を手に持つ。id はサーバーが UUID で採番する
+- 何かを持っていると `missing_item`(新しいファイルを手に持つので、手が空いている必要がある)、作業中は `unavailable` で拒否する。他人の PC は `not_owner`(共通の検証)
+- 作業中はそのプレイヤーを `users` に入れ、終わったら外す
+- 作業中に手が塞がった・切断した・PC が消えた場合は、結果は適用しない(キャンバスと同じ)
+- 作ったファイルをディレクトリに入れると成果物になり、担当者の `web_search` の達成になる(§5.1)。手持ちの `FileItemData` は他のファイルと同じ形で、検索用の情報は持たない
+
+サーバーは検索の成否を判定しない。判定(Clef)はクライアントの Worker(`/judge`)が行うため、通ったときだけ `interact` が届く前提にしている。キャンバスで「本当に描いたか」をサーバーが確かめないのと同じ扱い。判定をサーバー側へ移す案は §9 に残す。
 
 ### 5.5 ライター
 
@@ -300,6 +312,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 | `directory-1` | `directory` | shared | 1 |
 | `workspace-{席}` | `workspace` | personal | 席ごと(1〜3) |
 | `canvas-{席}` | `canvas` | personal | 席ごと(1〜3) |
+| `pc-{席}` | `pc` | personal | 席ごと(1〜3) |
 | `lighter_stand-{席}` | `lighter_stand` | personal | 席ごと(1〜3) |
 
 ## 7. WebSocket メッセージ
@@ -377,7 +390,7 @@ JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `c
 
 ## 9. 未確定の項目
 
-- PC の操作の要求の形(検索)。検索の体験と完了の確かめ方が決まっていないので保留(キャンバスは §5.4.1 で決めた)
+- 検索の成否をサーバー側でも確かめるか(今はクライアントの判定に任せている。IDEA.md の Cloudflare Browser Run をサーバーに置く案)
 - シングルモードでの CPU の参加・行動ルール
 - 自動マッチングで人数がそろわないときの扱い。**デバッグ用の暫定として、待機列に `IUBEO_CPU_FILL_AFTER`(既定 0 = 無効)たつと足りない分を CPU で埋める**ものを入れた。
   動作確認のたびに 3 人分のブラウザと Cookie をそろえるのが大変だったので、1 人でも通しを試せるようにするためのもの。
