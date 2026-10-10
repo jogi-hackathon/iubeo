@@ -304,7 +304,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 ## 7. WebSocket メッセージ
 
-すべて JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `components/schemas`(`ClientMessage` / `ServerMessage`)にある。
+JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `components/schemas`(`ClientMessage` / `ServerMessage`)にある。
+ただし、`?enc=bin` を付けて接続したときは、位置のメッセージ(`transform` / `transforms`)だけをバイナリでやり取りする(§7.5)。
 
 ### 7.1 クライアント → サーバー
 
@@ -345,6 +346,22 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 接続時は Origin ヘッダーを検証する。
 - 終了したセッションは結果を送ってから破棄する。人間が全員切断したセッションは、一定時間(例: 60 秒)誰も戻らなければ破棄する。個人の切断には期限を設けない。
 - WebSocket の ping で死活を確認する(間隔は実装時に決める)。
+
+### 7.5 位置のバイナリ形式(`?enc=bin`)
+
+量のほとんどは 20Hz の位置なので、`?enc=bin` を付けた接続では、`transform` / `transforms` だけを WebSocket のバイナリフレームで送る。中身は JSON と同じで、形だけが違う。それ以外のメッセージ(`snapshot` など)は JSON のテキストフレームのまま。フロントは常に `?enc=bin` で接続する(`frontend/src/net/connection.ts`)。
+
+すべてリトルエンディアン。小数は float32。
+
+| メッセージ | 大きさ | 並び |
+|---|---|---|
+| `transform`(クライアント → サーバー) | 25 B | 種別 `1` u8 / `seq` u32 / `position` f32×3 / `yaw` f32 / `pitch` f32 |
+| `transforms`(サーバー → クライアント) | 10 + 25n B | 種別 `2` u8 / `serverTime` f64(Unix ミリ秒) / 人数 n u8 / n × (`seat` u8 / `seq` u32 / `position` f32×3 / `yaw` f32 / `pitch` f32) |
+
+- プレイヤーは `playerId` ではなく席(`seat`)で表す。席と `playerId` の対応は `snapshot` で知る。
+- `seq` は u32(20Hz で 6 年以上あふれない)。
+- 測った効果(30 クライアント、1 クライアントあたり、WebSocket のヘッダ込み): 受信 12.0 KB/秒 → 1.7 KB/秒(-86%)、送信 2.9 KB/秒 → 0.6 KB/秒(-78%)。サーバーの CPU とメモリは増えない(`perf/NOTES.md` のラウンド 4・5)。
+- 実装: `backend/internal/session/binary.go`、`frontend/src/net/binary.ts`。
 
 ## 8. プレイヤーの座標・向き
 

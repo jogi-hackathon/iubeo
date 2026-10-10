@@ -1,3 +1,4 @@
+import {decodeTransforms, encodeTransform} from "./binary";
 import type {
   ClientMessage,
   ServerMessage,
@@ -22,7 +23,7 @@ export type SocketState = {
 /** 使う分だけの WebSocket。テストで偽物に差し替える */
 export type SocketLike = {
   readonly readyState: number;
-  send: (data: string) => void;
+  send: (data: string | ArrayBuffer) => void;
   close: (code?: number, reason?: string) => void;
   onopen: ((ev: unknown) => void) | null;
   onmessage: ((ev: {data: unknown}) => void) | null;
@@ -89,9 +90,17 @@ export type SessionConnectionOptions = {
   maxDelayMs?: number;
 };
 
+// enc=bin: 位置のメッセージ(transform / transforms)をバイナリでやり取りする(binary.ts)。それ以外は JSON
 const defaultUrl = (sessionId: string): string => {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${location.host}/api/v1/sessions/${encodeURIComponent(sessionId)}/ws`;
+  return `${protocol}//${location.host}/api/v1/sessions/${encodeURIComponent(sessionId)}/ws?enc=bin`;
+};
+
+const defaultCreateSocket = (u: string): SocketLike => {
+  const ws = new WebSocket(u);
+  // バイナリの transforms を同期的に読むため(既定の Blob だと非同期になる)
+  ws.binaryType = "arraybuffer";
+  return ws as unknown as SocketLike;
 };
 
 const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
@@ -113,7 +122,7 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
 export const createSessionConnection = ({
   sessionId,
   url = defaultUrl(sessionId),
-  createSocket = (u) => new WebSocket(u) as unknown as SocketLike,
+  createSocket = defaultCreateSocket,
   schedule = defaultSchedule,
   maxRetries = 5,
   baseDelayMs = 500,
@@ -133,6 +142,8 @@ export const createSessionConnection = ({
   let retries = 0;
   let cancelRetry: (() => void) | null = null;
   let closedByUser = false;
+  // 席 → playerId。バイナリの transforms はプレイヤーを席で表すので、snapshot と player.updated から覚えておく
+  const playerOfSeat = new Map<number, string>();
 
   const set = (next: SocketState) => {
     state = next;
@@ -160,6 +171,18 @@ export const createSessionConnection = ({
   };
 
   const receive = (data: unknown) => {
+    if (data instanceof ArrayBuffer) {
+      const transforms = decodeTransforms(data, playerOfSeat);
+      if (!transforms) {
+        console.warn(
+          "[net] 不明なバイナリのメッセージを捨てる",
+          data.byteLength,
+        );
+        return;
+      }
+      dispatch(transforms);
+      return;
+    }
     let parsed: unknown;
     try {
       parsed = typeof data === "string" ? JSON.parse(data) : null;
@@ -169,6 +192,14 @@ export const createSessionConnection = ({
     if (!isServerMessage(parsed)) {
       console.warn("[net] 不明なメッセージを捨てる", data);
       return;
+    }
+    if (parsed.type === "snapshot") {
+      playerOfSeat.clear();
+      for (const p of parsed.session.players ?? []) {
+        playerOfSeat.set(p.seat, p.playerId);
+      }
+    } else if (parsed.type === "player.updated") {
+      playerOfSeat.set(parsed.player.seat, parsed.player.playerId);
     }
     const seq = seqOf(parsed);
     if (parsed.type === "snapshot") {
@@ -249,7 +280,12 @@ export const createSessionConnection = ({
       if (!socket || socket.readyState !== OPEN) {
         return false;
       }
-      socket.send(JSON.stringify(message));
+      // 位置(20Hz)はバイナリ、それ以外は JSON
+      socket.send(
+        message.type === "transform"
+          ? encodeTransform(message)
+          : JSON.stringify(message),
+      );
       return true;
     },
     close: () => {

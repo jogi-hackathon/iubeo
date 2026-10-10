@@ -33,6 +33,9 @@ type Conn struct {
 	ID       uint64
 	PlayerID string
 	ws       *websocket.Conn
+	// Binary は位置のメッセージ(transform / transforms)をバイナリでやり取りする接続(enc=bin。binary.go)。
+	// latest に入るのはバイナリの transforms になる。それ以外(queue)は JSON のまま
+	Binary bool
 
 	queue  chan []byte
 	latest chan []byte
@@ -106,12 +109,16 @@ func (c *Conn) WriteLoop(ctx context.Context) {
 	defer ping.Stop()
 	for {
 		var b []byte
+		typ := websocket.MessageText
 		select {
 		case <-ctx.Done():
 			c.Close(websocket.StatusGoingAway, "server shutting down")
 		case <-c.closed:
 		case b = <-c.queue:
 		case b = <-c.latest:
+			if c.Binary {
+				typ = websocket.MessageBinary
+			}
 		case <-ping.C:
 			pctx, cancel := context.WithTimeout(ctx, pingTimeout)
 			err := c.ws.Ping(pctx)
@@ -129,7 +136,7 @@ func (c *Conn) WriteLoop(ctx context.Context) {
 			return
 		}
 		wctx, cancel := context.WithTimeout(ctx, writeTimeout)
-		err := c.ws.Write(wctx, websocket.MessageText, b)
+		err := c.ws.Write(wctx, typ, b)
 		cancel()
 		if err != nil {
 			c.Close(websocket.StatusGoingAway, "write failed")

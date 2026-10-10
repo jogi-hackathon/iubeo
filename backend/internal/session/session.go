@@ -102,19 +102,32 @@ func (s *Session) Detach(c *Conn) {
 	_ = s.send(disconnectReq{conn: c})
 }
 
-// Receive はプレイヤーから届いたメッセージをセッションに渡す
-func (s *Session) Receive(playerID string, msg api.ClientMessage) error {
-	v, err := msg.ValueByDiscriminator()
-	if err != nil {
+// ReceiveJSON はプレイヤーから届いた JSON をセッションに渡す。
+// 種類(type)だけを先に読み、その型に 1 回だけデコードする。api.ClientMessage の union を経由すると、
+// 中身を 3 回パースすることになるため(受信は 20Hz × 人数分あるので、ここを軽くする)
+func (s *Session) ReceiveJSON(playerID string, data []byte) error {
+	var head struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &head); err != nil {
 		return err
 	}
-	switch m := v.(type) {
-	case api.TransformMessage:
+	switch head.Type {
+	case string(api.TransformMessageTypeTransform):
+		var m api.TransformMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return err
+		}
 		return s.send(ClientTransform{PlayerID: playerID, Msg: m})
-	case api.InteractMessage:
+	case string(api.Interact):
+		var m api.InteractMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return err
+		}
 		return s.send(ClientInteract{PlayerID: playerID, Msg: m})
 	}
-	return errors.New("unknown message")
+	// api.ClientMessage.ValueByDiscriminator と同じ文言(クライアントに返すエラーの内容を変えないため)
+	return errors.New("unknown discriminator value: " + head.Type)
 }
 
 // Snapshot は今のスナップショットを返す
@@ -187,14 +200,28 @@ func (rt *runtime) step(in Input) bool {
 				rt.deliver(rt.conns[p.ConnID], o.Msg)
 			}
 		case Broadcast:
-			b, ok := encode(o.Msg)
-			if !ok {
-				continue
-			}
+			// transforms はバイナリの接続(enc=bin)にはバイナリで送る。要る形式だけを作る
+			var b, bin []byte
+			tm, isTransforms := o.Msg.(api.TransformsMessage)
 			for _, p := range rt.state.Players {
-				if c := rt.conns[p.ConnID]; c != nil && p.ID != o.Except {
-					deliverBytes(c, o.Msg, b)
+				c := rt.conns[p.ConnID]
+				if c == nil || p.ID == o.Except {
+					continue
 				}
+				if isTransforms && c.Binary {
+					if bin == nil {
+						bin = encodeTransformsBinary(tm, &rt.state)
+					}
+					c.replaceLatest(bin)
+					continue
+				}
+				if b == nil {
+					var ok bool
+					if b, ok = encode(o.Msg); !ok {
+						break
+					}
+				}
+				deliverBytes(c, o.Msg, b)
 			}
 		case CloseConn:
 			if c := rt.conns[o.ConnID]; c != nil {

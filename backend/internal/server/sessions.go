@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -66,6 +65,8 @@ func (s *Server) ConnectSession(w http.ResponseWriter, r *http.Request, sessionI
 	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
 	defer cancel()
 	conn := session.NewConn(playerID, ws)
+	// enc=bin の接続は、位置のメッセージをバイナリでやり取りする(session/binary.go。state-schema.md §7.5)
+	conn.Binary = r.URL.Query().Get("enc") == "bin"
 	go conn.WriteLoop(ctx)
 	go func() {
 		select {
@@ -85,14 +86,15 @@ func (s *Server) ConnectSession(w http.ResponseWriter, r *http.Request, sessionI
 
 func (s *Server) readLoop(ctx context.Context, ws *websocket.Conn, sess *session.Session, conn *session.Conn) {
 	for {
-		_, data, err := ws.Read(ctx)
+		typ, data, err := ws.Read(ctx)
 		if err != nil {
 			conn.Close(websocket.StatusNormalClosure, "")
 			return
 		}
-		var msg api.ClientMessage
-		if err = json.Unmarshal(data, &msg); err == nil {
-			err = sess.Receive(conn.PlayerID, msg)
+		if typ == websocket.MessageBinary {
+			err = sess.ReceiveBinary(conn.PlayerID, data)
+		} else {
+			err = sess.ReceiveJSON(conn.PlayerID, data)
 		}
 		if errors.Is(err, session.ErrEnded) {
 			return

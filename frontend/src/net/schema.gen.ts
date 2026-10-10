@@ -155,6 +155,8 @@ export interface paths {
      * WebSocket に切り替える(参加者のみ)
      * @description 切り替え後、サーバーはまず `snapshot` を送る。以降のメッセージは
      *     `ClientMessage` / `ServerMessage` を参照。再接続も同じエンドポイントで行う。
+     *     クエリ `enc=bin` を付けると、位置のメッセージ(`transform` / `transforms`)だけをバイナリで
+     *     やり取りする(docs/backend/state-schema.md §7.5)。
      */
     get: operations["connectSession"];
     put?: never;

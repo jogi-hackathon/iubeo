@@ -20,18 +20,22 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"math"
+	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"os"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -51,7 +55,15 @@ type result struct {
 	Messages       int64     `json:"messages"`
 	MessagesPerSec float64   `json:"messages_per_sec"`
 	Disconnects    int64     `json:"disconnects"`
-	Errors         []string  `json:"errors,omitempty"`
+	// Binary は位置のメッセージをバイナリでやり取りした(-binary)
+	Binary bool `json:"binary"`
+	// 1 クライアントあたりの、TCP の上でやり取りしたバイト数(WebSocket のヘッダ込み。TCP/IP・TLS のヘッダは含まない)
+	WireRxBytesPerClientPerSec float64 `json:"wire_rx_bytes_per_client_per_sec"`
+	WireTxBytesPerClientPerSec float64 `json:"wire_tx_bytes_per_client_per_sec"`
+	// 1 クライアントあたりの送受信のペイロード(WebSocket のフレームの中身。ヘッダは含まない)
+	RxBytesPerClientPerSec float64  `json:"rx_bytes_per_client_per_sec"`
+	TxBytesPerClientPerSec float64  `json:"tx_bytes_per_client_per_sec"`
+	Errors                 []string `json:"errors,omitempty"`
 }
 
 type stats struct {
@@ -73,6 +85,7 @@ type options struct {
 	warmup    time.Duration
 	label     string
 	out       string
+	binary    bool
 }
 
 type collector struct {
@@ -81,6 +94,11 @@ type collector struct {
 	tick         []float64
 	messages     int64
 	disconnects  int64
+	rxBytes      int64
+	txBytes      int64
+	wireRx       atomic.Int64
+	wireTx       atomic.Int64
+	measuring    atomic.Bool
 	errs         []string
 	measuringEnd time.Time
 }
@@ -95,10 +113,21 @@ func (c *collector) addRTT(ms float64) {
 
 func (c *collector) addTick(ms float64) {
 	c.mu.Lock()
+	// 配信数も測定時間の中だけ数える(助走の分まで数えると、測定時間で割ったときに実際より多く出る)
 	if time.Now().Before(c.measuringEnd) {
 		c.tick = append(c.tick, ms)
+		c.messages++
 	}
-	c.messages++
+	c.mu.Unlock()
+}
+
+// addBytes は測定時間の中の送受信量を数える
+func (c *collector) addBytes(rx, tx int) {
+	c.mu.Lock()
+	if time.Now().Before(c.measuringEnd) {
+		c.rxBytes += int64(rx)
+		c.txBytes += int64(tx)
+	}
 	c.mu.Unlock()
 }
 
@@ -131,6 +160,7 @@ func main() {
 		warmup    = flag.Duration("warmup", 3*time.Second, "測定から除く助走時間")
 		label     = flag.String("label", "", "この測定の名前(比較チャートのラベルになる)")
 		out       = flag.String("out", "", "結果 JSON の出力先。省略すると標準出力に要約だけ出す")
+		bin       = flag.Bool("binary", false, "位置のメッセージ(transform / transforms)をバイナリでやり取りする(WebSocket の URL に enc=bin を付ける。フロントと同じ)")
 	)
 	flag.Parse()
 
@@ -163,6 +193,7 @@ func main() {
 		warmup:    *warmup,
 		label:     *label,
 		out:       *out,
+		binary:    *bin,
 	}
 	res, err := run(opts)
 	if err != nil {
@@ -195,6 +226,9 @@ func fatal(err error) {
 func run(opts options) (*result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), opts.warmup+opts.duration+2*time.Minute)
 	defer cancel()
+	// 測定が終わったらクライアントを止める(止めないと、全体の期限まで待つことになる)
+	clientCtx, stopClients := context.WithCancel(ctx)
+	defer stopClients()
 
 	c := &collector{}
 	fmt.Printf("接続中: %d クライアント (%d 人 × %d セッション) → %s\n",
@@ -206,7 +240,7 @@ func run(opts options) (*result, error) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			if err := runClient(ctx, opts, c, ready); err != nil {
+			if err := runClient(clientCtx, opts, c, ready); err != nil {
 				c.fail("client %d: %v", n, err)
 				ready <- struct{}{}
 			}
@@ -226,28 +260,36 @@ func run(opts options) (*result, error) {
 	time.Sleep(opts.warmup)
 	c.measuringEnd = time.Now().Add(opts.duration)
 	started := time.Now()
+	c.measuring.Store(true)
 	time.Sleep(opts.duration)
+	c.measuring.Store(false)
 	elapsed := time.Since(started)
 
+	stopClients()
 	wg.Wait()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	res := &result{
-		Label:          opts.label,
-		URL:            opts.baseURL,
-		Clients:        opts.clients,
-		MatchSize:      opts.matchSize,
-		Hz:             opts.hz,
-		DurationS:      elapsed.Seconds(),
-		WarmupS:        opts.warmup.Seconds(),
-		StartedAt:      started,
-		RTTMs:          summarize(c.rtt),
-		TickIntervalMs: summarize(c.tick),
-		Messages:       c.messages,
-		MessagesPerSec: float64(c.messages) / elapsed.Seconds(),
-		Disconnects:    c.disconnects,
-		Errors:         c.errs,
+		Label:                      opts.label,
+		URL:                        opts.baseURL,
+		Clients:                    opts.clients,
+		MatchSize:                  opts.matchSize,
+		Hz:                         opts.hz,
+		DurationS:                  elapsed.Seconds(),
+		WarmupS:                    opts.warmup.Seconds(),
+		StartedAt:                  started,
+		RTTMs:                      summarize(c.rtt),
+		TickIntervalMs:             summarize(c.tick),
+		Messages:                   c.messages,
+		MessagesPerSec:             float64(c.messages) / elapsed.Seconds(),
+		Disconnects:                c.disconnects,
+		Binary:                     opts.binary,
+		WireRxBytesPerClientPerSec: float64(c.wireRx.Load()) / float64(opts.clients) / elapsed.Seconds(),
+		WireTxBytesPerClientPerSec: float64(c.wireTx.Load()) / float64(opts.clients) / elapsed.Seconds(),
+		RxBytesPerClientPerSec:     float64(c.rxBytes) / float64(opts.clients) / elapsed.Seconds(),
+		TxBytesPerClientPerSec:     float64(c.txBytes) / float64(opts.clients) / elapsed.Seconds(),
+		Errors:                     c.errs,
 	}
 	return res, nil
 }
@@ -270,8 +312,22 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 
 	wsURL := "ws" + strings.TrimPrefix(opts.baseURL, "http") +
 		"/api/v1/sessions/" + sessionID + "/ws"
+	if opts.binary {
+		wsURL += "?enc=bin"
+	}
+	// 実際に TCP でやり取りした量を数えるため、接続を包む
+	dialer := &net.Dialer{}
+	wsHTTP := &http.Client{Jar: jar, Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			nc, err := dialer.DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
+			return &countingConn{Conn: nc, c: c}, nil
+		},
+	}}
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
-		HTTPClient: &http.Client{Jar: jar},
+		HTTPClient: wsHTTP,
 		HTTPHeader: http.Header{"Origin": []string{opts.origin}},
 	})
 	if err != nil {
@@ -289,10 +345,58 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 	go func() {
 		defer close(readDone)
 		var last time.Time
+		// バイナリの transforms はプレイヤーを席で表すので、snapshot(JSON)で自分の席を知っておく
+		mySeat := -1
 		for {
-			_, data, err := conn.Read(ctx)
+			typ, data, err := conn.Read(ctx)
 			if err != nil {
 				return
+			}
+			c.addBytes(len(data), 0)
+			if typ == websocket.MessageBinary {
+				// type=2 | serverTime f64 | n u8 | n × (seat u8 | seq u32 | f32 × 5)(backend/internal/session/binary.go)
+				if len(data) < 10 || data[0] != 2 {
+					continue
+				}
+				now := time.Now()
+				if !last.IsZero() {
+					c.addTick(float64(now.Sub(last).Microseconds()) / 1000)
+				}
+				last = now
+				n := int(data[9])
+				for i := 0; i < n && 10+(i+1)*25 <= len(data); i++ {
+					off := 10 + i*25
+					if int(data[off]) != mySeat {
+						continue
+					}
+					seq := int64(binary.LittleEndian.Uint32(data[off+1:]))
+					mu.Lock()
+					sent, ok := pending[seq]
+					delete(pending, seq)
+					mu.Unlock()
+					if ok {
+						c.addRTT(float64(now.Sub(sent).Microseconds()) / 1000)
+					}
+				}
+				continue
+			}
+			if mySeat < 0 {
+				var snap struct {
+					Type    string `json:"type"`
+					Session struct {
+						Players []struct {
+							PlayerId string `json:"playerId"`
+							Seat     int    `json:"seat"`
+						} `json:"players"`
+					} `json:"session"`
+				}
+				if json.Unmarshal(data, &snap) == nil && snap.Type == "snapshot" {
+					for _, p := range snap.Session.Players {
+						if p.PlayerId == playerID {
+							mySeat = p.Seat
+						}
+					}
+				}
 			}
 			var msg struct {
 				Type    string `json:"type"`
@@ -332,26 +436,53 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	var seq int64
+	// 実際のプレイヤーに近い動き: クライアントごとに位相をずらした円を歩き、進行方向を向き、上下も少し見回す。
+	// 値が毎回変わるので、圧縮の効き方も実際に近くなる(位置が固定だと、圧縮がよく効きすぎる)
+	phase := rand.Float64() * 2 * math.Pi
+	cx, cz := rand.Float64()*20-10, rand.Float64()*20-10
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-readDone:
+			// 測定の終わりに止めたときも読み取りは終わるので、切断として数えない
+			if ctx.Err() != nil {
+				return nil
+			}
 			c.disconnected()
 			return errors.New("サーバーから切断された")
 		case <-ticker.C:
 			seq++
-			msg := map[string]any{
-				"type":     "transform",
-				"position": []float64{1.25, 0, -2.5},
-				"yaw":      float64(seq%360) * math.Pi / 180,
-				"pitch":    0.0,
-				"seq":      seq,
+			t := float64(seq) / float64(opts.hz)
+			a := phase + t*0.8 // 半径 3 m を 2.4 m/秒で歩く
+			px, pz := cx+3*math.Cos(a), cz+3*math.Sin(a)
+			yaw := a + math.Pi/2
+			pitch := 0.2 * math.Sin(t*0.5)
+			var body []byte
+			typ := websocket.MessageText
+			if opts.binary {
+				// type=1 | seq u32 | x y z f32 | yaw f32 | pitch f32
+				body = make([]byte, 25)
+				body[0] = 1
+				binary.LittleEndian.PutUint32(body[1:], uint32(seq))
+				for i, v := range []float64{px, 0, pz, yaw, pitch} {
+					binary.LittleEndian.PutUint32(body[5+i*4:], math.Float32bits(float32(v)))
+				}
+				typ = websocket.MessageBinary
+			} else {
+				var err error
+				body, err = json.Marshal(map[string]any{
+					"type":     "transform",
+					"position": []float64{px, 0, pz},
+					"yaw":      yaw,
+					"pitch":    pitch,
+					"seq":      seq,
+				})
+				if err != nil {
+					return err
+				}
 			}
-			body, err := json.Marshal(msg)
-			if err != nil {
-				return err
-			}
+			c.addBytes(0, len(body))
 			mu.Lock()
 			pending[seq] = time.Now()
 			for s := range pending {
@@ -362,13 +493,38 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 			mu.Unlock()
 
 			wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			err = conn.Write(wctx, websocket.MessageText, body)
+			err := conn.Write(wctx, typ, body)
 			cancel()
 			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
 				return fmt.Errorf("送信に失敗: %w", err)
 			}
 		}
 	}
+}
+
+// countingConn は、測定時間の中で TCP の上を通ったバイト数を数える
+type countingConn struct {
+	net.Conn
+	c *collector
+}
+
+func (cc *countingConn) Read(p []byte) (int, error) {
+	n, err := cc.Conn.Read(p)
+	if cc.c.measuring.Load() {
+		cc.c.wireRx.Add(int64(n))
+	}
+	return n, err
+}
+
+func (cc *countingConn) Write(p []byte) (int, error) {
+	n, err := cc.Conn.Write(p)
+	if cc.c.measuring.Load() {
+		cc.c.wireTx.Add(int64(n))
+	}
+	return n, err
 }
 
 func createPlayer(ctx context.Context, client *http.Client, baseURL string) (string, error) {
@@ -488,6 +644,8 @@ func printSummary(r *result) {
 	fmt.Printf("クライアント %d  セッション %d  送信 %d Hz  %0.1f 秒\n",
 		r.Clients, r.Clients/r.MatchSize, r.Hz, r.DurationS)
 	fmt.Printf("配信 %d 通 (%.0f 通/秒)  切断 %d\n", r.Messages, r.MessagesPerSec, r.Disconnects)
+	fmt.Printf("1 クライアントあたり 受信 %.0f B/秒  送信 %.0f B/秒(ペイロード、binary=%v)\n", r.RxBytesPerClientPerSec, r.TxBytesPerClientPerSec, r.Binary)
+	fmt.Printf("1 クライアントあたり 回線 受信 %.0f B/秒  送信 %.0f B/秒(TCP の上、WebSocket ヘッダ込み)\n", r.WireRxBytesPerClientPerSec, r.WireTxBytesPerClientPerSec)
 	fmt.Printf("%-16s %7s %7s %7s %7s %7s\n", "", "n", "p50", "p95", "p99", "max")
 	fmt.Printf("%-16s %7d %7.1f %7.1f %7.1f %7.1f  ms\n", "RTT", r.RTTMs.Count, r.RTTMs.P50, r.RTTMs.P95, r.RTTMs.P99, r.RTTMs.Max)
 	fmt.Printf("%-16s %7d %7.1f %7.1f %7.1f %7.1f  ms\n", "配信間隔(目標50)", r.TickIntervalMs.Count, r.TickIntervalMs.P50, r.TickIntervalMs.P95, r.TickIntervalMs.P99, r.TickIntervalMs.Max)
