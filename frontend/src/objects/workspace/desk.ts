@@ -11,7 +11,7 @@ import type {Vector3Tuple} from "three";
  * 約 33 度の見下ろしで視線の中央に入る。目から中央までは約 1.2m で、INTERACT_DISTANCE(2.5m)の内側
  */
 export const DESK_HEIGHT = 0.95;
-/** 天板。フットプリント(1.6m x 0.8m)は dev/authority.ts の DEV_WORKSPACE_POSITION の干渉計算が前提にしている */
+/** 天板。フットプリント(1.6m x 0.8m)は room の WORKSPACE_POSITION と test の配置の干渉計算が前提にしている */
 export const TOP_SIZE: Vector3Tuple = [1.6, 0.04, 0.8];
 /** 幕板(天板の下に回した枠)。天板の縁から FRAME_INSET 引っ込めて、天板の厚みに段差を付ける */
 const FRAME_INSET = 0.08;

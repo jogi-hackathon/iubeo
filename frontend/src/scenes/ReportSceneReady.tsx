@@ -4,9 +4,9 @@ import type {SceneName} from "./index";
 import {markSceneReady} from "./sceneReady";
 
 /**
- * シーンが準備できたことを知らせる。App がシーンの隣(後ろ)に 1 つだけ置く(シーンごとに置き忘れない)。
- * effect で報告するので、マウントの時点で置かれたオブジェクトは同じ commit に入っている。
- * サーバー役(オーソリティ)の準備を待つようになったら、ここの報告の仕方を変える
+ * シーンが準備できたことを知らせる(mount のシーンだけ。App と bake が、表(readiness.ts)で mount のシーンにだけ置く)。
+ * オーソリティが物を置くシーン(authority)は、置いた LocalAuthority が自分で知らせる。
+ * 置かれる側の effect は、シーンの後ろに置くこの effect より先に走るので、マウントの時点で準備は整う
  */
 export function ReportSceneReady({scene}: {scene: SceneName}) {
   useEffect(() => {

@@ -41,7 +41,7 @@ type Phase = "leave" | "prepare" | "enter";
  * goTo の順序: transitionStart -> onLeave(from) -> runTransition -> onPrepare(to) と commit(to) -> onEnter(to)
  *   -> waitReady(to) -> finishTransition -> transitionEnd。
  * onPrepare と commit は同じ同期区間で続けて呼ぶ(React の再描画が 1 回にまとまり、新しいシーンに前のシーンのオブジェクトが
- * 一瞬出たり、ベイク AO の不一致が起きたりしない)。onPrepare は「新しいシーンが描かれる前」に、サーバー役のオブジェクトなどを揃える場所。
+ * 一瞬出たり、ベイク AO の不一致が起きたりしない)。onPrepare は「新しいシーンが描かれる前」の準備(準備済みの印を外すなど)をする場所。オブジェクトは、新しいシーンのオーソリティがマウントで置く。
  * waitReady は commit の後で待つ(新しいシーンのマウントは commit の後に起きるため)。準備が終わるまで演出は終わらない
  */
 export const createSceneTransitionManager = ({

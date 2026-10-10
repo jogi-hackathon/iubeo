@@ -6,8 +6,7 @@ import {
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
-// テストシーン(衝突確認用)のレイアウト。ダミーのサーバー役(dev/authority)が、ここの id でオブジェクトを置く。
-// 位置は、以前 dev/authority に直書きしていた値をそのまま移したもの
+// テストシーン(衝突確認用)のレイアウト。LocalAuthority が、ここの id と項目名でオブジェクトを置く(何を置くかは ./initial)
 
 /** ダミーの箱の番号 n の、スポーン直後の置き場所(スポーン地点から -Z 方向に 5 つ並べる) */
 const spareOffset = (n: number): Vec3 => [((n % 5) - 2) * 0.8, 1.5, -7];
@@ -24,8 +23,8 @@ const spare = (n: number): [string, LayoutItem] => [
 ];
 
 /**
- * テストシーンに置く物のレイアウト。dummy-1〜3 は初期状態で置く(スコープ・使用可否は dev/authority の表)。
- * dummy-4〜8 は予備(TEST_SPARE_IDS)
+ * テストシーンに置く物のレイアウト。dummy-1〜3 は初期設定(./initial)で置く。
+ * dummy-4〜8 は予備(TEST_SPARE_IDS。初期設定に無いので置かれない)
  */
 export const TEST_LAYOUT: SceneLayout = Object.fromEntries([
   ["dummy-1", {id: "dummy-1", position: [-1.5, 1, -4]}],

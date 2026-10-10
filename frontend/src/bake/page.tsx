@@ -4,9 +4,10 @@ import {createRoot} from "react-dom/client";
 import {WebGPURenderer} from "three/webgpu";
 
 import {ADAPTER_OPTIONS, assertWebGPUBackend} from "../boot/capabilities";
-// ダミーのサーバー役。ゲーム本体(開発時)と同じ位置に、確認用のオブジェクト(ディレクトリなど)を置く
-import {applyDevLayout} from "../dev/authority";
 import {type SceneName, sceneNames, scenes} from "../scenes";
+import {sceneReadiness} from "../scenes/readiness";
+import {ReportSceneReady} from "../scenes/ReportSceneReady";
+import {whenSceneReady} from "../scenes/sceneReady";
 import {BAKE_SAVE_PATH, type BakeSaveMeta, bakedAOFiles} from "./paths";
 import {type BakeProgress, bakeSceneAO} from "./run";
 
@@ -41,11 +42,6 @@ const SOFTWARE_RE =
 
 const isSceneName = (name: string): name is SceneName =>
   (sceneNames as string[]).includes(name);
-
-// ダミーのサーバー役のオブジェクトを、ベイクするシーンの配置に合わせる(ゲーム本体はシーン切替で置き直す)
-if (isSceneName(sceneName)) {
-  applyDevLayout(sceneName);
-}
 
 /** WebGPU が使えないと WebGPURenderer は黙って WebGL2 に落ちるので、確認して止める */
 const createRenderer = async (props: object) => {
@@ -114,13 +110,24 @@ const save = async (
   }
 };
 
-function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
+/**
+ * ベイクを走らせる。シーンの準備(マウントと、物を置く窓口の登録)が終わってから始める
+ * (シーンの LocalAuthority が置く物も、ベイクの対象に入るように)
+ */
+function Runner({
+  scene,
+  onProgress,
+}: {
+  scene: SceneName;
+  onProgress: (p: BakeProgress) => void;
+}) {
   const gl = useThree((s) => s.gl) as unknown as WebGPURenderer;
 
   useEffect(() => {
     let adapter: Record<string, unknown> | undefined;
     (async () => {
       assertWebGPUBackend(gl);
+      await whenSceneReady(scene);
       adapter = await adapterInfo();
       console.info(`[bake] adapter: ${JSON.stringify(adapter)}`);
       const text = Object.values(adapter).join(" ");
@@ -165,7 +172,7 @@ function Runner({onProgress}: {onProgress: (p: BakeProgress) => void}) {
       window.__bakeResult = {ok: false, error, adapter};
     });
     // マウント時に1回だけ走らせる(StrictMode は使っていない)
-  }, [gl, onProgress]);
+  }, [gl, scene, onProgress]);
 
   return null;
 }
@@ -178,8 +185,11 @@ const statusStyle: CSSProperties = {
 function BakePage() {
   const [progress, setProgress] = useState<BakeProgress>({status: "起動中"});
 
-  const Scene = isSceneName(sceneName) ? scenes[sceneName] : undefined;
-  if (!Scene) {
+  const scene: SceneName | undefined = isSceneName(sceneName)
+    ? sceneName
+    : undefined;
+  const Scene = scene ? scenes[scene] : undefined;
+  if (!scene || !Scene) {
     const error = `不明なシーンです: ${sceneName}(${sceneNames.join(" / ")})`;
     window.__bakeResult = {ok: false, error};
     return <div style={statusStyle}>{error}</div>;
@@ -206,9 +216,13 @@ function BakePage() {
             すべて解決するまで境界ごとコミットされないので、Runner の effect が走る時点でシーンは揃っている。
             useEffect で自前に非同期ロードする prop はここで待てないので、静的な prop の読み込みは Suspense で行うこと */}
         <Suspense fallback={null}>
-          {/* サーバーが置くオブジェクトのうち、動かない物(ディレクトリなど)は、シーンが描く(ManagedObjects)ので、一緒にベイクされる */}
+          {/* 物(ディレクトリなど)は、シーンの LocalAuthority が置いて、ManagedObjects が描く(一緒にベイクされる) */}
           <Scene />
-          <Runner onProgress={setProgress} />
+          {/* 準備を知らせる(mount のシーンだけ。authority のシーンは、置いた LocalAuthority が知らせる。Runner は、これが済むまで待つ) */}
+          {sceneReadiness[scene] === "mount" && (
+            <ReportSceneReady key={`ready:${scene}`} scene={scene} />
+          )}
+          <Runner scene={scene} onProgress={setProgress} />
         </Suspense>
       </Canvas>
     </>

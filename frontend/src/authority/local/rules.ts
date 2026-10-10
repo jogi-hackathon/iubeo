@@ -1,0 +1,348 @@
+import {
+  type CreatedStatus,
+  FILE_KIND,
+  type Item,
+  isCreatedStatus,
+  parseFileData,
+} from "../../items";
+import type {
+  GameObject,
+  HeldItemRef,
+  InteractRequest,
+  ObjectManager,
+  RejectReason,
+} from "../../objects";
+import {CANVAS_ACTION_MS, CANVAS_KIND} from "../../objects/canvas/data";
+import {
+  DIRECTORY_KIND,
+  type DirectoryData,
+  type StockFile,
+  parseDirectoryData,
+} from "../../objects/directory/data";
+import {
+  WORKSPACE_ACTION_MS,
+  WORKSPACE_KIND,
+} from "../../objects/workspace/data";
+import type {PlayerId} from "../../player/types";
+import type {AuthorityMessage} from "../apply";
+import type {AuthorityDev} from "../registry";
+
+export const DUMMY_OBJECT_KIND = "dummy";
+export const DUMMY_ITEM_KIND = "dummy_item";
+
+type Deps = {
+  /** このオーソリティから見た自分の ID(要求の by と、自分の個人のオブジェクトの owner) */
+  playerId: PlayerId;
+  /** オブジェクトを読む。書くのは deliver だけ */
+  objects: Pick<ObjectManager, "getObject" | "getState">;
+  /**
+   * サーバーと同じ形の通知を出す(object.upsert / object.remove / object.interactRejected、手持ちは player.updated)。
+   * 反映は呼び出し側(LocalAuthority は apply.ts の applyMessage)が行う
+   */
+  deliver: (message: AuthorityMessage) => void;
+  /** ms 後に fn を呼ぶ(ワークスペースのアニメーション待ち)。戻り値で取り消せる。テストで時間を進める用。既定は setTimeout */
+  schedule?: (fn: () => void, ms: number) => () => void;
+  /** 新しいファイルの id を採番する。テストで固定する用。既定は crypto.randomUUID */
+  newId?: () => string;
+};
+
+const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
+  const id = setTimeout(fn, ms);
+  return () => clearTimeout(id);
+};
+
+/**
+ * ローカルのオーソリティの規則(実サーバーができるまでの窓口)。要求を受けて状態を決め、その結果を
+ * サーバーと同じ形の通知(deliver)で出す。手持ちは規則が持つ(変わるたびに player.updated で通知する)。
+ * 実サーバーの挙動の写しではなく、クライアントの管理を動かすための最小限の規則。
+ * 開発用の操作(ダミーの箱を置く・借りる・手持ちを作る など)は、dev/localDevOps.ts が dev の入口を借りて行う
+ *
+ * - interact: 存在しなければ not_found、personal を owner 以外が触れば not_owner、使用不可なら
+ *   unavailable で拒否。通れば、そのプレイヤーを users に出し入れする(personal は本人だけ、shared は複数人)
+ * - ディレクトリ(kind "directory")の interact は、users の出し入れはせず、手持ちで決める:
+ *   - 手ぶら + target: 在庫にあれば取り除き、そのファイルを手に持たせる(先着。無ければ not_found)。target が無ければ missing_item
+ *   - ファイルを持って: 手持ちを消して、status で行き先を決める
+ *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
+ *   - ファイル以外を持って: missing_item
+ * - キャンバス(kind "canvas")の interact は、アニメーション(CANVAS_ACTION_MS)を待って結果を返す(実サーバーの interact.go はまだ未対応で、
+ *   キャンバスは unavailable で拒否する。ここは先に、フロントの流れ「interact → 演出 → 新規ファイルを手に持つ」を確かめるための写し):
+ *   - 作業中(users に誰かいる)なら unavailable
+ *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "image_created"、色なし)を手に持たせて users から出る
+ *   - 何かを持って: missing_item(アニメーションは始めない)
+ *   - 終わる時点で手を塞がれていたら、結果は適用せず users から出るだけ。作業中にキャンバスが消えたら、結果は適用しない
+ * - ワークスペース(kind "workspace")の interact は、アニメーション(WORKSPACE_ACTION_MS)を待って結果を返す:
+ *   - 作業中(users に誰かいる)なら unavailable
+ *   - ディレクトリから取り出した編集前のファイル(status "unedited")を持って: 受理して users に入り、終わったら同じ id・同じ color で status を "edited" にして users から出る
+ *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "file_created"、色なし)を手に持たせて users から出る
+ *   - 編集済みのファイル / 作成したファイル(作成系。作成したファイルは編集しない) / ファイル以外を持って: missing_item(アニメーションは始めない)
+ *   - 終わる時点で手持ちが変わって条件を外れていたら、結果は適用せず users から出るだけ。作業中にワークスペースが消えたら、結果は適用しない
+ *
+ * 置いた物の追跡: deliver で、まだ無かった物を upsert した id を覚えておき、release で、その物だけを片付ける(外から置かれた物には触れない)
+ */
+export const createLocalRules = ({
+  playerId,
+  objects,
+  deliver: deliverRaw,
+  schedule = defaultSchedule,
+  newId = () => crypto.randomUUID(),
+}: Deps) => {
+  // 規則が置いた物の id(まだ無かった物を upsert したときだけ覚える。release で片付ける物)。
+  // 外から置かれた物は、規則が users などを書き換えても覚えない(release で消さない)
+  const known = new Set<string>();
+  // 手持ち(規則が持つ。変わるたびに player.updated で通知する)
+  let held: Item | null = null;
+  // 未完了のアニメーション待ち(dispose で取り消す)
+  const pending = new Set<() => void>();
+  // 時間が来たら fn を呼ぶ。来る前に dispose されていれば呼ばない
+  const later = (fn: () => void, ms: number): void => {
+    let done = false;
+    let cancel: (() => void) | null = null;
+    cancel = schedule(() => {
+      if (done) {
+        return;
+      }
+      done = true;
+      // schedule がその場で呼ぶ実装(テスト用など)でも動くよう、cancel はまだ無いことがある
+      if (cancel) {
+        pending.delete(cancel);
+      }
+      fn();
+    }, ms);
+    if (!done) {
+      pending.add(cancel);
+    }
+  };
+  // 達成したファイルの id(サーバーが数える物。クライアントには渡らないので、デバッグパネル用に持つ)。
+  // 編集済みを取り出して入れ直しても、同じファイルは 1 回しか数えない
+  const achievedIds = new Set<string>();
+
+  const deliver = (message: AuthorityMessage): void => {
+    if (message.type === "object.upsert") {
+      if (!objects.getObject(message.object.id)) {
+        known.add(message.object.id);
+      }
+    } else if (message.type === "object.remove") {
+      known.delete(message.id);
+    }
+    deliverRaw(message);
+  };
+  const setHeld = (next: Item | null): void => {
+    held = next;
+    deliver({type: "player.updated", player: {playerId, heldItem: next}});
+  };
+
+  const reject = (objectId: string, reason: RejectReason) =>
+    deliver({type: "object.interactRejected", objectId, reason});
+
+  const setDirectory = (object: GameObject, data: DirectoryData) =>
+    deliver({type: "object.upsert", object: {...object, data}});
+
+  const handleDirectory = (
+    object: GameObject,
+    heldRef: HeldItemRef,
+    target: string | undefined,
+  ) => {
+    const data = parseDirectoryData(object.data);
+
+    if (!heldRef) {
+      if (target === undefined) {
+        reject(object.id, "missing_item");
+        return;
+      }
+      const file = data.stock.find((f) => f.id === target);
+      if (!file) {
+        reject(object.id, "not_found");
+        return;
+      }
+      setDirectory(object, {
+        ...data,
+        stock: data.stock.filter((f) => f.id !== file.id),
+      });
+      setHeld({
+        id: file.id,
+        kind: FILE_KIND,
+        data: {status: file.status, color: file.color},
+      });
+      return;
+    }
+
+    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(data は要求に載らない)
+    const file =
+      held && held.id === heldRef.id && held.kind === FILE_KIND
+        ? parseFileData(held.data)
+        : null;
+    if (!held || !file) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    if (isCreatedStatus(file.status)) {
+      setDirectory(object, {...data, outputs: data.outputs + 1});
+    } else {
+      // 貸出方式: 取り出し元のファイルは、編集の有無によらず在庫に戻る
+      const back: StockFile = {
+        id: held.id,
+        color: file.color ?? "#ffffff",
+        status: file.status,
+      };
+      if (file.status === "edited") {
+        achievedIds.add(held.id);
+      }
+      setDirectory(object, {...data, stock: [...data.stock, back]});
+    }
+    setHeld(null);
+  };
+
+  const spawnNew = (status: CreatedStatus): string => {
+    const id = newId();
+    setHeld({id, kind: FILE_KIND, data: {status}});
+    return id;
+  };
+
+  const setUsers = (id: string, users: readonly PlayerId[]) => {
+    const object = objects.getObject(id);
+    if (object) {
+      deliver({type: "object.upsert", object: {...object, users}});
+    }
+  };
+
+  /** 手持ちが、ディレクトリから取り出した編集前のファイルで、id が合っているか(合っていれば、そのファイルの data を返す)。作成したファイルは編集できない */
+  const heldUnedited = (id: string) => {
+    const file =
+      held && held.id === id && held.kind === FILE_KIND
+        ? parseFileData(held.data)
+        : null;
+    return held && file && file.status === "unedited" ? {held, file} : null;
+  };
+
+  const handleWorkspace = (object: GameObject, request: InteractRequest) => {
+    if (object.users.length > 0) {
+      reject(object.id, "unavailable");
+      return;
+    }
+    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める(要求の主張と実際が食い違えば拒否)
+    if ((request.heldItem?.id ?? null) !== (held?.id ?? null)) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    if (held && !heldUnedited(held.id)) {
+      reject(object.id, "missing_item");
+      return;
+    }
+    const editingId = held?.id ?? null;
+
+    // 受理: 即 users に入る(作業中)。結果はアニメーションの後に、手持ちを確かめ直して適用する
+    setUsers(object.id, [request.by]);
+    later(() => {
+      // 作業中に机が消えたら、結果は適用しない
+      if (!objects.getObject(object.id)) {
+        return;
+      }
+      if (editingId === null) {
+        if (held === null) {
+          spawnNew("file_created");
+        }
+      } else {
+        const current = heldUnedited(editingId);
+        if (current) {
+          setHeld({...current.held, data: {...current.file, status: "edited"}});
+        }
+      }
+      setUsers(object.id, []);
+    }, WORKSPACE_ACTION_MS);
+  };
+
+  const handleCanvas = (object: GameObject, request: InteractRequest) => {
+    if (object.users.length > 0) {
+      reject(object.id, "unavailable");
+      return;
+    }
+    // 要求の手持ちの主張ではなく、規則が持つ手持ちで決める。新しいファイルを手に持つので、手は空いている必要がある
+    if (held || request.heldItem !== null) {
+      reject(object.id, "missing_item");
+      return;
+    }
+
+    // 受理: 即 users に入る(作業中)。結果はアニメーションの後に、手が空いているか確かめ直して適用する
+    setUsers(object.id, [request.by]);
+    later(() => {
+      // 作業中にキャンバスが消えたら、結果は適用しない
+      if (!objects.getObject(object.id)) {
+        return;
+      }
+      if (held === null) {
+        spawnNew("image_created");
+      }
+      setUsers(object.id, []);
+    }, CANVAS_ACTION_MS);
+  };
+
+  /** 規則が置いた物を片付ける(そのうち今あるものだけ remove する)。手持ちも空にする */
+  const release = (): void => {
+    for (const id of Array.from(known)) {
+      if (objects.getObject(id)) {
+        deliver({type: "object.remove", id});
+      }
+    }
+    known.clear();
+    setHeld(null);
+  };
+
+  /** 低レベルの入口(開発用の操作が、窓口の dev として借りる)。読む・書くはここだけで行う */
+  const dev: AuthorityDev = {
+    deliver,
+    getObject: (id) => objects.getObject(id),
+    getObjects: () => objects.getState().objects,
+    getHeldItem: () => held,
+    setHeldItem: (item) => setHeld(item),
+    getAchieved: () => achievedIds.size,
+  };
+
+  return {
+    handle: (request: InteractRequest): void => {
+      const object = objects.getObject(request.objectId);
+      if (!object) {
+        reject(request.objectId, "not_found");
+        return;
+      }
+      if (object.scope === "personal" && object.owner !== request.by) {
+        reject(object.id, "not_owner");
+        return;
+      }
+      if (object.availability === "unavailable") {
+        reject(object.id, "unavailable");
+        return;
+      }
+      if (object.kind === DIRECTORY_KIND) {
+        handleDirectory(object, request.heldItem, request.target);
+        return;
+      }
+      if (object.kind === WORKSPACE_KIND) {
+        handleWorkspace(object, request);
+        return;
+      }
+      if (object.kind === CANVAS_KIND) {
+        handleCanvas(object, request);
+        return;
+      }
+      const using = object.users.includes(request.by);
+      const users = using
+        ? object.users.filter((u) => u !== request.by)
+        : [...object.users, request.by];
+      deliver({type: "object.upsert", object: {...object, users}});
+    },
+
+    /** 未完了のアニメーション待ちを全部取り消す(オーソリティを外すとき。取り消した後は、結果は適用されない) */
+    dispose: (): void => {
+      for (const cancel of Array.from(pending)) {
+        cancel();
+      }
+      pending.clear();
+    },
+    /** 規則が置いた物と手持ちを片付ける(LocalAuthority がアンマウントで呼ぶ) */
+    release,
+    /** 低レベルの入口(窓口の dev に渡す。LocalAuthority は placement もこれで行う) */
+    dev,
+  };
+};
+
+export type LocalRules = ReturnType<typeof createLocalRules>;

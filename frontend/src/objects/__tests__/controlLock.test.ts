@@ -1,34 +1,72 @@
 import {describe, expect, it, vi} from "vitest";
 
+import {applyMessage} from "../../authority/apply";
+import {createLocalRules} from "../../authority/local/rules";
 import {isPlayerControlLocked} from "../../core/playerControl";
-import {createDummyAuthority} from "../../dev/dummyAuthority";
 import {createItemManager} from "../../items/itemManager";
+import {CANVAS_KIND} from "../canvas/data";
 import {controlLockEffect, isWorkingAt} from "../controlLock";
 import {createObjectManager} from "../objectManager";
+import type {GameObject, ObjectAvailability} from "../types";
+import {WORKSPACE_KIND} from "../workspace/data";
 
 // useControlLockWhileWorking と同じ導出(状態 → 作業中か → 預かり)を、objectManager とつないで確かめる。
 // 預かり自体は実物(core/playerControl)で数える
 const setup = () => {
   const items = createItemManager();
   const timers: Array<() => void> = [];
-  let handle: Parameters<typeof createObjectManager>[0]["send"] = () => {};
   const objects = createObjectManager({
-    localPlayerId: "me",
     getHeldItem: () => {
       const held = items.getHeld();
       return held && {id: held.id, kind: held.kind};
     },
-    send: (r) => handle(r),
+    getAuthority: () => ({
+      playerId: "me",
+      kind: "local",
+      send: (r) => rules.handle(r),
+    }),
   });
-  const authority = createDummyAuthority({
-    localPlayerId: "me",
+  // 実際の配線と同じ形: 規則の通知は applyMessage で反映する
+  const rules = createLocalRules({
+    playerId: "me",
     objects,
-    items,
+    deliver: (message) =>
+      applyMessage({objects, items, myPlayerId: () => "me"}, message),
     schedule: (fn) => {
       timers.push(fn);
+      return () => {};
     },
   });
-  handle = authority.handle;
+  // 置く・消す・持たせるは、規則の通知(dev.deliver / dev.setHeldItem)で行う
+  const put = (object: GameObject): string => {
+    rules.dev.deliver({type: "object.upsert", object});
+    return object.id;
+  };
+  const spawn = (id: string, kind: string): string =>
+    put({
+      id,
+      kind,
+      scope: "personal",
+      owner: "me",
+      users: [],
+      availability: "available",
+      data: null,
+    });
+  const authority = {
+    ...rules,
+    spawnWorkspace: (id: string): string => spawn(id, WORKSPACE_KIND),
+    spawnCanvas: (id: string): string => spawn(id, CANVAS_KIND),
+    setAvailability: (id: string, availability: ObjectAvailability): void => {
+      const object = objects.getObject(id);
+      if (object) {
+        put({...object, availability});
+      }
+    },
+    deleteHeldItem: (): void => rules.dev.setHeldItem(null),
+    removeObject: (id: string): void => {
+      rules.dev.deliver({type: "object.remove", id});
+    },
+  };
   // 作業中か(オブジェクトが無くなれば false)
   const working = (id: string) => {
     const object = objects.getObject(id);
@@ -43,7 +81,7 @@ const setup = () => {
   };
 };
 
-describe("isWorkingAt(objectManager とダミーのサーバー役につないだ導出)", () => {
+describe("isWorkingAt(objectManager とローカルの窓口につないだ導出)", () => {
   it("自分が users に入っている間だけ true", () => {
     const {objects, authority, working, finish} = setup();
     const id = authority.spawnWorkspace("workspace-1");
@@ -79,11 +117,11 @@ describe("isWorkingAt(objectManager とダミーのサーバー役につない�
   });
 
   it("拒否されたとき(missing_item・unavailable)は、users に入らないので true にならない", () => {
-    const {objects, items, authority, working} = setup();
+    const {objects, authority, working} = setup();
     const onRejected = vi.fn();
     objects.on("interactRejected", onRejected);
     const id = authority.spawnWorkspace("workspace-1");
-    items.apply({type: "spawn", item: {id: "l", kind: "lighter", data: null}});
+    authority.dev.setHeldItem({id: "l", kind: "lighter", data: null});
 
     objects.interact(id);
 

@@ -56,6 +56,7 @@ function SandboxZone({
  * サーバーが置くオブジェクトは、本番ではサーバーの配置(dev のダミーと同じとは限らない)で決まり、ベイク時と数・位置が違うとシーン全体のベイク AO が外れるので、
  * room と同じく AO は realtime にしてベイクしない(床・外壁・屋根・イスだけをベイクする。透明な仕切りもベイクしない=遮蔽物にもしない)
  */
+// TODO(E): サンドボックスのオーソリティ(LocalAuthority などで置く物と、初期設定)は未対応。今は物を置かないので、準備は mount で足りる
 export function SandboxScene() {
   return (
     <>

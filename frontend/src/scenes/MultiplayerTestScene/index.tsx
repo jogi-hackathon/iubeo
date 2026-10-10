@@ -9,7 +9,7 @@ import {TestLayout} from "../TestScene/TestLayout";
 /**
  * 開発用ローカルマルチのシーン。地形は TestScene と同じ。
  * デバッグが有効(VITE_ENABLE_DEBUG=true)なら、入ったときに同じサーバー(開発時は Vite の proxy の先)へ
- * 自動でつなぎ、実サーバーと同じ経路で動かす。出たら切って、ダミーのサーバー役に戻す
+ * 自動でつなぎ、実サーバーと同じ経路で動かす。出たら切る(窓口を外す)
  */
 export function MultiplayerTestScene() {
   useEffect(() => {

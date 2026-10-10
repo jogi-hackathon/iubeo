@@ -1,12 +1,13 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 
+import {LocalAuthority} from "../../authority/local/LocalAuthority";
 import {createToggleStore, useIsVisible} from "../../core/toggles";
 import {TogglesProvider} from "../../core/TogglesProvider";
 import {ManagedObjects} from "../../objects";
 import {featureKey} from "../../objects/layout";
 import {Chair, Wall} from "../../props";
 import {WhiteWorld} from "../environment/WhiteWorld";
-import {placeDebugObjects} from "./debugObjects";
+import {ROOM_INITIAL} from "./initial";
 import {CHAIR_POSITION, ROOM_FLOOR, ROOM_LAYOUT, ROOM_WALLS} from "./layout";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {WindowPlug} from "./WindowPlug";
@@ -34,6 +35,7 @@ function RoomProps() {
  * 床・壁・天井・イスはここで置く(共通の床は使わず、部屋専用の床を敷く)。ディレクトリ・ワークスペース・キャンバス・PC は ManagedObjects が描く(置き場所は ./layout)。
  * イス・窓・オブジェクトは、core/toggles で個別に表示・非表示と機能の ON・OFF を切り替えられる(キーは ./props)。
  * トグルのストアはこのシーンが持つ(マウントで作り、TogglesProvider で配下に配る)。シーンを出れば捨てられるので、再入室すれば初期状態に戻る。
+ * 物(ディレクトリ・ワークスペース・キャンバス・PC)は LocalAuthority が置く(何を置くかは ./initial と ./layout)。
  * 初期状態は、ディレクトリの俯瞰ビューだけ機能 OFF(チュートリアルが後から ON にする。ファイルを持っているときの「入れる」は、これと関係なく動く)、他は全部表示・全部機能 ON。
  * Canvas の外からは getActiveToggles / useActiveToggles で参照できる。
  * 出し入れするイスとオブジェクトは、ベイクすると隠したあとも影が壁・床に残るので、AO は realtime にしてベイクしない(壁・床・天井だけをベイクする)。
@@ -43,10 +45,14 @@ export function RoomScene() {
   const [toggles] = useState(() =>
     createToggleStore({disabled: [featureKey("directory", "overview")]}),
   );
-  useEffect(() => placeDebugObjects(), []);
   return (
     <TogglesProvider store={toggles}>
       <RoomProps />
+      <LocalAuthority
+        scene="room"
+        layout={ROOM_LAYOUT}
+        initial={ROOM_INITIAL}
+      />
       <ManagedObjects layout={ROOM_LAYOUT} ao="realtime" />
     </TogglesProvider>
   );

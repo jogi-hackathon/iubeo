@@ -1,4 +1,5 @@
-import {itemManager, type Item} from "../../items";
+import {authorityRegistry} from "../../authority/registry";
+import {itemManager} from "../../items";
 import {
   ApiError,
   createApiClient,
@@ -8,10 +9,8 @@ import {
   type SessionConnection,
   type SocketStatus,
 } from "../../net";
-import {objectManager, setRequestHandler} from "../../objects";
+import {objectManager} from "../../objects";
 import {localPlayer, playerManager} from "../../player";
-import {sceneManager} from "../../scenes/sceneStore";
-import {applyDevLayout, dummyAuthority} from "../authority";
 import {connectManagers} from "./adapter";
 
 /** 開発用ローカルマルチの進み具合(パネル表示用) */
@@ -59,9 +58,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * 開発用ローカルマルチを始める(MultiplayerTestScene に入ったとき)。戻り値で止める。
  * 実サーバーと同じ経路で動かす: プレイヤーを作り(Cookie)、参加中のセッションがあればそこへ、
- * 無ければ自動マッチングで待ち、WebSocket でつなぐ。その間、ダミーのサーバー役は外し、
- * 手持ちは退避しておき、止めたら戻す。オブジェクトは、止めたときのシーンのレイアウトで置き直す
- * (止めるのはシーンを離れたときで、そのときには新しいシーンの物が置いてあるので、入る前の物を戻すと上書きしてしまう)
+ * 無ければ自動マッチングで待ち、WebSocket でつなぐ。つながったら、そのセッションを窓口(authorityRegistry)に登録する。
+ * 手持ちは、前のシーンの LocalAuthority が片付けた後なので空で始まり、次のシーンの LocalAuthority が決める(退避も復元もしない)。止めたら窓口を外す。
+ * 止めるのはシーンを離れたときで、そのときには新しいシーンの物が置いてあるので、入る前の物は戻さない
+ * (オブジェクトは、今ある物を片付けるだけ。置き直しは次のシーンの LocalAuthority が行う)
  */
 export const startDevMultiplayer = (): (() => void) => {
   const api = createApiClient();
@@ -70,8 +70,7 @@ export const startDevMultiplayer = (): (() => void) => {
   let connection: SessionConnection | null = null;
   const offs: Array<() => void> = [];
 
-  // ダミーのサーバー役の手持ちを退避して、場を空ける
-  const savedHeld: Item | null = itemManager.getHeld();
+  // 場を空ける
   const clearWorld = () => {
     for (const o of objectManager.getState().objects) {
       objectManager.apply({type: "remove", id: o.id});
@@ -82,8 +81,8 @@ export const startDevMultiplayer = (): (() => void) => {
     }
   };
   clearWorld();
-  // つながるまでの要求は捨てる
-  setRequestHandler(() => {});
+  // つながって窓口を登録するまでは、窓口が無いので要求は送られない(objectManager.interact は false)
+  let offAuthority: (() => void) | undefined;
 
   const sender = createTransformSender({
     read: () => ({
@@ -171,14 +170,18 @@ export const startDevMultiplayer = (): (() => void) => {
         },
       }),
     );
-    setRequestHandler(({objectId, heldItem, target}) => {
-      conn.send({
-        type: "interact",
-        objectId,
-        // kind はフロントでは string。値の正しさはサーバーが検証する
-        heldItem: heldItem as InteractMessage["heldItem"],
-        ...(target !== undefined && {target}),
-      });
+    offAuthority = authorityRegistry.register({
+      playerId: me.playerId,
+      kind: "server",
+      send: ({objectId, heldItem, target}) => {
+        conn.send({
+          type: "interact",
+          objectId,
+          // kind はフロントでは string。値の正しさはサーバーが検証する
+          heldItem: heldItem as InteractMessage["heldItem"],
+          ...(target !== undefined && {target}),
+        });
+      },
     });
     sender.start();
   };
@@ -191,20 +194,16 @@ export const startDevMultiplayer = (): (() => void) => {
     for (const off of offs.splice(0)) {
       off();
     }
+    offAuthority?.();
+    offAuthority = undefined;
     connection?.close();
     connection = null;
     if (queued) {
       api.leaveMatchmaking().catch(() => {});
     }
-    // ダミーのサーバー役に戻す
     clearWorld();
     playerManager.apply({type: "reset", players: []});
     playerManager.setLocalPlayerId(null);
-    applyDevLayout(sceneManager.getState().current);
-    if (savedHeld) {
-      itemManager.apply({type: "spawn", item: savedHeld});
-    }
-    setRequestHandler(dummyAuthority.handle);
     setStatus({phase: "idle"});
   };
 };
