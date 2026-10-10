@@ -35,7 +35,6 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
   const listeners = new Set<() => void>();
 
   const notify = () => {
-    // コールバックの例外が他のコールバック・状態更新に影響しないようにする
     for (const l of Array.from(listeners)) {
       try {
         l();
@@ -45,7 +44,6 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
     }
   };
 
-  /** key を set に入れる(on)か外す(!on)。今と同じなら null(変更なし) */
   const toggled = (
     set: ReadonlySet<string>,
     key: string,
@@ -66,7 +64,6 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
   return {
     getState: (): ToggleState => state,
     isVisible: (key: string): boolean => !state.hidden.has(key),
-    /** 機能が ON か(非表示のものは OFF) */
     isEnabled: (key: string): boolean =>
       !state.hidden.has(key) && !state.disabled.has(key),
     subscribe: (listener: () => void) => {
@@ -75,7 +72,6 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
         listeners.delete(listener);
       };
     },
-    /** 表示・非表示を切り替える。今と同じ値なら何もしない(通知もしない) */
     setVisible: (key: string, visible: boolean): void => {
       const hidden = toggled(state.hidden, key, !visible);
       if (hidden) {
@@ -83,7 +79,6 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
         notify();
       }
     },
-    /** 機能の ON・OFF を切り替える(表示とは別の値。非表示の間は、ON にしても機能しない)。今と同じ値なら何もしない */
     setEnabled: (key: string, enabled: boolean): void => {
       const disabled = toggled(state.disabled, key, !enabled);
       if (disabled) {
@@ -102,7 +97,6 @@ export const TogglesContext = createContext<ToggleStore | null>(null);
 /** 配下のシーンのトグルのストア。トグルを持たないシーンでは null */
 export const useToggles = (): ToggleStore | null => useContext(TogglesContext);
 
-// ストアが無いときの値。表示・機能 ON のまま変わらない
 const ALL_ON: ToggleState = {hidden: new Set(), disabled: new Set()};
 const noSubscribe = () => () => {};
 
@@ -132,13 +126,10 @@ export const useIsEnabled = (key: string): boolean => {
   );
 };
 
-// 今マウントされているシーンのトグル。Canvas の外(DOM のデバッグパネル、将来のチュートリアル進行)が、
-// Context を通さずに参照するための登録簿。シーンがマウントで登録し、アンマウントで解除する(TogglesProvider)
 const active: ToggleStore[] = [];
 const activeListeners = new Set<() => void>();
 
 const notifyActive = () => {
-  // コールバックの例外が他のコールバックに影響しないようにする
   for (const l of Array.from(activeListeners)) {
     try {
       l();

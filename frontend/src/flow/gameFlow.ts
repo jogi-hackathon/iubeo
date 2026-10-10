@@ -1,9 +1,5 @@
 import {ApiError, type ApiClient, CLOSE_REPLACED} from "../net";
 
-// ゲームの流れ(シーンの外で進む手順): プレイヤー ID の発行 → マッチング → sandbox への移動 → セッション中 → 終了で room へ。
-// シーンもオーソリティも知らない純粋な状態機械。外の世界(HTTP・シーン移動・待ち)は引数で受け取る。
-// 呼ぶのは今は開発用パネルのボタンだけ(startMatchmaking 1 つの呼び出し。将来、チュートリアルの終わりから同じ関数を呼ぶ)
-
 /** 流れが行き来するシーン(sceneStore の navigator が、実際のシーン名に写す) */
 export type FlowScene = "room" | "sandbox";
 
@@ -27,13 +23,9 @@ export type FlowNotice = "replaced";
 
 export type GameFlowState =
   | {status: "idle"; notice?: FlowNotice}
-  /** プレイヤー ID を発行している(POST /api/v1/players) */
   | {status: "issuing"}
-  /** マッチングの待機中。queuedAt はサーバーの待機開始時刻 */
   | {status: "queued"; playerId: string; queuedAt?: string}
-  /** マッチングが成立した(すぐ entering に進む) */
   | {status: "matched"; playerId: string; sessionId: string}
-  /** sandbox への移動中。シーンのオーソリティが最初の snapshot を受け取るまで */
   | {status: "entering"; playerId: string; sessionId: string}
   | {status: "inSession"; playerId: string; sessionId: string}
   | {status: "error"; message: string};
@@ -71,9 +63,7 @@ export const createGameFlow = ({
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: GameFlowState = {status: "idle"};
   const listeners = new Set<() => void>();
-  // 進行中の start / cancel を識別する。進めるたびに増やし、古い非同期の続きを捨てる
   let run = 0;
-  // cancel の DELETE の応答待ち(二重に呼ばない)
   let cancelling = false;
 
   const set = (next: GameFlowState) => {
@@ -92,7 +82,6 @@ export const createGameFlow = ({
     set({status: "error", message: errorMessage(e)});
   };
 
-  /** 成立: sandbox へ移る。移れるときまで待つのは navigator の仕事 */
   const enterSession = (playerId: string, sessionId: string) => {
     set({status: "matched", playerId, sessionId});
     set({status: "entering", playerId, sessionId});
@@ -113,7 +102,6 @@ export const createGameFlow = ({
     }
   };
 
-  /** 参加中のセッションを引く(無ければ null) */
   const sessionOfMe = async (): Promise<{
     playerId: string;
     sessionId: string | null;
@@ -122,10 +110,6 @@ export const createGameFlow = ({
     return {playerId: me.playerId, sessionId: me.sessionId ?? null};
   };
 
-  /**
-   * 待機列に入る。成立済みなら sessionId を返す。セッション参加中(409)ならその sessionId。
-   * どちらでもなければ(待機中)null
-   */
   const join = async (): Promise<{
     sessionId: string | null;
     queuedAt?: string;
@@ -148,10 +132,6 @@ export const createGameFlow = ({
     }
   };
 
-  /**
-   * 列に入る要求(join)が返る前に取り消されていたら、サーバーには入ってしまっているので、抜ける。
-   * ただし、その間に start し直していたら、そちらの待機を消さないよう、流れが動いていないときだけ抜ける
-   */
   const leaveIfAbandoned = () => {
     if (state.status === "idle" || state.status === "error") {
       void api.leaveMatchmaking().catch(() => {});
@@ -200,7 +180,6 @@ export const createGameFlow = ({
             return;
           }
           if (e instanceof ApiError && e.status === 404) {
-            // 見ない間に待機列から外された(10 秒)。入り直す
             joined = await join();
             if (!alive()) {
               leaveIfAbandoned();
@@ -224,7 +203,6 @@ export const createGameFlow = ({
       return;
     }
     if (state.status === "issuing") {
-      // まだ列に入っていない。進行中の start の続きを捨てる
       run += 1;
       set({status: "idle"});
       return;
@@ -232,7 +210,6 @@ export const createGameFlow = ({
     if (state.status !== "queued") {
       return;
     }
-    // ポーリングを止める(以後に返る応答は捨てる)
     run += 1;
     cancelling = true;
     try {
@@ -240,7 +217,6 @@ export const createGameFlow = ({
       set({status: "idle"});
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        // やめる前に成立していた。そのまま進む
         try {
           const me = await sessionOfMe();
           if (me.sessionId) {
@@ -252,10 +228,8 @@ export const createGameFlow = ({
           fail(e2);
         }
       } else if (e instanceof ApiError && e.status === 404) {
-        // 既に待機列に居ない(10 秒見ない間に外れた)
         set({status: "idle"});
       } else {
-        // 応答が分からなくても、ポーリングを止めたので列からは外れる(10 秒)。流れは idle に戻す
         console.error("[gameFlow]", e);
         set({status: "idle"});
       }
@@ -274,20 +248,17 @@ export const createGameFlow = ({
     },
     startMatchmaking,
     cancelMatchmaking,
-    /** sandbox のオーソリティが最初の snapshot を受け取った(entering のときだけ) */
     sessionReady: (): void => {
       if (state.status === "entering") {
         set({...state, status: "inSession"});
       }
     },
-    /** 今入っている(入ろうとしている)セッション。シーンが、マウントのときに自分のオーソリティを決める用 */
     currentSession: (): {sessionId: string; playerId: string} | null =>
       state.status === "matched" ||
       state.status === "entering" ||
       state.status === "inSession"
         ? {sessionId: state.sessionId, playerId: state.playerId}
         : null,
-    /** セッションの接続が終わった(再接続を諦めた・4000 セッション終了・4001 置き換え)。room へ戻る */
     sessionClosed: (code: number): void => {
       if (
         state.status !== "matched" &&
@@ -303,7 +274,6 @@ export const createGameFlow = ({
       );
       goRoom();
     },
-    /** sandbox を手動で離れた(流れは idle に戻る。サーバーのセッションは残るので、次の start で戻れる) */
     leftSession: (): void => {
       if (
         state.status === "matched" ||

@@ -27,9 +27,8 @@ export const createCurvedScreenGeometry = (): PlaneGeometry => {
   const halfHeight = SCREEN_HEIGHT / 2;
 
   for (let index = 0; index < position.count; index += 1) {
-    const x = position.getX(index) / halfWidth; // -1..1
-    const y = position.getY(index) / halfHeight; // -1..1
-    // 実物のブラウン管は中央が手前へ膨らみ、端へ向かって後退する。縦方向をやや強くする
+    const x = position.getX(index) / halfWidth;
+    const y = position.getY(index) / halfHeight;
     position.setZ(index, -SCREEN_CURVATURE * (0.55 * x * x + y * y));
   }
 

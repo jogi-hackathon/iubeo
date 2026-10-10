@@ -6,19 +6,6 @@ import type {Plugin} from "vite";
 
 import {tokenFromUrl, verifyWispToken} from "../worker/wispToken.ts";
 
-/**
- * このプロジェクト専用のローカル WISP サーバ。
- *
- * WISP は「WebSocket ↔ TCP のリレー」。ブラウザ（PC の画面の Gecko エンジン）は生の TCP を開けないので、
- * 実サイト（http(s)://）への接続はここを経由する。127.0.0.1 にだけ bind する。
- *
- * - `pnpm dev` のとき、Vite プラグイン（wispDevPlugin）が自動で 127.0.0.1:5001 に立てる（無効化は IUBEO_WISP=0）
- * - 単独で立てるなら `pnpm wisp`（WISP_PORT で変更できる）
- * - 既定の接続先は .env.development の VITE_WISP_URL（ws://127.0.0.1:5001/）。?wisp= で上書きできる
- * - `IUBEO_WISP_KEY` があれば、本番の WISP の Worker と同じく `?token=` を検証する（無い・無効なら 401）。
- *   本番と同じトークンの流れ（バックエンドが発行 → /wisp/ で検証）を、手元だけで確かめるため
- */
-
 export const DEFAULT_WISP_HOST = "127.0.0.1";
 export const DEFAULT_WISP_PORT = 5001;
 
@@ -48,8 +35,6 @@ export const startWispServer = (
   port: number,
   tokenKey?: string,
 ): Promise<Server> => {
-  // ローカル専用（127.0.0.1）で立てるときだけ、エンジンから localhost の dev サーバ（5173 など）へ
-  // つなぐことを許す。それ以外の host で立てると、同じネットワークの誰でも内側へ入れてしまう（SSRF）
   const local = LOOPBACK_HOSTS.has(host);
   wisp.options.allow_private_ips = local;
   wisp.options.allow_loopback_ips = local;
@@ -116,7 +101,6 @@ export const wispDevPlugin = (): Plugin => ({
   },
 });
 
-// 単独起動（pnpm wisp）。Node の型除去で直接実行する
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href

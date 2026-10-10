@@ -33,7 +33,6 @@ const transform = (
   ...overrides,
 });
 
-// 時刻は進めたときだけ進む。自分の ID(me)は注入する(既定は自分なし)
 const make = (initialMe: string | null = null) => {
   let time = 1000;
   let me = initialMe;
@@ -165,10 +164,8 @@ describe("createPlayerManager", () => {
         players: [{playerId: "a", transform: transform(2, 1)}],
       });
       const s = out();
-      // 1025 の位置 = 0 と 1 の中間
       expect(manager.sample("a", 1025 + INTERPOLATION_DELAY_MS, s)).toBe(true);
       expect(s.position.x).toBeCloseTo(0.5);
-      // 区間の速さ: 1m / 50ms = 20m/s。上下には動いていないので接地
       expect(s.velocity.x).toBeCloseTo(20);
       expect(s.onGround).toBe(true);
     });
@@ -211,7 +208,6 @@ describe("createPlayerManager", () => {
       });
       const s = out();
       manager.sample("a", 1050 + INTERPOLATION_DELAY_MS, s);
-      // -π / π をまたいで 0.2 だけ回る。中間は π(0 側を通らない)
       expect(Math.cos(s.yaw)).toBeCloseTo(-1);
     });
 
@@ -278,7 +274,6 @@ describe("createPlayerManager", () => {
         type: "transforms",
         players: [{playerId: "a", transform: transform(1, 0)}],
       });
-      // 5 秒止まっていて、4m/s で歩き出す
       at(6000);
       manager.apply({
         type: "transforms",
@@ -290,10 +285,8 @@ describe("createPlayerManager", () => {
         players: [{playerId: "a", transform: transform(3, 0.4)}],
       });
       const s = out();
-      // 受け取った瞬間は、まだ止まっていた位置
       manager.sample("a", 6000, s);
       expect(s.position.x).toBe(0);
-      // 遅延の後は、1 歩目の区間の途中を歩く速さで動いている
       manager.sample("a", 6075, s);
       expect(s.position.x).toBeCloseTo(0.1);
       expect(s.velocity.x).toBeCloseTo(4);
@@ -301,7 +294,6 @@ describe("createPlayerManager", () => {
 
     it("ジャンプの頂点をまたぐ区間で、接地に戻らない", () => {
       const {manager, at} = make();
-      // 地上 → 上昇 → 頂点をまたぐ(上下の差ほぼ 0)→ 下降
       const ys = [0, 0, 0.5, 0.8, 0.8, 0.5, 0];
       ys.forEach((y, i) => {
         at(1000 + i * 50);
@@ -320,10 +312,10 @@ describe("createPlayerManager", () => {
         manager.sample("a", ms + INTERPOLATION_DELAY_MS, s);
         return s.onGround;
       };
-      expect(groundAt(1025)).toBe(true); // 地上
-      expect(groundAt(1075)).toBe(false); // 上昇
-      expect(groundAt(1175)).toBe(false); // 頂点(0.8 → 0.8)
-      expect(groundAt(1275)).toBe(false); // 下降
+      expect(groundAt(1025)).toBe(true);
+      expect(groundAt(1075)).toBe(false);
+      expect(groundAt(1175)).toBe(false);
+      expect(groundAt(1275)).toBe(false);
     });
   });
 
@@ -370,7 +362,6 @@ describe("createPlayerManager", () => {
         false,
       );
       expect(manager.sample("b", 5000, createPlayerState(0, 0, 0))).toBe(true);
-      // 自分も state(接続・手持ちなど)には居る
       expect(manager.getState().players.map((p) => p.playerId)).toEqual([
         "me",
         "b",

@@ -2,24 +2,16 @@ name: ci
 
 on:
   pull_request:
-  # deploy-*.yml から呼ばれる。main へデプロイする前に必ずここを通し、
-  # CI が赤ならデプロイしない
   workflow_call:
 
-# 検証だけなので AWS の資格情報は要らない
 permissions:
   contents: read
 
 concurrency:
-  # PR は同じ ref の古い実行を止める。
-  # 呼び出し元(deploy-*)から呼ばれた run は、呼び出し元の run ごとに別の group にする。
-  # 同じ group を共有すると、別 workflow の run が pending を奪い合って cancel されうるため
   group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.ref) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # 変更されたパスを見て、走らせるジョブを決める。
-  # 関係の無いジョブは skip する(課金分と待ち時間が減る)
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -30,7 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # 差分を取るため全履歴が要る
           fetch-depth: 0
       - id: detect
         name: 変更されたパスを判定
@@ -82,13 +73,11 @@ jobs:
       - name: 依存をインストール
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      # backend の OpenAPI から生成した型(コミット済み)が、スキーマとずれていないか確かめる
       - name: API 型の生成物がずれていないか
         working-directory: frontend
         run: |
           pnpm gen:api
           git diff --exit-code -- src/net/schema.gen.ts
-      # pnpm build は先頭で型検査(typecheck)を走らせるので、ここでは改めて呼ばない
       - name: 型検査・lint・テスト・ビルド
         working-directory: frontend
         run: |

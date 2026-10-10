@@ -13,7 +13,6 @@ import {
 } from "../cover";
 import {coverStore} from "../coverStore";
 
-// 手動で resolve できる Promise
 const deferred = () => {
   let resolve!: () => void;
   const promise = new Promise<void>((res) => {
@@ -24,7 +23,6 @@ const deferred = () => {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  // ストアはモジュールで 1 つなので、前のテストのバーを残さない
   coverStore.setCovered(true);
   coverStore.hideBar();
 });
@@ -123,7 +121,6 @@ describe("showBarWhileWaiting", () => {
     await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS);
     await p;
     expect(done).toBe(true);
-    // バーは消さない(覆いと一緒にフェードアウトさせる)
     expect(coverStore.getState().bar).toMatchObject({total: 1, done: 1});
   });
 

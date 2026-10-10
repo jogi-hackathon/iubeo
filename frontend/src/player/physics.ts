@@ -34,7 +34,6 @@ export const walkVelocity = (
 
 const wish = new Vector3();
 
-/** 空中: 水平速度は保持し、入力方向への加速だけ許す(その方向の速度が WALK_SPEED に達したら加速しない) */
 const airControl = (
   velocity: Vector3,
   input: MoveInput,
@@ -68,7 +67,6 @@ const delta = new Vector3();
 const scaleVec = new Vector3();
 const warned = new WeakSet<object>();
 
-/** BVH を失ったコライダー(geometry の差し替えなど)は判定から漏れるため、開発時に 1 回だけ警告する */
 const warnMissingBvh = (mesh: Collider["mesh"]): void => {
   if (!import.meta.env.DEV || warned.has(mesh)) {
     return;
@@ -102,7 +100,6 @@ export const resolveCollisions = (
     }
     mesh.updateWorldMatrix(true, false);
     inverse.copy(mesh.matrixWorld).invert();
-    // 一様スケール前提。ローカル空間では半径を 1/scale に換算する
     const scale = scaleVec.setFromMatrixScale(mesh.matrixWorld).x;
     const lr = r / scale;
 

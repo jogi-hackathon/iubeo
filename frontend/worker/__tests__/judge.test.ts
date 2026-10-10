@@ -12,7 +12,6 @@ const input = {
   },
 };
 
-/** Clef が返す形（System One API の answers と同じ） */
 const clefAnswers = {
   query_on_topic: {type: "noul", noul: 0.98},
   page_on_topic: {type: "noul", noul: 0.95},
@@ -54,7 +53,6 @@ const judgeRequest = (
 const post = (body: unknown, ai?: {run: unknown}): Promise<Response> =>
   handleJudge(judgeRequest(body), {AI: ai as never});
 
-/** Rate Limiting の binding の代わり。success を決めて返す */
 const limiter = (success: boolean) => ({
   limit: vi.fn(async (_options: {key: string}) => ({success})),
 });

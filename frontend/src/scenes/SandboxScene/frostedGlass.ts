@@ -70,14 +70,11 @@ export const FROSTED_GLASS: FrostedGlassParams = {
   gridOpacity: 0,
 };
 
-/** 2 つ目のノイズの、1 つ目に対する周波数の比と座標のずらし(同じパターンの繰り返しに見えないように) */
 const DETAIL_SCALE = 2.7;
 const DETAIL_OFFSET = [5.2, 1.3] as const;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-/** 格子の線の間隔が画面上で 1 本あたりこの px 数(おおよそ)を切ると、線を薄くして消す(モアレ・ちらつきを避ける) */
 const GRID_FADE_PX = [3.5, 8] as const;
 
-/** 円盤状(ヴォーゲルの螺旋)に並べた、単位円の中のサンプル位置 */
 const diskOffsets = (count: number): Array<readonly [number, number]> =>
   Array.from({length: count}, (_, i) => {
     const radius = Math.sqrt((i + 0.5) / count);
@@ -85,7 +82,6 @@ const diskOffsets = (count: number): Array<readonly [number, number]> =>
     return [radius * Math.cos(angle), radius * Math.sin(angle)] as const;
   });
 
-/** 2 次元のノイズベクトル(各成分は概ね -1〜1)。面内座標 q のうえで連続 */
 const noiseVec2 = (q: Node<"vec2">): Node<"vec2"> => mx_noise_vec3(q).xy;
 
 /**
@@ -118,7 +114,6 @@ export const createFrostedGlassMaterial = (
     gridOpacity,
   } = params;
 
-  // ガラスの面内座標(m)と、その上のノイズ。歪みと格子の波打ちで同じものを使う
   const faceUV = vec2(dot(positionLocal, vec3(...uAxis)), positionLocal.y);
   const coord = faceUV.mul(noiseFrequency);
   const noise = noiseVec2(coord)
@@ -129,9 +124,7 @@ export const createFrostedGlassMaterial = (
     )
     .div(1 + noiseDetail);
 
-  // 画面の縦 1 に対する横の比の逆数(ずれ・ぼかしを、画面上で縦横そろえる)
   const aspect = vec2(screenSize.y.div(screenSize.x), 1);
-  // ワールドのずれ(m)→ 画面の縦に対する比: 縦の投影 P[1][1] / 2 を、ガラスまでの深さで割る
   const depth = max(positionView.z.negate(), 0.1);
   const projectionScale = cameraProjectionMatrix.mul(vec4(0, 1, 0, 0)).y;
   const uvPerMeter = projectionScale.div(depth.mul(2));
@@ -154,8 +147,6 @@ export const createFrostedGlassMaterial = (
     .reduce((sum, c) => sum.add(c));
   const backdrop = sampled.div(offsets.length);
 
-  // 格子: 面内座標を同じノイズで波打たせ、間隔 gridSpacing ごとの線までの距離(m)から、画素 1 つ分の幅でなめらかに線を引く。
-  // 背景に掛ける係数(線の部分で gridTone へ寄る)を返す
   const gridFactor = (): Node<"float"> => {
     const warped = faceUV.add(noise.mul(gridWave));
     const lineDistance = abs(
@@ -170,7 +161,6 @@ export const createFrostedGlassMaterial = (
         lineDistance,
       ),
     );
-    // 画素 1 つ分の幅が間隔に対して大きい(線が密に見える)ほど薄くする
     const density = max(pixelWidth.x, pixelWidth.y).div(gridSpacing);
     const fade = float(1).sub(
       smoothstep(1 / GRID_FADE_PX[1], 1 / GRID_FADE_PX[0], density),
@@ -187,7 +177,6 @@ export const createFrostedGlassMaterial = (
     gridOpacity > 0 ? backdrop.mul(gridFactor()) : backdrop,
     1,
   );
-  // 透明で背後を自分で見せるので、GTAO は掛けない(ポストプロセスの AO の対象から外す)
   setSkipGTAO(material, true);
   return material;
 };

@@ -16,7 +16,6 @@ const TRIANGLE: Vec3[] = [
   [4, 0, 0],
   [1, 0, 3],
 ];
-/** 凸六角形(正六角形を y=1 の面に置き、片側を引き伸ばしたもの) */
 const HEXAGON: Vec3[] = [
   [2, 1, 0],
   [1, 1, 1.7],
@@ -53,7 +52,6 @@ const CASES: Case[] = [
   },
 ];
 
-/** 面ごとの頂点数(group の index 範囲から、その三角形が使う頂点を数える) */
 const faceVertices = (geometry: BufferGeometry, group: number): Set<number> => {
   const {start, count} = geometry.groups[group] as {
     start: number;
@@ -79,7 +77,6 @@ describe.each(CASES)("buildSlabGeometry($name)", ({polygon, offset}) => {
   it("index があり、面(上・下・辺ごとの側面)ごとに 1 つの group を持つ", () => {
     expect(geometry.index).not.toBeNull();
     expect(geometry.groups).toHaveLength(n + 2);
-    // group は index 全体を隙間なく順に覆い、頂点は面をまたいで共有しない
     let next = 0;
     const seen = new Set<number>();
     geometry.groups.forEach((g, i) => {
@@ -92,10 +89,8 @@ describe.each(CASES)("buildSlabGeometry($name)", ({polygon, offset}) => {
       }
     });
     expect(next).toBe((geometry.index as {count: number}).count);
-    // 頂点数は、多角形の 2 面(n 頂点ずつ)と、側面 n 枚(4 頂点ずつ)の合計
     expect(seen.size).toBe(geometry.getAttribute("position").count);
     expect(seen.size).toBe(2 * n + 4 * n);
-    // 多角形の 2 面は n-2 枚、側面の四角形は 2 枚の三角形
     expect(geometry.groups.map((g) => g.count / 3)).toEqual([
       n - 2,
       n - 2,
@@ -160,7 +155,6 @@ describe.each(CASES)("buildSlabGeometry($name)", ({polygon, offset}) => {
       ) as [Vector3, Vector3, Vector3];
       volume += a.dot(b.clone().cross(c)) / 6;
     }
-    // 底面積と、その面の法線方向の厚み
     const base = polygon.map((p) => new Vector3(...p));
     const areaNormal = new Vector3();
     for (let i = 1; i < n - 1; i++) {
@@ -269,7 +263,6 @@ describe("buildSlabGeometry の入力", () => {
 
     const merged = buildBakeGeometry([slab, box]);
 
-    // 三角形の板は 5 面、箱は 6 面
     expect(merged.userData.chartCount).toBe(5 + 6);
     expect(merged.getAttribute("chart")).toBeDefined();
   });

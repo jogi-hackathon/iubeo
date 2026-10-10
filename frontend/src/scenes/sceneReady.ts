@@ -1,6 +1,5 @@
 import type {SceneName} from "./index";
 
-/** 準備ができた(マウントの effect まで済んだ)シーン。resetSceneReady で遷移ごとに外す */
 const ready = new Set<SceneName>();
 const waiters = new Map<SceneName, Set<() => void>>();
 

@@ -23,7 +23,6 @@ const request = {
   },
 };
 
-/** Clef が返す形（System One API の answers と同じ） */
 const answers = {
   query_on_topic: {type: "noul", noul: 0.97},
   page_on_topic: {type: "noul", noul: 0.9},

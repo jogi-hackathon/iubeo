@@ -4,9 +4,7 @@ import type {GameObject} from "../types";
 import {overview} from "./overview";
 
 type Deps = {
-  /** 手ぶらか(メインハンドが空か) */
   isHandEmpty: () => boolean;
-  /** 俯瞰ビューの機能が ON か(トグルを持たないシーンでは常に true) */
   isOverviewEnabled: () => boolean;
   enterOverview: (directoryId: string) => void;
 };

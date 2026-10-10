@@ -1,10 +1,5 @@
 import {useSyncExternalStore} from "react";
 
-/**
- * プレイヤーの操作(移動・視点入力)とカメラを、別の演出が預かっている間の目印。
- * 俯瞰ビューやワークスペースでの作業など、プレイヤーを止めてカメラを別の制御に任せる場面が使う。
- * 複数の演出が重なっても、全部が解除されるまで預かり中になる
- */
 let holders = 0;
 const listeners = new Set<() => void>();
 

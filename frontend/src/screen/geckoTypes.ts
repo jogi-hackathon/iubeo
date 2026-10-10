@@ -1,11 +1,3 @@
-/**
- * gecko.js の公開 API の型定義。
- *
- * 実体は `engine-local/` の上流ビルド（gecko.js）で、実行時に URL から動的 import する。
- * ビルド時に型は得られないため、ここで手書きしている（`pnpm engine:link` が上流の index.d.ts も
- * 並べて置くので、API が変わったときは差分を確認できる）。
- */
-
 export interface FsStat {
   size: number;
   isDir: boolean;

@@ -6,20 +6,12 @@ import (
 	"time"
 )
 
-// TestPayloadBudget は WebSocket で配るメッセージの実サイズを測る。
-//
-// このサイズがそのまま転送料と ALB の LCU になる(20Hz で全員に配るため)。
-// フィールドを足したり double を増やしたりすると、ここが増えてコストに直結する。
-// 上限を超えたら、増えたバイト数が妥当か考えてから更新すること。
-//
-// 3人セッション(既定の IUBEO_MATCH_SIZE)の 1 配信あたりの予算。
 const (
 	transformsBudgetBytes = 700
 	transformBudgetBytes  = 180
 )
 
 func TestPayloadBudget(t *testing.T) {
-	// 実際の player.NewID() と同じ長さ(rand.Text() は 26 文字)
 	const playerIDLen = 26
 	id := func(seed byte) PlayerId {
 		b := make([]byte, playerIDLen)
@@ -59,7 +51,6 @@ func TestPayloadBudget(t *testing.T) {
 		t.Errorf("transform が %d バイトで予算 %d を超えた", len(bu), transformBudgetBytes)
 	}
 
-	// 20Hz で 1 クライアントが送受信する量(KB/s)
 	downKB := float64(len(b)) * 20 / 1024
 	upKB := float64(len(bu)) * 20 / 1024
 	t.Logf("1クライアントあたり: 下り %.1f KB/s + 上り %.1f KB/s = %.1f KB/s", downKB, upKB, downKB+upKB)

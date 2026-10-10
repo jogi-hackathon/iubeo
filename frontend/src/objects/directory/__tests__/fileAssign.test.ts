@@ -7,7 +7,6 @@ import {
   plateOf,
 } from "../fileAssign";
 
-/** 決まった乱数(テスト用)。seed が違えば列も違う */
 const seeded = (seed: number) => {
   let a = seed >>> 0;
   return () => {
@@ -63,7 +62,6 @@ describe("createFileAssigner", () => {
     const a = createFileAssigner(3, seeded(3));
     a.sync(["a", "b", "c"]);
     const held = [a.get("a"), a.get("b"), a.get("c")];
-    // b, c が借りられて消え、d, e が現れる(候補は 3 つしか無い)
     a.sync(["a", "d"]);
     expect(a.get("a")).toBe(held[0]);
     expect(a.get("d")).not.toBe(held[0]);
@@ -125,7 +123,6 @@ describe("pickFile", () => {
 
   it("回転した板は、板のローカル座標で判定する", () => {
     const rotated = plate("a", {yaw: Math.PI / 2});
-    // 幅 0.7 の板を 90 度回すと、x 方向の半分は奥行き(0.2)、z 方向の半分は幅(0.35)
     expect(pickFile({x: 0, y: 8, z: 0.3}, DOWN, [rotated])).toBe("a");
     expect(pickFile({x: 0.3, y: 8, z: 0}, DOWN, [rotated])).toBeNull();
     expect(pickFile({x: 0.3, y: 8, z: 0}, DOWN, [plate("a")])).toBe("a");
@@ -152,7 +149,6 @@ describe("pickFile", () => {
         plate("high", {y: 1.4}),
       ]),
     ).toBe("high");
-    // 斜めの視線でも、当たった中で最も近いものを選ぶ
     const dir = {x: 0.2, y: -1, z: 0};
     const origin = {x: -0.2 * 6.6, y: 8, z: 0};
     expect(
@@ -164,7 +160,6 @@ describe("pickFile", () => {
   });
 
   it("高さが違えば、それぞれの高さの面で判定する(同じ画面位置でも別の板)", () => {
-    // 斜めの視線: 高い板(y=2.1)では x=0.4 の手前を通り、低い板(y=0.7)では x=0.7 を通る
     const origin = {x: 0, y: 8, z: 0};
     const dir = {x: 0.1, y: -1, z: 0};
     const high = plate("high", {y: 2.1, x: 0.59});

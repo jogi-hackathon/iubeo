@@ -8,14 +8,12 @@ name: preview
 on:
   pull_request:
     branches: [main]
-    # プレビューされるのは frontend だけなので、backend の変更では作らない
     paths:
       - "frontend/**"
       - ".github/workflows/preview.yml"
 
 permissions:
   contents: read
-  # PR にコメントするため
   pull-requests: write
 
 concurrency:
@@ -52,9 +50,6 @@ jobs:
           pnpm exec cf previews deploy "pr-${{ github.event.pull_request.number }}" \
             | tee /tmp/preview.log
 
-      # PR のコメントは 1 件だけにし、push のたびに中身を更新する。
-      # marker で既存のコメントを見つける。失敗したときも同じコメントに書く。
-      # 失敗してもログは残したいので always()
       - name: PR のコメントを作成・更新
         if: always()
         env:
@@ -71,7 +66,6 @@ jobs:
           fi
           body=$(printf '%s\n%s' "$text" "$marker")
 
-          # github-actions[bot] が投稿した marker 付きのコメントだけを対象にする
           id=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" \
             | head -1 || true)

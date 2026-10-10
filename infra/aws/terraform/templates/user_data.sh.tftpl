@@ -1,6 +1,4 @@
 #!/bin/bash
-# 初回起動時に Docker と Go サーバー・WISP のコンテナを用意する。
-# 値は Terraform が埋め込む。シェル変数は鍵の生成にしか使わない。
 set -euo pipefail
 
 # AL2023 の既定リポジトリには AWS CLI が無いので、公式インストーラで入れる
@@ -17,8 +15,6 @@ fi
 
 install -d -m 0750 /etc/iubeo
 
-# 鍵は初回だけ生成する。再起動で変わると Cookie/WISP トークンが無効になるため。
-# シェル変数は Terraform の補間と衝突しないよう、中括弧なしの $VAR で書く
 if [ ! -f /etc/iubeo/env ]; then
   SIGNING_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
   WISP_KEY=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
@@ -35,8 +31,6 @@ if [ ! -f /etc/iubeo/env ]; then
   } > /etc/iubeo/env
   chmod 0600 /etc/iubeo/env
 
-  # WISP プロセス用の環境。合言葉の有無に関わらずトークン検証を強制する
-  # (手前に検証役が居ないので、鍵が無い設定ミスのときに開くより閉じる)
   cat > /etc/iubeo/wisp-env <<EOF
 PORT=8081
 IUBEO_WISP_KEY=$WISP_KEY
@@ -47,14 +41,7 @@ EOF
   unset SIGNING_KEY WISP_KEY
 fi
 
-# イメージを取り直して再起動するスクリプト。
-#
-# どのイメージを動かすかは SSM パラメータから読む。CI はインスタンスを起こさず
-# ここを書き換えるだけなので、停止中でもデプロイできる。
-# ユニットは固定のローカルタグ(iubeo-current / iubeo-wisp-current)を見るので、
-# タグが変わってもユニットを書き換えなくてよい。
 cat > /usr/local/bin/iubeo-deploy <<'SCRIPT'
-#!/bin/bash
 set -euo pipefail
 REGISTRY="__REGISTRY__"
 REPOSITORY="__REPOSITORY__"
@@ -75,7 +62,6 @@ echo "デプロイするタグ: $TAG"
 
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 docker pull "$REPOSITORY:$TAG"
-# ユニットが参照する固定タグを付け替える
 docker tag "$REPOSITORY:$TAG" iubeo-current:latest
 echo "$TAG" > /etc/iubeo/image-tag
 systemctl restart iubeo
@@ -90,7 +76,6 @@ if docker pull "$WISP_REPOSITORY:$WISP_TAG"; then
   echo "$WISP_TAG" > /etc/iubeo/wisp-image-tag
   systemctl restart iubeo-wisp
 else
-  # 初回は wisp イメージがまだ push されていない。その場合は backend だけ動く
   echo "wisp イメージ $WISP_REPOSITORY:$WISP_TAG を引けなかった(未 push なら初回だけ)"
 fi
 SCRIPT
@@ -149,6 +134,4 @@ systemctl daemon-reload
 systemctl enable iubeo
 systemctl enable iubeo-wisp
 
-# 初回はイメージがまだ push されていないので失敗してよい。
-# push 後に iubeo-deploy を叩けば起動する。
 /usr/local/bin/iubeo-deploy || true

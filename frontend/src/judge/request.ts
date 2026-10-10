@@ -1,13 +1,5 @@
 import type {JudgeRequest} from "./types";
 
-/**
- * 判定の依頼 (JudgeRequest) の上限と検証。画面 (送る前) と Worker (受けた後) の両方が使う。
- *
- * /judge は Workers AI を呼ぶ (従量課金) ので、入力の大きさはここで必ず抑える。
- * 画面は本文をそのまま読む (BrowserScreen.readPage) ので、送る前に切り詰めて通信も小さくする。
- * Worker は画面を信用せず、同じ検証をもう一度掛ける。
- */
-
 /** お題の上限 (文字)。プリセットは短い語。`?task=` で長い文字列を入れられても Clef に渡す量は増やさない */
 export const MAX_TASK = 80;
 /** URL の上限 (文字) */
@@ -27,7 +19,6 @@ export const clip = (text: string, max: number): string => {
   return flat.length <= max ? flat : `${flat.slice(0, max)}…`;
 };
 
-/** 判定できるのは http(s) のページだけ (data: やスタートページは見ない) */
 const isWebUrl = (url: string): boolean => {
   try {
     const {protocol} = new URL(url);

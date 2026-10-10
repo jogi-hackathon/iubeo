@@ -108,7 +108,6 @@ export const parseLayout = (buffer: ArrayBuffer): BakedAOLayout => {
   return {atlasW, atlasH, meshes, rects};
 };
 
-/** ワールド中心の許容誤差(m)。f32 で保存するので厳密一致にはしない */
 const CENTER_EPS = 1e-3;
 
 /** 現在のシーンの mesh がベイク時と同じ並び・形か。違えば理由を返す(一致なら null) */

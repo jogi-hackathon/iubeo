@@ -15,7 +15,6 @@ export function CoverOverlay() {
   const barShown = bar !== null;
   const [, tick] = useReducer((n: number) => n + 1, 0);
 
-  // 進捗バーが出ている間だけ、再描画して段階の中の進みを見せる
   useEffect(() => {
     if (!barShown) {
       return;

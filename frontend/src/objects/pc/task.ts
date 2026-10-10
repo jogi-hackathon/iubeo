@@ -54,7 +54,6 @@ export const createTaskStore = (initial: string) => {
         listeners.delete(listener);
       };
     },
-    /** 次のお題を引く。引いた語を返す */
     draw: (random?: () => number): string => {
       task = pickTask(task, random);
       notify();

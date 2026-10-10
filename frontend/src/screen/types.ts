@@ -2,13 +2,6 @@ import type {Texture} from "three/webgpu";
 
 import type {PageSnapshot} from "../judge/types";
 
-/**
- * PC の画面に映る中身の共通の型。画面は、自分の画素がどこから来るのかを知らない。
- * 今は Gecko(wasm のエンジン)だけだが、同じインターフェースを実装すれば差し替えられる。
- *
- * ソースは canvas を 1 枚持ち、それを Texture として公開し、入力を *canvas 画素* 座標で受け取る。
- */
-
 export type CursorKind = "default" | "pointer" | "text";
 
 export type ScreenModifiers = {

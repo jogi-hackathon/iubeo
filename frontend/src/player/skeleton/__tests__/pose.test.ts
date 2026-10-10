@@ -65,7 +65,7 @@ describe("sampleClip", () => {
     expect(first(c, 0)).toBeCloseTo(0);
     expect(first(c, 1 / 3)).toBeCloseTo(10);
     expect(first(c, 0.5)).toBeCloseTo(15);
-    expect(first(c, 5 / 6)).toBeCloseTo(10); // 20 → 0 の中間
+    expect(first(c, 5 / 6)).toBeCloseTo(10);
   });
 
   it("loop: t は 1 で回り込み、負でも回り込む", () => {

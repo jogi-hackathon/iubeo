@@ -50,7 +50,6 @@ export function LocalAuthority({
           message,
         ),
     });
-    // 手は空でマウントする(前のシーンの手持ちが残っていても、規則の手持ちと揃える)
     rules.dev.setHeldItem(null);
     for (const object of planLocalObjects({layout, initial, playerId})) {
       rules.dev.deliver({type: "object.upsert", object});
@@ -70,7 +69,6 @@ export function LocalAuthority({
     };
   }, [layout, initial]);
 
-  // 置き終えた commit の後に報告する(マウントの effect で置いた物が、この時点で反映されている)
   useEffect(() => {
     if (placed) {
       markSceneReady(scene);

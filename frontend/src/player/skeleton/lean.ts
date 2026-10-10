@@ -12,7 +12,6 @@ export const MAX_NECK_BEND = 0.8;
 const clamp = (v: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, v));
 
-/** 点 i を、pivot(x,y,z)を通る X 軸まわりに前傾 angle(rad, 前=-Z へ倒れる向きが正)だけ回す */
 const lean = (
   points: Float32Array,
   i: number,
@@ -56,7 +55,6 @@ export const applyLean = (points: Float32Array, pitch: number): void => {
     lean(points, i, pivotY, pivotZ, torso);
   }
 
-  // 頭は、傾いた上半身の首(NECK)を支点に、視線との差の分だけさらに曲げる
   const neck = bend(-pitch - torso);
   lean(
     points,

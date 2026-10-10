@@ -1,5 +1,3 @@
-// ブラウザ(BakedAO)と Node(vite.config.ts の保存プラグイン)の両方から読むので、import.meta.env などには依存しない
-
 /** ベイク結果の置き場所(public/ 以下)。git にコミットする */
 export const BAKED_AO_DIR = "ao";
 

@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// 署名鍵の最小の長さ(バイト)。HMAC-SHA256 の出力と同じ 32 バイト以上にする
 const minSigningKeyLen = 32
 
 // Config はサーバーの設定
@@ -79,7 +78,6 @@ func Load(getenv func(string) string) (Config, error) {
 
 	if v := getenv("IUBEO_MATCH_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
-		// 区画(seat)は 1〜3 まで
 		if err != nil || n < 1 || n > 3 {
 			errs = append(errs, fmt.Errorf("IUBEO_MATCH_SIZE must be an integer from 1 to 3: %q", v))
 		} else {

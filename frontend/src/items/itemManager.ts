@@ -13,7 +13,6 @@ export const createItemManager = () => {
     delete: new Set(),
   };
 
-  // コールバックの例外が他のコールバック・状態更新に影響しないようにする
   const set = (next: ItemState) => {
     state = next;
     for (const l of Array.from(listeners)) {
@@ -29,7 +28,6 @@ export const createItemManager = () => {
     event: K,
     payload: ItemEvents[K],
   ) => {
-    // 通知中に追加されたコールバックは、今回のイベントでは呼ばない
     for (const cb of Array.from(handlers[event])) {
       try {
         cb(payload);
@@ -57,13 +55,6 @@ export const createItemManager = () => {
         handlers[event].delete(callback);
       };
     },
-    /**
-     * サーバーの通知を反映する。
-     * spawn は手持ちを置き換える(別のアイテムを持っていたら、その物は delete として通知する。
-     * 終盤にライターを拾うと、持っていたファイルが消える仕様のため)。
-     * 持っているのと同じ id の spawn は、data の更新として扱い、delete は通知しない。
-     * 持っていない id の delete は無視する
-     */
     apply: (message: ItemMessage): void => {
       if (message.type === "spawn") {
         const replaced = state.held;

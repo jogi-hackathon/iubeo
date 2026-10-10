@@ -1,27 +1,20 @@
-// テクスチャ AO ベイクの定数とサンプル方向。
-// ここを変えるとベイク結果が変わるので、変えたら再ベイクすること。
+export const SAMPLES = 96;
+export const MAX_DIST = 0.6;
+export const BIAS = 0.002;
+export const EMBEDDED = 0xffff;
+export const INSIDE_RAYS = 16;
+export const INSIDE_BACK_RATIO = 0.25;
 
-// ---- 頂点ベイクと揃える定数
-export const SAMPLES = 96; // 本ベイクの1テクセルあたりのレイ本数
-export const MAX_DIST = 0.6; // これより遠い遮蔽物は数えない(m)
-export const BIAS = 0.002; // 自己交差を避けるためのレイ始点のずらし(m)
-export const EMBEDDED = 0xffff; // 埋まったテクセルの印
-export const INSIDE_RAYS = 16; // 埋まり判定用の距離無制限のレイ本数(サンプル方向から等間隔に選ぶ)
-export const INSIDE_BACK_RATIO = 0.25; // このうち裏面に先に当たった割合がこれ以上なら、他の物体の内側とみなす
-
-// ---- テクスチャベイク固有の定数
-export const TEXEL = 0.02; // 基準テクセル密度(m/テクセル)
-export const MIN_TEXELS = 4; // 書類の束の側面などでも最低限確保するテクセル数
+export const TEXEL = 0.02;
+export const MIN_TEXELS = 4;
 export const MAX_TEXELS = 1024;
-export const PAD = 1; // アトラス上でチャート間に空ける余白(テクセル)
+export const PAD = 1;
 export const ATLAS_MAX = 8192;
-export const CHART_INSET = 0.0005; // チャート内側へ寄せる距離(m)。面ちょうどでの自己交差・埋まりを防ぐ
-export const HIDDEN_UV = [0.2, 0.5, 0.8]; // 隠れチャート判定の、小さいチャートの 3x3 サンプル位置(チャート内側に寄せた格子)
-// 大きいチャートは、サンプル点の間隔がこれ(m)以下になるよう格子を細かくする。3x3 のままだと、一部だけ見えている大きな面
-// (書類の山の芯の側面など。本の隙間からだけ見える)が、全点たまたま隠れていて「隠れ」と誤判定され、見える所まで黒くなる
+export const CHART_INSET = 0.0005;
+export const HIDDEN_UV = [0.2, 0.5, 0.8];
 export const HIDDEN_STEP = 0.1;
-export const HIDDEN_GRID_MAX = 128; // 1 辺のサンプル点の上限(巨大な床などで点数が膨らまないように)
-export const HIDDEN_RAYS = 32; // 隠れチャート判定のサンプル点あたりのレイ本数
+export const HIDDEN_GRID_MAX = 128;
+export const HIDDEN_RAYS = 32;
 export const HIDDEN_AO_EPS = 0.02;
 // 距離無制限のレイの、この割合以上が裏面に当たる点は「ほかの物体に埋まっている」とみなす
 // (MAX_DIST より厚い床に密着した面など。AO の距離では裏面まで届かず判定できない)
@@ -30,14 +23,13 @@ export const HIDDEN_BURIED_RATIO = 0.5;
 // ワールドの下の虚空を向いていて見えないとみなす(床の底面など)
 export const HIDDEN_VOID_MAX_NY = -0.5;
 export const HIDDEN_VOID_RATIO = 0.9;
-export const HIDDEN_TEXELS = 2; // 隠れチャートに縮めるテクセル数(1辺)
+export const HIDDEN_TEXELS = 2;
 
 /**
  * 隠れチャート判定の、1 辺のサンプル位置(uv の 0..1)。size はその辺の物理的な長さ(m)。
  * 小さいチャートは HIDDEN_UV の 3 点。大きいチャートは、間隔が HIDDEN_STEP 以下になる数(上限 HIDDEN_GRID_MAX)の、等間隔のセル中心
  */
 export const hiddenProbeUVs = (size: number): number[] => {
-  // 浮動小数の誤差で、ちょうど割り切れる長さが 1 点多くならないよう、わずかに引いてから切り上げる
   const n = Math.min(HIDDEN_GRID_MAX, Math.ceil(size / HIDDEN_STEP - 1e-9));
   if (!(n > HIDDEN_UV.length)) {
     return HIDDEN_UV;

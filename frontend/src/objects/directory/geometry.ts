@@ -12,9 +12,6 @@ import {
 import type {CoreMesh, LooseSheet, Sheet} from "./mountain";
 import {sheetSeed} from "./paperMaterial";
 
-// 山のジオメトリ。AO をベイクできるよう(src/bake)、通常の mesh のジオメトリにして、uv(チャートごとに [0,1]²)と、
-// チャートを分ける groups(箱は面ごと、芯は段ごとの側面・上面)を持たせる。マテリアルは 1 つなので、groups は描画には影響しない
-
 /** 芯。法線は、チャート(側面・上面)の中でだけ滑らかにする */
 export const buildCoreGeometry = ({
   positions,
@@ -94,7 +91,6 @@ export const buildSheetsGeometry = (
       position.set([v.x, v.y, v.z], i * 3);
       v.fromBufferAttribute(boxNormal, k);
       bookNormal.set(plain ? [0, -1, 0] : [v.x, v.y, v.z], i * 3);
-      // 箱の面の法線は軸に沿うので、拡縮があっても、回転だけ掛ければよい
       v.applyQuaternion(quaternion);
       normal.set([v.x, v.y, v.z], i * 3);
       uv.set([boxUV.getX(k), boxUV.getY(k)], i * 2);

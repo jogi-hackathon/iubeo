@@ -2,7 +2,6 @@ import {describe, expect, it, vi} from "vitest";
 
 import {markSceneReady, resetSceneReady, whenSceneReady} from "../sceneReady";
 
-// 他のテストと状態を分けるため、シーン名は固有に分ける
 describe("sceneReady", () => {
   it("待っている間に mark されると resolve する", async () => {
     const onReady = vi.fn();

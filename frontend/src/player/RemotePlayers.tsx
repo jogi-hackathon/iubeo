@@ -13,7 +13,6 @@ import {usePlayersState} from "./usePlayers";
 function RemotePlayer({player}: {player: PlayerStatus}) {
   const state = useMemo(() => createPlayerState(0, 0, 0), []);
   const {playerId, heldItem} = player;
-  // 位置が 1 つも届いていない間は描かない(原点に立って見えないように)
   const [placed, setPlaced] = useState(false);
 
   useFrame(() => {
@@ -23,7 +22,6 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
     }
   }, FRAME_PRIORITY.player);
 
-  // TODO: 脱落(life が eliminated に変わった瞬間。playerManager の lifeChanged)でラグドールに移す。今は立ったまま描く
   return (
     <PlayerSkeleton
       state={state}
@@ -41,7 +39,6 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
 export function RemotePlayers() {
   const myPlayerId = useMyPlayerId();
   const {players} = usePlayersState();
-  // 自分(今のオーソリティの ID)が決まるまでは、自分の身体を他のプレイヤーとして描いてしまうので、誰も描かない
   if (myPlayerId === null) {
     return null;
   }

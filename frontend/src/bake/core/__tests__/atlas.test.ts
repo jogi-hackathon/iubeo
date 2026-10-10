@@ -9,7 +9,6 @@ import {
 import {texelsFor} from "../charts";
 import {HIDDEN_TEXELS, PAD} from "../params";
 
-// PAD を含めた矩形どうしが重ならないこと
 const overlaps = (a: AtlasRect, b: AtlasRect): boolean => {
   const ax0 = a.x - PAD;
   const ay0 = a.y - PAD;
@@ -64,7 +63,6 @@ describe("packAtlas", () => {
 
 describe("dilateChart", () => {
   it("無効テクセルを有効な 8 近傍の平均で埋める", () => {
-    // 3x1: [0, 無効, 100] -> 真ん中は平均 50
     const out = dilateChart(Int32Array.from([0, -1, 100]), 3, 1);
     expect(Array.from(out)).toEqual([0, 50, 100]);
   });
@@ -98,22 +96,7 @@ describe("writeChartToAtlas", () => {
       [1, 2, 3, 4],
     );
     expect(Array.from(atlas)).toEqual([
-      1,
-      1,
-      2,
-      2, //
-      1,
-      1,
-      2,
-      2, //
-      3,
-      3,
-      4,
-      4, //
-      3,
-      3,
-      4,
-      4,
+      1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 4, 4, 3, 3, 4, 4,
     ]);
   });
 });

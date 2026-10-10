@@ -4,38 +4,15 @@ import {
   normalizeJudgeRequest,
 } from "../src/judge/request";
 
-/**
- * Web Search の判定の受け口（フロントの Worker）。
- *
- * 画面からは同じオリジンの `/judge` を叩き、ここが Workers AI の binding (env.AI) で
- * Clef (`@cf/cloudflare/clef-flash`) を呼び、答えを画面に出す形へ畳んで返す。
- * 同じ Worker の中で完結するので、外部 API への往復も API キーも要らない。
- *
- * binding が無い環境では 503 を返し、画面側は簡易判定に落ちる。
- *
- * Workers AI は従量課金なので、誰でも叩ける入口にしない。Clef を呼ぶ前に、安い順に弾く:
- * 1. 同じオリジンの画面からの呼び出しだけ受ける (Origin / Sec-Fetch-Site。403)
- * 2. 回数を絞る (IP ごとと、全体の 2 段。Rate Limiting の binding。429)
- * 3. 本文の大きさを絞る (MAX_JUDGE_BODY_BYTES。413)
- * 4. 形を検証し、各項目を上限まで切り詰める (normalizeJudgeRequest。400)
- *
- * どれで弾かれても、画面は簡易判定に落ちる (runJudge は ok 以外を簡易判定にする)。
- * 1 はヘッダーを偽れる相手 (curl など) には効かない。そこは 2 と 3 で上限を抑える。
- */
-
 /** 判定のパス（cloudflare.config.ts の runWorkerFirst と揃える） */
 export const JUDGE_PATH = "/judge";
 
 type Env = {
-  /** Workers AI の binding（cloudflare.config.ts の `AI: bindings.ai()`） */
   AI?: Ai;
-  /** IP ごとの回数の上限（cloudflare.config.ts の `JUDGE_IP_LIMIT`）。無ければ絞らない */
   JUDGE_IP_LIMIT?: RateLimit;
-  /** 全体の回数の上限（cloudflare.config.ts の `JUDGE_GLOBAL_LIMIT`）。無ければ絞らない */
   JUDGE_GLOBAL_LIMIT?: RateLimit;
 };
 
-/** 全体の上限の key。全員で 1 つの枠を使う */
 const GLOBAL_KEY = "judge";
 
 export const handleJudge = async (
@@ -94,7 +71,6 @@ export const isSameOrigin = (request: Request): boolean => {
   return site === null || site === "same-origin";
 };
 
-/** IP ごと・全体の両方の枠に収まっているか。binding が無い枠は見ない */
 const withinLimits = async (request: Request, env: Env): Promise<boolean> => {
   const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
   const [perIp, global] = await Promise.all([

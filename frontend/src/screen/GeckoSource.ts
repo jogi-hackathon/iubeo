@@ -34,16 +34,9 @@ import {
  * COOP: same-origin + COEP: require-corp を vite.config.ts が付与している。
  */
 
-/** 起動の進みを画面に出すための間隔(ms) */
 const PROGRESS_INTERVAL_MS = 1000;
-/** WISP プロキシの疎通を待つ上限(ms)。超えたら「つながらない」として扱う */
 const WISP_TIMEOUT_MS = 8000;
-/**
- * トークンで繋ぐ（本番の）WISP の疎通を待つ上限(ms)。眠っている Container の起動を待つ分だけ長くする
- * （worker/wisp.ts の START_TIMEOUT_MS と同じ）。wasm の起動と並行して待つ
- */
 const WISP_COLD_START_TIMEOUT_MS = 90_000;
-/** WISP のトークン（期限 5 分）を取り直す間隔(ms) */
 const WISP_TOKEN_REFRESH_MS = 4 * 60 * 1000;
 
 export class GeckoSource extends CanvasScreenSource {
@@ -52,11 +45,8 @@ export class GeckoSource extends CanvasScreenSource {
   private gpuMode = false;
   private progressTimer?: number;
   private tokenTimer?: number;
-  /** 直結の指定（?wisp= か VITE_WISP_URL）。undefined ならトークンを発行してもらう */
   private readonly wispOverride: string | undefined;
-  /** トークンの発行に要る合言葉（?wisppass=）。無ければ undefined */
   private readonly wispPass: string | undefined;
-  /** 実際に使う WISP の URL（起動時に決まる。無ければ undefined） */
   private wispUrl?: string;
 
   constructor(width: number, height: number, search: string) {
@@ -65,7 +55,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.wispPass = wispPassFrom(search);
   }
 
-  /** GPU モードのエンジンはフレームをこちらへ通知せず #screen へ直接合成するので、毎フレーム読み直す */
   get liveSurface(): boolean {
     return this.gpuMode;
   }
@@ -104,7 +93,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.patchBlitNotify();
 
     const env: Record<string, string> = {GECKO_COARSE_CLOCK: "1"};
-    // `?env.FOO=bar` でエンジンの環境変数を渡せる（デバッグ用）
     for (const [key, value] of new URLSearchParams(location.search)) {
       if (key.startsWith("env.")) {
         env[key.slice(4)] = value;
@@ -125,14 +113,12 @@ export class GeckoSource extends CanvasScreenSource {
       `エンジンを起動中… 0 秒（${sizeMb} の wasm を読み込んでいます）`,
     );
 
-    // 接続先（トークン付きの URL を含む）を決める。取れなければ WISP 無しで動かす
     this.wispUrl = await resolveWispUrl(
       this.wispOverride,
       fetch,
       this.wispPass,
     );
     const usesToken = this.wispOverride === undefined && !!this.wispUrl;
-    // WISP への疎通確認を wasm の起動と並行して走らせる。死んでいると最初の読み込みが永久に待つため
     const wispCheck = this.wispUrl
       ? checkWisp(
           this.wispUrl,
@@ -151,7 +137,6 @@ export class GeckoSource extends CanvasScreenSource {
         env,
         wasm: resolved.wasm,
         wispUrl: this.wispUrl,
-        // エンジン自身のリスナーを生かし、合成 DOM イベントで叩く
         forwardInput: true,
         print: (line) => console.log("[gecko]", line),
         printErr: (line) => console.warn("[gecko]", line),
@@ -181,7 +166,6 @@ export class GeckoSource extends CanvasScreenSource {
         : "オフライン（検索結果は WISP が必要）";
       this.setStatus("ready", `Gecko エンジン${versionTag} · ${network}`);
     } catch (error) {
-      // 起動し直すときに新しく作るので、途中まで起動したものは捨てる
       this.engine?.destroy();
       this.engine = null;
       this.stopTokenRefresh();
@@ -201,10 +185,6 @@ export class GeckoSource extends CanvasScreenSource {
     }
   }
 
-  /**
-   * WISP のトークンを期限が切れる前に取り直し続ける。エンジンは最初の通信のときに初めて WISP へ繋ぐので、
-   * 起動から時間が経っていても、そのとき有効なトークンで繋げるようにする
-   */
   private keepWispTokenFresh(): void {
     setFreshWispUrl(this.wispUrl);
     this.stopTokenRefresh();
@@ -225,17 +205,12 @@ export class GeckoSource extends CanvasScreenSource {
     }
   }
 
-  /** 進みの表示だけを変える（状態は変えない） */
   private setDetail(detail: string): void {
     this.statusDetail = detail;
     this.paintNotice();
     this.markDirty();
   }
 
-  /**
-   * ソフトウェアモードでエンジンの putImageData を dirty 通知に繋ぐ。
-   * 無いとアニメーションや動画の更新がテクスチャに載らない。
-   */
   private patchBlitNotify(): void {
     const canvas = this.canvas as HTMLCanvasElement & {__blitPatched?: boolean};
     if (canvas.__blitPatched) {
@@ -338,10 +313,6 @@ export class GeckoSource extends CanvasScreenSource {
     });
   }
 
-  /**
-   * 表示中のページで JS を評価し、文字列の結果を返す（location.href など）。
-   * 準備中・失敗時は null。エンジンの content のグローバルで実行する
-   */
   async evalContent(code: string): Promise<string | null> {
     const eng = this.engine as unknown as {
       run?: (args: {op: number; url: string}) => Promise<unknown>;
@@ -366,10 +337,6 @@ export class GeckoSource extends CanvasScreenSource {
   }
 }
 
-/**
- * WISP の WebSocket への疎通（握手まで）。応答しない・拒否なら timeoutMs で諦めて false。
- * wisp プロトコル自体は検証しない（開いてすぐ閉じる）。
- */
 const checkWisp = (url: string, timeoutMs: number): Promise<boolean> =>
   new Promise<boolean>((resolve) => {
     let settled = false;
@@ -386,9 +353,7 @@ const checkWisp = (url: string, timeoutMs: number): Promise<boolean> =>
         ws.onclose = null;
         try {
           ws.close();
-        } catch {
-          /* 閉じられなくても結果は変わらない */
-        }
+        } catch {}
       }
       resolve(ok);
     };

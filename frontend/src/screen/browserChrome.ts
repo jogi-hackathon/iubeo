@@ -1,10 +1,3 @@
-/**
- * PC の画面に出すブラウザの枠（戻る・進む・アドレスバー）のレイアウトと、入力の振り分け。
- *
- * 枠は HUD ではなく、画面の中（テクスチャ）に描く。普通のブラウザと同じく、上の帯が枠で、
- * その下がエンジンの表示。座標はすべて画面の合成 canvas の画素（原点は左上）。
- */
-
 /** 画面（合成 canvas）の大きさ。ブラウン管と同じ 4:3 */
 export const SCREEN_CANVAS = {width: 960, height: 720} as const;
 
@@ -51,17 +44,10 @@ export const SEARCH_PAGE_URL = "https://www.google.com/search";
 export const searchUrlFor = (query: string): string =>
   `${SEARCH_PAGE_URL}?q=${encodeURIComponent(query)}`;
 
-/**
- * 検索結果ページの URL か（ホストとパスで見る軽い判定）。
- * 結果ページは「開いたサイト」ではないので、お題の判定には回さない
- * （判定は、結果を辿って着いたページで行う）。一覧に無い検索エンジンは普通のページとして扱う
- */
 const SEARCH_RESULTS_PAGES: ReadonlyArray<(url: URL) => boolean> = [
-  // Google は /search。アドレス欄の検索も、トップの検索ボックスからもここへ出る
   (url) =>
     /(^|\.)google\.[a-z.]+$/.test(url.hostname) &&
     url.pathname.startsWith("/search"),
-  // DuckDuckGo は /?q= と /lite/・/html/ が結果ページ（lite は /lite/）
   (url) =>
     /(^|\.)duckduckgo\.com$/.test(url.hostname) &&
     (url.searchParams.has("q") || /^\/(lite|html)\/?$/.test(url.pathname)),

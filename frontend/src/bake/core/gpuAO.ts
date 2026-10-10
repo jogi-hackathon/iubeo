@@ -1,8 +1,4 @@
 import type {BVHComputeData} from "three-mesh-bvh/webgpu";
-// GPU 版の AO 計算。レイを撃つカーネルは rayKernel.ts、ここはチャートのテクセル・サンプル点をチャンクに詰めて
-// 回し、結果をチャートへ戻す部分。
-// 使い方: const bvhData = createBVHData(geometry); const baker = new GpuAOBaker(renderer, bvhData);
-//         const raws = await baker.bakeCharts(chartTris, sizes)
 import type {WebGPURenderer} from "three/webgpu";
 
 import {
@@ -31,8 +27,6 @@ export {createBVHData} from "./rayKernel";
 // 1 dispatch が長くなりすぎない大きさに抑える。重い/軽いに応じて調整する
 export const CHUNK_TEXELS = 131072;
 
-// ---------------------------------------------------------------- 本ベイク
-
 export type BakeStats = {sampleMs: number; gpuMs: number; chunks: number};
 
 // テクセルごとに SAMPLE_DIRS(96 方向)の半球サンプルで AO を計算する
@@ -55,12 +49,6 @@ export class GpuAOBaker {
     this.kernel = new RayKernel(renderer, bvhData, SAMPLE_DIRS, chunkTexels);
   }
 
-  /**
-   * 全チャートの生の AO(0..255、無効は -1。dilate 前)を返す。
-   * @param chartTris buildChartTriangles の結果
-   * @param sizes チャートごとのテクセル数
-   * @param onProgress チャンクごとに呼ぶ(done/total はテクセル数)
-   */
   async bakeCharts(
     chartTris: ChartTri[][],
     sizes: {w: number; h: number}[],
@@ -78,13 +66,12 @@ export class GpuAOBaker {
     const frame = new Float64Array(6);
     const stats: BakeStats = {sampleMs: 0, gpuMs: 0, chunks: 0};
     this.stats = stats;
-    let c = 0; // 次に処理するチャート
-    let t = 0; // チャート内の次のテクセル(ty * w + tx)
-    let idx: ReturnType<typeof buildChartIndex> | null = null; // チャートごとに1度だけ作る
+    let c = 0;
+    let t = 0;
+    let idx: ReturnType<typeof buildChartIndex> | null = null;
     let visited = 0;
 
     for (;;) {
-      // チャンクを埋める。無効テクセル(どの三角形にも載らない)は飛ばす
       const tSample = performance.now();
       let n = 0;
       while (n < this.chunkTexels && c < chartCount) {
@@ -144,9 +131,7 @@ export class GpuAOBaker {
   }
 }
 
-// ---------------------------------------------------------------- 隠れチャート判定
-
-const HIDDEN_POINTS = HIDDEN_GRID_MAX * HIDDEN_GRID_MAX; // チャートあたりのサンプル点の上限
+const HIDDEN_POINTS = HIDDEN_GRID_MAX * HIDDEN_GRID_MAX;
 
 export type ProbeStats = {
   sampleMs: number;
@@ -155,7 +140,6 @@ export type ProbeStats = {
   points: number;
 };
 
-// AO に加えて、同じ方向で距離無制限(maxDist = 0 は無制限)のレイを撃ち、裏面に当たった本数と何にも当たらなかった本数を数える
 const VISIBILITY: RayKernelExtra = {
   results: 2,
   decl: "var backHits = 0u; var misses = 0u;",
@@ -192,7 +176,6 @@ export class GpuHiddenProbe {
     bvhData: BVHComputeData,
     chunkPoints = CHUNK_TEXELS,
   ) {
-    // 1チャート分のサンプル点が入らないと analyze が進まなくなる
     if (chunkPoints < HIDDEN_POINTS) {
       throw new Error(
         `[bake] chunkPoints は ${HIDDEN_POINTS} 以上にしてください(${chunkPoints})`,
@@ -208,11 +191,6 @@ export class GpuHiddenProbe {
     );
   }
 
-  /**
-   * 全チャートの隠れフラグ(1 = 隠れ)を返す。
-   * @param chartTris buildChartTriangles の結果
-   * @param onProgress チャンクごとに呼ぶ(done/total はチャート数)
-   */
   async analyze(
     chartTris: ChartTri[][],
     onProgress?: (done: number, total: number) => void,
@@ -229,7 +207,6 @@ export class GpuHiddenProbe {
     let c = 0;
 
     while (c < chartCount) {
-      // チャートのサンプル点は同じチャンクに収める(判定をチャンク内で完結させる)
       const tSample = performance.now();
       let n = 0;
       while (c < chartCount) {
@@ -247,7 +224,6 @@ export class GpuHiddenProbe {
             const hit = queryChart(idx, u, v);
             if (hit) {
               const [px, py, pz] = insetPosition(hit);
-              // AO 用のシード(移植元と同じ c*4 + si*2 + 1)
               rotatedFrame(
                 hit.nx,
                 hit.ny,
@@ -301,7 +277,6 @@ export class GpuHiddenProbe {
         );
       }
 
-      // 同じチャートの点は連続して並んでいるので、区切りごとに判定する
       for (let start = 0; start < n;) {
         const chart = pointChart[start] as number;
         let end = start + 1;

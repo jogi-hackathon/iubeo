@@ -7,7 +7,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 )
 
-// me は playerId のプレイヤーの Me を組み立てる
 func (s *Server) me(playerID string) api.Me {
 	me := api.Me{PlayerId: playerID}
 	if id, ok := s.sessions.SessionOf(playerID); ok {

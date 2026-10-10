@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  # OIDC で AWS の一時資格情報を受けるために要る
   id-token: write
 
 concurrency:
@@ -18,7 +17,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # CI が通ったときだけデプロイする(同じ run の中で呼ぶので、CI が赤なら deploy は走らない)
   ci:
     uses: ./.github/workflows/ci.yml
 
@@ -29,7 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 長期のアクセスキーは置かず、OIDC で一時資格情報を受ける
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -58,9 +55,6 @@ jobs:
         env:
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: release-${{ github.sha }}
-        # GitHub Actions のレイヤーキャッシュは実測で効果が出なかったので使わない
-        # (Dockerfile は COPY . . の後で go build するため、ソースが変わると build 層が必ず作り直される)。
-        # attestation は ECR に untagged の manifest を増やすので作らない
         run: |
           docker buildx build \
             --platform linux/arm64 \
@@ -69,8 +63,6 @@ jobs:
             --push \
             ./backend
 
-      # インスタンスは停止していることが多いので触らない。
-      # どのイメージを動かすかだけを書き換え、次の起動時に引かせる。
       - name: デプロイ対象のタグを更新
         env:
           TAG: release-${{ github.sha }}

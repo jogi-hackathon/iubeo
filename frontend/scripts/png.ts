@@ -1,4 +1,3 @@
-// 最小の PNG エンコーダ(8bit グレースケール・フィルタなし)。Node 専用
 import {deflateSync} from "node:zlib";
 
 let crcTable: Uint32Array | null = null;
@@ -30,7 +29,6 @@ const chunk = (type: string, data: Buffer): Buffer => {
   return Buffer.concat([len, typeBuf, data, crc]);
 };
 
-/** PNG のフィルタの予測値。a = 左、b = 上、c = 左上(1 画素 1 バイト) */
 const predict = (filter: number, a: number, b: number, c: number): number => {
   switch (filter) {
     case 1:
@@ -67,12 +65,9 @@ export const encodePNGGray8 = (
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 0; // color type: grayscale
-  // 10〜12: 圧縮・フィルタ・インターレースはすべて 0(既定)
+  ihdr[8] = 8;
+  ihdr[9] = 0;
   const raw = Buffer.alloc((width + 1) * height);
-  // 行ごとに、差分の絶対値の和が最小になるフィルタ(なし・Sub・Up・Average・Paeth)を選ぶ(PNG 仕様の推奨の方法)。
-  // 可逆なので画素は変わらない。AO は滑らかなので、フィルタなしより 2〜3 割小さくなる(配信とウォームアップの待ちが減る)
   const candidates = Array.from({length: 5}, () => new Uint8Array(width));
   for (let y = 0; y < height; y++) {
     const row = data.subarray(y * width, (y + 1) * width);
@@ -95,7 +90,7 @@ export const encodePNGGray8 = (
         best = filter;
       }
     }
-    raw[y * (width + 1)] = best; // 行ごとのフィルタ種別
+    raw[y * (width + 1)] = best;
     raw.set(candidates[best] as Uint8Array, y * (width + 1) + 1);
   }
   return Buffer.concat([

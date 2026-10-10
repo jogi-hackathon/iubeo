@@ -28,7 +28,6 @@ const panelStyle: CSSProperties = {
 };
 const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
 
-/** 今マウントされているシーンのトグル(core/toggles)の、表示・機能の切り替え。今トグルを持つのは room だけ */
 function ToggleRows({store}: {store: ToggleStore}) {
   const {hidden, disabled} = useToggleStoreState(store);
   return (
@@ -92,7 +91,6 @@ export function SceneDebugPanel() {
           <button
             key={name}
             type="button"
-            // 起動の覆いの間と遷移中は、切り替えを始めない
             disabled={booting || transitioning || current === name}
             onClick={() => void sceneTransitionManager.goTo(name)}
           >

@@ -1,11 +1,3 @@
-// PC の 3D モデルを、ゲームと同じライト・同じ CRT マテリアルで撮る。
-// Vite の dev サーバーを空きポートで起動し、インストール済みの Google Chrome をヘッドレスで開いて
-// pc.html を撮る。3 視点（正面・斜め・モニタ接写）が 1 枚に入る。
-//
-// 使い方: pnpm shot:pc --out=<path> [--timeout=120] [--headed]
-//   --out      書き出す PNG（frontend/ からの相対、または絶対パス）
-//   --timeout  待つ秒数（既定 120）
-//   --headed   ヘッドありで起動（デバッグ用）
 import net from "node:net";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -41,7 +33,6 @@ const parseArgs = (argv: string[]): Options => {
   return opts;
 };
 
-// 空きポートを探す（起動中の他の dev サーバーとは衝突させない）
 const findFreePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -53,7 +44,6 @@ const findFreePort = (): Promise<number> =>
     });
   });
 
-// ヘッドレス Chrome で WebGPU を使うためのフラグ（scripts/bake-ao.ts と同じ）
 const chromeFlags = (): string[] =>
   process.platform === "linux"
     ? [

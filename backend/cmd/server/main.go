@@ -36,7 +36,6 @@ func main() {
 		matchmaking.New(cfg.MatchSize, sessions, time.Now),
 		cfg.AllowedOrigins,
 	)
-	// WISP のトークンは、鍵が設定されているときだけ発行する
 	if cfg.WispKey != nil {
 		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL, cfg.WispPass)
 	}

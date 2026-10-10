@@ -31,7 +31,6 @@ type AnimatedState = Pick<PlayerState, "velocity" | "onGround" | "yaw">;
 
 const hold = frameOf(CLIPS.hold, 0);
 
-/** 腕(肘と手首)を、同じ側の肩からの相対位置で hold のポーズに置き換える。胴が上下しても腕が肩からずれない */
 const applyHoldArms = (target: Pose): void => {
   for (const side of ["l", "r"] as const) {
     const shoulder = J[`${side}Shoulder`] * 3;
@@ -65,7 +64,6 @@ export const updateAnimator = (
     const u = 0.5 - velocity.y / (2 * JUMP_SPEED);
     sampleClip(a.target, CLIPS.jump, u);
   } else if (speed >= WALK_MIN_SPEED) {
-    // 身体の前方(-sin, -cos)への速度成分が負なら後退
     const forward = -Math.sin(yaw) * velocity.x - Math.cos(yaw) * velocity.z;
     const dir = forward < 0 ? -1 : 1;
     a.phase = (((a.phase + (dir * speed * dt) / STRIDE_LENGTH) % 1) + 1) % 1;
@@ -77,7 +75,6 @@ export const updateAnimator = (
     applyHoldArms(a.target);
   }
 
-  // 最初の 1 回は補間せずに合わせる(原点の潰れたポーズから伸びないように)
   const w = a.started ? 1 - Math.exp(-POSE_SMOOTHING * dt) : 1;
   a.started = true;
   lerpPose(a.pose, a.pose, a.target, w);

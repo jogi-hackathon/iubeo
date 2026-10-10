@@ -27,7 +27,6 @@ const IDLE: OverviewState = {
 };
 
 type Options = {
-  /** プレイヤーを預かる。解除関数を返す。既定は core/playerControl */
   lock?: () => () => void;
 };
 
@@ -62,7 +61,6 @@ export const createOverviewStore = ({
         listeners.delete(listener);
       };
     },
-    /** 俯瞰に入る。一人称のときだけ入れる(入る・戻る途中は無視) */
     enter: (directoryId: string): boolean => {
       if (state.phase !== "idle") {
         return false;
@@ -71,13 +69,11 @@ export const createOverviewStore = ({
       set({phase: "active", directoryId, aimedFileId: null, pending: false});
       return true;
     },
-    /** 戻り始める。俯瞰中でなければ無視する */
     leave: (): void => {
       if (state.phase === "active") {
         set({...state, phase: "leaving", aimedFileId: null, pending: false});
       }
     },
-    /** 戻る補間が終わった。プレイヤーを返す */
     finish: (): void => {
       if (state.phase === "leaving") {
         release?.();
@@ -85,7 +81,6 @@ export const createOverviewStore = ({
         set(IDLE);
       }
     },
-    /** 補間を待たず、すぐ一人称に戻す(ディレクトリが消えたときなど) */
     reset: (): void => {
       if (state.phase !== "idle") {
         release?.();
@@ -93,7 +88,6 @@ export const createOverviewStore = ({
         set(IDLE);
       }
     },
-    /** 取り出しの要求を送る許可を取る。俯瞰中で、要求中でなければ true(以後、endRequest まで false) */
     beginRequest: (): boolean => {
       if (state.phase !== "active" || state.pending) {
         return false;
@@ -101,7 +95,6 @@ export const createOverviewStore = ({
       set({...state, pending: true});
       return true;
     },
-    /** 要求の結果が来た(拒否など、俯瞰に残る場合)。次の要求を受け付ける */
     endRequest: (): void => {
       if (state.pending) {
         set({...state, pending: false});

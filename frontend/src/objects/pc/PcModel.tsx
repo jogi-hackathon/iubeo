@@ -24,8 +24,6 @@ import {
 import {KEY_COUNT, keyPositions, keySize} from "./keyboard";
 import {TaskMemo} from "./TaskMemo";
 
-// 白い世界（IUBEO は色のない真っ白な世界）に合わせて、筐体はすべて白〜薄い灰色にする。
-// 凹み（ベゼルの奥・電源ランプの枠）だけ、形が読める程度に暗くする
 const SHELL = "#f3f3f1";
 const SHELL_DARK = "#dedcd6";
 const TRIM = "#c9c7c1";
@@ -50,11 +48,9 @@ export function PcModel({
   memoRef,
   on,
 }: {
-  /** ガラスに貼るマテリアル（CRT の TSL マテリアル） */
   screen: MeshBasicNodeMaterial;
   screenRef?: Ref<Mesh>;
   memoRef?: Ref<Mesh>;
-  /** 電源ランプ */
   on: boolean;
 }) {
   const glass = useMemo(() => createCurvedScreenGeometry(), []);
@@ -89,23 +85,18 @@ function Monitor({
   const sideX = SCREEN_OPENING_WIDTH / 2 + BEZEL_BAR_WIDTH / 2;
   return (
     <group position={[0, 0, MONITOR_Z]} rotation={[MONITOR_TILT, 0, 0]}>
-      {/* 本体。前面が +MONITOR_FRONT_Z */}
       <Box
         position={[0, MONITOR_BODY_Y, 0]}
         size={[MONITOR_BODY_WIDTH, MONITOR_BODY_HEIGHT, MONITOR_BODY_DEPTH]}
         color={SHELL}
       />
-      {/* 管の後ろ。4 角形の円柱を 45° 回して角を合わせ、群の scale で縦横比を変えて、奥へ絞る。
-          実物（奥行きは幅と同じくらい）に近づけるため短めで、後端は細く絞って管らしく見せる */}
       <group position={[0, MONITOR_BODY_Y, -0.22]} scale={[1, 0.77, 1]}>
         <mesh rotation={[Math.PI / 2, Math.PI / 4, 0]}>
-          {/* 半径は「正方形の半幅 × √2」。手前が本体より少し小さく、奥で一気に絞る */}
           <cylinderGeometry args={[0.311, 0.08, 0.1, 4, 1]} />
           <meshStandardMaterial color={SHELL_DARK} roughness={0.85} />
         </mesh>
       </group>
 
-      {/* 開口部を囲むベゼル（4 本）。本体より少し光沢を持たせて、縁でハイライトを出す */}
       <Box
         position={[0, barY, BEZEL_Z]}
         size={[MONITOR_BODY_WIDTH, BEZEL_BAR_HEIGHT, BEZEL_BAR_DEPTH]}
@@ -134,7 +125,6 @@ function Monitor({
         color={SHELL_DARK}
         roughness={0.42}
       />
-      {/* ガラスと枠の境目の暗い彫り込み。無いとガラスが箱に貼った紙に見える */}
       <Box
         position={[
           0,
@@ -172,7 +162,6 @@ function Monitor({
         color={RECESS}
       />
 
-      {/* 下のベゼルに、銘板とコントロールノブ（電源ランプと対にする）。正面の情報を増やす */}
       <Box
         position={[
           0,
@@ -195,7 +184,6 @@ function Monitor({
         <meshStandardMaterial color={TRIM} roughness={0.5} />
       </mesh>
 
-      {/* 曲面ガラス。レイキャストの対象はこのメッシュ */}
       <mesh
         ref={screenRef}
         geometry={glass}
@@ -203,7 +191,6 @@ function Monitor({
         position={[0, MONITOR_BODY_Y, SCREEN_Z]}
       />
 
-      {/* 電源ランプ */}
       <mesh
         position={[
           0.17,
@@ -220,7 +207,6 @@ function Monitor({
         />
       </mesh>
 
-      {/* 台座。板を広げ、首とスイベルの上に本体が載る形にして、宙に浮かないようにする */}
       <Box
         position={[0, 0.011, -0.01]}
         size={[0.34, 0.022, 0.26]}
@@ -239,10 +225,8 @@ function Monitor({
   );
 }
 
-/** タワー型の本体。前面に電源ボタンと、ドライブのスロットの線 */
 function Tower() {
   const {x, z, width, height, depth} = TOWER;
-  // 以下の座標は群（タワーの足元）の中。前面は群の +Z 側の面
   const frontZ = depth / 2;
   return (
     <group position={[x, 0, z]}>
@@ -251,13 +235,11 @@ function Tower() {
         size={[width, height, depth]}
         color={SHELL}
       />
-      {/* 前面パネル（わずかに手前へ出す） */}
       <Box
         position={[0, height / 2, depth / 2 + 0.002]}
         size={[width * 0.92, height * 0.94, 0.004]}
         color={SHELL_DARK}
       />
-      {/* ドライブベイ 2 段と、フロッピー口。線より面で見せた方が、正面が寂しくならない */}
       {[0.9, 0.82].map((at) => (
         <Box
           key={at}
@@ -273,7 +255,6 @@ function Tower() {
         color={RECESS}
         roughness={0.9}
       />
-      {/* 電源ボタン */}
       <mesh
         position={[0, height * 0.6, frontZ + 0.008]}
         rotation={[Math.PI / 2, 0, 0]}
@@ -285,12 +266,10 @@ function Tower() {
   );
 }
 
-/** キーボードの台と、キーキャップ（インスタンス描画で 1 回の描画にまとめる） */
 function Keyboard() {
   const {z, width, depth, height} = KEYBOARD;
   return (
     <group>
-      {/* 台はキーより一段暗くする。同じ白だと、キーの粒が読めずタイルに見える */}
       <Box
         position={[0, height / 2, z]}
         size={[width, height, depth]}
@@ -334,7 +313,6 @@ function KeyCaps({
   );
 }
 
-/** マウス。半球を伸ばして丸みを出し、コードで本体（タワー）と繋ぐ */
 function Mouse() {
   const cable = useMemo(
     () =>
@@ -355,7 +333,6 @@ function Mouse() {
         <sphereGeometry args={[1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial color={SHELL} roughness={0.5} />
       </mesh>
-      {/* 左右のボタンの境目。頂点からわずかに出して、線として読ませる */}
       <Box
         position={[MOUSE.x, MOUSE.height * 0.9, MOUSE.z - MOUSE.depth * 0.08]}
         size={[0.0018, 0.012, MOUSE.depth * 0.4]}
@@ -370,7 +347,6 @@ function Mouse() {
   );
 }
 
-/** 直方体の部品。色と粗さで、白い世界の中の材質差を出す */
 function Box({
   position,
   size,

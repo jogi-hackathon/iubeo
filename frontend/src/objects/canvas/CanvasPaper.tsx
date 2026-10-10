@@ -4,7 +4,6 @@ import {BoxGeometry, MeshStandardMaterial, type Texture} from "three";
 
 import {PAPER_PLACEMENT} from "./easel";
 
-// アクション中のアニメーションのモック。紙そのものの色(emissive)を脈動させる(ワークスペースの光る板と同じ水色・周期)
 const PULSE_COLOR = "#7fd1ff";
 const PULSE_HZ = 2;
 
@@ -42,7 +41,6 @@ export function CanvasPaper({
   useEffect(() => () => material.dispose(), [material]);
 
   useEffect(() => {
-    // map の有無でシェーダーが変わるので、切り替わったときだけ再コンパイルする
     const changed = !material.map !== !texture;
     material.map = texture;
     if (changed) {
@@ -51,7 +49,6 @@ export function CanvasPaper({
   }, [material, texture]);
 
   useFrame(({clock}) => {
-    // 止まっている間は 0 に戻す(emissive は色の uniform なので、値を変えても再コンパイルは起きない)
     const wave =
       0.5 + 0.5 * Math.sin(clock.elapsedTime * Math.PI * 2 * PULSE_HZ);
     material.emissiveIntensity = active ? 0.3 + 1.7 * wave : 0;

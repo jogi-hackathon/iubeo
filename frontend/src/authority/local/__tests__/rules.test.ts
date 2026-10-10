@@ -23,20 +23,14 @@ import {
 import {applyMessage} from "../../apply";
 import {createLocalRules, DUMMY_ITEM_KIND} from "../rules";
 
-// ファイルの id は意味を持たない不透明な値(状態や色を混ぜない)。読みやすいよう定数にする
 const F1 = "0a1b2c3d-0001-4000-8000-000000000001";
 const F2 = "0a1b2c3d-0002-4000-8000-000000000002";
 const F3 = "0a1b2c3d-0003-4000-8000-000000000003";
-// 新規ファイルの id(newId の n 回目の値)
 const newIdOf = (n: number) =>
   `0a1b2c3d-01${String(n).padStart(2, "0")}-4000-8000-000000000000`;
 
-// マネージャーと規則をつないだ、実際の配線と同じ形(規則の通知は applyMessage で反映する)。
-// 置く物は、規則の通知(dev.deliver)で置く(テストの準備。規則の外から置く物は objects.apply で置く)
 const setup = () => {
-  // 時間は進めたときだけ進む。ワークスペースのアニメーション待ちを、テストで制御する
   let now = 0;
-  // 新規ファイルの id は呼ぶたびに別の固定値(UUID 風)になる
   let newIdCount = 0;
   let itemCount = 0;
   const timers: Array<{at: number; fn: () => void}> = [];
@@ -84,14 +78,12 @@ const setup = () => {
   });
   handle = rules.handle;
 
-  // 置く・持たせるの準備(規則の通知で行う)
   const put = (object: GameObject) => {
     rules.dev.deliver({type: "object.upsert", object});
     return object.id;
   };
   const authority = {
     ...rules,
-    /** ダミーの箱を id で置く(personal は自分の物) */
     spawnObject: (
       id: string,
       scope: ObjectScope = "personal",
@@ -106,7 +98,6 @@ const setup = () => {
         availability,
         data: null,
       }),
-    /** ディレクトリを id で置き(shared)、その id を返す */
     spawnDirectory: (id: string, stock: readonly StockFile[]): string =>
       put({
         id,
@@ -116,7 +107,6 @@ const setup = () => {
         availability: "available",
         data: {stock: stock.map((f) => ({...f})), outputs: 0},
       }),
-    /** ワークスペースを id で置き(personal、owner は自分) */
     spawnWorkspace: (id: string): string =>
       put({
         id,
@@ -127,7 +117,6 @@ const setup = () => {
         availability: "available",
         data: null,
       }),
-    /** キャンバスを id で置き(personal、owner は自分) */
     spawnCanvas: (id: string): string =>
       put({
         id,
@@ -138,7 +127,6 @@ const setup = () => {
         availability: "available",
         data: null,
       }),
-    /** PC を id で置き(personal、owner は自分) */
     spawnPc: (id: string): string =>
       put({
         id,
@@ -149,29 +137,24 @@ const setup = () => {
         availability: "available",
         data: null,
       }),
-    /** 手持ちに、種類の id を持たせる(id は 種類-n)。持っていたアイテムは置き換わる */
     spawnItem: (kind: string = DUMMY_ITEM_KIND): string => {
       const id = `${kind}-${++itemCount}`;
       rules.dev.setHeldItem({id, kind, data: null});
       return id;
     },
-    /** 新しく作ったファイルを手に持たせる */
     spawnNewFile: (
       status:
         | "file_created"
         | "image_created"
         | "search_created" = "file_created",
     ): string => {
-      // 規則の newId と同じ採番(呼ぶたびに進む)
       const id = newIdOf(++newIdCount);
       rules.dev.setHeldItem({id, kind: FILE_KIND, data: {status}});
       return id;
     },
-    /** 手持ちを空にする(規則の通知で行う) */
     deleteHeldItem: (): void => {
       rules.dev.setHeldItem(null);
     },
-    /** 手持ちのファイルを編集済みにする(ワークスペースの編集の代わり)。作成したファイルは編集できず false */
     editHeldFile: (): boolean => {
       const held = rules.dev.getHeldItem();
       const file =
@@ -188,7 +171,6 @@ const setup = () => {
       rules.dev.setHeldItem({...held, data: {...file, status: "edited"}});
       return true;
     },
-    /** 他のプレイヤーが借りた想定で、在庫から 1 つ外す(先着の準備) */
     lendAway: (directoryId: string, fileId: string): void => {
       const object = rules.dev.getObject(directoryId);
       if (!object) {
@@ -200,9 +182,7 @@ const setup = () => {
         data: {...data, stock: data.stock.filter((f) => f.id !== fileId)},
       });
     },
-    /** 達成の数(テストでは規則の読み取りを直接見る) */
     getAchieved: (): number => rules.dev.getAchieved(),
-    /** 置いた物を、id で外す(規則の通知で行う) */
     removeObject: (id: string): void => {
       rules.dev.deliver({type: "object.remove", id});
     },
@@ -585,7 +565,6 @@ describe("createLocalRules", () => {
           heldItem: null,
         }),
       ).not.toThrow();
-      // その場で終わるので、作業中のまま残らず、新しいファイルを持つ
       expect(objects.getObject("workspace-1")?.users).toEqual([]);
       expect(items.getHeld()?.id).toBe(newIdOf(1));
       expect(() => rules.dispose()).not.toThrow();
@@ -617,7 +596,6 @@ describe("createLocalRules", () => {
 
       objects.interact(id);
 
-      // 受理した直後から作業中。結果はまだ出ない
       expect(objects.getObject(id)?.users).toEqual(["me"]);
       expect(items.getHeld()).toBeNull();
       advance(CANVAS_ACTION_MS - 1);
@@ -760,7 +738,6 @@ describe("createLocalRules", () => {
 
       objects.interact(id);
 
-      // 受理した時点で作業中(結果はまだ)
       expect(objects.getObject(id)?.users).toEqual(["me"]);
       advance(WORKSPACE_ACTION_MS - 1);
       expect(items.getHeld()?.data).toEqual({
@@ -842,7 +819,6 @@ describe("createLocalRules", () => {
         },
       });
 
-      // 既定のタイマー(setTimeout)を使うので、フェイクタイマーで時間を進める
       vi.useFakeTimers();
       objects.interact("workspace-1");
       vi.advanceTimersByTime(WORKSPACE_ACTION_MS);

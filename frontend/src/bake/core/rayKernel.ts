@@ -24,7 +24,7 @@ import {
 } from "./params";
 
 const WORKGROUP_SIZE = 64;
-const POINT_VEC4 = 4; // 点あたりの入力の vec4 数(発射位置 / 接線 / 従接線 / 法線)
+const POINT_VEC4 = 4;
 
 // BVH をパックして storage buffer に載せる(ジオメトリ index / position もここで載る)。
 // geometry.boundsTree があれば再利用される。本ベイク・隠れ判定のカーネルで共有する
@@ -82,7 +82,6 @@ export class RayKernel {
     this.watch = new GpuErrorWatch(renderer);
     this.dirCount = dirs.length;
     const results = 1 + extra.results;
-    // 埋まり判定: サンプル方向から等間隔に選んだ insideRays 本を距離無制限で撃つ
     const insideRays = Math.min(INSIDE_RAYS, dirs.length);
     const insideStride = Math.floor(dirs.length / insideRays);
     const insideMin = Math.ceil(insideRays * INSIDE_BACK_RATIO);
@@ -246,7 +245,6 @@ export class RayKernel {
     d[o + 14] = nz;
   }
 
-  /** 先頭から count 点を GPU で計算し、点ごとに resultsPerPoint 個ずつ(先頭が AO: 0..255 / EMBEDDED)返す */
   async dispatch(count: number): Promise<Uint32Array> {
     const {renderer} = this;
     this.dataAttr.needsUpdate = true;

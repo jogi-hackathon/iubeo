@@ -8,7 +8,6 @@ import {
   type TransitionState,
 } from "../sceneTransitionManager";
 
-// 手動で resolve / reject できる Promise
 const deferred = () => {
   let resolve!: () => void;
   let reject!: (e: unknown) => void;
@@ -69,7 +68,6 @@ describe("createSceneTransitionManager", () => {
       from: "room",
       to: "sandbox",
     });
-    // 演出中は commit 前なので、今のシーンは from のまま
     expect(scenes.getState()).toEqual({current: "room"});
     gate.resolve();
     await p;
@@ -309,7 +307,6 @@ describe("createSceneTransitionManager", () => {
       expect(fn).toHaveBeenCalledTimes(1);
     }
     expect(listener).toHaveBeenCalledTimes(2);
-    // 例外を投げた 5 つのコールバック・フックと、リスナー 2 回
     expect(error).toHaveBeenCalledTimes(7);
   });
 
@@ -378,8 +375,6 @@ describe("createSceneTransitionManager", () => {
       seen.push(`h2 ${from}>${to}`);
     });
     await m.goTo("sandbox");
-    // ハンドラは getState() ではなくペイロードを見る(契約)。h1 の goTo による2回目の遷移は別イベント
-    // (準備の待ちが入るので、2回目の遷移の完了は外側の goTo より後になる)
     await vi.waitFor(() => expect(seen).toHaveLength(4));
     expect(seen.slice(0, 2)).toEqual(["h1 room>sandbox", "h2 room>sandbox"]);
     expect(seen.slice(2)).toEqual(["h1 sandbox>room", "h2 sandbox>room"]);

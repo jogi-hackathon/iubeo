@@ -14,16 +14,13 @@ import (
 
 // Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
 type Server struct {
-	signer     *player.Signer
-	sessions   *session.Manager
-	matchmaker *matchmaking.Matchmaker
-	// allowedOrigins は WebSocket の接続を許すオリジン(完全一致)
+	signer         *player.Signer
+	sessions       *session.Manager
+	matchmaker     *matchmaking.Matchmaker
 	allowedOrigins []string
-	// wisp は WISP 接続用のトークンを発行する(nil なら未設定)。wispURL は WISP の基点。
-	// wispPass は発行に要る合言葉(空なら要らない)
-	wisp     *wisp.Issuer
-	wispURL  string
-	wispPass string
+	wisp           *wisp.Issuer
+	wispURL        string
+	wispPass       string
 }
 
 var _ api.ServerInterface = (*Server)(nil)
@@ -52,7 +49,6 @@ func notImplemented(w http.ResponseWriter) {
 	writeError(w, http.StatusNotImplemented, "not_implemented", "not implemented")
 }
 
-// authenticate は Cookie からプレイヤーを決める。無効なら 401 を書いて false を返す
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, bool) {
 	id, ok := s.signer.FromRequest(r)
 	if !ok {

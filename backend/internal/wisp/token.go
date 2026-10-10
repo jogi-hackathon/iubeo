@@ -16,7 +16,6 @@ const DefaultTTL = 5 * time.Minute
 
 var b64 = base64.RawURLEncoding
 
-// claims はトークンの中身。sub はプレイヤー ID(ログ用)、exp は Unix 秒
 type claims struct {
 	Sub string `json:"sub"`
 	Exp int64  `json:"exp"`

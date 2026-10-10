@@ -28,7 +28,6 @@ export function FlyCamera() {
       return;
     }
     if (!active.current) {
-      // freeCamera になった瞬間の姿勢から始める
       active.current = true;
       euler.setFromQuaternion(camera.quaternion, "YXZ");
       look.current.yaw = euler.y;

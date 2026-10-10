@@ -10,9 +10,7 @@ import {
 
 /** ゲームのカメラの縦の画角(度)。core/GameCanvas の CAMERA.fov と合わせる */
 export const CAMERA_FOV = 75;
-/** 山の裾(束の端まで)が、画面の縦(狭い方)の半分のうち、ここまでに収まる高さにカメラを置く */
 const FIT_RATIO = 0.9;
-/** 山頂より、カメラを上に置く余裕(m) */
 const SUMMIT_MARGIN = 1.5;
 
 /**

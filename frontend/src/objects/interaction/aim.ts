@@ -6,7 +6,6 @@ export type AimHit = {objectId: string | null; distance: number};
 
 type AimOptions = {
   maxDistance?: number;
-  /** 狙える物か(手元にあり、使用可能)。触れない物にはハイライトも付けない */
   isTargetable: (objectId: string) => boolean;
 };
 

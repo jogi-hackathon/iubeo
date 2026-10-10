@@ -27,7 +27,6 @@ export type SceneTransitionManagerOptions = {
   canStart?: () => boolean;
 };
 
-/** 既定は演出なし・準備は即完了 */
 const noTransition = (): Promise<void> => Promise.resolve();
 const noWait = (): Promise<void> => Promise.resolve();
 const noFinish = (): void => {};
@@ -67,7 +66,6 @@ export const createSceneTransitionManager = ({
     enter: new Set(),
   };
 
-  // コールバックの例外が他のコールバック・状態更新に影響しないようにする
   const set = (next: TransitionState) => {
     state = next;
     for (const l of Array.from(listeners)) {
@@ -83,7 +81,6 @@ export const createSceneTransitionManager = ({
     event: K,
     payload: TransitionEvents[K],
   ) => {
-    // 通知中に追加されたコールバックは、今回のイベントでは呼ばない
     for (const cb of Array.from(handlers[event])) {
       try {
         cb(payload);
@@ -127,13 +124,9 @@ export const createSceneTransitionManager = ({
         handlers[event].delete(callback);
       };
     },
-    /** 今のシーンを出る直前(演出の前)。俯瞰の解除など、今のシーンの後始末をする。解除関数を返す */
     onLeave: (hook: TransitionHook) => addHook("leave", hook),
-    /** 新しいシーンへ commit する直前(同じ同期区間)。描かれる前に揃えておくものを置く。解除関数を返す */
     onPrepare: (hook: TransitionHook) => addHook("prepare", hook),
-    /** 新しいシーンへ commit した直後。スポーン地点への移動など。解除関数を返す */
     onEnter: (hook: TransitionHook) => addHook("enter", hook),
-    /** 遷移中の呼び出し・現在と同じシーン・使えないシーンへの遷移は無視する */
     goTo: async (to: SceneName): Promise<void> => {
       const from = sceneManager.getState().current;
       if (state.status !== "idle" || from === to || !canStart()) {
@@ -150,16 +143,13 @@ export const createSceneTransitionManager = ({
       try {
         await runTransition(ctx);
       } catch (e) {
-        // 演出に失敗したら元のシーンのまま戻す。commit も transitionEnd もしない
         console.error(e);
         set({status: "idle"});
         return;
       }
-      // commit まで await しない(同じ同期区間で、新しいシーンの用意と commit を続ける)
       runHooks("prepare", ctx);
       sceneManager.commit(to);
       runHooks("enter", ctx);
-      // 準備が終わるまで演出を終えない。待ちが失敗しても commit 済みなので、演出は終えて遷移は完了させる
       try {
         await waitReady(to);
       } catch (e) {
@@ -170,9 +160,6 @@ export const createSceneTransitionManager = ({
       } catch (e) {
         console.error(e);
       }
-      // transitionEnd の時点で getState() は既に idle になっている。
-      // ただしハンドラ内から goTo すると、後続のハンドラでは次の遷移の状態になる。
-      // ハンドラは getState() ではなく引数 {from, to} を見ること
       set({status: "idle"});
       emit("transitionEnd", ctx);
     },

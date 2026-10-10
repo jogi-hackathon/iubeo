@@ -1,4 +1,3 @@
-# air(Go のホットリロード)の設定。devenv の processes.backend から backend/ で起動する
 root = "."
 tmp_dir = "tmp"
 

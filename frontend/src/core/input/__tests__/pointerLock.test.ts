@@ -10,7 +10,6 @@ import {
 
 type Handler = (e?: unknown) => void;
 
-/** DOM の最小モック。target と document(ownerDocument)だけを備える */
 const createDom = (
   requestPointerLock: (options?: unknown) => unknown = () => undefined,
 ) => {

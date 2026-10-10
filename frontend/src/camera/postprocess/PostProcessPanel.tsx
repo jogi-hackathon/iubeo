@@ -270,7 +270,6 @@ export function PostProcessPanel() {
         />
       </Section>
       <Section title="Sky noise">
-        {/* 空の背景シェーダーの劣化(skybox.ts)。見上げるほど崩れる。Post-processing が off でも効く */}
         <Check
           label="enabled"
           checked={s.skyNoise.enabled}

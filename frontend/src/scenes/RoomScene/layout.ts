@@ -28,7 +28,6 @@ const windowTop = WINDOW_SILL_HEIGHT + WINDOW_SIZE;
 const windowSouthZ = WINDOW_CENTER_Z + WINDOW_SIZE / 2;
 const windowNorthZ = WINDOW_CENTER_Z - WINDOW_SIZE / 2;
 
-/** 窓の脇の壁。z は (north, south) の範囲、y は窓の高さ */
 const besideWindow = (zFrom: number, zTo: number): WallSpec => ({
   position: [
     -WALL_CENTER,
@@ -49,7 +48,6 @@ export const ROOM_FLOOR: WallSpec = {
  * 壁は、隣の壁・床・天井の中まで延ばして重ねる(端と端を突き合わせるだけだと、隅の継ぎ目に 1px の隙間ができて外の空が線になって見える)
  */
 export const ROOM_WALLS: readonly WallSpec[] = [
-  // 奥(-Z)と手前(+Z)の壁は、角まで覆う
   {
     position: [0, HALF, ROOM_CENTER_Z - WALL_CENTER],
     size: [OUTER, OUTER, WALL_THICKNESS],
@@ -58,12 +56,10 @@ export const ROOM_WALLS: readonly WallSpec[] = [
     position: [0, HALF, ROOM_CENTER_Z + WALL_CENTER],
     size: [OUTER, OUTER, WALL_THICKNESS],
   },
-  // 右(+X)の壁
   {
     position: [WALL_CENTER, HALF, ROOM_CENTER_Z],
     size: [WALL_THICKNESS, OUTER, OUTER],
   },
-  // 左(-X)の壁: 窓の下・上・奥側・手前側の 4 枚
   {
     position: [
       -WALL_CENTER,
@@ -82,7 +78,6 @@ export const ROOM_WALLS: readonly WallSpec[] = [
   },
   besideWindow(ROOM_INNER_Z_NORTH - WALL_THICKNESS, windowNorthZ),
   besideWindow(windowSouthZ, ROOM_INNER_Z_SOUTH + WALL_THICKNESS),
-  // 天井
   {
     position: [0, ROOM_SIZE + WALL_THICKNESS / 2, ROOM_CENTER_Z],
     size: [OUTER, WALL_THICKNESS, OUTER],
@@ -99,11 +94,6 @@ export const WINDOW_PLUG: WallSpec = {
   size: [WALL_THICKNESS, WINDOW_SIZE, WINDOW_SIZE],
 };
 
-// オブジェクトの置き場所(足元の位置)。スケッチどおり、ディレクトリは奥の壁、キャンバスは右の壁際(スポーン地点を向く)、
-// 机は部屋の中央、イスは机の手前(+Z 側)で机の方(-Z)を向く。
-// ディレクトリは small の山を、奥の壁の室内の面から DIRECTORY_SINK 奥(壁の向こう)に中心を置く。
-// 山(束の端まで mountainReach("small") = 2.4m)は、室内には 1.9m だけ張り出す。
-// 机の奥の縁(z=-2.4)と山の端(z=-3.1)は 0.5m 以上空く
 const DIRECTORY_SINK = 0.5;
 export const DIRECTORY_POSITION: Vec3 = [
   0,

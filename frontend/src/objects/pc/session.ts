@@ -26,7 +26,6 @@ export type PcSessionState = {
 const IDLE: PcSessionState = {phase: "idle", objectId: null};
 
 type Options = {
-  /** プレイヤーを預かる。解除関数を返す。既定は core/playerControl */
   lock?: () => () => void;
   /** キャンバスのクリックで pointer lock を取らせない。解除関数を返す */
   suppressPointerLock?: () => () => void;
@@ -72,7 +71,6 @@ export const createPcSession = ({
         listeners.delete(listener);
       };
     },
-    /** PC を使い始める。一人称のときだけ入れる（離れる途中は無視） */
     enter: (objectId: string): boolean => {
       if (state.phase !== "idle") {
         return false;
@@ -82,7 +80,6 @@ export const createPcSession = ({
       set({phase: "active", objectId});
       return true;
     },
-    /** 離れ始める。使っていなければ無視する */
     leave: (): void => {
       if (state.phase === "active") {
         set({...state, phase: "leaving"});
@@ -93,12 +90,9 @@ export const createPcSession = ({
       if (state.phase === "leaving") {
         releaseAll();
         set(IDLE);
-        // 抑止を解いた後に取り直す。クリックを待たずに一人称のマウスルックへ戻る
-        // （ブラウザに拒否されたら何も起きない。クリックでの取得がそのまま残る）
         resume();
       }
     },
-    /** 補間を待たずに一人称へ戻す（シーンを出るときなど）。ロックは取り直さない */
     reset: (): void => {
       if (state.phase !== "idle") {
         releaseAll();

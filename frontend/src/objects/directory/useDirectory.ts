@@ -31,7 +31,6 @@ export type DirectoryModel = {
   visible: boolean;
 };
 
-/** 俯瞰を一人称へ戻す(このディレクトリが俯瞰中のときだけ) */
 const resetOverviewOf = (directoryId: string): void => {
   if (overview.getState().directoryId === directoryId) {
     overview.reset();

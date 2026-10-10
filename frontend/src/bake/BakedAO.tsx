@@ -41,7 +41,6 @@ const materialsOf = (mesh: Mesh): Material[] =>
 
 const loadAtlas = async (url: string): Promise<Texture> => {
   const texture = await new TextureLoader().loadAsync(url);
-  // AO はリニアの値。アトラスはチャートを詰めてあるので mipmap は隣のチャートがにじむため使わない
   texture.colorSpace = NoColorSpace;
   texture.flipY = false;
   texture.generateMipmaps = false;
@@ -52,7 +51,6 @@ const loadAtlas = async (url: string): Promise<Texture> => {
   return texture;
 };
 
-/** 現在のシーンの静的 mesh にアトラスを貼る。貼れたら元に戻す関数を、合わなければ理由を返す */
 const applyAtlas = (
   root: Object3D,
   layout: BakedAOLayout,
@@ -79,7 +77,6 @@ const applyAtlas = (
       sharedWithOthers.add(m);
     }
   });
-  // GTAO を省けるかはマテリアル単位で決まるので、同じマテリアルを使う mesh の AO モードを集める
   const modesByMaterial = new Map<Material, AOMode[]>();
   for (const mesh of meshes) {
     for (const m of materialsOf(mesh)) {
@@ -126,7 +123,6 @@ const applyAtlas = (
         );
         continue;
       }
-      // 同じマテリアルを複数の mesh が使うと、2つ目以降では貼り済み
       if (material.aoMap === texture) {
         continue;
       }
@@ -134,7 +130,6 @@ const applyAtlas = (
       const prevIntensity = material.aoMapIntensity;
       const prevSkip = getSkipGTAO(material);
       material.aoMap = texture;
-      // false も明示する(シェーダのキャッシュキーは値だけを並べるので、baked と both を区別するため)
       setSkipGTAO(material, skipsGTAO(modesByMaterial.get(material) ?? []));
       material.needsUpdate = true;
       materials.push(material);
@@ -188,7 +183,6 @@ export function BakedAO({scene}: {scene: string}) {
     let apply: (() => void) | null = null;
     let lastMessage = "";
 
-    // 1回のコミットで複数のコライダーが登録されるので、マイクロタスクでまとめて1回だけ貼り直す
     let scheduled = false;
     const schedule = () => {
       if (scheduled) {
@@ -215,7 +209,6 @@ export function BakedAO({scene}: {scene: string}) {
     });
 
     const log = (level: "info" | "warn", message: string) => {
-      // 貼り直しのたびに同じ内容を出さない
       if (message === lastMessage) {
         return;
       }
@@ -229,12 +222,9 @@ export function BakedAO({scene}: {scene: string}) {
         atlas: `${import.meta.env.BASE_URL}${files.atlas}`,
         layout: `${import.meta.env.BASE_URL}${files.layout}`,
       };
-      // アトラスはレイアウトと同時に取りに行く(順に待つと往復 1 回ぶんと、レイアウトの受信のぶん、ウォームアップの待ちが延びる)。
-      // ベイク結果が無いときは失敗するので、未処理の reject にならないよう先に握っておく
       const atlasPromise = loadAtlas(urls.atlas);
       atlasPromise.catch(() => {});
       const res = await fetch(urls.layout);
-      // SPA フォールバックのあるホスティングでは、無いファイルが index.html(200)で返る
       if (!res.ok || res.headers.get("content-type")?.startsWith("text/html")) {
         log(
           "info",
@@ -273,7 +263,6 @@ export function BakedAO({scene}: {scene: string}) {
         undo = result.undo;
         applied = result.materials;
         syncIntensity(applied);
-        // 貼り直しのたびに同じ警告を出さないよう、log の重複抑制に通す(警告があるときは情報ログの代わりに出す)
         const warning = [...new Set(result.warnings)].join(" / ");
         if (warning) {
           log("warn", warning);

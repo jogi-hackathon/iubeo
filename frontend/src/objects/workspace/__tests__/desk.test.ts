@@ -22,7 +22,6 @@ import {
 
 const EPS = 1e-6;
 
-// 描画(WorkspaceObject)と同じく、単位の形を scale で伸ばした mesh を組む
 const buildDesk = () => {
   const group = new Group();
   const meshes = DESK_PARTS.map((part) => {

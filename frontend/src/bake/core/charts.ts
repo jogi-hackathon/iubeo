@@ -1,9 +1,6 @@
-// チャート(UV アイランド)の三角形収集・物理サイズ・チャート内の点クエリ。
 import type {BufferGeometry} from "three";
 
 import {CHART_INSET, clamp, MAX_TEXELS, MIN_TEXELS, TEXEL} from "./params";
-
-// ---------------------------------------------------------------- 型
 
 export type Tuple9 = [
   number,
@@ -38,8 +35,6 @@ export type ChartHit = {
 
 /** uv 空間の n x n 格子に三角形をバケット分けした索引 */
 export type ChartIndex = {n: number; cells: ChartTri[][]};
-
-// ---------------------------------------------------------------- チャート三角形の収集
 
 // 頂点の chart 属性でグループ化した三角形リストを返す。groups は index 範囲を分けているので
 // 1三角形の3頂点は必ず同じチャートに属する(assignCharts が保証する)。
@@ -149,11 +144,8 @@ export const chartPhysicalSize = (tris: ChartTri[]): ChartSize => {
 export const texelsFor = (size: number): number =>
   clamp(Math.ceil(size / TEXEL) + 1, MIN_TEXELS, MAX_TEXELS);
 
-// ---------------------------------------------------------------- チャート内の点 → 位置・法線
-
 const BARY_EPS = 1e-4;
 
-// 三角形の uv 空間で点 (u,v) の重心座標を返す。三角形の外なら null(境界は epsilon で含める)
 const baryOfUV = (
   u: number,
   v: number,

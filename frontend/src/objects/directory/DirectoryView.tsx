@@ -9,7 +9,6 @@ import {type Sheet} from "./mountain";
 import {createPaperMaterial, setSheetInfo} from "./paperMaterial";
 import type {DirectoryModel} from "./useDirectory";
 
-/** 芯の色。板より一段暗い紙色にして、散りばめた板が見分けられるようにする */
 const CORE_COLOR = "#e4e4e1";
 
 const dummy = new Object3D();
@@ -17,7 +16,6 @@ const color = new Color();
 
 type StackProps = {
   sheets: readonly Sheet[];
-  /** 見せる数(先頭から) */
   count: number;
 };
 
@@ -33,7 +31,6 @@ function OutputSheets({sheets, count}: StackProps) {
     return m;
   }, []);
   useEffect(() => () => material.dispose(), [material]);
-  // 縞の間隔や表紙の厚みがワールド単位で一定になるよう、インスタンスごとの大きさを属性で渡す
   const geometry = useMemo(() => {
     const g = new BoxGeometry(1, 1, 1);
     setSheetInfo(
@@ -62,7 +59,6 @@ function OutputSheets({sheets, count}: StackProps) {
     if (mesh.instanceColor) {
       mesh.instanceColor.needsUpdate = true;
     }
-    // 境界球は、フラスタムカリングと狙いの判定(raycast)が使う。作った時点の数で固定されるので、数が変わるたびに作り直す
     mesh.computeBoundingSphere();
   }, [sheets, count]);
 

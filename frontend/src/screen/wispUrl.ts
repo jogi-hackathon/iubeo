@@ -1,21 +1,10 @@
-/**
- * WISP（実サイトへ出るプロキシ）への接続先を決める。
- *
- * - `?wisp=<url>` か `VITE_WISP_URL` があれば、それを使う（開発の直結。トークンは付けない）。
- *   `?wisp=` と空にすると、その場だけ無効にする
- * - 無ければ、バックエンドに期限つきの URL を発行してもらう（プレイヤーの Cookie が要る）。
- *   バックエンドに合言葉（IUBEO_WISP_PASS）があれば、`?wisppass=<合言葉>` で開いたときだけ発行される
- */
-
 /** トークン付きの WISP の URL を発行する API（backend/api/openapi.yaml の getWispToken） */
 export const WISP_TOKEN_PATH = "/api/v1/wisp/token";
 
-/** 匿名プレイヤーを作って Cookie を発行する API(createPlayer) */
 const PLAYER_PATH = "/api/v1/players";
 
 /** 合言葉を送るヘッダー（openapi.yaml の getWispToken） */
 export const WISP_PASS_HEADER = "X-Iubeo-Wisp-Pass";
-/** 合言葉を、タブを閉じるまで覚えておく場所（sessionStorage のキー） */
 const WISP_PASS_STORAGE_KEY = "iubeo.wispPass";
 
 /**
@@ -81,7 +70,6 @@ export const resolveWispUrl = async (
   try {
     let response = await fetchFn(WISP_TOKEN_PATH, tokenInit);
     if (response.status === 401) {
-      // Cookie がまだ無い(セッションに入る前)なら、匿名のプレイヤーを作ってから 1 回だけ取り直す
       const created = await fetchFn(PLAYER_PATH, {
         method: "POST",
         credentials: "same-origin",
@@ -129,10 +117,6 @@ export const replaceWispToken = (target: string, fresh: string): string => {
   return target.endsWith("/") && !fresh.endsWith("/") ? `${fresh}/` : fresh;
 };
 
-/**
- * いま使える、トークン付きの WISP の URL。エンジンが WebSocket を開くとき、これのトークンに差し替える
- * （installWispTokenRewrite）。エンジンは 1 つだけなので、モジュールで 1 つ持つ
- */
 let freshWispUrl: string | undefined;
 
 /** 差し替えに使う URL を更新する（トークンを取り直したとき）。undefined なら差し替えない */
