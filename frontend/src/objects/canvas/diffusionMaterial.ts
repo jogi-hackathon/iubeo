@@ -1,3 +1,4 @@
+import {Vector4} from "three";
 import {
   exp2,
   float,
@@ -11,6 +12,7 @@ import {
   select,
   sin,
   smoothstep,
+  sRGBTransferEOTF,
   sqrt,
   uniform,
   uv,
@@ -19,10 +21,18 @@ import {
 } from "three/tsl";
 import {MeshStandardNodeMaterial, type Node} from "three/webgpu";
 
-import {cellHash} from "../../scenes/environment/skybox";
+import {cellHash} from "../../core/cellHash";
+import {PAPER_SIZE} from "./easel";
 
-/** 潜在のマス(拡散モデルの latent の画素)の数。横 x 縦。紙(PAPER_SIZE: 0.8 x 0.9)と同じ縦横比 */
-const LATENT = [40, 45] as const;
+/** 潜在のマス(拡散モデルの latent の画素)の、紙 1m あたりの数。マスが正方形になるよう、縦横とも同じにする */
+const LATENT_PER_METER = 50;
+/** 潜在のマスの数。横 x 縦(紙 0.8 x 0.9m なら 40 x 45) */
+const LATENT = [
+  Math.round(PAPER_SIZE[0] * LATENT_PER_METER),
+  Math.round(PAPER_SIZE[1] * LATENT_PER_METER),
+] as const;
+/** 絵の上の位置(0〜1)を、縦横の長さを揃えた位置に直す倍率(太陽を、紙の縦横比に関わらず真円にする) */
+const PAPER_ASPECT = PAPER_SIZE[0] / PAPER_SIZE[1];
 /** ノイズを取り除く段数(サンプラーのステップ数)。段ごとに、新しいノイズを引き直す */
 const STEPS = 24;
 /** 粗い→細かいの段階の数。最初は 2^COARSE_LEVELS マス単位の大づかみな絵から始める */
@@ -44,9 +54,8 @@ const FRESH_NOISE = 0.6;
 /** 白へ戻すときの、消える境目のぼかしの幅(紙の高さに対する割合) */
 const WIPE_EDGE = 0.15;
 
-/** 作業(seed)ごとに決まる乱数。k で用途を分ける */
-const seedRandom = (seed: Node<"float">, k: number): Node<"float"> =>
-  cellHash(vec2(0), seed, 500 + k);
+/** 絵の組み立てに使う乱数の数(4 つずつ vec4 の uniform に詰める) */
+const PICTURE_RANDOMS = 12;
 
 /** 平均 0・分散およそ 1 のノイズ(一様乱数 3 つの和で、ガウス分布に寄せる) */
 const gaussian = (
@@ -61,11 +70,13 @@ const gaussian = (
     .mul(2);
 
 /**
- * 描き上がりの絵(x0)。p は紙の上の位置(0〜1、y は上)。seed ごとに、空・太陽・遠い丘・近い丘の風景を組む。
+ * 描き上がりの絵(x0)。p は紙の上の位置(0〜1、y は上)。乱数 r(作業ごとに CPU で引き直す)で、空・太陽・遠い丘・近い丘の風景を組む。
  * 明るさ(INK〜1)を TONES 段に刻んで返す
  */
-const picture = (p: Node<"vec2">, seed: Node<"float">): Node<"float"> => {
-  const r = (k: number) => seedRandom(seed, k);
+const picture = (
+  p: Node<"vec2">,
+  r: (k: number) => Node<"float">,
+): Node<"float"> => {
   const wave = (freq: Node<"float">, phase: Node<"float">) =>
     sin(p.x.mul(freq).add(phase.mul(Math.PI * 2)));
 
@@ -81,16 +92,17 @@ const picture = (p: Node<"vec2">, seed: Node<"float">): Node<"float"> => {
   const sunRadius = r(11).mul(0.05).add(0.09);
 
   const sky = mix(float(1), float(0.8), smoothstep(horizon, 1, p.y));
+  // smoothstep の境目は小さい順に渡す(逆順は WGSL の変換先によって結果が決まらない)
   const sun = smoothstep(
-    sunRadius,
     sunRadius.sub(0.01),
-    length(p.sub(sunCenter).mul(vec2(0.8 / 0.9, 1))),
-  );
+    sunRadius,
+    length(p.sub(sunCenter).mul(vec2(PAPER_ASPECT, 1))),
+  ).oneMinus();
   let tone: Node<"float"> = mix(sky, float(0.55), sun);
   tone = select(p.y.lessThan(far), float(0.72), tone);
   tone = select(
     p.y.lessThan(near),
-    mix(float(0.5), float(INK), smoothstep(near, 0, p.y)),
+    mix(float(0.5), float(INK), smoothstep(0, near, p.y).oneMinus()),
     tone,
   );
   const level = floor(
@@ -106,18 +118,22 @@ const picture = (p: Node<"vec2">, seed: Node<"float">): Node<"float"> => {
     .add(INK);
 };
 
-/** 描き上がりの絵を、block マス単位に粗くしたもの(マスの中心で引く) */
+/**
+ * 描き上がりの絵を、block マス単位に粗くしたもの(まとまりの中心で引く)。
+ * マスの数は block で割り切れないので、端のまとまりの中心は紙の外に出うる。紙の内側に寄せて引く
+ */
 const coarsePicture = (
   cell: Node<"vec2">,
   block: Node<"float">,
-  seed: Node<"float">,
+  r: (k: number) => Node<"float">,
 ): Node<"float"> =>
   picture(
     floor(cell.div(block))
       .add(0.5)
       .mul(block)
+      .clamp(vec2(0.5), vec2(...LATENT).sub(0.5))
       .div(vec2(...LATENT)),
-    seed,
+    r,
   );
 
 export interface DiffusionPaper {
@@ -128,8 +144,8 @@ export interface DiffusionPaper {
   appear: {value: number};
   /** 演出が残っている高さ(1: 全面、0: 真っ白な紙)。下げると、上のマスの行から順に白へ消えていく */
   fade: {value: number};
-  /** 作業ごとに変える種。描く絵とノイズが変わる(0〜65535 の整数) */
-  seed: {value: number};
+  /** 新しい作業のために、描く絵とノイズを引き直す */
+  reseed(random?: () => number): void;
 }
 
 /**
@@ -148,6 +164,13 @@ export const createDiffusionPaper = (): DiffusionPaper => {
   const appear = uniform(0);
   const fade = uniform(1);
   const seed = uniform(0);
+  const randoms = Array.from({length: PICTURE_RANDOMS / 4}, () =>
+    uniform(new Vector4()),
+  );
+  const r = (k: number): Node<"float"> => {
+    const v = randoms[Math.floor(k / 4)]!;
+    return [v.x, v.y, v.z, v.w][k % 4]!;
+  };
 
   const cell = min(floor(uv().mul(vec2(...LATENT))), vec2(...LATENT).sub(1));
   const step = floor(progress.mul(STEPS));
@@ -157,8 +180,8 @@ export const createDiffusionPaper = (): DiffusionPaper => {
   const level = float(1).sub(t).mul(COARSE_LEVELS);
   const fine = floor(level);
   const x0 = mix(
-    coarsePicture(cell, exp2(fine), seed),
-    coarsePicture(cell, exp2(fine.add(1)), seed),
+    coarsePicture(cell, exp2(fine), r),
+    coarsePicture(cell, exp2(fine.add(1)), r),
     fract(level),
   )
     .sub(LATENT_MEAN)
@@ -186,7 +209,18 @@ export const createDiffusionPaper = (): DiffusionPaper => {
   const srgb = mix(float(1), select(shown, tone, float(1)), remain);
   const material = new MeshStandardNodeMaterial();
   // 明るさは見た目(sRGB)で決めているので、線形に直して渡す
-  material.colorNode = vec3(pow(max(srgb, 1e-4), 2.2));
+  material.colorNode = sRGBTransferEOTF(vec3(srgb)) as Node<"vec3">;
 
-  return {material, progress, appear, fade, seed};
+  return {
+    material,
+    progress,
+    appear,
+    fade,
+    reseed(random = Math.random) {
+      seed.value = Math.floor(random() * 65536);
+      for (const v of randoms) {
+        v.value.set(random(), random(), random(), random());
+      }
+    },
+  };
 };
