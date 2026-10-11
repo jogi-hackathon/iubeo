@@ -1,5 +1,6 @@
 # ビルド段は常にネイティブで動かす(--platform=$BUILDPLATFORM)。
 # これが無いと linux/arm64 を作るときに Go コンパイラまで QEMU で動いて遅くなる。
+
 FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine AS build
 
 ENV GOTOOLCHAIN=local

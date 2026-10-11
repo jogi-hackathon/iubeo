@@ -38,9 +38,7 @@ describe("gameStore", () => {
     const state = store.getState();
     expect(state.sessionStatus).toBe("playing");
     expect(state.phase?.number).toBe(1);
-    // 端末の時計はサーバーより 500ms 遅れている
     expect(state.serverOffsetMs).toBe(500);
-    // 残り時間はサーバー時刻から見る(端末の時計を足さない)
     expect(remainingMs(state, base)).toBe(30_000);
   });
 
@@ -64,7 +62,6 @@ describe("gameStore", () => {
     store.phaseEnded("intermission");
     expect(store.getState().intermission).toBe(true);
     expect(store.getState().phase?.status).toBe("intermission");
-    // 締切は過ぎているので、残り時間は出さない
     expect(remainingMs(store.getState(), 60_000)).toBeNull();
 
     store.phaseStarted(phase({number: 3}), at(40_000));
@@ -95,7 +92,6 @@ describe("gameStore", () => {
     expect(tasks.map((t) => t.status)).toEqual(["pending", "completed"]);
     expect(tasks[1]!.completedAt).toBe(at(1_000));
 
-    // 同じ通知を二度受けても、completedAt は最初のまま
     store.taskCompleted("task-1-2", at(9_000));
     expect(store.getState().phase!.tasks[1]!.completedAt).toBe(at(1_000));
   });
@@ -121,7 +117,6 @@ describe("gameStore", () => {
     store.reset();
     expect(store.getState().phase).toBeNull();
     expect(store.getState().sessionStatus).toBeNull();
-    // room へ戻った後も HUD が結果を出せるよう、結果は残す
     expect(store.getState().result).toEqual(defeat);
     log.mockRestore();
   });

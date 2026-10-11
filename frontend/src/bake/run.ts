@@ -19,11 +19,9 @@ export interface BakeOutput {
   layoutBytes: Uint8Array;
   hiddenCount: number;
   texelTotal: number;
-  /** 工程ごとの所要時間(ms) */
   timings: Record<string, number>;
 }
 
-/** イベントループへ制御を返す。setTimeout はバックグラウンドタブで間引かれるので MessageChannel を使う */
 const yieldToUI = (): Promise<void> =>
   new Promise((resolve) => {
     const channel = new MessageChannel();
@@ -31,11 +29,6 @@ const yieldToUI = (): Promise<void> =>
     channel.port2.postMessage(0);
   });
 
-/**
- * マウント済みのシーン(BVHCollider でコライダー登録済み)の静的 mesh について AO をベイクする。
- * 手順は移植元(three-room-ao-test)と同じ: 結合ジオメトリ → 隠れチャート判定(GPU)→ アトラス配置
- * → テクセルごとの AO(GPU)→ チャート内 dilate → アトラスへ書き込み
- */
 export const bakeSceneAO = async (
   renderer: WebGPURenderer,
   onProgress: (p: BakeProgress) => void,
@@ -58,7 +51,6 @@ export const bakeSceneAO = async (
   const signatures = meshes.map(meshSignature);
   const geometry = buildBakeGeometry(meshes);
   const chartCount = geometry.userData.chartCount as number;
-  // BVHComputeData は geometry.boundsTree があれば再利用する
   geometry.boundsTree = new MeshBVH(geometry);
   const chartTris = buildChartTriangles(geometry);
   const bvhData = createBVHData(geometry);

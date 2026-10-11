@@ -35,7 +35,6 @@ func putF32(b []byte, v float64) { le.PutUint32(b, math.Float32bits(float32(v)))
 
 func getF32(b []byte) float64 { return float64(math.Float32frombits(le.Uint32(b))) }
 
-// decodeTransformBinary はクライアントからのバイナリの transform を読む
 func decodeTransformBinary(b []byte) (api.TransformMessage, error) {
 	if len(b) != binTransformSize || b[0] != binTransform {
 		return api.TransformMessage{}, errInvalidBinary
@@ -49,7 +48,6 @@ func decodeTransformBinary(b []byte) (api.TransformMessage, error) {
 	}, nil
 }
 
-// encodeTransformsBinary は transforms をバイナリにする。playerId は st の席に置き換える
 func encodeTransformsBinary(msg api.TransformsMessage, st *State) []byte {
 	b := make([]byte, binTransformsHead+binPlayerSize*len(msg.Players))
 	b[0] = binTransforms
@@ -76,7 +74,6 @@ func encodeTransformsBinary(msg api.TransformsMessage, st *State) []byte {
 	return b
 }
 
-// ReceiveBinary はクライアントから届いたバイナリのメッセージをセッションに渡す(今は transform だけ)
 func (s *Session) ReceiveBinary(playerID string, data []byte) error {
 	m, err := decodeTransformBinary(data)
 	if err != nil {

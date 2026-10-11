@@ -1,13 +1,5 @@
-/**
- * VC の音の出入り口。マイクを AudioWorklet で 20ms ずつ取り出し、
- * 他の人から届いた PCM を PannerNode（距離減衰）へ流す。
- *
- * 位置はゲームの transforms（サーバーの正）を使う。ここは音響だけを持ち、ネットワークは知らない
- */
-
 const SAMPLE_RATE = 48000;
 
-// マイクの PCM を 20ms（960 サンプル）ずつ postMessage する worklet（esbuild では別ファイルを出せないので Blob）
 const CAPTURE_WORKLET = `
 class Capture extends AudioWorkletProcessor {
   constructor(options) {
@@ -82,7 +74,6 @@ export const createVoiceAudio = (): VoiceAudio => {
       const panner = ctx.createPanner();
       panner.panningModel = "HRTF";
       panner.distanceModel = "inverse";
-      // 3m までは減衰させず、40m でほぼ聞こえない（区画の中の会話用）
       panner.refDistance = 3;
       panner.maxDistance = 40;
       panner.rolloffFactor = 1.4;
@@ -101,14 +92,12 @@ export const createVoiceAudio = (): VoiceAudio => {
       return ctx.state;
     },
 
-    /** ユーザーの操作（クリック・キー）の中で呼ぶ。自動再生の制限を解く */
     async resume(): Promise<void> {
       if (ctx.state === "suspended") {
         await ctx.resume().catch(() => {});
       }
     },
 
-    /** マイクを取得して、20ms ごとの PCM を onPcm へ渡す。既に取得済みなら何もしない */
     async startMic(onPcm: (pcm: Float32Array) => void): Promise<void> {
       if (micNode) {
         return;
@@ -136,7 +125,6 @@ export const createVoiceAudio = (): VoiceAudio => {
       return micNode !== undefined;
     },
 
-    /** 他の人の PCM を、今の位置に向けて鳴らす（chunk ごとに先読みして繋ぐ） */
     feed(peer: string, pcm: Float32Array): void {
       if (pcm.length === 0) {
         return;
@@ -148,7 +136,6 @@ export const createVoiceAudio = (): VoiceAudio => {
       source.buffer = buf;
       source.connect(p.gain);
       const now = ctx.currentTime;
-      // 30ms 先読み。遅れが溜まった（>500ms）か、途切れたら、今の位置に置き直す
       if (p.nextAt < now + 0.02 || p.nextAt > now + 0.5) {
         p.nextAt = now + 0.03;
       }
@@ -193,9 +180,7 @@ export const createVoiceAudio = (): VoiceAudio => {
     close(): void {
       try {
         micNode?.port.close();
-      } catch {
-        /* ignore */
-      }
+      } catch {}
       micStream?.getTracks().forEach((t) => t.stop());
       for (const peer of peers.keys()) {
         audio.removePeer(peer);

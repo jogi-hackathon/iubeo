@@ -29,17 +29,11 @@ export const CHUNK_TEXELS = 131072;
 
 export type BakeStats = {sampleMs: number; gpuMs: number; chunks: number};
 
-// テクセルごとに SAMPLE_DIRS(96 方向)の半球サンプルで AO を計算する
 export class GpuAOBaker {
   private readonly kernel: RayKernel;
   private readonly chunkTexels: number;
-  /** 直近の bakeCharts の計測値。CPU 側のサンプル生成 / GPU 実行+読み戻しの累計 */
   stats: BakeStats = {sampleMs: 0, gpuMs: 0, chunks: 0};
 
-  /**
-   * @param renderer 初期化済み(await renderer.init())のレンダラー
-   * @param bvhData createBVHData の結果
-   */
   constructor(
     renderer: WebGPURenderer,
     bvhData: BVHComputeData,
@@ -143,7 +137,7 @@ export type ProbeStats = {
 const VISIBILITY: RayKernelExtra = {
   results: 2,
   decl: "var backHits = 0u; var misses = 0u;",
-  perRay: /* wgsl */ `
+  perRay: `
           var farRay: Ray;
           farRay.origin = origin;
           farRay.direction = dir;
@@ -162,13 +156,9 @@ const VISIBILITY: RayKernelExtra = {
   write: "out[ 1 ] = backHits; out[ 2 ] = misses;",
 };
 
-// 隠れチャート判定のレイキャスト部分を GPU で回す。サンプル点(チャートごとの格子。物理サイズに応じて 3x3 から細かくする)ごとに
-// 本ベイクと同じ式の AO(HIDDEN_DIRS、シード chartId*4 + s*2 + 1)と VISIBILITY の本数を出し、
-// 判定(frame.ts の decideHidden)は CPU で行う。移植元からの判定の変更点は frame.ts の isHiddenPoint のコメントを参照。
 export class GpuHiddenProbe {
   private readonly kernel: RayKernel;
   private readonly chunkPoints: number;
-  /** 直近の analyze の計測値 */
   stats: ProbeStats = {sampleMs: 0, gpuMs: 0, chunks: 0, points: 0};
 
   constructor(

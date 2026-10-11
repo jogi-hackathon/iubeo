@@ -1,6 +1,5 @@
 import type {Vec3} from "./types";
 
-/** 椅子の部品。足元(座面の真下の床)が原点で、座面は -Z 向き(背もたれが +Z 側)。size は直方体の寸法、position は中心 */
 export type ChairPart = {position: Vec3; size: Vec3};
 
 const SEAT_SIZE = 0.45;

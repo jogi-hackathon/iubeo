@@ -1,9 +1,3 @@
-// ビルド出力(静的アセット)を配る最小のサーバー。Cloudflare Workers Static Assets の配信をまねる:
-//   - 存在しないパスは index.html を 200 で返す(not_found_handling = single-page-application)
-//   - テキスト系は Accept-Encoding に合わせて brotli / gzip で返す
-//   - 既定の Cache-Control は "public, max-age=0, must-revalidate" と ETag(If-None-Match なら 304)
-//   - 出力先に _headers があれば、そのルールで上書きする(パスの末尾 * だけ対応)。_headers 自体は配らない
-// PERF_NO_CACHE=1 なら、従来どおり no-store で返す(冷えた状態だけを測るとき)
 import {createHash} from "node:crypto";
 import {createServer} from "node:http";
 import {readFile, stat} from "node:fs/promises";
@@ -22,7 +16,6 @@ const TYPES = {
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
 const DEFAULT_CACHE_CONTROL = "public, max-age=0, must-revalidate";
 
-// 圧縮結果はキャッシュする(毎回 brotli q11 をかけるとサーバー側の時間が計測に混ざるため)
 const compressedCache = new Map();
 const compressed = (key, body, encoding) => {
   const k = `${key}|${encoding}`;
@@ -37,7 +30,6 @@ const compressed = (key, body, encoding) => {
   return compressedCache.get(k);
 };
 
-/** _headers を読む。[{prefix, exact, headers}] */
 const loadHeaderRules = async (root) => {
   let text;
   try {
@@ -63,9 +55,6 @@ const loadHeaderRules = async (root) => {
   return rules;
 };
 
-/** root 配下を配るサーバーを起動し、{url, close} を返す。
- * engineDir を渡すと /engine/* をそこから配る(R2 のエンジン配信の再現。見つからなければ 404 で、SPA に落とさない)。
- * 既定では圧縮しない(いまの R2 は gecko.js を圧縮せずに返すため。PERF_ENGINE_COMPRESS=1 で br を付ける) */
 export const serveDir = async (root, port = 0, {engineDir = process.env.PERF_ENGINE_DIR} = {}) => {
   const rules = await loadHeaderRules(root);
   const noCache = process.env.PERF_NO_CACHE === "1";

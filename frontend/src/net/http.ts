@@ -6,7 +6,6 @@ import type {
   SessionSnapshot,
 } from "./types";
 
-/** HTTP API が 2xx 以外を返した。code はサーバーの Error.code(本文が読めなければ "unknown") */
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -20,12 +19,7 @@ export class ApiError extends Error {
 }
 
 export type ApiClientOptions = {
-  /** テストで差し替える用。既定はグローバルの fetch */
   fetch?: typeof fetch;
-  /**
-   * API の起点。既定は同じオリジン(開発時は Vite の proxy がバックエンドへ転送する)。
-   * Cookie は同じオリジンにしか付けないので、別オリジンを指すと 401 になる
-   */
   baseUrl?: string;
 };
 
@@ -35,10 +29,6 @@ const isErrorBody = (v: unknown): v is ApiErrorBody =>
   typeof (v as ApiErrorBody).code === "string" &&
   typeof (v as ApiErrorBody).message === "string";
 
-/**
- * HTTP API の薄いラッパー。プレイヤーは HttpOnly Cookie(iubeo_player)で識別するので、
- * 同じオリジンの Cookie を付けて送る(ADR-0003)。2xx 以外は ApiError を投げる
- */
 export const createApiClient = ({
   fetch: fetchImpl = (...args) => fetch(...args),
   baseUrl = "",

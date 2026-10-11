@@ -5,7 +5,6 @@ const listeners = new Set<() => void>();
 
 export const getAimedObjectId = (): string | null => aimed;
 
-/** 変わったときだけ通知する(毎フレーム呼んでも再描画は起きない) */
 export const setAimedObjectId = (id: string | null): void => {
   if (aimed === id) {
     return;

@@ -37,11 +37,6 @@ export const createGridFloorMaterial = (tileSize: number) => {
   };
 };
 
-/**
- * 壁と同じ地の色に淡い格子線の、方眼の床のマテリアル。
- * uv ではなくワールドの xz で引く(Slab の uv は面いっぱいに引き伸ばすのでマス目が歪むのと、回した区画どうしでもマス目をつなげるため)。
- * ノードのマテリアルにする(焼いた後で消えた物の影を、ベイク AO から消せるように。bake/aoErase)
- */
 export const useGridFloorMaterial = (tileSize: number) => {
   const grid = useMemo(() => createGridFloorMaterial(tileSize), [tileSize]);
   useEffect(() => grid.dispose, [grid]);

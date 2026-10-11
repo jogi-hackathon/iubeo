@@ -7,9 +7,7 @@ import type {AppContext} from "./context";
 import {prepareData} from "./data";
 
 export interface BootProgress {
-  /** 実行中のステップの表示名 */
   step: string;
-  /** 0 始まりのステップ番号 */
   index: number;
   total: number;
 }
@@ -19,7 +17,6 @@ export interface BootStep {
   run: (draft: Partial<AppContext>) => Promise<void> | void;
 }
 
-/** 起動シーケンス。上から順に実行される(各モジュールは自己登録せず、ここに明示的に列挙する) */
 export const BOOT_STEPS: BootStep[] = [
   {
     name: "storage",

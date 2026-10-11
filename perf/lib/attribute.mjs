@@ -1,6 +1,3 @@
-// 描画コストの内訳(効果ごとの差分)。開発サーバー上で、ポストプロセスの設定を 1 つずつ変えて、
-// 上限なしの fps(=1 フレームの実コスト)を比べる。設定は app と同じモジュールを import() して変える(dev のみ)
-// 使い方: node perf/lib/attribute.mjs --url http://localhost:5173 --dpr 2 --seconds 4 --runs 2
 import {CHROME_PATH, DIST, importFromFrontend} from "./paths.mjs";
 import {serveDir} from "./serve.mjs";
 import {parseArgs, median} from "./util.mjs";
@@ -19,7 +16,6 @@ const SCENARIOS = [
   ["ベース(後)", {}],
 ];
 const {chromium} = await importFromFrontend("playwright-core");
-// url 未指定なら計測用ビルド(PERF_DIST)を配る。指定があれば dev サーバーなどに直接つなぐ
 const srv = args.url ? null : await serveDir(DIST);
 const baseUrl = args.url || srv.url;
 const browser = await chromium.launch({executablePath: CHROME_PATH, headless: true,
@@ -34,7 +30,6 @@ try {
     for (const [name, patch] of SCENARIOS) {
       const fps = await page.evaluate(async ([patch, secs]) => {
         const mod = globalThis.__pp ?? (await import("/src/camera/postprocess/settings.ts"));
-        // 毎回、既定値に戻してから変える(変更は積み上がるため)
         mod.updatePostProcessSettings(structuredClone(mod.DEFAULT_POSTPROCESS_SETTINGS));
         await new Promise((r) => setTimeout(r, 300));
         mod.updatePostProcessSettings(patch);

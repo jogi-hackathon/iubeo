@@ -23,36 +23,17 @@ import {MeshBasicNodeMaterial, type Node, type TextureNode} from "three/webgpu";
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import type {Vec3} from "../../props/types";
 
-/**
- * 型板ガラス(模様入りガラス)風の仕切りの調整値。見た目はここだけで決まる。
- * 背後はほぼ素通しで、輪郭が細かく波打って歪む(「なんとなくそこに壁がある」と分かる程度)。反射・白寄せはしない。薄い格子の線も入れられる(今は gridOpacity 0 で消している)
- */
 export type FrostedGlassParams = {
-  /**
-   * 歪み(主役)。背後をサンプルする位置を、ガラスの面に固定したノイズでずらす量(ワールドのメートル。ガラスの位置での最大のずれ)。
-   * 画面上のずれは、これをガラスまでの深さで割って投影したもの(遠いほど画面上では小さい)。
-   * 目安: 1080p・縦 FOV 60° で、深さ 3m のとき 0.03m が約 10px(ノイズが ±1 のとき。ふだんはその半分以下)
-   */
   distortion: number;
-  /** ノイズの空間周波数(1m あたりの周期)。大きいほど細かく波打つ */
   noiseFrequency: number;
-  /** 2 つ目の細かいノイズ(周波数 2.7 倍)の強さ(0〜1。1 つ目に対する比)。大きいほど輪郭がギザギザになる */
   noiseDetail: number;
-  /** ぼかしのサンプル数(円盤状。1 以上)。歪みが主役なので少数 */
   blurSamples: number;
-  /** ぼかしの半径(画面の縦に対する比) */
   blurRadius: number;
-  /** ビューポートの mip レベル(0 で原寸。上げるほどぼける) */
   blurMipLevel: number;
-  /** 格子の間隔(m) */
   gridSpacing: number;
-  /** 格子の線の太さ(m) */
   gridWidth: number;
-  /** 格子の波打ち(m。同じノイズで、線を面内にずらす最大量) */
   gridWave: number;
-  /** 格子の線の明るさ(0 で黒、1 で背景のまま)。背景に乗算する。真っ黒にはしない */
   gridTone: number;
-  /** 格子の濃さ(0〜1。線の部分で gridTone の方へ寄せる割合)。0 なら格子を描かない(シェーダーにも入れない) */
   gridOpacity: number;
 };
 

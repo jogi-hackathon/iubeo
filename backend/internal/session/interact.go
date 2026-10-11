@@ -7,29 +7,19 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// WorkspaceActionDuration はワークスペースのアクション(編集・新規作成)にかかる時間。
-// フロントの WORKSPACE_ACTION_MS と同じ。結果はこの後に反映する(state-schema.md §5.4)
 const WorkspaceActionDuration = 2 * time.Second
 
-// CanvasActionDuration はキャンバスのアクション(画像生成)にかかる時間。
-// フロントの CANVAS_ACTION_MS と同じ。結果はこの後に反映する(state-schema.md §5.4.1)
 const CanvasActionDuration = 2 * time.Second
 
-// PcActionDuration は PC のアクション(検索)にかかる時間。
-// フロントの検索が通ったときの待ちに合わせる。結果はこの後に反映する(state-schema.md §5.4.2)
 const PcActionDuration = 2 * time.Second
 
-// ObjectAction は作業中のワークスペース・キャンバス・PC のアクション。DueAt を過ぎた Tick で結果を適用する
 type ObjectAction struct {
-	ObjectID string
-	PlayerID string
-	// EditingID は編集するファイルの id。空なら新規作成
+	ObjectID  string
+	PlayerID  string
 	EditingID string
-	// NewID は新規作成で作るファイルの id(受け付けたときに採番しておく)
-	NewID string
-	// Creates は新規作成で作るファイルの状態(ワークスペースは file_created、PC は search_created、キャンバスは image_created)
-	Creates api.FileStatus
-	DueAt   time.Time
+	NewID     string
+	Creates   api.FileStatus
+	DueAt     time.Time
 }
 
 func (st *State) object(id string) *ObjectState {
@@ -198,10 +188,6 @@ func (st *State) interactCanvas(p *PlayerState, o *ObjectState, in ClientInterac
 	return st.startAction(p, o, ObjectAction{ObjectID: o.ID, PlayerID: p.ID, NewID: in.NewID, Creates: api.FileStatusImageCreated, DueAt: in.Now.Add(CanvasActionDuration)})
 }
 
-// interactPC は、検索が通ったときに PC へ届く interact。キャンバスと同じ形で、
-// 検索の結果(search_created)を新しいファイルとして手に持たせる。
-// 検索そのものの成否(お題に合っているか)はクライアントが判定し、通ったときだけここへ来る
-// (state-schema.md §5.4.2)。サーバーは手が空いていることと作業中でないことだけを確かめる
 func (st *State) interactPC(p *PlayerState, o *ObjectState, in ClientInteract) []Output {
 	if len(o.Users) > 0 {
 		return reject(p.ID, o.ID, api.RejectReasonUnavailable)

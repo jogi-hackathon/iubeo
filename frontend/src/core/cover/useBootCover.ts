@@ -6,10 +6,6 @@ import {finishBootCover} from "./cover";
 import {bootStageDone} from "./coverProgress";
 import {coverStore} from "./coverStore";
 
-/**
- * 起動の覆いを外す。シェーダーのウォームアップと最初のシーンの準備の両方が終わったら外す(フェードアウトは CSS)。
- * 起動の各ステップの段階は BootScreen が進め、ここではマウント後の 2 段階と、外すタイミングだけを扱う
- */
 export function useBootCover(initialScene: SceneName, warmedUp: boolean): void {
   const [sceneReady, setSceneReady] = useState(false);
 

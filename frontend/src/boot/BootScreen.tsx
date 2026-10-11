@@ -12,10 +12,6 @@ import {AppContextProvider} from "./context";
 
 const BOOT_COVER_STAGES = bootStageCount(BOOT_STEPS.length);
 
-/**
- * 起動シーケンス。白い覆いと進捗バーを出し、完了後に AppContext を提供して <App /> を描画する。
- * 覆いは App と一緒に残し、ウォームアップと最初のシーンの準備が終わったら外す(useBootCover)。エラー時は暗い画面のまま
- */
 export function BootScreen() {
   const state = useBootState();
   const bootIndex =

@@ -54,15 +54,6 @@ const refreshCandidates = (c: Candidates): void => {
   }
 };
 
-/**
- * Canvas に 1 つ置く。画面中央(カメラ前方)から毎フレームレイを飛ばして「狙っている物」を決め、
- * アウトラインでハイライトし、pointer lock 中の左クリックでインタラクトする。
- *
- * - 狙えるのは、目の位置から INTERACT_DISTANCE 内で最初に当たったオブジェクト。壁などのコライダーに遮られたら狙わない
- * - 操作は、pointer lock 中だけ。ロックされていないクリックはロック取得用なので無視する。
- *   freeCamera(F8)中、脱落・観戦中、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)は、狙いも操作も止める
- * - 狙った物がオーソリティのオブジェクトなら要求を送り、シーンが置いた操作対象(clientTargets)ならその処理を呼ぶ
- */
 export function Interaction() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();
@@ -128,7 +119,6 @@ export function Interaction() {
         dispatchInteraction(object, () => objectManager.interact(object.id));
         return;
       }
-      // オーソリティのオブジェクトではない、シーンが置いた対象(サーバーへは送らない)
       getClientTarget(id)?.interact();
     };
     doc.addEventListener("mousedown", onMouseDown);

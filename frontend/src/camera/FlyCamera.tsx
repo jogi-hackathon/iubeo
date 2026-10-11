@@ -17,7 +17,6 @@ const right = new Vector3();
 const move = new Vector3();
 const UP = new Vector3(0, 1, 0);
 
-/** freeCamera 時、または観戦中に動く。自前の yaw/pitch を持ち、身体(PlayerState)には触れない */
 export function FlyCamera() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();

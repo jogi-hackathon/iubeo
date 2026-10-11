@@ -1,9 +1,3 @@
-// フロントの実行時計測(Chrome for Testing + WebGPU)
-//   - 起動完了までの時間(boot 画面が消えるまで / シェーダーのウォームアップが終わるまで)
-//   - 起動後、一定時間のフレーム時間(平均・p50・p95・p99・33ms 超の回数)
-//   - ロングタスク(50ms 超)の合計、CDP の JS ヒープ・スクリプト時間
-//   - 転送量(JS・CSS の圧縮後サイズ、リクエスト数)
-// 使い方: node perf/lib/bench-browser.mjs --label baseline --runs 3 --seconds 8 [--move]
 import {mkdirSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {DIST, CHROME_PATH, PERF, importFromFrontend} from "./paths.mjs";
@@ -11,7 +5,6 @@ import {serveDir} from "./serve.mjs";
 import {parseArgs, percentile, mean} from "./util.mjs";
 
 const args = parseArgs(process.argv.slice(2), {label: "adhoc", runs: "3", seconds: "8", move: false, uncapped: false, net: "none", cpu: "1", dpr: "1", query: "", url: "", repeat: false});
-// --net: CDP のネットワーク制限(転送量と遅延の影響を見る)。値は bytes/s と ms
 const NET_PRESETS = {
   none: null,
   regular4g: {downloadThroughput: (4 * 1000 * 1000) / 8, uploadThroughput: (3 * 1000 * 1000) / 8, latency: 40},
@@ -27,7 +20,6 @@ const {chromium} = await importFromFrontend("playwright-core");
 const srv = args.url ? null : await serveDir(DIST);
 const baseUrl = (args.url || srv.url) + (args.query ? `/?${args.query}` : "");
 
-// ページ内で動く計測(load 前に注入する)。起動完了の判定は rAF で見る
 const INIT = `
 (() => {
   window.__perf = {longTasks: [], readyAt: null, bootGoneAt: null, overlayGoneAt: null};
@@ -53,7 +45,6 @@ const INIT = `
 })();
 `;
 
-// --uncapped: vsync と rAF の 60fps 上限を外す。フレームの「余裕」(1 フレームの実コスト)を見るため
 const CHROME_ARGS = [
   "--enable-unsafe-webgpu",
   "--enable-features=WebGPU",
@@ -78,7 +69,6 @@ const runOnce = async (browser, index) => {
   }
   if (Number(args.cpu) > 1) await cdp.send("Emulation.setCPUThrottlingRate", {rate: Number(args.cpu)});
 
-  // --repeat: 1 回開いてから同じコンテキストで開き直し、2 回目(HTTP キャッシュあり)を測る
   if (args.repeat) {
     await page.goto(baseUrl, {waitUntil: "load"});
     await page.waitForFunction(() => window.__perf?.readyAt !== null, null, {timeout: 120000, polling: 50});
@@ -87,14 +77,11 @@ const runOnce = async (browser, index) => {
   const navStart = Date.now();
   await page.goto(baseUrl, {waitUntil: "load"});
   await page.waitForFunction(() => window.__perf?.readyAt !== null, null, {timeout: 120000, polling: 50});
-  // bootGoneMs: 起動画面(React の初期化・boot ステップ)が消えた時刻 / readyMs: シェーダーのウォームアップが終わり操作できる時刻
   const ready = await page.evaluate(() => ({bootGoneAt: window.__perf.bootGoneAt, readyAt: window.__perf.readyAt}));
   const readyMsWall = Date.now() - navStart;
 
-  // 起動直後の揺らぎを避けるため少し待つ
   await page.waitForTimeout(1500);
 
-  // 計測窓: rAF の間隔を集める。--move のときは前進キーを押しっぱなしにする
   const beforeMetrics = await cdp.send("Performance.getMetrics");
   await page.evaluate(() => {
     window.__perf.longTasks = [];
@@ -170,10 +157,8 @@ const runOnce = async (browser, index) => {
   return result;
 };
 
-// 実行ごとにブラウザを起動し直す(GPU・シェーダーのキャッシュや前回の状態を持ち越さない。毎回同じ冷えた状態で測る)
 const results = [];
 try {
-  // 捨て打ちの 1 回: サーバーの圧縮キャッシュを温める(初回だけ brotli で時間がかかるため)
   {
     const warm = await chromium.launch({executablePath: CHROME_PATH, headless: true, args: CHROME_ARGS});
     try {

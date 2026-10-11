@@ -12,7 +12,6 @@ import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
 
 const cameraPosition = new Vector3();
 
-/** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける。レンダラーは WebGPURenderer 固定(core/renderer.ts) */
 export function PostProcess() {
   const gl = useThree((s) => s.gl) as unknown as Renderer;
   const scene = useThree((s) => s.scene);

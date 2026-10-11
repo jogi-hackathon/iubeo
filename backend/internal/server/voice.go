@@ -7,7 +7,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 )
 
-// WithVoice は Voice Chat のトークンを発行できるようにする。issuer が nil のままなら 503 を返す
 func (s *Server) WithVoice(issuer *voice.Issuer, signalingURL, mediaURL string) *Server {
 	s.voice = issuer
 	s.voiceSignalingURL = signalingURL
@@ -15,11 +14,6 @@ func (s *Server) WithVoice(issuer *voice.Issuer, signalingURL, mediaURL string) 
 	return s
 }
 
-// GetVoiceToken は、セッションに参加しているプレイヤーに、VC のトークンと接続先を返す。
-// room はセッション id で、moq-relay はそのルームの中でだけ publish/subscribe を許す
-// (vc の /v1/moq/auth)。セッションに居ない人には発行しない。
-// VC を設定していないサーバーでは、200 で available=false を返す(クライアントが毎回
-// コンソールにエラーを出さないため。詳しくは openapi.yaml の説明)
 func (s *Server) GetVoiceToken(w http.ResponseWriter, r *http.Request) {
 	playerID, ok := s.authenticate(w, r)
 	if !ok {

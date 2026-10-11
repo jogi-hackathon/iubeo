@@ -48,11 +48,6 @@ const toInitialTransform = (
     ? toTransform(t)
     : {position: [...spawn.position], yaw: spawn.yaw, pitch: 0, seq: 0};
 
-/**
- * 最初の snapshot で決まる、自分の置き場所。
- * - resume: サーバーが自分の位置を持っている(再読み込み・再参加)ので、そこから再開する
- * - spawn: まだ持っていない(初参加)ので、自分の席のスポーン地点に置く
- */
 export type FirstPlacement =
   | {kind: "resume"; transform: PlayerTransform}
   | {kind: "spawn"; spawn: Spawn};
@@ -62,9 +57,7 @@ export type ConnectDeps = {
   sender: Pick<TransformSender, "syncSeq">;
   objects: ApplyDeps["objects"];
   items: ApplyDeps["items"];
-  /** 勝利フラグの入れ物(snapshot の game.team と team.updated を書く) */
   team?: ApplyDeps["team"];
-  /** ゲームの状態(フェーズ・タスク・結果・時計)の入れ物。無ければフェーズ系の通知は捨てる */
   game?: Pick<
     GameStore,
     | "applySnapshot"
@@ -75,35 +68,12 @@ export type ConnectDeps = {
     | "finished"
   >;
   players: Pick<PlayerManager, "apply">;
-  /** 自分のプレイヤー ID(このセッションでの)。手持ちの反映と、自分の位置の取り出しに使う */
   playerId: PlayerId;
-  /** 席のスポーン地点(シーンが決める。サーバーは最初の位置を配らない) */
   spawnOf: (seat: number) => Spawn;
-  /**
-   * その接続で最初の snapshot で、自分の置き場所を渡す(身体をそこへ移す用)。
-   * 自分が snapshot に居なければ null(サーバーの不具合。置き場所は決められない)
-   */
   onFirstSnapshot?: (placement: FirstPlacement | null) => void;
-  /** 決着の通知(session.finished)を受けた。結果を反映した後に呼ぶ(シーンの移動は呼び出し側の仕事) */
   onFinished?: (result: GameResult) => void;
 };
 
-/**
- * サーバーのメッセージを、各 Manager の通知に振り分ける(ServerAuthority の経路)。戻り値で解除する。
- * オブジェクトと自分の手持ちの反映は、ローカルの規則と同じ authority/apply.ts の関数で行う。
- * ここは、プレイヤー(位置・席・接続)の写しと、接続の購読、snapshot 後の送る側の seq 合わせを持つ。
- * 自分のプレイヤー ID は playerId を使う(playerManager の持ち物ではない)
- *
- * - snapshot: オブジェクトと手持ちを丸ごと入れ替え(applySnapshot)、プレイヤーを入れ替え、送る側の seq をサーバーに合わせる。
- *   位置がまだ無いプレイヤーは席のスポーン地点に置く。自分の置き場所は、最初の snapshot でだけ渡す(2 回目以降は動かさない)。
- *   ゲームの状態(フェーズ・結果・サーバー時計)もここで入れ替える
- * - object.*: applyMessage(オブジェクトの通知)
- * - player.updated: プレイヤーの写し(playerManager)と、自分の手持ち(applyMessage)
- * - transforms: playerManager へ(自分の分は playerManager が捨てる)
- * - team.updated: 勝利フラグ(applyMessage)。snapshot では game.team で入れ替える
- * - session.started / phase.started / phase.ended / task.completed / session.finished: ゲームの入れ物(game)へ。
- *   決着は、結果を入れてから onFinished を呼ぶ(room へ戻すのは呼び出し側)
- */
 export const connectSession = (deps: ConnectDeps): (() => void) => {
   const {
     connection,

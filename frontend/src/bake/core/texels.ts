@@ -11,8 +11,6 @@ export type TexelSample = {
   rot: number;
 };
 
-// チャート内のテクセル (tx, ty) のサンプル。どの三角形にもカバーされなければ null。
-// seed はチャートとテクセルで一意で、テクセルごとにサンプル方向の回転角をずらすのに使う
 export const sampleTexel = (
   idx: ChartIndex,
   chartId: number,

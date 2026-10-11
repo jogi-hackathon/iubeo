@@ -15,7 +15,6 @@ export const createPlayerState = (
   pitch: 0,
 });
 
-/** 目の位置(ワールド座標)を out に書く。足元から EYE_HEIGHT 上で、身体の向き(yaw)へ EYE_FORWARD だけ前 */
 export const getEyePosition = (state: PlayerState, out: Vector3): Vector3 =>
   out.set(
     state.position.x - Math.sin(state.yaw) * EYE_FORWARD,

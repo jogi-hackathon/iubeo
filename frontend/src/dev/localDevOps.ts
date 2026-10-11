@@ -21,11 +21,6 @@ import type {
 } from "../objects/types";
 import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
 
-/**
- * 開発用の操作(デバッグパネル・ダミーの箱を増やす・他のプレイヤーの振る舞い・手持ちを作る)。
- * ローカルのオーソリティの窓口が持つ dev(低レベルの入口)を借りて行う。dev が無ければ(サーバーの窓口、または窓口が無い)null。
- * 本番のコードはここを読まない
- */
 export type LocalDevOps = ReturnType<typeof createLocalDevOps>;
 
 type DevState = {
@@ -141,16 +136,11 @@ const createLocalDevOps = (playerId: string, dev: AuthorityDev) => {
     },
     getBorrowedCount: (): number => s.borrowed.length,
     getAchieved: (): number => dev.getAchieved(),
-    /** 勝利フラグを 1 つ切り替える。bypassPermission は、ライターの置き場の使える・使えないも連動する */
     toggleTeamFlag: (flag: keyof Team): void =>
       dev.setTeam({[flag]: !dev.getTeam()[flag]}),
   };
 };
 
-/**
- * 今の窓口の開発用の操作。ローカルのオーソリティが無い、または dev を持たない窓口なら null
- * (押せない操作は、呼び出し側が null で無効にする)
- */
 export const getLocalDevOps = (): LocalDevOps | null => {
   const authority = authorityRegistry.current();
   return authority?.dev

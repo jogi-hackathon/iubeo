@@ -7,7 +7,6 @@ import {useTransitionActive} from "../../scenes/transitionActive";
 import {localPlayer} from "../local";
 import {PlayerSkeleton} from "./PlayerSkeleton";
 
-/** ローカルプレイヤー自身の身体。一人称では頭がカメラと重なるので隠し、freeCamera(F8)やカメラが目から離れている間(俯瞰への移動中)は頭ごと見せる。持っているアイテムは手元に出す */
 export function LocalPlayerSkeleton() {
   const {freeCamera} = useDebugFlags();
   const detached = useCameraDetached();

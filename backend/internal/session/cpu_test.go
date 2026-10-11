@@ -7,7 +7,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// newCPUState は、人間 + CPU のセッションを playing まで進める(CPU は接続しない)
 func newCPUState(t *testing.T, humans, cpus []string) State {
 	t.Helper()
 	st := NewMultiplayerState("sess-1", humans, cpus, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
@@ -20,7 +19,6 @@ func newCPUState(t *testing.T, humans, cpus []string) State {
 	return st
 }
 
-// forceReliable は、テストを決定的にするため、CPU の成功率を 1 にする(失敗を選ばせない)
 func forceReliable(st State, ids ...string) State {
 	for _, id := range ids {
 		a := st.CpuAgents[id]
@@ -30,7 +28,6 @@ func forceReliable(st State, ids ...string) State {
 	return st
 }
 
-// advanceCPU は start から d の間、50ms 刻みで Tick を進める(移動と作業を実際に進めるため)
 func advanceCPU(t *testing.T, st State, start time.Time, d time.Duration) (State, []Output) {
 	t.Helper()
 	const tick = 50 * time.Millisecond
@@ -65,11 +62,9 @@ func TestCPUStartsWithoutConnecting(t *testing.T) {
 	if seat := st.player("cpu-1").Seat; seat != 2 {
 		t.Errorf("cpu-1 seat = %d, want 2", seat)
 	}
-	// ノルマは人数分(フェーズ 1 × 3 人)
 	if len(st.Phase.Tasks) != 3 {
 		t.Errorf("tasks = %d, want 3", len(st.Phase.Tasks))
 	}
-	// CPU は席のスポーンに立っている(位置を配る側になった)
 	if cpu.Transform.Position == nil || !cpu.reported {
 		t.Errorf("cpu-1 transform = %+v, want reported at spawn", cpu.Transform)
 	}
@@ -110,12 +105,10 @@ func TestCPUWalksAndCompletesTask(t *testing.T) {
 	if pendingTaskOf(st, "p1") == nil {
 		t.Errorf("人間のタスクまで終わっている: %+v", st.Phase.Tasks)
 	}
-	// 対象のファイルは、山に戻っている(持ち物は編集済みのまま残らない)
 	it := st.item(f1)
 	if it == nil || it.Location.Kind != InDirectory {
 		t.Errorf("file = %+v, want back in directory", it)
 	}
-	// 歩いている: 位置がスポーンから動き、transforms が配られている
 	after := st.player("cpu-1").Transform.Position
 	if after[0] == before[0] && after[2] == before[2] {
 		t.Errorf("CPU が動いていない: %v", after)
@@ -140,7 +133,6 @@ func TestCPUWaitsForFileHeldByHuman(t *testing.T) {
 	if pendingTaskOf(st, "cpu-1") == nil {
 		t.Errorf("CPU のタスクが終わっている: %+v", st.Phase.Tasks)
 	}
-	// 取りに行く途中で待っている(手ぶら)
 	if st.held("cpu-1") != nil {
 		t.Errorf("CPU が勝手に持っている: %+v", st.held("cpu-1"))
 	}
@@ -159,7 +151,6 @@ func TestCPUAndHumanClearLastPhase(t *testing.T) {
 	if len(msgsOf[api.TaskCompletedMessage](out)) == 0 {
 		t.Fatalf("人間のタスクが達成にならない: %+v", out)
 	}
-	// bypass(30s)の時間切れで victory になる前に、フェーズが完了するところまで進める
 	st, _ = advanceCPU(t, st, t0, 20*time.Second)
 	if st.Phase.Status != api.PhaseStatusCompleted {
 		t.Fatalf("phase = %s, want completed", st.Phase.Status)
@@ -180,7 +171,6 @@ func TestCPUSurvivesHumanAndTimesOutToVictory(t *testing.T) {
 	st.Phases.Count = 1
 	st = forceReliable(st, "cpu-1")
 
-	// CPU だけ先に終わらせて、人間は締切で脱落させる
 	st, _ = advanceCPU(t, st, t0, 40*time.Second)
 	st, out := step(t, st, Tick{Now: st.Phase.DeadlineAt})
 	ended := msgsOf[api.PhaseEndedMessage](out)
@@ -194,7 +184,6 @@ func TestCPUSurvivesHumanAndTimesOutToVictory(t *testing.T) {
 		t.Fatalf("bypassPermission = false")
 	}
 
-	// 火をつける人が居ないので、bypass の時間切れで victory
 	st, out = step(t, st, Tick{Now: st.BypassAt.Add(st.Phases.Bypass)})
 	fin := msgsOf[api.SessionFinishedMessage](out)
 	if len(fin) != 1 || fin[0].Result.Outcome != api.Victory {

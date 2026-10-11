@@ -1,33 +1,10 @@
-/**
- * バックエンドの Worker。コンテナを持ち、/api と /ws を振り分ける。
- *
- * フロントの Worker からサービスバインディングで呼ばれる。
- * コンテナを持つ Worker は Worker Previews に対応していないので、
- * プレビューが要る部分(静的アセット)は frontend.ts に分けてある。
- *
- * - `/api/*` と `/healthz` は転送先へ流す。転送先は KV の "target" で決まる
- *   - `ec2`        … 本番相当(EC2 + EIP、東京)
- *   - それ以外      … Cloudflare Containers(開発用・フォールバック)
- * - それ以外は静的アセット(SPA)を返す
- *
- * 画面と API を同じオリジンにすることで、プレイヤーの Cookie(`SameSite=Lax`)が
- * そのまま送られる。`workers.dev` は Public Suffix List にあるため、
- * 別サブドメインに置くと Cookie が飛ばず 401 になる。
- *
- * 転送先が落ちていても黙って他方へは流さない。セッションはメモリ上にしか無く、
- * 2 つのバックエンドで状態を共有していないので、黙って切り替わると
- * プレイヤーが別々のゲームに分裂する。壊れたら壊れたと分かるほうがよい。
- */
 import {DurableObject} from "cloudflare:workers";
 
 interface Env {
   IUBEO_SIGNING_KEY: string;
   IUBEO_WISP_KEY?: string;
-  /** Voice Chat の JWT を署名する Ed25519 の種(base64url 32 バイト)。無ければ VC は発行しない */
   IUBEO_VC_PRIVATE_KEY?: string;
-  /** VC のシグナリング(WebSocket)の URL */
   IUBEO_VC_SIGNALING_URL?: string;
-  /** VC の MoQ(WebTransport)の URL */
   IUBEO_VC_MEDIA_URL?: string;
   TARGET: KVNamespace;
 }
@@ -43,11 +20,6 @@ const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 const START_TIMEOUT_MS = 90_000;
 const INSTANCE = "standard-1";
 
-/**
- * Backend は Containers の Go サーバーを起動し、リクエストを転送する Durable Object。
- *
- * コンテナは 1 つだけ動かす(ADR-0004: セッションの状態をメモリに持つため単一プロセス)。
- */
 export class Backend extends DurableObject<Env> {
   private starting: Promise<void> | undefined;
 
@@ -126,9 +98,6 @@ export default {
     if (target === TARGET_EC2) {
       return proxyToEc2(request);
     }
-    // env に DO バインディングを置くと cf deploy が「別 Worker の DO」として
-    // 失敗するため、自分の export へのループバック(ctx.exports)で参照する。
-    // 型は `cf workers types` の生成物でないと生えないので、ここで形を宣言する
     const namespace = (ctx.exports as unknown as LoopbackExports).Backend;
     return namespace
       .getByName("game", {locationHint: "apac-ne"})

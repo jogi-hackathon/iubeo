@@ -71,16 +71,8 @@ function ObjectRoot({
 }
 
 const warnedIds = new Set<string>();
-/** レイアウトに合わないオブジェクトの警告を出すまでの待ち(ms)。シーンの切り替えの行き過ぎを黙らせるため */
 const UNMATCHED_WARN_DELAY_MS = 300;
 
-/**
- * objectManager のオブジェクトを、シーンのレイアウトに従って描画する。レイアウトの項目と id が一致した物だけ描く
- * (一致しない物は描かない。開発時は id ごとに一度だけ警告する)
- * kind ごとに描画コンポーネントを振り分ける(kinds.ts)。
- * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * 項目名ごとに、core/toggles で表示・非表示と機能の ON・OFF を切り替えられる(非表示でも mesh は外さない。非表示は見た目・当たり判定・インタラクトを、機能 OFF はインタラクトだけを無効にする)。
- */
 export function ManagedObjects({
   layout,
   ao,
@@ -97,8 +89,6 @@ export function ManagedObjects({
     if (!import.meta.env.DEV || unmatched.length === 0) {
       return;
     }
-    // シーンの切り替えの直後は、前のシーンのオブジェクトがまだ objectStore に残っていることがある
-    // (残っている間は描かない)。それは数フレームで消えるので、少し待ってから、まだ残っている物だけを警告する
     const timer = setTimeout(() => {
       for (const o of unmatched) {
         if (!warnedIds.has(o.id)) {

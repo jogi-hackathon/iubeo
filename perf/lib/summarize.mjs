@@ -1,5 +1,3 @@
-// 結果の要約: 複数回の測定の中央値を、ラベルごとに並べて比べる
-// 使い方: node perf/lib/summarize.mjs <baseline> [after ...]
 import {existsSync, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {PERF} from "./paths.mjs";
@@ -20,7 +18,6 @@ const loads = (label) =>
     .filter((f) => /^load-\d+\.json$/.test(f))
     .map((f) => JSON.parse(read(join(PERF, "results", label, f))));
 
-/** Go ベンチの出力(BenchmarkX-10  N  ns/op  B/op  allocs/op)を名前ごとの中央値にする */
 const goBench = (label) => {
   const txt = read(join(PERF, "results", label, "go-bench.txt"));
   if (!txt) return {};

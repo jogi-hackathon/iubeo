@@ -9,7 +9,6 @@ interface BallProps {
   ao?: AOMode;
 }
 
-/** 球。BVH コライダー込み */
 export function Ball({position, radius, color = PROP_COLOR, ao}: BallProps) {
   return (
     <BVHCollider>

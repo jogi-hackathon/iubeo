@@ -6,39 +6,32 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// Input はセッションへの入力。セッションの goroutine が 1 つのチャネルから順番に Step に渡す
 type Input interface{ isInput() }
 
-// Connect はプレイヤーの WebSocket が接続した
 type Connect struct {
 	PlayerID string
 	ConnID   uint64
 	Now      time.Time
 }
 
-// Disconnect はプレイヤーの WebSocket が切れた
 type Disconnect struct {
 	PlayerID string
 	ConnID   uint64
 	Now      time.Time
 }
 
-// ClientTransform はプレイヤーから届いた transform
 type ClientTransform struct {
 	PlayerID string
 	Msg      api.TransformMessage
 }
 
-// ClientInteract はプレイヤーから届いた interact。Now と NewID はセッションの goroutine が受け取ったときに入れる
 type ClientInteract struct {
 	PlayerID string
 	Msg      api.InteractMessage
 	Now      time.Time
-	// NewID は新しいファイルを作るときに使う id(Step を純粋に保つため、採番は外で行う)
-	NewID string
+	NewID    string
 }
 
-// Tick は時間の経過(transforms の配信と、開始・破棄の期限の確認)。最大 20Hz
 type Tick struct {
 	Now time.Time
 }
@@ -49,28 +42,23 @@ func (ClientTransform) isInput() {}
 func (ClientInteract) isInput()  {}
 func (Tick) isInput()            {}
 
-// Output は Step の結果として、セッションの goroutine が行うこと
 type Output interface{ isOutput() }
 
-// Send は 1 人に送る
 type Send struct {
 	To  string
 	Msg any
 }
 
-// Broadcast は接続している全員に送る。Except のプレイヤーには送らない
 type Broadcast struct {
 	Msg    any
 	Except string
 }
 
-// CloseConn は接続を切る
 type CloseConn struct {
 	ConnID uint64
 	Reason CloseReason
 }
 
-// End はセッションを終える(送信キューに残ったメッセージを送ってから全員の接続を切り、破棄する)
 type End struct {
 	Reason CloseReason
 }
@@ -80,21 +68,15 @@ func (Broadcast) isOutput() {}
 func (CloseConn) isOutput() {}
 func (End) isOutput()       {}
 
-// CloseReason は接続を切る理由。WebSocket の close の reason にそのまま入れる
 type CloseReason string
 
 const (
-	// ReasonReplaced は同じプレイヤーが新しい接続を開いた
-	ReasonReplaced CloseReason = "replaced"
-	// ReasonDissolved は開始までに人間全員がそろわず、セッションを解散した
+	ReasonReplaced  CloseReason = "replaced"
 	ReasonDissolved CloseReason = "dissolved"
-	// ReasonAbandoned は人間が全員切断したまま戻らず、セッションを破棄した
 	ReasonAbandoned CloseReason = "abandoned"
-	// ReasonFinished は決着がつき、session.finished を送ってセッションを終えた
-	ReasonFinished CloseReason = "finished"
+	ReasonFinished  CloseReason = "finished"
 )
 
-// Step は「状態 + 入力 → 新しい状態 + 行うこと」の純粋な関数。st は書き換えない
 func Step(st State, in Input) (State, []Output) {
 	if st.Ended {
 		return st, nil

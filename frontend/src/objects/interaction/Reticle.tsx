@@ -27,7 +27,6 @@ const dotStyle = (size: number): CSSProperties => ({
   zIndex: 10000,
 });
 
-/** 通話の状態を、照準の周りの細い輪だけで示す（HUD は足さない） */
 const voiceRingStyle = (
   status: "idle" | "connecting" | "ready" | "unavailable",
   transmitting: boolean,
@@ -66,7 +65,6 @@ const HINT_STYLE: CSSProperties = {
   opacity: 0.85,
 };
 
-/** 画面中央の照準。pointer lock 中だけ表示し、狙っている物があれば少し大きくする。DOM オーバーレイ */
 export function Reticle() {
   const locked = usePointerLocked();
   const {freeCamera} = useDebugFlags();

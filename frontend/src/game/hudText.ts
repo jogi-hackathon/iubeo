@@ -16,19 +16,13 @@ export const noticeLabels: Record<FlowNotice, string> = {
   lost: "接続が切れ、再接続できませんでした",
 };
 
-/**
- * HUD の 1 行。color があれば、行の頭に色の四角を出す
- * (読み込みと編集の対象ファイルを、山の紙の色で見分けられるようにするため)
- */
 export type HudLine = {text: string; color?: string};
 
-/** 自分のタスク 1 行(達成でチェック)。対象ファイルがあれば、その在庫の色を付ける */
 export const taskLine = (task: GameTask, color?: string): HudLine => ({
   text: `${task.status === "completed" ? "☑" : "☐"} ${taskLabels[task.type]}`,
   ...(color === undefined ? {} : {color}),
 });
 
-/** マッチング・待機の 1 行。何も出さないときは null */
 export const matchingLine = (
   flow: GameFlowState,
   game: GameState,
@@ -51,7 +45,6 @@ export const matchingLine = (
     case "entering":
       return "セッションに入ります…";
     case "inSession":
-      // 全員そろうまで(最初のフェーズが来るまで)は待機
       return game.phase === null && game.sessionStatus === "waiting"
         ? "他のプレイヤーを待っています…"
         : null;
@@ -62,7 +55,6 @@ export const matchingLine = (
   }
 };
 
-/** フェーズ番号と残り時間(intermission の間は残り時間を出さない)。何も出さないときは null */
 export const phaseLine = (game: GameState, now: number): string | null => {
   if (game.intermission || game.phase?.status === "intermission") {
     return "インターミッション";
@@ -83,7 +75,6 @@ export const phaseLine = (game: GameState, now: number): string | null => {
   )}秒`;
 };
 
-/** 決着の 1 行(勝敗画面は作らないので、出すのはここまで) */
 export const resultLine = (result: GameResult | null): string | null =>
   result === null
     ? null

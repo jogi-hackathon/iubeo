@@ -26,7 +26,6 @@ const setLocked = (value: boolean): void => {
 
 export const isPointerLocked = (): boolean => locked;
 
-/** 蓄積したマウス移動量(px)を取り出してゼロに戻す。フレームごとに 1 回、アクティブな制御側だけが呼ぶ */
 export const consumeLookDelta = (): LookDelta => {
   const out = {dx, dy};
   dx = 0;
@@ -70,10 +69,6 @@ let suppressions = 0;
 
 let target: HTMLElement | null = null;
 
-/**
- * マウスで画面（PC など）を操作している間、キャンバスのクリックで pointer lock を取らせない。
- * 戻り値は解除関数（二重に呼んでも 1 回分しか解除しない）
- */
 export const suppressPointerLock = (): (() => void) => {
   suppressions++;
   let released = false;
@@ -86,14 +81,6 @@ export const suppressPointerLock = (): (() => void) => {
   };
 };
 
-/**
- * 自分から pointer lock を取り直す（PC から離れて一人称へ戻った直後など、クリックを待たせたくない場面）。
- *
- * - 相手が未接続、すでにロック中、抑止中(suppressPointerLock)なら何もしない
- * - ユーザーが操作したことのある document なら、クリック無しでも通る（ブラウザの要件。
- *   ここへ来る時点で、PC を狙ったクリックか Esc があるので満たしている）
- * - 通らなかった場合は黙って諦める。クリックでの取得(connectPointerLock)がそのまま残る
- */
 export const resumePointerLock = (): void => {
   const el = target;
   if (el === null || suppressions > 0) {
@@ -105,7 +92,6 @@ export const resumePointerLock = (): void => {
   requestLock(el);
 };
 
-/** target のクリックで pointer lock を要求し、ロック中のマウス移動量を蓄積する。戻り値は解除関数 */
 export const connectPointerLock = (element: HTMLElement): (() => void) => {
   const doc = element.ownerDocument;
   const onClick = () => {

@@ -26,7 +26,6 @@ import {setTransitionActive} from "./transitionActive";
 
 const initial = import.meta.env.DEV && DEBUG_REQUESTED ? "test" : "room";
 
-/** 今のシーン(App が描画する) */
 export const sceneManager = createSceneManager({
   initial,
   available: sceneNames,
@@ -51,11 +50,6 @@ const styled = createStyledTransition({
 export const setDiveStyle = styled.setDiveStyle;
 export type {DiveTransitionStyle};
 
-/**
- * シーンの切り替えの流れ(goTo・遷移中の状態・フック)。切り替えの結果は sceneManager に commit される。
- * 白い覆いで隠してから切り替え、新しいシーンの準備(ReportSceneReady)が終わったら覆いを外す。
- * 起動の覆いの間は、遷移を始めない(覆いを取り合わない)
- */
 export const sceneTransitionManager = createSceneTransitionManager({
   sceneManager,
   ...styled.hooks,

@@ -1,4 +1,3 @@
-// Package config は環境変数からサーバーの設定を読む。
 package config
 
 import (
@@ -13,45 +12,24 @@ import (
 
 const minSigningKeyLen = 32
 
-// Config はサーバーの設定
 type Config struct {
-	// Addr は待ち受けるアドレス(IUBEO_ADDR。既定 ":8080")
-	Addr string
-	// SigningKey は Cookie(iubeo_player)のトークンを署名する HMAC の鍵(IUBEO_SIGNING_KEY。必須)
-	SigningKey []byte
-	// AllowedOrigins は WebSocket の接続を許すオリジン(IUBEO_ALLOWED_ORIGINS。カンマ区切り。必須)
-	AllowedOrigins []string
-	// MatchSize は自動マッチングで 1 セッションに組む人数(IUBEO_MATCH_SIZE。既定 3。1〜3)
-	MatchSize int
-	// PhaseCount はフェーズの数(IUBEO_PHASE_COUNT。既定 3。1 以上)
-	PhaseCount int
-	// PhaseDuration はフェーズの長さ(IUBEO_PHASE_DURATION。既定 1m。time.ParseDuration の形で、正の値)
-	PhaseDuration time.Duration
-	// IntermissionDuration はフェーズの間の長さ(IUBEO_INTERMISSION_DURATION。既定 15s。time.ParseDuration の形で、正の値)
+	Addr                 string
+	SigningKey           []byte
+	AllowedOrigins       []string
+	MatchSize            int
+	PhaseCount           int
+	PhaseDuration        time.Duration
 	IntermissionDuration time.Duration
-	// BypassDuration は、最後のフェーズを生き残ってから、火がつかなくても victory にするまでの長さ
-	// (IUBEO_BYPASS_DURATION。既定 30s。time.ParseDuration の形で、正の値)
-	BypassDuration time.Duration
-	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
-	FireDuration time.Duration
-	// CpuFillAfter は、自動マッチングでこの時間たっても人数がそろわないとき、足りない分を CPU で埋める
-	// (IUBEO_CPU_FILL_AFTER。既定 30s。0 で無効。人数がそろう通常の経路には影響しない)。
-	// 「待たせすぎず、でも CPU 戦になる」ための待ち時間。1 人でも通しで遊べるようにする
-	CpuFillAfter time.Duration
-	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
-	WispKey []byte
-	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
-	WispURL string
-	// VCSeed は Voice Chat の JWT を署名する Ed25519 の種(IUBEO_VC_PRIVATE_KEY。base64url の 32 バイト。任意)。
-	// 無ければ VC のトークンは発行しない
-	VCSeed []byte
-	// VCSignalingURL は VC のシグナリング(WebSocket)の URL(IUBEO_VC_SIGNALING_URL。例: wss://vc.example.test/v1/signaling)
-	VCSignalingURL string
-	// VCMediaURL は MoQ(WebTransport)の URL(IUBEO_VC_MEDIA_URL。例: https://media.example.test:4443)
-	VCMediaURL string
+	BypassDuration       time.Duration
+	FireDuration         time.Duration
+	CpuFillAfter         time.Duration
+	WispKey              []byte
+	WispURL              string
+	VCSeed               []byte
+	VCSignalingURL       string
+	VCMediaURL           string
 }
 
-// Load は getenv(通常は os.Getenv)から設定を読む。足りない・不正な値があればまとめてエラーにする
 func Load(getenv func(string) string) (Config, error) {
 	cfg := Config{
 		Addr:                 ":8080",
@@ -61,8 +39,7 @@ func Load(getenv func(string) string) (Config, error) {
 		IntermissionDuration: 15 * time.Second,
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
-		// 待機が長いときは CPU とマッチする(1 人でも通しで遊べる)。0 で無効
-		CpuFillAfter: 30 * time.Second,
+		CpuFillAfter:         30 * time.Second,
 	}
 	var errs []error
 
@@ -127,7 +104,6 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 	}
 
-	// CPU 埋めは 0 で無効にできるので、正の値の一覧とは別に読む
 	if v := getenv("IUBEO_CPU_FILL_AFTER"); v != "" {
 		if dur, err := time.ParseDuration(v); err != nil || dur < 0 {
 			errs = append(errs, fmt.Errorf("IUBEO_CPU_FILL_AFTER must be a duration such as 30s (0 disables it): %q", v))
@@ -149,7 +125,6 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	if v := getenv("IUBEO_VC_PRIVATE_KEY"); v != "" {
-		// JWK の d は base64url(パディング無し)。パディング付きで貼られても読めるように落とす
 		seed, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(strings.TrimSpace(v), "="))
 		switch {
 		case err != nil:
