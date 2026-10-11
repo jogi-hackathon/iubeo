@@ -112,8 +112,73 @@ export const resolveEngine = async (
 let prewarmed = false;
 
 /**
- * エンジンの JS（埋め込み gecko.data を含む 13MB 級）を先に import しておく。クリック時の待ちが減る。
- * wasm 本体は取らない（localhost なら速く、抱え込むとメモリを圧迫するだけ）。ページで 1 回だけ取りに行く
+ * 先に取っておいた wasm。`blobUrl` をエンジンに渡すと、そのぶんのダウンロードを待たずに済む。
+ * 取り中は `promise` を待つので、クリックと先取りで二重に落とすことはない
+ */
+type WasmPrefetch = {url: string; blobUrl: string};
+let wasmPrefetch: {url: string; promise: Promise<WasmPrefetch | null>} | null =
+  null;
+
+/**
+ * wasm を先に取っておく（すでに取っている・取っている最中なら、その約束を返す）。
+ *
+ * 33MB の wasm はブラウザの HTTP キャッシュに入らない（巨大なリソースは入れない決まりで、
+ * 2 回目も丸ごと落ちてくる。実測: 912KB のファイルは 2 回目が 46ms で返るが、33MB は 2 回目も 94 秒）。
+ * そのため「先に取っておく」にはバイト列を自分で持っておく必要があり、blob URL にして渡す。
+ * 展開（zstd → 150MB）とコンパイルはクリック時にやる（そこまで抱え込むとメモリを圧迫するため）
+ */
+export const prefetchEngineWasm = (
+  url: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<WasmPrefetch | null> => {
+  if (wasmPrefetch?.url === url) {
+    return wasmPrefetch.promise;
+  }
+  const promise = (async (): Promise<WasmPrefetch | null> => {
+    try {
+      const response = await fetchFn(url);
+      if (!response.ok) {
+        return null;
+      }
+      const blob = await response.blob();
+      return {url, blobUrl: URL.createObjectURL(blob)};
+    } catch {
+      // 取れなくても普通に動く（クリック時にエンジンが自分で取りに行く）
+      return null;
+    }
+  })();
+  wasmPrefetch = {url, promise};
+  return promise;
+};
+
+/**
+ * 先に取っておいた（または取り中の）wasm の blob URL。無ければ undefined（呼び側はマニフェストの URL を使う）。
+ * 取り中なら取れるまで待つ（クリックのときに二重に落とさないため）
+ */
+export const prewarmedWasmUrl = async (
+  url: string,
+): Promise<string | undefined> => {
+  if (wasmPrefetch?.url !== url) {
+    return undefined;
+  }
+  const loaded = await wasmPrefetch.promise;
+  return loaded?.blobUrl;
+};
+
+/** 使い終わった先取りを解放する（33MB の blob を抱えたままにしない） */
+export const releasePrewarmedWasm = (): void => {
+  const current = wasmPrefetch;
+  wasmPrefetch = null;
+  void current?.promise.then((loaded) => {
+    if (loaded) {
+      URL.revokeObjectURL(loaded.blobUrl);
+    }
+  });
+};
+
+/**
+ * エンジンの JS(埋め込み gecko.data を含む 13MB 級)を先に import しておく。クリック時の待ちが減る。
+ * あわせて wasm も取りに行く(blob にして、クリックのときにエンジンへ渡す)。ページで 1 回だけやる
  */
 export const prewarmEngine = (search: string): void => {
   if (prewarmed) {
@@ -128,6 +193,8 @@ export const prewarmEngine = (search: string): void => {
     try {
       await importEngine(resolved.entry);
     } catch {}
+    // クリック時の一番重い待ち（4G で 68 秒）を、起動の裏で済ませておく
+    await prefetchEngineWasm(resolved.wasm.url);
   })();
 };
 

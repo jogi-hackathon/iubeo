@@ -1,5 +1,10 @@
 import {CanvasScreenSource} from "./CanvasScreenSource";
-import {importEngine, resolveEngine} from "./engine";
+import {
+  importEngine,
+  prewarmedWasmUrl,
+  releasePrewarmedWasm,
+  resolveEngine,
+} from "./engine";
 import type {GeckoConstructor, GeckoInstance} from "./geckoTypes";
 import {
   pageToDataUrl,
@@ -123,12 +128,15 @@ export class GeckoSource extends CanvasScreenSource {
     }
 
     try {
+      // 起動の裏で wasm を取ってあれば、その blob URL を渡す（クリック時のダウンロードを待たない）。
+      // まだ取っている最中なら、取れるまで待つ（二重に落とさないため）
+      const prewarmed = await prewarmedWasmUrl(resolved.wasm.url);
       const engine = new Gecko({
         canvas: this.canvas,
         width: this.width,
         height: this.height,
         env,
-        wasm: resolved.wasm,
+        wasm: prewarmed ? {...resolved.wasm, url: prewarmed} : resolved.wasm,
         wispUrl: this.wispUrl,
         forwardInput: true,
         print: (line) => console.log("[gecko]", line),
@@ -137,6 +145,10 @@ export class GeckoSource extends CanvasScreenSource {
       this.engine = engine;
 
       await engine.init();
+      if (prewarmed) {
+        // 展開（zstd → 150MB）が済んだので、33MB の blob はもう要らない
+        releasePrewarmedWasm();
+      }
       await engine.resize(this.width, this.height);
       this.stopProgress();
 
