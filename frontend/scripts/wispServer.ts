@@ -11,10 +11,6 @@ export const DEFAULT_WISP_PORT = 5001;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-/**
- * ブラウザからの接続を許すか。ブラウザは別のサイトからでも localhost の WebSocket を開けるので、
- * 開発中のアプリ（localhost のオリジン）以外は拒む。Origin の無い接続（ブラウザ以外）は通す
- */
 export const isAllowedOrigin = (origin: string | undefined): boolean => {
   if (!origin) {
     return true;
@@ -26,10 +22,6 @@ export const isAllowedOrigin = (origin: string | undefined): boolean => {
   }
 };
 
-/**
- * 指定の host:port で WISP を待ち受ける。listen できたら resolve する。
- * tokenKey があれば、接続ごとに `?token=` を検証する（worker/wisp.ts と同じ）
- */
 export const startWispServer = (
   host: string,
   port: number,
@@ -71,7 +63,6 @@ export const startWispServer = (
   });
 };
 
-/** `pnpm dev` に同乗する WISP。既に同じポートを使われていても、dev サーバは止めない */
 export const wispDevPlugin = (): Plugin => ({
   name: "iubeo:wisp",
   apply: "serve",

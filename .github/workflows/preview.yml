@@ -1,7 +1,5 @@
 name: preview
 
-# main に向けた PR で Worker Preview を作り、URL を PR にコメントする。
-#
 # コンテナを持つ iubeo-backend は Previews に対応していないので、
 # プレビューできるのは iubeo-frontend だけ。プレビューはサービスバインディングで
 # 本番の iubeo-backend を呼ぶ(セッションはメモリ上にしか無いので実害はない)。

@@ -12,7 +12,6 @@ import {
 import type {CoreMesh, LooseSheet, Sheet} from "./mountain";
 import {sheetSeed} from "./paperMaterial";
 
-/** 芯。法線は、チャート(側面・上面)の中でだけ滑らかにする */
 export const buildCoreGeometry = ({
   positions,
   uvs,
@@ -33,12 +32,6 @@ export const buildCoreGeometry = ({
 const BOX_VERTICES = 24;
 const BOX_INDICES = 36;
 
-/**
- * 束の本と、はみ出す紙を、1 つのジオメトリにまとめる(1 回の描画)。箱 1 つは 24 頂点・12 三角形・6 チャート(面ごと)。
- * 本の描き分け(paperMaterial)のために、頂点ごとに、箱のローカル位置 `bookLocal`(-0.5〜0.5)・ローカル法線 `bookNormal`・
- * 箱の大きさと seed `sheetInfo`(幅, 厚み, 奥行き, seed)・色 `color` を持たせる。
- * はみ出す紙は、ローカル法線をすべて下向きにして、全面を無地(表紙の扱い)にする。
- */
 export const buildSheetsGeometry = (
   sheets: readonly Sheet[],
   looseSheets: readonly LooseSheet[],

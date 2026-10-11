@@ -52,11 +52,6 @@ function Players() {
   );
 }
 
-/**
- * dev パネルの Flow タブ。ゲームの流れ(flow/)の状態と、マッチングの開始・取り消しのボタン。
- * 開始はゲームの流れの startMatchmaking を 1 回呼ぶだけ(将来、チュートリアルの終わりから同じ関数を呼ぶ)。
- * 2 人目以降は、別のブラウザプロファイルかシークレットウィンドウで開く(Cookie を分ける)
- */
 export function GameFlowPanel() {
   const flow = useGameFlow();
   const {current: sceneName} = useSceneState();

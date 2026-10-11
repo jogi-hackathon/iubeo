@@ -9,16 +9,10 @@ import type {
 } from "./types";
 
 export type ObjectManagerOptions = {
-  /** インタラクトの条件になる、今の手持ち */
   getHeldItem: () => HeldItemRef;
-  /** 要求の送り先と、自分の ID。窓口(オーソリティ)が無ければ null で、要求は送らない */
   getAuthority: () => AuthorityHandle | null;
 };
 
-/**
- * ワールドのオブジェクトの写し。状態の正はサーバーで、ここはサーバーの通知(apply)を反映し、
- * 操作(interact)は要求として送るだけ。要求が通るかどうかはサーバーが決める
- */
 export const createObjectManager = ({
   getHeldItem,
   getAuthority,

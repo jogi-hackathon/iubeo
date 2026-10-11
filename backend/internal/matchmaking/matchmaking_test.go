@@ -172,7 +172,6 @@ func TestPollingKeepsPlayerQueued(t *testing.T) {
 	}
 }
 
-// poll は、クライアントと同じように 1 秒ごとに Get して待つ(10 秒見ないと外されるため)
 func poll(t *testing.T, m *Matchmaker, c *clock, id string, seconds int) State {
 	t.Helper()
 	var st State
@@ -211,7 +210,6 @@ func TestFillsWithCPUsAfterWaiting(t *testing.T) {
 func TestFillsOnlyMissingSlots(t *testing.T) {
 	m, s, c := newFixtureWithFill(3, 30*time.Second)
 	mustJoin(t, m, "p1")
-	// 10 秒見ないと外れるので、1 人目もポーリングしながら待つ
 	for range 9 {
 		c.advance(time.Second)
 		if _, err := m.Get("p1"); err != nil {
@@ -224,7 +222,6 @@ func TestFillsOnlyMissingSlots(t *testing.T) {
 	var st State
 	for range 25 {
 		c.advance(time.Second)
-		// 2 人ともポーリングする
 		if _, err := m.Get("p2"); err != nil {
 			t.Fatalf("Get(p2): %v", err)
 		}

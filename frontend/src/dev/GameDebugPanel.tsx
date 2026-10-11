@@ -29,11 +29,6 @@ const subscribeRejected = (l: () => void) => {
   return () => rejectedListeners.delete(l);
 };
 
-/**
- * dev パネルの Game タブ(オブジェクト・アイテム・チームの管理)。
- * 今の窓口(local / server / none)を表示する。開発用の操作(置く・外す・手持ち)は、窓口が dev を持つときだけ使える
- * (ローカルのオーソリティが無ければ、押せないように無効にする)。interact だけは、実際のゲームと同じく objectManager から要求を送る
- */
 export function GameDebugPanel() {
   const {objects} = useObjectsState();
   const {held} = useItemState();

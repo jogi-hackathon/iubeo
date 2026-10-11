@@ -17,14 +17,6 @@ import {createLocalRules} from "./rules";
 
 const NO_INITIAL: LocalInitial = {};
 
-/**
- * ローカルのオーソリティ(実サーバーができるまでの、この端末の中の窓口)。シーンの中に置くと、
- * マウントで、レイアウトと初期設定から物を置き(planLocalObjects)、窓口として登録する。
- * 置いた物は、規則の通知(deliver → apply)で反映する。
- * 準備の報告: 置き終えた commit の後に markSceneReady(scene) する(シーンの準備は、この物が置かれたことで決まる)。
- * アンマウント(シーンを離れる)で、窓口を外し、アニメーション待ちを取り消し、規則が置いた物と手持ちを片付ける。
- * 置き直しはシーンの切り替えで起きる(前のシーンのアンマウントが先、次のシーンのマウントが後)
- */
 export function LocalAuthority({
   scene,
   layout,

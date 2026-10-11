@@ -3,7 +3,6 @@ import {useEffect} from "react";
 
 import {useAppContext} from "../boot/context";
 
-/** frameloop="never" の Canvas 内で fpsLimit に合わせて advance を呼ぶ。fpsLimit が null なら何もしない */
 export function FrameLimiter() {
   const advance = useThree((s) => s.advance);
   const {settings} = useAppContext();

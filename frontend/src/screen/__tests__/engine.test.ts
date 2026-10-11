@@ -45,7 +45,6 @@ describe("engineUrl", () => {
   });
 });
 
-/** 先取りの状態はモジュールに持つので、テストごとに読み直して仕切り直す */
 const freshEngine = async () => {
   vi.resetModules();
   return await import("../engine");

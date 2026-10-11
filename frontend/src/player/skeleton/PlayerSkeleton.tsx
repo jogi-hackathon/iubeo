@@ -28,10 +28,6 @@ const BONE_RADIUS = 0.015;
 const JOINT_RADIUS = 0.03;
 const HEAD_RADIUS = 0.11;
 
-/**
- * 全プレイヤーで共有する材質。骨格は白い世界にそのまま馴染ませたいので、GTAO は掛けない
- * (aoMap を持たない材質は skipGTAO が無いと GTAO が掛かり、白い身体が灰色になる)
- */
 const FILL_MATERIAL = new MeshBasicMaterial({color: FILL_COLOR});
 const OUTLINE_MATERIAL = new MeshBasicMaterial({
   color: OUTLINE_COLOR,
@@ -83,10 +79,6 @@ const writeLayer = (layer: Layer, points: Float32Array, hideHead: boolean) => {
   bones.instanceMatrix.needsUpdate = true;
 };
 
-/**
- * 1 体ぶんのスケルトン(関節の球と、骨の細い円柱だけ)。足元が state.position、向きが state.yaw。
- * 骨を太線(Line2)にしないのは、近クリップ面をまたぐと頂点が引き伸ばされ、カメラが近いと画面を横切って見えるため
- */
 export function PlayerSkeleton({
   state,
   holding = false,

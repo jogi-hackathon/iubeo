@@ -1,6 +1,5 @@
 import type {MeshSignature} from "./meshes";
 
-/** アトラス上のチャートの内側矩形(テクセル単位。PAD を含まない) */
 export interface ChartRect {
   x: number;
   y: number;
@@ -8,13 +7,10 @@ export interface ChartRect {
   h: number;
 }
 
-/** ベイク結果のメタ情報。AO の値そのものは別ファイルのグレースケール PNG(アトラス)に入る */
 export interface BakedAOLayout {
   atlasW: number;
   atlasH: number;
-  /** ベイク対象の mesh の要約。並びは listBakeMeshes の順 */
   meshes: MeshSignature[];
-  /** 全 mesh 通しのチャート番号 → アトラス上の矩形 */
   rects: ChartRect[];
 }
 
@@ -110,7 +106,6 @@ export const parseLayout = (buffer: ArrayBuffer): BakedAOLayout => {
 
 const CENTER_EPS = 1e-3;
 
-/** 現在のシーンの mesh がベイク時と同じ並び・形か。違えば理由を返す(一致なら null) */
 export const findLayoutMismatch = (
   layout: BakedAOLayout,
   current: readonly MeshSignature[],
@@ -135,10 +130,6 @@ export const findLayoutMismatch = (
   return null;
 };
 
-/**
- * チャート内の uv([0,1]²)をアトラス上の uv に写す。テクセル中心に合わせるため半テクセル内側に寄せる
- * (チャートの端のテクセル中心 = uv 0 / 1)。ベイク側 core/texels.ts のサンプル位置と対応している
- */
 export const atlasUV = (
   uv: ArrayLike<number>,
   chart: ArrayLike<number>,

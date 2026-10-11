@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# 位置のメッセージを、方式ごとに交互に測る(json = 現行の JSON / binary = バイナリ、enc=bin)。1 回ごとにサーバーを起動し直し、
-# 測定時間の間のサーバーの CPU 時間(ps の累積 CPU 時間の差)も記録する。
-# 使い方: perf/ws-ab.sh <label> <clients> <回数> [方式...]   例: perf/ws-ab.sh wsab30 30 3 json binary
+
 set -euo pipefail
 LABEL="${1:?label}"; CLIENTS="${2:-30}"; REPEAT="${3:-3}"; shift 3 || true
 MODES="${*:-json binary}"

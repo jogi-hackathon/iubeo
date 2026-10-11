@@ -29,13 +29,11 @@ interface GpuLike {
   requestAdapter(options?: object): Promise<unknown>;
 }
 
-/** three の WebGPUBackend.init と同じ条件で adapter を取る(core 相当だと compat 専用端末で WebGPU を取りこぼす) */
 export const ADAPTER_OPTIONS = {
   featureLevel: "compatibility",
   powerPreference: "high-performance",
 };
 
-/** WebGPU が使えなければ WebGPUUnavailableError を投げる */
 export const assertWebGPUAvailable = async (): Promise<void> => {
   const gpu = (globalThis.navigator as {gpu?: GpuLike} | undefined)?.gpu;
   if (!gpu) {

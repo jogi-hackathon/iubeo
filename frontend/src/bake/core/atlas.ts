@@ -1,25 +1,20 @@
-// アトラスの配置(potpack)・チャート内 dilate・アトラスへの書き込み。
 import potpack from "potpack";
 
 import {texelsFor} from "./charts";
 import {ATLAS_MAX, clamp, HIDDEN_TEXELS, PAD} from "./params";
 
-/** アトラス上のチャート内側矩形(PAD を含まない) */
 export type AtlasRect = {x: number; y: number; w: number; h: number};
-/** チャートのテクセル数 */
 export type AtlasSize = {w: number; h: number};
 
 export type PackedAtlas = {
   atlasW: number;
   atlasH: number;
-  /** アトラスの空間利用率(0..1) */
   fill: number;
   rects: AtlasRect[];
   sizes: AtlasSize[];
   texelTotal: number;
 };
 
-// テクセル数を決定して potpack でアトラスに詰める(PAD 込みの矩形で詰め、内側矩形を控える)
 export const packAtlas = (
   chartCount: number,
   hiddenFlags: ArrayLike<number>,
@@ -59,7 +54,6 @@ export const packAtlas = (
   const sizes: AtlasSize[] = Array.from({length: chartCount});
   let texelTotal = 0;
   for (const b of boxes) {
-    // potpack が x / y を書き込む(型上は optional)
     rects[b.chart] = {
       x: (b.x ?? 0) + PAD,
       y: (b.y ?? 0) + PAD,
@@ -72,8 +66,6 @@ export const packAtlas = (
   return {atlasW, atlasH, fill: packStats.fill, rects, sizes, texelTotal};
 };
 
-// 同じチャート内の有効な隣接テクセル(8近傍)の平均で無効テクセルを反復して埋める。
-// raw は 0..255、無効は負値(-1)
 export const dilateChart = (
   raw: ArrayLike<number>,
   w: number,
@@ -145,7 +137,6 @@ export const dilateChart = (
   return values;
 };
 
-// チャートの値を PAD 込みでアトラスに書く(PAD はチャート端のテクセルを引き伸ばす)
 export const writeChartToAtlas = (
   atlas: Uint8Array,
   atlasW: number,

@@ -19,7 +19,6 @@ const worldCenter = (mesh: Mesh): [number, number, number] => {
   if (!geometry.boundingBox) {
     geometry.computeBoundingBox();
   }
-  // computeBoundingBox の直後なので null ではない
   const box = (geometry.boundingBox as NonNullable<typeof geometry.boundingBox>)
     .clone()
     .applyMatrix4(mesh.matrixWorld);
@@ -40,11 +39,6 @@ const worldSize = (mesh: Mesh): [number, number, number] => {
   return [_center.x, _center.y, _center.z];
 };
 
-/**
- * 並べ替えのキー(中心 → 頂点数 → サイズ)。mm 単位に丸めるのは、浮動小数の誤差(行列の合成順など)で
- * 同じ位置の mesh の並びが揺れないようにするため。中心と頂点数が同じでも、十字に置いた同じ箱のような
- * 向き違いの mesh をタイにしないよう、サイズも入れる
- */
 export const sortKey = (mesh: Mesh): number[] => {
   const mm = (v: number) => Math.round(v * 1000);
   return [
@@ -64,13 +58,6 @@ const compareKeys = (a: number[], b: number[]): number => {
   return 0;
 };
 
-/**
- * AO をベイクする静的 mesh。BVHCollider 配下の mesh(= 動かないコライダー)と、BakeTarget 配下の mesh
- * (コライダーではない、見た目だけの mesh)のうち、AO モードが realtime でないもの。
- * realtime の mesh は遮蔽物としても使わない(動く物がベイクに焼き込まれないように)。
- * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数 → サイズの順に
- * 並べ替えて、ベイクページとゲーム本体で同じ並びにする。並びと形が一致しているかは format.ts で検証する
- */
 export const selectBakeMeshes = (candidates: Iterable<Mesh>): Mesh[] =>
   [...new Set(candidates)]
     .filter(
@@ -88,11 +75,6 @@ export const listBakeMeshes = (): Mesh[] =>
     ...listBakeTargets(),
   ]);
 
-/**
- * geometry.groups(= マテリアルごとの面のまとまり。BoxGeometry なら6面)をそれぞれ1チャートとし、
- * 頂点ごとのチャート番号(0 始まり)を返す。groups が無いジオメトリ(球・平面)は全体を1チャートにする。
- * 1頂点が複数チャートにまたがるとアトラス上の位置が決まらないので例外にする
- */
 export const assignCharts = (
   geometry: BufferGeometry,
 ): {chart: Uint32Array; chartCount: number} => {
@@ -141,11 +123,9 @@ export const assignCharts = (
   return {chart, chartCount: groups.length};
 };
 
-/** ベイク結果と mesh の対応を検証するための要約 */
 export interface MeshSignature {
   vertexCount: number;
   chartCount: number;
-  /** ワールド座標のバウンディングボックス中心 */
   center: [number, number, number];
 }
 
@@ -155,11 +135,6 @@ export const meshSignature = (mesh: Mesh): MeshSignature => ({
   center: worldCenter(mesh),
 });
 
-/**
- * ベイク用に、対象 mesh をワールド座標で1つに結合したジオメトリを作る。
- * 属性は position / normal / uv と、通し番号のチャート番号 `chart` だけに揃える(mergeGeometries は属性の一致が必要)。
- * userData.chartCount に全チャート数を入れる(core/charts.ts の buildChartTriangles が読む)
- */
 export const buildBakeGeometry = (meshes: readonly Mesh[]): BufferGeometry => {
   const parts: BufferGeometry[] = [];
   let chartOffset = 0;

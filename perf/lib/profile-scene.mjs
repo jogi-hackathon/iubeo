@@ -1,5 +1,3 @@
-// 実行中の CPU プロファイル(CDP の Profiler)。起動後、一定時間の関数ごと・パッケージごとの自己時間を出す
-// 使い方: node perf/lib/profile-scene.mjs --label x [--url http://localhost:5173] [--seconds 8] [--uncapped] [--move]
 import {mkdirSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {CHROME_PATH, DIST, PERF, importFromFrontend} from "./paths.mjs";
@@ -26,7 +24,6 @@ try {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Profiler.enable");
   await cdp.send("Profiler.setSamplingInterval", {interval: 200});
-  // フレーム数も同時に数える(プロファイラの影響込みの参考値)
   await page.evaluate(() => { window.__n = 0; const t = () => { window.__n++; window.__rafId = requestAnimationFrame(t); }; window.__rafId = requestAnimationFrame(t); });
   if (args.move) await page.keyboard.down("KeyW");
   await cdp.send("Profiler.start");
@@ -35,7 +32,6 @@ try {
   if (args.move) await page.keyboard.up("KeyW");
   const frames = await page.evaluate(() => { cancelAnimationFrame(window.__rafId); return window.__n; });
 
-  // 自己時間: サンプルごとに、その時点の関数へ、次のサンプルまでの時間を加える
   const nodeById = new Map(profile.nodes.map((n) => [n.id, n]));
   const selfUs = new Map();
   for (let i = 0; i < profile.samples.length; i++) {

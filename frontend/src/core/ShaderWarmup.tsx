@@ -27,10 +27,6 @@ const finish = () => {
   }
 };
 
-/**
- * ウォームアップをもう一度走らせ、終わったら解決する(シーンの遷移で、新しいシーンの準備ができた後、覆いを外す前に呼ぶ)。
- * 起動のウォームアップがまだ終わっていなければ、その終わりを待つだけ
- */
 export const warmupShaders = (): Promise<void> =>
   new Promise((resolve) => {
     waiters.push(resolve);
@@ -47,14 +43,9 @@ const subscribe = (l: () => void) => {
   };
 };
 
-/** ウォームアップが終わったか。終わるまで Canvas の上にローディングを被せる */
 export const useShaderWarmupDone = (): boolean =>
   useSyncExternalStore(subscribe, () => done);
 
-/**
- * マテリアルを後から変える非同期の読み込み(ベイク AO の aoMap など)が、終わるまでウォームアップを待たせる。
- * 戻り値の解除関数は、二重に呼んでも 1 回分しか解除しない。待たせても WARMUP_MAX_MS で打ち切られる
- */
 export const holdShaderWarmup = (): (() => void) => {
   holds++;
   let released = false;
@@ -69,17 +60,6 @@ export const holdShaderWarmup = (): (() => void) => {
 
 type DeviceLike = {queue: {onSubmittedWorkDone(): Promise<void>}};
 
-/**
- * 起動直後、ローディングの裏でシーンの全 mesh の視錐台カリングを切って描き、表示中のマテリアルのパイプラインを作らせる。
- * 画面外の物が初めて視界に入ったときのコンパイル待ち(シェーダーのスタッター)を避けるため。
- * renderer.compileAsync は視錐台カリングが効くうえ、ポストプロセスの各パス(pre-pass・MSAA の scene pass)と
- * 描画先が違ってキャッシュが当たらないので使わず、実際の描画経路(PostProcess)にそのまま描かせる。
- * アウトライン(OutlineNode)は選択の有無で非選択の深度パス・選択物のマスクパスを全 mesh に掛けるので、
- * 選択をフレームごとに「シーン全体」と「mesh 1 つ」に切り替えて両方のパスを通す。力の縁取り(2 つ目の OutlineNode)も同じ選択で通す。
- * 構成が WARMUP_STABLE_MS 変わらなくなるまで(holdShaderWarmup の間は待つ)続け、元に戻したあと GPU の処理完了を待ってから終える。
- * シーンの遷移でも、新しいシーンの準備ができた後、覆いを外す前に走らせ直す(warmupShaders。sceneStore が呼ぶ)。
- * 操作して初めて現れるマテリアル(手に持ったアイテム、俯瞰ビュー、燃える演出の炎など)は対象外
- */
 export function ShaderWarmup() {
   const scene = useThree((s) => s.scene);
   const gl = useThree((s) => s.gl);

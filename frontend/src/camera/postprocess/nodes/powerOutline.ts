@@ -36,7 +36,6 @@ const DASH_PERIODS_PER_SCREEN_HEIGHT = 45;
 const DASH_SPEED = 1.5;
 
 export const createPowerOutline = (scene: Scene, camera: Camera) => {
-  // 選択が空のあいだは OutlineNode が自分のパスを全部飛ばすので、狙いの縁取りと同じくグラフには常に入れておく
   const powerOutlinePass = outline(scene, camera, {
     selectedObjects: powerOutlineSelection,
     edgeGlow: float(0),
@@ -63,8 +62,6 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
       .level(float(0));
     return m.g.oneMinus().mul(m.r.oneMinus());
   };
-  // 円形に全方向を読むと 1 ピクセル 144 回のサンプルになり FPS が半分に落ちたので、横→縦の 2 パスの最大値で広げる(縁の角は四角くなる)。
-  // 縁の内側はフル解像度のマスクで切るので、広げる側は半解像度で足りる。パスの中の screenSize は半解像度の大きさになる
   const dilateAlong = (
     sampleAt: (offset: number) => Node<"float">,
   ): Node<"vec4"> =>
@@ -104,12 +101,9 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
           .r.mul(powerMask.sample(screenUV).level(float(0)).r),
       );
     });
-    // OutlineNode はグラフに入れないとマスクを毎フレーム更新しないので、結果に影響しない形(0 倍)でつなぐ
     return edge.add(powerOutlinePass.visibleEdge.mul(0));
   })();
 
-  // 縁に沿った長さはポストプロセスでは取れないので、画面の斜め縞で代用する(縁が縞と平行な 45° の所は破線に見えない)
-  // 画面の高さを基準にして、解像度や DPR が違っても見た目の細かさと速さをそろえる
   const aspect = screenSize.x.div(screenSize.y);
   const dashPhase = fract(
     screenUV.x

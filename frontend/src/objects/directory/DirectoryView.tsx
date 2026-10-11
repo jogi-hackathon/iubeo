@@ -28,10 +28,6 @@ type StackProps = {
   count: number;
 };
 
-/**
- * 成果物の板(白い薄い本)。数が増減するので、ベイクには入れず、InstancedMesh で先頭から count 枚だけ見せる。
- * 薄い板なので AO は付けない(GTAO も掛けない。山の他の面はベイク AO だけなので、ここだけ GTAO のノイズが乗るのを避ける)
- */
 function OutputSheets({sheets, count}: StackProps) {
   const ref = useRef<InstancedMesh>(null);
   const material = useMemo(() => {

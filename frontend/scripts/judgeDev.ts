@@ -4,7 +4,6 @@ import type {Plugin} from "vite";
 
 import type {JudgeResult} from "../src/judge/types.ts";
 
-/** 判定のパス（worker/judge.ts と揃える） */
 export const JUDGE_PATH = "/judge";
 
 const devResult = (): JudgeResult => ({

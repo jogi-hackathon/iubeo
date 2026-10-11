@@ -9,7 +9,6 @@ interface TiledFloorProps {
   ao?: AOMode;
 }
 
-/** 上面が y=0 の平らな床。淡い格子線のタイル付き。BVH コライダー込み */
 export function TiledFloor({
   size = 200,
   thickness = 1,

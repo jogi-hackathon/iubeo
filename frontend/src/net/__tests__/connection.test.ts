@@ -234,7 +234,6 @@ describe("createSessionConnection", () => {
         ],
       } as SessionSnapshot,
     });
-    // 席 2 と、まだ知らない席 3
     const buf = new ArrayBuffer(10 + 2 * 25);
     const v = new DataView(buf);
     v.setUint8(0, 2);
@@ -393,7 +392,6 @@ describe("createSessionConnection", () => {
     const {conn, sockets, latest} = setup();
     conn.close();
     latest().serverClose(1006);
-    // 閉じた通知で再接続を始めない
     expect(sockets).toHaveLength(1);
     expect(conn.getState().status).toBe("closed");
   });

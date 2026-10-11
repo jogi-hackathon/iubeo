@@ -128,8 +128,6 @@ export class GeckoSource extends CanvasScreenSource {
     }
 
     try {
-      // 起動の裏で wasm を取ってあれば、その blob URL を渡す（クリック時のダウンロードを待たない）。
-      // まだ取っている最中なら、取れるまで待つ（二重に落とさないため）
       const prewarmed = await prewarmedWasmUrl(resolved.wasm.url);
       const engine = new Gecko({
         canvas: this.canvas,
@@ -146,7 +144,6 @@ export class GeckoSource extends CanvasScreenSource {
 
       await engine.init();
       if (prewarmed) {
-        // 展開（zstd → 150MB）が済んだので、33MB の blob はもう要らない
         releasePrewarmedWasm();
       }
       await engine.resize(this.width, this.height);
@@ -277,10 +274,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.markDirty();
   }
 
-  /**
-   * テキスト挿入（IME の確定、貼り付け）。エンジンはキーイベントの charCode から文字を入れるので、
-   * コードポイントごとに keydown を 1 つ投げるのがそのまま期待される形になる。
-   */
   override insertText(text: string): void {
     if (!this.ready) {
       return;
@@ -308,7 +301,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.markDirty();
   }
 
-  /** アドレス欄からの移動。入力はそのまま URL として読み込む（正規化は呼び出し側） */
   navigate(url: string): void {
     if (!this.ready || !this.engine) {
       return;

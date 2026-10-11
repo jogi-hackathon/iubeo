@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# 計測の全体(ビルド・バンドル・ブラウザ・バックエンド)を 1 回走らせ、perf/results/<label>/ に結果を置く
-# 使い方: perf/run-all.sh <label> [回数]     例: perf/run-all.sh baseline 3
+
 set -euo pipefail
 
 LABEL="${1:?label を指定する}"
@@ -14,7 +13,7 @@ step() { echo; echo "== $* =="; }
 
 step "フロントのビルド(3 回。ビルド時間の中央値を見る)"
 cd "$ROOT/frontend"
-# CI(deploy-cloudflare.yml)と同じ条件で測る。frontend/.env(git 管理外)の VITE_ENABLE_DEBUG=true を打ち消す
+
 export VITE_ENABLE_DEBUG=false
 for i in 1 2 3; do
   /usr/bin/time -p pnpm exec vite build >"$PERF/.tmp/build-$i.log" 2>&1 || true

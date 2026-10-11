@@ -361,7 +361,6 @@ describe("connectSession", () => {
     );
     expect(t.game.getState().sessionStatus).toBe("playing");
     expect(t.game.getState().phase?.number).toBe(1);
-    // now は 0 固定なので、ずれは serverTime そのもの
     expect(t.game.getState().serverOffsetMs).toBe(
       Date.parse("2026-10-01T00:00:00Z"),
     );

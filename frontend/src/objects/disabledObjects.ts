@@ -16,14 +16,11 @@ const subscribe = (listener: () => void): (() => void) => {
   };
 };
 
-/** id の機能を止めているか */
 export const isObjectDisabled = (id: string): boolean => disabled.has(id);
 
-/** id の機能を止めているか(変わると描き直す) */
 export const useIsObjectDisabled = (id: string): boolean =>
   useSyncExternalStore(subscribe, () => disabled.has(id));
 
-/** id の機能を止める。戻り値で戻す(2 回戻しても、後から止め直した分は消さない) */
 export const disableObject = (id: string): (() => void) => {
   disabled.add(id);
   notify();
@@ -38,7 +35,6 @@ export const disableObject = (id: string): (() => void) => {
   };
 };
 
-/** when の間、id の機能を止める(アンマウントや when が false になると戻す) */
 export const useDisableObjectWhile = (id: string, when: boolean): void => {
   useEffect(() => (when ? disableObject(id) : undefined), [id, when]);
 };

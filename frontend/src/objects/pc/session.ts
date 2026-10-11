@@ -19,7 +19,6 @@ export type PcPhase = "idle" | "active" | "leaving";
 
 export type PcSessionState = {
   phase: PcPhase;
-  /** idle 以外のとき、使っている PC のオブジェクト id */
   objectId: string | null;
 };
 
@@ -27,11 +26,8 @@ const IDLE: PcSessionState = {phase: "idle", objectId: null};
 
 type Options = {
   lock?: () => () => void;
-  /** キャンバスのクリックで pointer lock を取らせない。解除関数を返す */
   suppressPointerLock?: () => () => void;
-  /** pointer lock が掛かっていれば解く（マウスで画面を触るため） */
   exitPointerLock?: () => void;
-  /** pointer lock を取り直す（一人称へ戻った直後に、クリックを待たずマウスルックへ戻す） */
   resumePointerLock?: () => void;
 };
 
@@ -85,7 +81,6 @@ export const createPcSession = ({
         set({...state, phase: "leaving"});
       }
     },
-    /** 戻る補間が終わった。プレイヤーを返し、マウスルック（pointer lock）を取り直す */
     finish: (): void => {
       if (state.phase === "leaving") {
         releaseAll();

@@ -10,37 +10,26 @@ import type {
 
 export type {JudgeRequest, JudgeResult, JudgeVerdict, PageSnapshot};
 
-/** 判定のエンドポイント。本番は Worker、開発は Vite のミドルウェアが受ける */
 export const JUDGE_ENDPOINT = import.meta.env.VITE_JUDGE_URL ?? "/judge";
-/** 判定の往復の上限 (ms)。Clef は速いので、これを過ぎたら簡易判定に落とす */
 export const JUDGE_TIMEOUT_MS = 8000;
 const MATCH_AT = 0.6;
 const PARTIAL_AT = 0.25;
 const INTERVENE_MS = 9000;
-/** 「お題に合っている」の合図の長さ。合った判定は、この合図を見せてから PC を閉じる */
 export const CONFIRM_MS = 3000;
 const ERROR_MS = 6000;
 
-/** 判定の進行。画面はこれを見て、通知を出す */
 export type JudgeState =
   | {status: "idle"}
   | {status: "running"; task: string; url: string}
   | {status: "done"; task: string; url: string; result: JudgeResult}
   | {status: "error"; task: string; url: string; message: string};
 
-/** 画面に出す 1 回ぶんの知らせ。tear は画面を一瞬乱すか (彼らの介入) */
 export type JudgeAnnouncement = {
   lines: string[];
-  /** true なら、CRT を一瞬乱してから出す */
   tear: boolean;
-  /** 出しておく長さ (ms) */
   ms: number;
 };
 
-/**
- * お題の語を、比較しやすい形へ分解する ("firefox-wasm" → ["firefox", "wasm"])。
- * 画面に出すときのために、大文字小文字は元のまま残す（比較する側が lower にそろえる）
- */
 export const taskTerms = (task: string): string[] => {
   const seen = new Map<string, string>();
   for (const word of task.split(/[^A-Za-z0-9]+/)) {
@@ -52,10 +41,6 @@ export const taskTerms = (task: string): string[] => {
   return Array.from(seen.values());
 };
 
-/**
- * 鍵が無いときの簡易判定。お題の語が URL・タイトルにあれば強く、本文だけなら弱く数える。
- * 意味は分からないので、確からしさ (confidence) は主張しない
- */
 export const localJudge = ({task, page}: JudgeRequest): JudgeResult => {
   const terms = taskTerms(task);
   const head = `${page.url} ${page.title}`.toLowerCase();
@@ -112,11 +97,6 @@ const localReasons = (found: string[], missing: string[]): string[] => {
       ];
 };
 
-/**
- * 判定する。まず Worker の `/judge` (本物の Clef) を試し、届かなければ簡易判定にする。
- * 送る前に上限まで切り詰める (Worker が受ける大きさに収める)。送れない形 (http(s) でない URL など) なら
- * 送らずに簡易判定にする。例外は投げない (画面には必ず何かを出す)
- */
 export const runJudge = async (
   request: JudgeRequest,
   doFetch: typeof fetch = fetch,
@@ -141,7 +121,6 @@ export const runJudge = async (
   }
 };
 
-/** Worker の応答を検証する。形が違えば null */
 export const parseJudgeResult = (value: unknown): JudgeResult | null => {
   if (!value || typeof value !== "object") {
     return null;
@@ -177,7 +156,6 @@ type Options = {
   judge?: (request: JudgeRequest) => Promise<JudgeResult>;
 };
 
-/** 今の判定の状態を持つ。判定を始めるたびに、前の結果は捨てる */
 export const createJudgeStore = ({judge = runJudge}: Options = {}) => {
   let state: JudgeState = {status: "idle"};
   let seq = 0;
@@ -251,7 +229,6 @@ const SOURCE_LABEL: Record<JudgeResult["source"], string> = {
   dev: "dev 判定",
 };
 
-/** 画面 (CRT) に出す通知の行。出さないときは null */
 export const judgeNotice = (state: JudgeState): string[] | null => {
   if (state.status === "idle") {
     return null;
@@ -271,12 +248,6 @@ export const judgeNotice = (state: JudgeState): string[] | null => {
   ];
 };
 
-/**
- * 画面に出す 1 回ぶんの知らせ。出さないときは null。
- *
- * 彼らは黙って見ているので、判定中は何も出さない。合っていれば一言だけで、画面は乱さない。
- * **外れているときだけ**、CRT を一瞬乱してから理由を出す (介入)。判定できなかったときは黙らずに出す
- */
 export const judgeAnnouncement = (
   state: JudgeState,
 ): JudgeAnnouncement | null => {

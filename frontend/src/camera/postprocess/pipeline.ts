@@ -49,7 +49,6 @@ const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
 
 export interface PostProcessPipeline {
   render(): void;
-  /** 設定を反映する。数値は uniform の更新のみ、構成が変わるとき(effect の on/off など)だけ outputNode を組み直す */
   apply(settings: PostProcessSettings): void;
   dispose(): void;
 }
@@ -65,12 +64,6 @@ const structureKey = (s: PostProcessSettings): string =>
     s.ao.enabled && s.ao.denoise,
   ].join("|");
 
-/**
- * AO の pre-pass(法線・深度)→ GTAO → scene pass(AO は間接光だけに掛かる。ベイク AO との分担は gtaoContext)→ Bloom 加算
- * → アウトライン(狙ったオブジェクトの外周。他の物に隠れた部分は出さない)→ ピクセレート → ビネット → 出力変換(最後に1回だけ)。
- * outputColorTransform=false にして出力変換を自前で行う(Renderer の toneMapping / outputColorSpace は R3F が
- * ACES / sRGB に上書きしているが、RenderPipeline 内では使わない)
- */
 export const createPostProcessPipeline = (
   renderer: Renderer,
   scene: Scene,
@@ -122,8 +115,6 @@ export const createPostProcessPipeline = (
       if (p.contextNode === contextNode) {
         continue;
       }
-      // needsUpdate で version が上がり、PassNode がキャッシュしているコンテキストも作り直される。
-      // コンテキストが変わると scene の全マテリアルが再コンパイルされるので、変わったときだけ行う
       p.contextNode = contextNode;
       p.needsUpdate = true;
     }

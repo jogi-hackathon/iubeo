@@ -28,7 +28,6 @@ import type {PostProcessSettings} from "../../camera/postprocess/settings";
 import {cellHash} from "../../core/cellHash";
 import {createSea} from "./sea";
 
-/** 地平線の色。フォグと同じにして、遠景が空に継ぎ目なく溶けるようにする */
 export const SKY_HORIZON = "#ffffff";
 const SKY_ZENITH = "#d9d9d9";
 const SKY_BANDS = 28;
@@ -77,9 +76,7 @@ const dctBlock = (
 };
 
 export interface Skybox {
-  /** scene.backgroundNode に設定する */
   node: Node<"vec3">;
-  /** 設定を uniform に反映する(再コンパイルは起きない) */
   apply(settings: PostProcessSettings): void;
   update(renderer: WebGPURenderer, camera: Camera): void;
 }
@@ -210,10 +207,6 @@ const createSkybox = (): Skybox => {
 
 let shared: Skybox | null = null;
 
-/**
- * 空は全シーンで1つを使い回す。ノードの cacheKey はインスタンスごとに違う(Node.customCacheKey が id)ので、
- * シーンの切り替えで作り直すと Background が背景の材質を差し替えて再コンパイルする。使い回してそれを避ける
- */
 export const getSkybox = (): Skybox => {
   shared ??= createSkybox();
   return shared;

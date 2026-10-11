@@ -41,24 +41,6 @@ const eye = new Vector3();
 const pcPosition = new Vector3();
 const euler = new Euler(0, 0, 0, "YXZ");
 
-/**
- * PC: 机の上の、Gecko（Firefox のエンジンを wasm にしたもの）の動く画面。
- *
- * 見た目は PcModel（手続き的に組む）。ガラスには、エンジンの canvas をテクスチャとして貼る（CRT の TSL マテリアル）。
- *
- * 操作:
- * - インタラクト（狙って左クリック）で、PC を使い始める（電源が入る。プレイヤーを預かってカメラが画面の前へ寄り、
- *   マウスが画面へ向く）。エンジンは初めて使うときに起動する（数十秒かかる）
- * - 画面の上ではマウスと鍵盤がエンジンへ届く。お題のメモをクリックすると、別のお題を引く
- * - Web Search の判定（お題にふさわしい検索ができているか）は、**プレイヤーの操作ではなく、
- *   結果を辿ってページが変わるたびに走る**（検索結果ページそのものは見ない）。
- *   彼らは常に見ていて、外れているときだけ CRT が乱れて理由を出す（合っていれば一言だけ）。HUD は使わない
- * - 判定が「一致」なら、合図を見せてから PC を畳む（成果物は持たせ済み）。タスクが済んだので座らせない
- * - Esc で離れる（カメラが一人称へ戻り、プレイヤーを返し、マウスルック（pointer lock）も取り直す。
- *   画面から抜けた直後にクリックを求めない）
- *
- * 使っていない間は電源が切れている（画面は黒）。HUD は使わず、状態は画面と机の上のメモで伝える。
- */
 export function PcObject({object}: {object: GameObject}) {
   const {item} = useLayoutSlot();
   const screen = useMemo(() => engineScreen(), []);
@@ -222,7 +204,6 @@ export function PcObject({object}: {object: GameObject}) {
     return () => window.clearTimeout(timer);
   }, [using, judge]);
 
-  // 判定が通ったら、使っている PC へ interact を送る（成果物はオーソリティが手に持たせる）
   useEffect(() => {
     if (!using) {
       return;
@@ -359,8 +340,6 @@ const viewPose = (mesh: Mesh): {position: Vector3; quaternion: Quaternion} => {
   const normal = new Vector3(0, 0, 1).applyQuaternion(
     mesh.getWorldQuaternion(new Quaternion()),
   );
-  // center は書き換えない(addScaledVector は自分自身を動かすので、clone してから正面へ離す。
-  // 同じ物を渡すと lookAt が見る向きを失い、PC の向きに関係なくワールド -Z を向いてしまう)
   const position = center.clone().addScaledVector(normal, VIEW_DISTANCE);
   const quaternion = new Quaternion().setFromRotationMatrix(
     new Matrix4().lookAt(position, center, UP),

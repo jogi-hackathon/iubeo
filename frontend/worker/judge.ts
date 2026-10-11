@@ -4,7 +4,6 @@ import {
   normalizeJudgeRequest,
 } from "../src/judge/request";
 
-/** 判定のパス（cloudflare.config.ts の runWorkerFirst と揃える） */
 export const JUDGE_PATH = "/judge";
 
 type Env = {
@@ -58,10 +57,6 @@ export const handleJudge = async (
   }
 };
 
-/**
- * 同じオリジンの画面からの呼び出しか。ブラウザは POST の fetch に必ず Origin を付けるので、無ければ受けない。
- * Sec-Fetch-Site があれば same-origin であることも見る
- */
 export const isSameOrigin = (request: Request): boolean => {
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) {
@@ -80,10 +75,6 @@ const withinLimits = async (request: Request, env: Env): Promise<boolean> => {
   return perIp?.success !== false && global?.success !== false;
 };
 
-/**
- * 本文を上限まで読む。上限を超えたら読むのをやめて null。
- * Content-Length は付かないこともある (chunked) ので、宣言だけでなく実際に読んだ量でも見る
- */
 export const readBody = async (
   request: Request,
   maxBytes: number,

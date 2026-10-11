@@ -20,7 +20,6 @@ const input: MoveInput = {
   jump: false,
 };
 
-/** ローカルプレイヤーの身体を更新する(視点入力・移動・物理)。カメラには触れない */
 export function PlayerController() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();

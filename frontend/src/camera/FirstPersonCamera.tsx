@@ -9,10 +9,6 @@ import {getEyePosition, localPlayer} from "../player";
 
 const euler = new Euler(0, 0, 0, "YXZ");
 
-/**
- * ローカルプレイヤーの目の位置と向きをカメラに写す。freeCamera 中は FlyCamera に、
- * 脱落中・観戦中は観戦の演出と FlyCamera に、別の演出がプレイヤーを預かっている間(俯瞰ビューなど)はその演出に任せる
- */
 export function FirstPersonCamera() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();

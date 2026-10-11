@@ -1,5 +1,3 @@
-// 計測専用のシーン(製品にも開発シーンにも入らない)。TestScene の地形の上に、歩く・跳ねるキャラクターを N 体置く。
-// N は URL の n= で決まる(?scene=crowd&n=30)。キャラクターあたりの描画・更新コストを測るため。
 import {useFrame} from "@react-three/fiber";
 import {useMemo} from "react";
 
@@ -9,7 +7,6 @@ import {TestLayout} from "../../frontend/src/scenes/TestScene/TestLayout";
 import {Ball, TiledFloor, Wall} from "../../frontend/src/props";
 import {WhiteWorld} from "../../frontend/src/scenes/environment/WhiteWorld";
 
-/** layout=... で地形の一部だけを描く(どの物がコストか切り分ける用)。未指定なら TestLayout 全体 */
 const LAYOUT = new URLSearchParams(location.search).get("layout") ?? "all";
 const Layout = () => {
   if (LAYOUT === "all") return <TestLayout />;

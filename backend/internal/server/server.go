@@ -1,4 +1,3 @@
-// Package server は api.ServerInterface を実装し、HTTP のエンドポイントをつなぐ。
 package server
 
 import (
@@ -13,7 +12,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
-// Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
 type Server struct {
 	signer            *player.Signer
 	sessions          *session.Manager
@@ -28,12 +26,10 @@ type Server struct {
 
 var _ api.ServerInterface = (*Server)(nil)
 
-// New は Server を作る
 func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker, allowedOrigins []string) *Server {
 	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker, allowedOrigins: allowedOrigins}
 }
 
-// Handler は Server の HTTP ハンドラーを返す
 func (s *Server) Handler() http.Handler {
 	return api.Handler(s)
 }
@@ -64,5 +60,4 @@ func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// CreateSession(シングルモード)は未実装
 func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }

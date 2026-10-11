@@ -1,4 +1,3 @@
-/** 文字列の 32bit ハッシュ(FNV-1a)。位置や形を id から決める擬似乱数の種にする */
 export const hashString = (s: string): number => {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -8,7 +7,6 @@ export const hashString = (s: string): number => {
   return h >>> 0;
 };
 
-/** 種から [0, 1) の列を作る擬似乱数(mulberry32)。同じ種なら同じ列 */
 export const createRandom = (seed: number): (() => number) => {
   let a = seed >>> 0;
   return () => {

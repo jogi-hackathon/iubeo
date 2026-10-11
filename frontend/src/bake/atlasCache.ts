@@ -22,7 +22,6 @@ const configureAtlas = <T extends Texture>(texture: T): T => {
   texture.generateMipmaps = false;
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
-  // aoMap は uv1(アトラス上の uv)で引く
   texture.channel = 1;
   return texture;
 };

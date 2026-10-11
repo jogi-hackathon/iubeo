@@ -6,7 +6,6 @@ import {filterThreeLog} from "./core/threeLog";
 
 import "./style.css";
 
-// React を始める前に入れる(最初の描画で three の警告が出るため)
 filterThreeLog();
 
 const root = document.getElementById("root");
