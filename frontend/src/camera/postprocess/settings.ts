@@ -40,6 +40,14 @@ export interface PostProcessSettings {
     elevationEnd: number;
     updateRate: number;
   };
+  sea: {
+    enabled: boolean;
+    crest: number;
+    amplitude: number;
+    wavelengthScale: number;
+    speed: number;
+    cellSize: number;
+  };
   vignette: {
     enabled: boolean;
     intensity: number;
@@ -93,6 +101,14 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     elevationStart: 20,
     elevationEnd: 80,
     updateRate: 2,
+  },
+  sea: {
+    enabled: true,
+    crest: 0,
+    amplitude: 3.5,
+    wavelengthScale: 1,
+    speed: 1,
+    cellSize: 8,
   },
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
   ao: {
