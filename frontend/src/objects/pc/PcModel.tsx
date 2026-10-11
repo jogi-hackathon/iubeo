@@ -30,17 +30,15 @@ export function PcModel({
   screenRef,
   memoRef,
   showMemo = true,
-  on,
 }: {
   screen: MeshBasicNodeMaterial;
   screenRef?: Ref<Mesh>;
   memoRef?: Ref<Mesh>;
   showMemo?: boolean;
-  on: boolean;
 }) {
   return (
     <group userData={aoModeUserData("realtime")}>
-      <Base on={on} />
+      <Base />
       <Lid screen={screen} screenRef={screenRef} />
       {showMemo && (
         <group position={[MEMO.x, 0, MEMO.z]} rotation={[MEMO.tilt, 0, 0]}>
@@ -51,7 +49,7 @@ export function PcModel({
   );
 }
 
-function Base({on}: {on: boolean}) {
+function Base() {
   const {z, width, depth, thickness} = LAPTOP;
   return (
     <group>
@@ -81,15 +79,6 @@ function Base({on}: {on: boolean}) {
           args={[HINGE.radius, HINGE.radius, width - 0.04, 16]}
         />
         <meshStandardMaterial color={SHELL_DARK} roughness={0.6} />
-      </mesh>
-      <mesh position={[width / 2 - 0.03, thickness / 2, z + depth / 2 + 0.001]}>
-        <sphereGeometry args={[0.003, 12, 12]} />
-        <meshStandardMaterial
-          color={on ? "#7dffa8" : "#8a8a8a"}
-          emissive={on ? "#4dff8f" : "#000000"}
-          emissiveIntensity={on ? 3.2 : 0}
-          roughness={0.3}
-        />
       </mesh>
     </group>
   );

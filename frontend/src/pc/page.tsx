@@ -151,7 +151,7 @@ function Shot({view}: {view: View}) {
       <directionalLight position={[8, 20, 6]} intensity={0.7} />
       <directionalLight position={[-6, 8, 10]} intensity={0.25} />
       <DeskTop />
-      <PcModel screen={screen.material} screenRef={screenRef} on />
+      <PcModel screen={screen.material} screenRef={screenRef} />
       <Ready />
     </Canvas>
   );

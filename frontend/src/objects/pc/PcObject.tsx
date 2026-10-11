@@ -324,7 +324,6 @@ export function PcObject({object}: {object: GameObject}) {
       screenRef={screenRef}
       memoRef={memoRef}
       showMemo={item.look !== "plain"}
-      on={showing || logoOn}
     />
   );
 }
