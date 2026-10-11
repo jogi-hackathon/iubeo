@@ -1,9 +1,11 @@
-import {lazy, Suspense, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {useBootCover} from "./core/cover/useBootCover";
+import {registerDevTab} from "./core/debug/devPanel";
+import {DevPanelManager} from "./core/debug/DevPanelManager";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
 import {Hud} from "./game/Hud";
@@ -16,9 +18,21 @@ import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
 
-const DevTools = import.meta.env.DEV
-  ? lazy(() => import("./dev/DevTools"))
-  : null;
+registerDevTab({
+  id: "scene",
+  label: "Scene",
+  order: 10,
+  Component: SceneDebugPanel,
+});
+registerDevTab({
+  id: "postfx",
+  label: "PostFX",
+  order: 20,
+  Component: PostProcessPanel,
+});
+if (import.meta.env.DEV) {
+  void import("./dev/DevTools");
+}
 
 export function App() {
   const {current: sceneName} = useSceneState();
@@ -46,13 +60,7 @@ export function App() {
       <Reticle />
       <OverviewCursor />
       <Hud />
-      <PostProcessPanel />
-      <SceneDebugPanel />
-      {DevTools && (
-        <Suspense fallback={null}>
-          <DevTools />
-        </Suspense>
-      )}
+      <DevPanelManager />
     </>
   );
 }

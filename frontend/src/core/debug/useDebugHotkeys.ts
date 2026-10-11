@@ -1,5 +1,6 @@
 import {useEffect} from "react";
 
+import {cycleDevTab, toggleDevPanel} from "./devPanel";
 import {
   DEBUG_AVAILABLE,
   getDebugFlags,
@@ -21,17 +22,15 @@ export const useDebugHotkeys = (): void => {
           setDebugFlag("grid", next);
           break;
         }
-        case "F7":
-          toggleDebugFlag("bvh");
-          break;
         case "F8":
           toggleDebugFlag("freeCamera");
           break;
-        case "F9":
-          toggleDebugFlag("postfx");
-          break;
         case "F10":
-          toggleDebugFlag(e.shiftKey ? "game" : "scene");
+          if (e.shiftKey) {
+            cycleDevTab();
+          } else {
+            toggleDevPanel();
+          }
           break;
         default:
           return;

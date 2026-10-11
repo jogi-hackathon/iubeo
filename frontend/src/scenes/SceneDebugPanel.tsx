@@ -1,8 +1,6 @@
-import type {CSSProperties} from "react";
-
 import {sceneNames} from ".";
 import {useCoverState} from "../core/cover/coverStore";
-import {useDebugFlags} from "../core/debug/flags";
+import {rowStyle} from "../core/debug/ui";
 import {
   type ToggleStore,
   useActiveToggles,
@@ -11,22 +9,6 @@ import {
 import {ROOM_FEATURE_KEYS, ROOM_PROP_KEYS} from "./RoomScene/props";
 import {sceneTransitionManager} from "./sceneStore";
 import {useSceneState, useTransitionState} from "./useScene";
-
-// パネルは Canvas の外の DOM なので、操作するには Esc で pointer lock を解除してから使う。
-// PostProcessPanel(右上)と重ならないよう左上に置く
-const panelStyle: CSSProperties = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  boxSizing: "border-box",
-  width: 220,
-  padding: "6px 8px",
-  font: "11px/1.5 ui-monospace, Menlo, monospace",
-  color: "#fff",
-  background: "rgba(0,0,0,0.75)",
-  zIndex: 10001,
-};
-const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
 
 function ToggleRows({store}: {store: ToggleStore}) {
   const {hidden, disabled} = useToggleStoreState(store);
@@ -67,20 +49,15 @@ function ToggleRows({store}: {store: ToggleStore}) {
   );
 }
 
-/** F10 で開くシーン管理パネル(VITE_ENABLE_DEBUG=true のときのみ)。sceneTransitionManager を直接操作する */
+/** dev パネルの Scene タブ。sceneTransitionManager を直接操作する */
 export function SceneDebugPanel() {
-  const {scene} = useDebugFlags();
   const {current} = useSceneState();
   const transition = useTransitionState();
   const toggles = useActiveToggles();
   const {booting} = useCoverState();
-  if (!scene) {
-    return null;
-  }
-
   const transitioning = transition.status === "transitioning";
   return (
-    <div style={panelStyle}>
+    <>
       <div>
         {transition.status === "idle"
           ? `idle: ${current}`
@@ -99,6 +76,6 @@ export function SceneDebugPanel() {
         ))}
       </div>
       {toggles && <ToggleRows store={toggles} />}
-    </div>
+    </>
   );
 }
