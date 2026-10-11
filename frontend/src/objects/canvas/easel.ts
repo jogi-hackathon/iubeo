@@ -1,5 +1,7 @@
 import type {Vector3Tuple} from "three";
 
+import {UNDER_SHEET_OFFSET} from "../paperSheet";
+
 /** 前脚・キャンバスの面が、鉛直から後ろへ倒れる角度(rad。約 11 度) */
 export const EASEL_LEAN = 0.2;
 /** キャンバス(木枠込み)の大きさ。幅 x 高さ。ワークスペースの机の幅(1.6m)の半分強 */
@@ -13,14 +15,15 @@ const FRONT_FOOT_Z = 0.3;
 const FRONT_TOP_HEIGHT = 1.85;
 const REAR_FOOT_Z = -0.6;
 const FRAME_DEPTH = 0.03;
-const PAPER_DEPTH = 0.02;
+/** 紙(板)を、木枠の前面から浮かせる距離。木枠と重ならず(z-fighting しない)、浮いて見えない程度 */
+const PAPER_LIFT = 0.001;
 const PAPER_MARGIN = 0.05;
 
 const LEDGE_SIZE: Vector3Tuple = [0.98, 0.03, 0.1];
 const LIP_SIZE: Vector3Tuple = [0.98, 0.02, 0.012];
 const LIP_SETBACK = 0.002;
 
-const CLAMP_SIZE: Vector3Tuple = [0.6, 0.04, FRAME_DEPTH + PAPER_DEPTH + 0.01];
+const CLAMP_SIZE: Vector3Tuple = [0.6, 0.04, FRAME_DEPTH + 0.01];
 const TAB_WIDTH = 0.16;
 const TAB_OVERLAP = 0.02;
 
@@ -47,6 +50,17 @@ export type EaselPart = {
 /** 紙(絵の面)の配置。見た目が変わる部品なので、イーゼルの部品(EaselPart)とは分けて CanvasPaper が描く */
 export type PaperPlacement = Omit<EaselPart, "look">;
 
+/** 配置を mesh の props(position・scale・rotation)に直す。rotation が無ければ付けない */
+export const placementProps = ({
+  position,
+  scale,
+  rotation,
+}: PaperPlacement) => ({
+  position,
+  scale,
+  ...(rotation && {rotation}),
+});
+
 const sin = Math.sin(EASEL_LEAN);
 const cos = Math.cos(EASEL_LEAN);
 const frontZAt = (y: number) => FRONT_FOOT_Z - y * Math.tan(EASEL_LEAN);
@@ -55,8 +69,9 @@ const ORIGIN: Vector3Tuple = [
   CANVAS_CENTER_HEIGHT,
   frontZAt(CANVAS_CENTER_HEIGHT),
 ];
-const onPlane = (u: number, n: number): Vector3Tuple => [
-  ORIGIN[0],
+/** キャンバスの面に沿った位置。u は面に沿って上、n は面の法線(手前)、x は横(右) */
+const onPlane = (u: number, n: number, x = 0): Vector3Tuple => [
+  ORIGIN[0] + x,
   ORIGIN[1] + u * cos + n * sin,
   ORIGIN[2] - u * sin + n * cos,
 ];
@@ -129,7 +144,6 @@ const LEGS: readonly EaselPart[] = [
 ];
 
 const frameN = LEG_SIZE / 2 + FRAME_DEPTH / 2;
-const paperN = LEG_SIZE / 2 + FRAME_DEPTH + PAPER_DEPTH / 2 - 0.002;
 
 /** 押さえ。底面が木枠の天面(面に沿って CANVAS_SIZE[1]/2)に載る */
 export const CLAMP_PART: EaselPart = {
@@ -142,7 +156,7 @@ export const CLAMP_PART: EaselPart = {
   rotation: LEAN_ROTATION,
 };
 
-const paperFrontN = paperN + PAPER_DEPTH / 2;
+const paperFrontN = LEG_SIZE / 2 + FRAME_DEPTH + PAPER_LIFT;
 const clampFrontN = LEG_SIZE / 2 + CLAMP_SIZE[2];
 const TAB_BOTTOM_U = CANVAS_SIZE[1] / 2 - PAPER_MARGIN - TAB_OVERLAP;
 const TAB_TOP_U = CANVAS_SIZE[1] / 2 + 0.02;
@@ -191,16 +205,33 @@ export const EASEL_PARTS: readonly EaselPart[] = [...LEGS, ...CANVAS_PARTS];
 
 /**
  * 紙(絵を描く面)の大きさ。幅 x 高さ。木枠(CANVAS_SIZE)より縁(PAPER_MARGIN)ぶん小さい。
- * 絵のテクスチャは、この縦横比で作る
+ * 拡散の演出のマス(diffusionMaterial の LATENT)も、この縦横比で割る
  */
 export const PAPER_SIZE = [
   CANVAS_SIZE[0] - 2 * PAPER_MARGIN,
   CANVAS_SIZE[1] - 2 * PAPER_MARGIN,
 ] as const;
 
-/** 紙の配置。木枠の前面に、PAPER_DEPTH の薄い箱を少し(2mm)埋めて載せる。uv は +Z 面が [0,1]²(u は +x、v は上) */
+/**
+ * 紙の配置。木枠の前面に沿わせた、厚みの無い板(PlaneGeometry。scale の z は 1)。
+ * uv は [0,1]²(u は +x、v は上)
+ */
 export const PAPER_PLACEMENT: PaperPlacement = {
-  position: onPlane(0, paperN),
-  scale: [PAPER_SIZE[0], PAPER_SIZE[1], PAPER_DEPTH],
+  position: onPlane(0, paperFrontN),
+  scale: [PAPER_SIZE[0], PAPER_SIZE[1], 1],
+  rotation: LEAN_ROTATION,
+};
+
+/**
+ * 下敷きの配置。紙と同じ大きさの板を、紙と木枠の間に置き、右下へ UNDER_SHEET_OFFSET ずらす。
+ * 紙からはみ出た細い L 字だけが見え、紙の落とす影の代わりになる(ワークスペースの紙と同じ 2 枚重ね)
+ */
+export const UNDER_SHEET_PLACEMENT: PaperPlacement = {
+  position: onPlane(
+    -UNDER_SHEET_OFFSET,
+    paperFrontN - PAPER_LIFT / 2,
+    UNDER_SHEET_OFFSET,
+  ),
+  scale: PAPER_PLACEMENT.scale,
   rotation: LEAN_ROTATION,
 };

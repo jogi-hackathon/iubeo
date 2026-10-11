@@ -7,7 +7,6 @@ import {
   float,
   floor,
   fract,
-  hash,
   max,
   min,
   mix,
@@ -18,7 +17,6 @@ import {
   select,
   smoothstep,
   time,
-  uint,
   uniform,
   vec2,
   vec3,
@@ -27,6 +25,7 @@ import {
 import type {Node, WebGPURenderer} from "three/webgpu";
 
 import type {PostProcessSettings} from "../../camera/postprocess/settings";
+import {cellHash} from "../../core/cellHash";
 import {createSea} from "./sea";
 
 /** 地平線の色。フォグと同じにして、遠景が空に継ぎ目なく溶けるようにする */
@@ -53,23 +52,6 @@ const rayDirection = (px: Node<"vec2">): Node<"vec3"> => {
   const view = cameraProjectionMatrixInverse.mul(vec4(ndc, 1, 1));
   return cameraWorldMatrix.mul(vec4(view.xyz.div(view.w), 0)).xyz.normalize();
 };
-
-/**
- * 乱数(0〜1)。cell ごと・step(時間)ごと・n(用途)ごとに系列を分ける。
- * 種は uint で組む(f32 だと 2^24 を超えたところで隣のセルの種が同じ値に潰れ、横に揃った模様になる。uint は桁あふれで回るだけ)
- */
-const cellHash = (
-  cell: Node<"vec2">,
-  step: Node<"float">,
-  n: number,
-): Node<"float"> =>
-  hash(
-    cell.x
-      .toUint()
-      .add(cell.y.toUint().mul(uint(4099)))
-      .add(step.toUint().mul(uint(65537)))
-      .add(uint(n * 7919)),
-  );
 
 const dcOffset = (
   px: Node<"vec2">,

@@ -1,66 +1,79 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo} from "react";
-import {BoxGeometry, MeshStandardMaterial, type Texture} from "three";
+import {useEffect, useMemo, useRef} from "react";
+import {MeshStandardMaterial, PlaneGeometry} from "three";
 
-import {PAPER_PLACEMENT} from "./easel";
-
-const PULSE_COLOR = "#7fd1ff";
-const PULSE_HZ = 2;
+import {UNDER_SHEET_COLOR} from "../paperSheet";
+import {denoiseProgress, stepAppear, stepFade} from "./diffusion";
+import {createDiffusionPaper} from "./diffusionMaterial";
+import {PAPER_PLACEMENT, placementProps, UNDER_SHEET_PLACEMENT} from "./easel";
 
 /**
- * キャンバスの紙(絵を描く面)。表示内容は texture で差し替える。null なら真っ白な紙。
- * active の間(キャンバスで作業中)は、モックの演出として、紙が水色に脈動する。本物の演出ができたら、これを texture に置き換える。
- * 画像そのものではなく、拡散モデルのように絵ができあがっていく演出(筆を重ねる、飛沫が重なるなど)を載せる場所なので、
- * 描く側(Canvas2D で描き足す CanvasTexture など)がテクスチャを更新し、ここはそれを貼るだけにする。
+ * キャンバスの紙(絵を描く面)。木枠の前面に沿わせた 1 枚の板(ワークスペースの紙と同じ PlaneGeometry)で、
+ * 作業中(active)の間、拡散モデルがノイズから絵を起こしていく演出を描く(diffusionMaterial)。それ以外は真っ白。
+ * 作業が始まると、白い紙がマスごとにノイズへ置き換わり、段ごとにノイズが薄れて絵が現れる。
+ * 作業が終わる(結果が反映される)と、描き上がった絵が、上から順にすっと白い紙へ消えていく。時間の割り振りは diffusion.ts。
+ * 描く絵とノイズは、作業ごとに変える。
+ * 紙の下には、少し灰色の下敷きを右下へずらして重ね、影の代わりにする(ワークスペースの紙と同じ 2 枚重ね。paperSheet)。
  *
- * - テクスチャは、呼び出し側が持ち、破棄も呼び出し側が行う(ここでは dispose しない)。縦横比は PAPER_SIZE。
- *   色のテクスチャなら colorSpace は SRGBColorSpace にしておく。中身を描き換えたら、呼び出し側が needsUpdate を立てる
- * - 演出は紙自身の emissive で出すので、板は増えない
- * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)。
- *   テクスチャの有無で mesh を出し入れせず、material.map だけを切り替える
- * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap が、それぞれに付くため)
+ * - 演出は、active が false → true に変わったフレームから始める(時間はそこからの経過で、作業の本当の開始時刻ではない)。
+ *   マウントした時点ですでに作業中なら(途中参加・途中で出し入れされた場合)、始まりを見ていないので演出を出さない
+ *   (途中から始めると、描き上がる前に結果が反映されて消えてしまうため)。
+ *   作業の終わりと次の作業の始まりが同じフレームに重なると始め直せないが、紙は 1 人ずつしか使えず、
+ *   次の作業は結果が反映された後の新しいインタラクトからなので、起きない
+ * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)
+ * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap と、演出の進み具合が、それぞれに付くため)
  */
-export function CanvasPaper({
-  texture = null,
-  active = false,
-}: {
-  texture?: Texture | null;
-  active?: boolean;
-}) {
-  const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  const material = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: "#ffffff",
-        emissive: PULSE_COLOR,
-        emissiveIntensity: 0,
-      }),
+export function CanvasPaper({active = false}: {active?: boolean}) {
+  const [geometry, underGeometry] = useMemo(
+    () => [new PlaneGeometry(1, 1), new PlaneGeometry(1, 1)],
     [],
   );
-  useEffect(() => () => material.dispose(), [material]);
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      underGeometry.dispose();
+    },
+    [geometry, underGeometry],
+  );
+  const underSheet = useMemo(
+    () => new MeshStandardMaterial({color: UNDER_SHEET_COLOR}),
+    [],
+  );
+  useEffect(() => () => underSheet.dispose(), [underSheet]);
+  const paper = useMemo(createDiffusionPaper, []);
+  useEffect(() => () => paper.material.dispose(), [paper]);
+  const state = useRef({wasActive: active, playing: false, elapsed: 0});
 
-  useEffect(() => {
-    const changed = !material.map !== !texture;
-    material.map = texture;
-    if (changed) {
-      material.needsUpdate = true;
+  useFrame((_, dt) => {
+    const s = state.current;
+    if (active && !s.wasActive) {
+      s.playing = true;
+      s.elapsed = 0;
+      paper.appear.value = 0;
+      paper.reseed();
     }
-  }, [material, texture]);
-
-  useFrame(({clock}) => {
-    const wave =
-      0.5 + 0.5 * Math.sin(clock.elapsedTime * Math.PI * 2 * PULSE_HZ);
-    material.emissiveIntensity = active ? 0.3 + 1.7 * wave : 0;
+    s.wasActive = active;
+    const playing = active && s.playing;
+    if (playing) {
+      s.elapsed += dt;
+      paper.progress.value = denoiseProgress(s.elapsed);
+    }
+    paper.appear.value = stepAppear(paper.appear.value, playing, dt);
+    paper.fade.value = stepFade(paper.fade.value, playing, dt);
   });
 
   return (
-    <mesh
-      geometry={geometry}
-      material={material}
-      position={PAPER_PLACEMENT.position}
-      scale={PAPER_PLACEMENT.scale}
-      {...(PAPER_PLACEMENT.rotation && {rotation: PAPER_PLACEMENT.rotation})}
-    />
+    <>
+      <mesh
+        geometry={underGeometry}
+        material={underSheet}
+        {...placementProps(UNDER_SHEET_PLACEMENT)}
+      />
+      <mesh
+        geometry={geometry}
+        material={paper.material}
+        {...placementProps(PAPER_PLACEMENT)}
+      />
+    </>
   );
 }

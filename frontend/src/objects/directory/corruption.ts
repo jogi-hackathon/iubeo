@@ -3,19 +3,19 @@ import {
   color,
   float,
   floor,
-  hash,
   mix,
   positionWorld,
   screenCoordinate,
   select,
   step,
   time,
-  uint,
   uniform,
   vec2,
   vec4,
 } from "three/tsl";
 import type {Node, NodeMaterial} from "three/webgpu";
+
+import {cellHash} from "../../core/cellHash";
 
 /** 侵食の値。progress は DirectoryFire が、baseY・height は useDirectory が書く */
 export const directoryCorruption = {
@@ -45,20 +45,6 @@ export const CORRUPTION_RED_DARK = color("#7a1020");
 export const CORRUPTION_RED_LIGHT = color("#e04656");
 const RED_LEVELS = 3;
 const COLLAPSED = color("#f4f2ee");
-
-// 種は uint で組む(f32 だと隣のセルの種が潰れて、横に揃った模様になる)
-const cellHash = (
-  cell: Node<"vec2">,
-  step: Node<"float">,
-  n: number,
-): Node<"float"> =>
-  hash(
-    cell.x
-      .toUint()
-      .add(cell.y.toUint().mul(uint(4099)))
-      .add(step.toUint().mul(uint(65537)))
-      .add(uint(n * 7919)),
-  );
 
 const block: Node<"vec2"> = (() => {
   const fine = floor(screenCoordinate.xy.div(FINE_BLOCK));
