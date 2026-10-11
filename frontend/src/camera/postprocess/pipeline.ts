@@ -32,6 +32,9 @@ import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
 import {createGlitch} from "./nodes/glitch";
 import {pixelateUV} from "./nodes/pixelate";
 import {createPowerOutline} from "./nodes/powerOutline";
+import {createSelectionMask} from "./nodes/selectionMask";
+import {outlineSelection} from "./outlineSelection";
+import {powerOutlineSelection} from "./powerOutlineSelection";
 import {
   type PostProcessSettings,
   type ToneMappingKind,
@@ -105,8 +108,15 @@ export const createPostProcessPipeline = (
   // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
   const bloomNode = bloom(sceneColor);
   const glitch = createGlitch();
-  const aimOutline = createAimOutline(scene, camera);
-  const powerOutline = createPowerOutline(scene, camera);
+  // 2 つの縁取りの選択を 1 回のマスクで描き、隠れは pre-pass の深度と比べる(シーンの再描画なし)
+  const selection = createSelectionMask(
+    scene,
+    camera,
+    {aim: outlineSelection, power: powerOutlineSelection},
+    occlusion.depth,
+  );
+  const aimOutline = createAimOutline(selection);
+  const powerOutline = createPowerOutline(selection);
 
   let lowRes: ReturnType<typeof rtt> | null = null;
   let upscaled: Disposable | null = null;
@@ -118,6 +128,7 @@ export const createPostProcessPipeline = (
     scenePass.setResolutionScale(renderScale);
     occlusion.apply(s, renderScale);
     bloomNode.setResolutionScale(BLOOM_RESOLUTION_SCALE * renderScale);
+    selection.setRenderScale(renderScale);
     powerOutline.setRenderScale(renderScale);
     lowRes?.setResolutionScale(renderScale);
   };
@@ -234,6 +245,7 @@ export const createPostProcessPipeline = (
       bloomNode.dispose();
       aimOutline.dispose();
       powerOutline.dispose();
+      selection.dispose();
       occlusion.dispose();
       scenePass.dispose();
     },

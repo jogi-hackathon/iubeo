@@ -81,6 +81,8 @@ export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
 
   return {
     aoOnlyPass,
+    /** pre-pass の深度(内部解像度・samples 0)。選択マスク・輪郭線も読むので、AO が off でも pre-pass は描かれる */
+    depth: prePassDepth,
     contextFor: (s: PostProcessSettings) =>
       s.ao.enabled ? contexts[s.ao.denoise ? "denoised" : "raw"] : null,
     /** renderScale はシーンの内部解像度(pipeline)。AO の解像度は、その内部解像度に対する s.ao.resolutionScale */

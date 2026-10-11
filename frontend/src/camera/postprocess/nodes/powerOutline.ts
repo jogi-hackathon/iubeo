@@ -1,5 +1,3 @@
-import type {Camera, Scene} from "three";
-import {outline} from "three/addons/tsl/display/OutlineNode.js";
 import {
   abs,
   clamp,
@@ -14,19 +12,18 @@ import {
   screenUV,
   sin,
   smoothstep,
-  texture,
   time,
   vec2,
   vec4,
 } from "three/tsl";
-import type {Node, RenderTarget} from "three/webgpu";
+import type {Node} from "three/webgpu";
 
 import {
   powerOutlineColor,
   powerOutlineDash,
   powerOutlineFade,
-  powerOutlineSelection,
 } from "../powerOutlineSelection";
+import type {SelectionMask} from "./selectionMask";
 
 const POWER_OUTLINE_WIDTH = 10;
 const POWER_WOBBLE_PX = 0;
@@ -35,12 +32,11 @@ const DILATE_TEXELS = Math.round(POWER_OUTLINE_WIDTH * DILATE_RESOLUTION_SCALE);
 const DASH_PERIODS_PER_SCREEN_HEIGHT = 45;
 const DASH_SPEED = 1.5;
 
-export const createPowerOutline = (scene: Scene, camera: Camera) => {
-  // 選択が空のあいだは OutlineNode が自分のパスを全部飛ばすので、狙いの縁取りと同じくグラフには常に入れておく
-  const powerOutlinePass = outline(scene, camera, {
-    selectedObjects: powerOutlineSelection,
-    edgeGlow: float(0),
-  });
+/**
+ * 力の縁取り(選択物の外側に太い破線)。選択は selectionMask の G(見えている部分)と A(全体のシルエット)を読む
+ */
+export const createPowerOutline = (selection: SelectionMask) => {
+  const {visible} = selection;
   const powerWobble = vec2(
     sin(screenUV.y.mul(90).add(time.mul(7))).add(
       sin(screenUV.y.mul(37).sub(time.mul(4.3))).mul(0.5),
@@ -51,18 +47,10 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
   )
     .mul(POWER_WOBBLE_PX / 1.5)
     .div(screenSize);
-  // OutlineNode のマスクは、r が選んだ物の上で 0(それ以外は 1)、g が選んだ物が他の物の深さより奥のとき 1(見えているのは 0)。
-  // 公開されていない中身(_renderTargetMaskBuffer)なので、three を上げたときは名前と中身が変わっていないか確かめる
-  const powerMask = texture(
-    (powerOutlinePass as unknown as {_renderTargetMaskBuffer: RenderTarget})
-      ._renderTargetMaskBuffer.texture,
-  );
-  const visibleSelectedAt = (dx: number, dy: number): Node<"float"> => {
-    const m = powerMask
+  const visibleSelectedAt = (dx: number, dy: number): Node<"float"> =>
+    visible
       .sample(screenUV.add(powerWobble).add(vec2(dx, dy).div(screenSize)))
-      .level(float(0));
-    return m.g.oneMinus().mul(m.r.oneMinus());
-  };
+      .level(float(0)).g;
   // 円形に全方向を読むと 1 ピクセル 144 回のサンプルになり FPS が半分に落ちたので、横→縦の 2 パスの最大値で広げる(縁の角は四角くなる)。
   // 縁の内側はフル解像度のマスクで切るので、広げる側は半解像度で足りる。パスの中の screenSize は半解像度の大きさになる
   const dilateAlong = (
@@ -97,15 +85,13 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
   const powerEdge = Fn(() => {
     const edge = float(0).toVar();
     If(powerOutlineFade.greaterThan(0), () => {
+      // 広げた範囲から、選択物のシルエット全体(隠れた部分も)を除いて外側だけ残す
+      const silhouette = visible.sample(screenUV).level(float(0)).a;
       edge.assign(
-        coverXY
-          .sample(screenUV)
-          .level(float(0))
-          .r.mul(powerMask.sample(screenUV).level(float(0)).r),
+        coverXY.sample(screenUV).level(float(0)).r.mul(silhouette.oneMinus()),
       );
     });
-    // OutlineNode はグラフに入れないとマスクを毎フレーム更新しないので、結果に影響しない形(0 倍)でつなぐ
-    return edge.add(powerOutlinePass.visibleEdge.mul(0));
+    return edge;
   })();
 
   // 縁に沿った長さはポストプロセスでは取れないので、画面の斜め縞で代用する(縁が縞と平行な 45° の所は破線に見えない)
@@ -142,7 +128,6 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
       coverXY.setResolutionScale(DILATE_RESOLUTION_SCALE * renderScale);
     },
     dispose: (): void => {
-      powerOutlinePass.dispose();
       coverX.dispose();
       coverXY.dispose();
     },
