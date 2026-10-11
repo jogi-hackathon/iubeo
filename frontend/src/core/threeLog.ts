@@ -19,7 +19,6 @@ const KNOWN_NOISE: readonly string[] = [
 
 type ConsoleType = "log" | "warn" | "error";
 
-/** three の StackTrace(three 側の型に getError が無いので、形で見る) */
 type ThreeStackTrace = {
   isStackTrace: true;
   getError: (message: string) => Error;
@@ -31,7 +30,6 @@ const isStackTrace = (v: unknown): v is ThreeStackTrace =>
   (v as {isStackTrace?: unknown}).isStackTrace === true &&
   typeof (v as {getError?: unknown}).getError === "function";
 
-/** three の警告を通す・落とすを決める。テストから直接呼べるようにしてある */
 export const threeConsoleHandler = (
   type: ConsoleType,
   message: string,
@@ -48,10 +46,6 @@ export const threeConsoleHandler = (
   console[type](message, ...params);
 };
 
-/**
- * three のログの出口を差し替える。アプリの起動時に 1 回だけ呼ぶ(main.tsx)。
- * 既に誰かが独自の出口を入れている場合は触らない
- */
 export const filterThreeLog = (): void => {
   if (getConsoleFunction()) {
     return;

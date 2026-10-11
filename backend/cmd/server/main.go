@@ -1,4 +1,3 @@
-// Command server は IUBEO のゲームバックエンドを起動する。
 package main
 
 import (

@@ -17,17 +17,12 @@ import type {Node, NodeMaterial} from "three/webgpu";
 
 import {cellHash} from "../../core/cellHash";
 
-/** 侵食の値。progress は DirectoryFire が、baseY・height は useDirectory が書く */
 export const directoryCorruption = {
-  /** 進み具合(0: 侵食なし、1: すべて抜けた) */
   progress: uniform(0),
-  /** 山の足元の高さ(ワールド) */
   baseY: uniform(0),
-  /** 山の高さ(m) */
   height: uniform(5),
 };
 
-/** 火がついてから、山がすべて抜けるまで(秒)。サーバーは火がついてから 10 秒で決着するので、それより短く */
 export const CORRUPT_SECONDS = 8;
 
 const FINE_BLOCK = 8;
@@ -40,7 +35,6 @@ const STAGE_WIDTH = 0.3;
 const FLICKER_STEPS = 6;
 const FLICKER_RATIO = 0.3;
 
-/** 赤の階調(暗い → 明るい)と、潰れた白 */
 export const CORRUPTION_RED_DARK = color("#7a1020");
 export const CORRUPTION_RED_LIGHT = color("#e04656");
 const RED_LEVELS = 3;
@@ -76,11 +70,6 @@ const corruptedRed: Node<"vec3"> = (() => {
   return mix(CORRUPTION_RED_DARK, CORRUPTION_RED_LIGHT, clamp(level, 0, 1));
 })();
 
-/**
- * マテリアルに侵食を重ねる。base は元の色(侵食前)。
- * 侵食中は赤、半ばを過ぎると白く潰れ、最後に抜ける(opacity 0 を alphaTest で捨てる)。
- * 火がつく前からマテリアルに入れておく(つけた瞬間にシェーダーが作り直され、カクつくため)
- */
 export const applyCorruption = (
   material: NodeMaterial,
   base: Node<"vec3">,

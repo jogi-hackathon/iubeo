@@ -64,7 +64,6 @@ const fmt = (n: number | undefined): string =>
 const fmtMB = (bytes: number | undefined): string =>
   bytes === undefined ? "-" : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-/** FPS・ドローコール・三角形数・GPU メモリ・GPU 処理時間などを 0.5 秒ごとに更新する DOM パネル */
 export function DebugInfo() {
   const gl = useThree((s) => s.gl);
   const {settings} = useAppContext();
@@ -90,7 +89,6 @@ export function DebugInfo() {
     let disposed = false;
     let gpuName = "-";
     let gpuMs = "-";
-    // WebGPURenderer は独自の rAF で毎回 info.reset() を呼ぶため、描画直後に統計を退避する
     let frames = 0;
     const snap = {drawCalls: 0, triangles: 0, lines: 0, points: 0};
     const stopSnapshot = addAfterEffect(() => {

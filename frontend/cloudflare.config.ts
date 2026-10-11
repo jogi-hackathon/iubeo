@@ -24,10 +24,6 @@ const backendContainer = defineContainer({
   },
 });
 
-/**
- * WISP のコンテナ。実サイトへ出るので、インターネットへの通信を許す(backend と違う点)。
- * イメージは wisp/ の Dockerfile(wisp-js の WISP サーバー)。
- */
 const wispContainer = defineContainer({
   name: "iubeo-wisp-app",
   schedulingPolicy: "durable-object",
@@ -79,10 +75,6 @@ const wispWorker = defineWorker({
   },
 });
 
-/**
- * フロントの Worker。コンテナを持たないので Previews が使える。
- * /api と /ws はサービスバインディングでバックエンドへ流し、/judge は自分で受ける。
- */
 const frontendWorker = defineWorker({
   name: FRONTEND_NAME,
   compatibilityDate: "2026-10-01",
@@ -90,8 +82,6 @@ const frontendWorker = defineWorker({
   observability: {enabled: true},
   assets: {
     notFoundHandling: "single-page-application",
-    // 画面と API を同じオリジンにして Cookie(SameSite=Lax)を通すため、
-    // Worker が先に受けてバックエンドへ転送する。/judge は Worker 自身が受ける(SPA へ落とさない)
     runWorkerFirst: ["/api/*", "/healthz", "/wisp/*", "/judge"],
   },
   env: {

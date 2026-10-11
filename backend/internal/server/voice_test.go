@@ -77,7 +77,6 @@ func TestVoiceTokenUnavailableWithoutConfig(t *testing.T) {
 	sessionID, players := matchPlayers(t, h, 1)
 	_ = sessionID
 	res := do(t, h, http.MethodGet, "/api/v1/voice/token", players[0].cookie)
-	// 設定が無いのは異常ではないので 200。本文の available=false で伝える
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
 	}

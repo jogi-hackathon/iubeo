@@ -6,10 +6,6 @@ const middle = new Vector3();
 const rotation = new Quaternion();
 const size = new Vector3();
 
-/**
- * 高さ 1・半径 1 で Y 軸に沿った円柱(中心が原点)を、from から to へ渡す太さ radius の棒に変える行列を out に書く。
- * 太線(Line2)は近クリップ面をまたぐと頂点が引き伸ばされるので、骨は実ジオメトリの円柱で描く
- */
 export const composeBone = (
   out: Matrix4,
   from: Vector3,

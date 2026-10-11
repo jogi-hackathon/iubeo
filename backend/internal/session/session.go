@@ -1,7 +1,3 @@
-// Package session はゲームのセッションを扱う。
-//
-// セッションごとに goroutine を 1 つ立て、受信・タイマーなどすべての入力を 1 つのチャネルから順番に
-// Step(純粋な関数)に渡す。セッションの状態に触るのはこの goroutine だけ(ADR-0004)
 package session
 
 import (
@@ -19,22 +15,15 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// ErrEnded はセッションが既に終わっている
 var ErrEnded = errors.New("session has ended")
 
-// Config はセッションの時間の決まり
 type Config struct {
-	// StartTimeout までに人間全員が WebSocket で接続しなければ解散する
-	StartTimeout time.Duration
-	// 人間が全員切断してから AbandonTimeout たっても誰も戻らなければ破棄する
+	StartTimeout   time.Duration
 	AbandonTimeout time.Duration
-	// TickInterval ごとに transforms を配る(20Hz = 50ms)
-	TickInterval time.Duration
-	// Phases はフェーズの数と長さ、決着までの長さ
-	Phases PhaseRules
+	TickInterval   time.Duration
+	Phases         PhaseRules
 }
 
-// DefaultConfig は state-schema.md の決まりどおりの値
 var DefaultConfig = Config{
 	StartTimeout:   30 * time.Second,
 	AbandonTimeout: 60 * time.Second,
@@ -50,10 +39,8 @@ var DefaultConfig = Config{
 
 const inboxSize = 256
 
-// Session は 1 回のゲーム。状態は run の goroutine だけが持つ
 type Session struct {
-	ID string
-	// PlayerIDs は参加者。並びが席(seat)の順
+	ID        string
 	PlayerIDs []string
 	CreatedAt time.Time
 
@@ -61,12 +48,10 @@ type Session struct {
 	done  chan struct{}
 }
 
-// HasPlayer はプレイヤーが参加者かどうかを返す
 func (s *Session) HasPlayer(playerID string) bool {
 	return slices.Contains(s.PlayerIDs, playerID)
 }
 
-// Done はセッションが終わったら閉じる
 func (s *Session) Done() <-chan struct{} {
 	return s.done
 }
@@ -92,12 +77,10 @@ func (s *Session) send(v any) error {
 	}
 }
 
-// Attach は接続をセッションにつなぐ。本人には snapshot が送られる
 func (s *Session) Attach(c *Conn) error {
 	return s.send(connectReq{conn: c})
 }
 
-// Detach は切れた接続をセッションから外す
 func (s *Session) Detach(c *Conn) {
 	_ = s.send(disconnectReq{conn: c})
 }
@@ -130,7 +113,6 @@ func (s *Session) ReceiveJSON(playerID string, data []byte) error {
 	return errors.New("unknown discriminator value: " + head.Type)
 }
 
-// Snapshot は今のスナップショットを返す
 func (s *Session) Snapshot(ctx context.Context) (api.SessionSnapshot, error) {
 	reply := make(chan api.SessionSnapshot, 1)
 	if err := s.send(snapshotReq{reply: reply}); err != nil {
@@ -200,7 +182,6 @@ func (rt *runtime) step(in Input) bool {
 				rt.deliver(rt.conns[p.ConnID], o.Msg)
 			}
 		case Broadcast:
-			// transforms はバイナリの接続(enc=bin)にはバイナリで送る。要る形式だけを作る
 			var b, bin []byte
 			tm, isTransforms := o.Msg.(api.TransformsMessage)
 			for _, p := range rt.state.Players {
@@ -265,25 +246,20 @@ func deliverBytes(c *Conn, msg any, b []byte) {
 	c.enqueue(b)
 }
 
-// Manager はセッションを作り、Store に置く。終わったセッションは Store から除く
 type Manager struct {
 	store  Store
 	now    func() time.Time
 	config Config
 }
 
-// NewManager は store にセッションを置く Manager を作る
 func NewManager(store Store, now func() time.Time, config Config) *Manager {
 	return &Manager{store: store, now: now, config: config}
 }
 
-// Store はセッションの保存先を返す
 func (m *Manager) Store() Store {
 	return m.store
 }
 
-// CreateMultiplayer は自動マッチングでそろったプレイヤーのセッションを作り、goroutine を立てる。
-// cpuIDs はデバッグ用に足す CPU(接続しない)。席は人間、CPU の順
 func (m *Manager) CreateMultiplayer(humanIDs []string, cpuIDs []string) *Session {
 	playerIDs := append(slices.Clone(humanIDs), cpuIDs...)
 	s := &Session{
@@ -301,7 +277,6 @@ func (m *Manager) CreateMultiplayer(humanIDs []string, cpuIDs []string) *Session
 	return s
 }
 
-// SessionOf はプレイヤーが参加中のセッションの ID を返す
 func (m *Manager) SessionOf(playerID string) (string, bool) {
 	s, ok := m.store.ByPlayer(playerID)
 	if !ok {
@@ -310,7 +285,6 @@ func (m *Manager) SessionOf(playerID string) (string, bool) {
 	return s.ID, true
 }
 
-// Create は自動マッチングでそろったプレイヤーのセッションを作り、その ID を返す(matchmaking.Sessions)
 func (m *Manager) Create(humanIDs []string, cpuIDs []string) string {
 	return m.CreateMultiplayer(humanIDs, cpuIDs).ID
 }

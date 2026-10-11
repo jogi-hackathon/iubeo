@@ -5,10 +5,6 @@ import {useOverviewPhase} from "./overview";
 
 const ARROW = "M1 1 L1 19 L5.2 15 L8.4 22.4 L11.4 21.1 L8.2 13.9 L14 13.9 Z";
 
-/**
- * 俯瞰中の仮想カーソル(DOM オーバーレイ)。俯瞰が active の間だけ表示する。
- * 位置は毎フレーム動くので、再レンダーせず、ref で style.transform を直接書く
- */
 export function OverviewCursor() {
   const phase = useOverviewPhase();
   const ref = useRef<SVGSVGElement>(null);

@@ -1,12 +1,9 @@
 import {J, NECK} from "./joints";
 import {at} from "./pose";
 
-/** 視線の pitch のうち、上半身全体の傾きに回す割合。残りは頭(首)が受け持つ */
 export const TORSO_PITCH_RATIO = 0.4;
-/** 上半身の前傾(下を向いたとき)と後傾(上を向いたとき)の上限(rad) */
 export const MAX_LEAN_FORWARD = 0.6;
 export const MAX_LEAN_BACK = 0.3;
-/** 首の曲げ(上半身の傾きに足す分)の上限(rad) */
 export const MAX_NECK_BEND = 0.8;
 
 const clamp = (v: number, min: number, max: number): number =>
@@ -37,11 +34,6 @@ const UPPER_BODY = [
   NECK,
 ] as const;
 
-/**
- * 視線の上下(pitch。上向きが正)に上半身を合わせる。writePoints の結果に後掛けする。
- * 下を向くと腰を支点に上半身が前へ倒れ、頭は首でさらに下を向く。腰から下は動かない。
- * 入力は PlayerState の pitch だけで、カメラには依存しない(他プレイヤーもサーバーの状態から同じ形になる)
- */
 export const applyLean = (points: Float32Array, pitch: number): void => {
   const pivotY = (at(points, J.lHip * 3 + 1) + at(points, J.rHip * 3 + 1)) / 2;
   const pivotZ = (at(points, J.lHip * 3 + 2) + at(points, J.rHip * 3 + 2)) / 2;

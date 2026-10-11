@@ -13,7 +13,6 @@ const colorOf = (o: GameObject): string => {
   return o.users.length > 0 ? COLOR_IN_USE : COLOR_IDLE;
 };
 
-/** レイアウトの項目はあるが、種類のコンポーネントが無い物を描く箱(ManagedObjects の既定) */
 export function DummyObject({object}: {object: GameObject}) {
   return (
     <mesh userData={aoModeUserData("realtime")}>

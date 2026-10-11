@@ -50,8 +50,6 @@ export const applyBakedAtlas = (
     return {mismatch};
   }
 
-  // aoMap は uv1 で引くので、uv1 を持たないベイク対象外の mesh と共有している material には貼らない
-  // (WebGPU では uv1 の無い mesh のパイプラインが作れなくなる)
   const bakeSet = new Set<Object3D>(meshes);
   const sharedWithOthers = new Set<Material>();
   root.traverse((obj) => {
@@ -146,7 +144,6 @@ export const applyBakedAtlas = (
   };
 };
 
-/** パネルのベイク AO の強さを aoMapIntensity に反映する(uniform なので再コンパイルは起きない) */
 export const syncIntensity = (materials: readonly AOMaterial[]) => {
   const {intensity} = getPostProcessSettings().bakedAO;
   for (const m of materials) {
@@ -166,13 +163,8 @@ export const syncIntensity = (materials: readonly AOMaterial[]) => {
 export function BakedAO({scene}: {scene: string}) {
   const root = useThree((s) => s.scene);
 
-  // useLayoutEffect にしてある: シーンの切り替えでは、commit の直後に新しいシーンのベイク対象が
-  // (layout effect で)登録され、この effect の後始末(effect だと passive)より先に通知が届く。
-  // その通知で古いシーンの apply が走ると、新しいシーンの mesh を見て「ベイク結果が合わない」と警告する。
-  // layout にすると、後始末が同じ commit の中で(通知のマイクロタスクより先に)走るので、古い effect は何もしない
   useLayoutEffect(() => {
     let disposed = false;
-    // 最初の貼り付け(または貼らないと決まる)までシェーダーのウォームアップを待たせる。aoMap を貼るとマテリアルが再コンパイルされるため
     const releaseWarmup = holdShaderWarmup();
     let undo: (() => void) | null = null;
     let applied: AOMaterial[] = [];

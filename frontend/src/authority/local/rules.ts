@@ -51,49 +51,6 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
   return () => clearTimeout(id);
 };
 
-/**
- * ローカルのオーソリティの規則(実サーバーができるまでの窓口)。要求を受けて状態を決め、その結果を
- * サーバーと同じ形の通知(deliver)で出す。手持ちは規則が持つ(変わるたびに player.updated で通知する)。
- * 実サーバーの挙動の写しではなく、クライアントの管理を動かすための最小限の規則。
- * 開発用の操作(ダミーの箱を置く・借りる・手持ちを作る など)は、dev/localDevOps.ts が dev の入口を借りて行う
- *
- * - interact: 存在しなければ not_found、personal を owner 以外が触れば not_owner、使用不可なら
- *   unavailable で拒否。通れば、そのプレイヤーを users に出し入れする(personal は本人だけ、shared は複数人)
- * - ディレクトリ(kind "directory")の interact は、users の出し入れはせず、手持ちで決める:
- *   - 手ぶら + target: 在庫にあれば取り除き、そのファイルを手に持たせる(先着。無ければ not_found)。target が無ければ missing_item
- *   - ファイルを持って: 手持ちを消して、status で行き先を決める
- *     edited → 在庫に戻り達成 +1(同じファイルは 1 回だけ。取り出して入れ直しても増えない)、unedited → 在庫に戻るだけ、作成系(file_created / search_created / image_created)→ 成果物 +1
- *   - ライターを持って: 勝利フラグの fireStarted を立てる(火をつける)。bypassPermission が立つ前は missing_item、もう火がついていれば unavailable
- *     (実サーバーと同じ意味。燃やすのは演出なので、ファイルは消さず、ライターも持ったまま。ローカルにはセッションが無いので、決着はつけない)
- *   - それ以外を持って: missing_item
- * - キャンバス(kind "canvas")の interact は、アニメーション(CANVAS_ACTION_MS)を待って結果を返す
- *   (実サーバーの interact.go のキャンバスの規則と同じ意味。docs/backend/state-schema.md §5.4.1):
- *   - 作業中(users に誰かいる)なら unavailable
- *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "image_created"、色なし)を手に持たせて users から出る
- *   - 何かを持って: missing_item(アニメーションは始めない)
- *   - 終わる時点で手を塞がれていたら、結果は適用せず users から出るだけ。作業中にキャンバスが消えたら、結果は適用しない
- * - PC(kind "pc")の interact は、キャンバスと同じ形で、アニメーション(PC_ACTION_MS)を待って結果を返す
- *   (実サーバーの interact.go の PC の規則と同じ意味。docs/backend/state-schema.md §5.4.2):
- *   - 作業中なら unavailable、何かを持って: missing_item、手ぶら: 終わったら新しいファイル(status "search_created"、色なし)を手に持たせる
- *   - 検索の成否(お題に合っているか)はクライアントが判定し、通ったときだけ interact が届く
- * - ワークスペース(kind "workspace")の interact は、アニメーション(WORKSPACE_ACTION_MS)を待って結果を返す:
- *   - 作業中(users に誰かいる)なら unavailable
- *   - ディレクトリから取り出した編集前のファイル(status "unedited")を持って: 受理して users に入り、終わったら同じ id・同じ color で status を "edited" にして users から出る
- *   - 手ぶら: 受理して users に入り、終わったら新しいファイル(status "file_created"、色なし)を手に持たせて users から出る
- *   - 編集済みのファイル / 作成したファイル(作成系。作成したファイルは編集しない) / ファイル以外を持って: missing_item(アニメーションは始めない)
- *   - 終わる時点で手持ちが変わって条件を外れていたら、結果は適用せず users から出るだけ。作業中にワークスペースが消えたら、結果は適用しない
- * - ライターの置き場(kind "lighter_stand")の interact(実サーバーの interact.go の置き場の規則と同じ意味。docs/backend/state-schema.md §5.5):
- *   - 手ぶら: 置き場にライターがあれば、それ(id は lighterIdOf(置き場))を手に持つ。無ければ not_found
- *   - その置き場のライターを持って: 置き場に戻す
- *   - それ以外を持って、または要求の手持ちの主張が実際と食い違えば: missing_item
- *   - 使えるのは勝利フラグの bypassPermission が立っている間だけ(置き場の availability。立つまでは共通の検証で unavailable)
- *
- * 勝利フラグ(team): サーバーではフェーズを生き残ると bypassPermission が、火をつけると fireStarted が立つ。
- * ローカルにはフェーズが無いので、どちらも開発用の操作(dev.setTeam)で切り替える(火をつけたときは fireStarted も規則が立てる)。
- * bypassPermission を切り替えると、置き場の availability が連動する
- *
- * 置いた物の追跡: deliver で、まだ無かった物を upsert した id を覚えておき、release で、その物だけを片付ける(外から置かれた物には触れない)
- */
 export const createLocalRules = ({
   playerId,
   objects,

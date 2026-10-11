@@ -10,7 +10,6 @@ const PREVENT = new Set([
 
 const EDITABLE_TAGS = new Set(["INPUT", "SELECT", "TEXTAREA"]);
 
-/** キー入力を受け取る UI(デバッグパネルの input / select など)上のイベントか */
 export const isEditableTarget = (target: EventTarget | null): boolean => {
   const el = target as {tagName?: string; isContentEditable?: boolean} | null;
   return (
@@ -19,7 +18,6 @@ export const isEditableTarget = (target: EventTarget | null): boolean => {
   );
 };
 
-/** 押下中の KeyboardEvent.code 集合。再レンダーは起こさないので useFrame 内で読む */
 export function useKeys(): RefObject<Set<string>> {
   const keys = useRef(new Set<string>());
   useEffect(() => {

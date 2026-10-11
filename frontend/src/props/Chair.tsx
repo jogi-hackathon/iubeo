@@ -14,7 +14,6 @@ interface ChairProps {
   ao?: AOMode;
 }
 
-/** 椅子。部品の寸法はジオメトリに焼き込み(scale を使わない)、BVH コライダー込み */
 export function Chair({
   position,
   yaw = 0,

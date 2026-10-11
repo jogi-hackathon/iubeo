@@ -34,11 +34,6 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
   );
 }
 
-/**
- * 自分以外のプレイヤーの身体。位置と向きは playerManager が補間した物を毎フレーム読む。
- * 切断中のプレイヤーは描かない(再接続すれば、また描く)。脱落したプレイヤーは描く。自分が決まるまでは誰も描かない。
- * CPU の位置もサーバーが配る(人間と同じ transforms)ので、ここでは種類を区別しない
- */
 export function RemotePlayers() {
   const myPlayerId = useMyPlayerId();
   const {players} = usePlayersState();

@@ -28,12 +28,6 @@ const HINGE_SEGMENTS = 16;
 
 type Vec3 = [number, number, number];
 
-/**
- * PC の見た目（手続き的に組む。外部のモデルもテクスチャも使わない）。原点は机の天板の中心、正面は +Z。
- *
- * 木全体は realtime の AO にする（ベイクの対象に入れない。PC は出し入れされる物のため）。
- * コライダーは持たない（机と同じく、通り抜けの扱いは机に任せる）。
- */
 export function PcModel({
   screen,
   screenRef,

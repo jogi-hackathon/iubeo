@@ -1,11 +1,7 @@
 import {SEARCH_PAGE_URL} from "./browserChrome";
 
-/** エンジンへ渡せる URL の上限。data: URL のバイト数がこれを超えると静かに読み込めない */
 export const MAX_URL_BYTES = 8192;
 
-/**
- * WISP（実サイトへ出るプロキシ）の状態。none は設定が無い、unreachable は設定はあるが応答しない。
- */
 export type WispState = "none" | "unreachable" | "ok";
 
 const NETWORK_NOTE: Record<WispState, string> = {
@@ -22,9 +18,6 @@ const PRODUCTION_NETWORK_NOTE: Record<WispState, string> = {
     '<p class="warn">The search proxy did not answer: results may not load. Wait a moment and try again.</p>',
 };
 
-/**
- * @param dev 開発中か。開発中は、WISP が無いときの直し方（pnpm wisp）を書く
- */
 export const searchStartPage = (wisp: WispState, dev = true): string => {
   const network = (dev ? NETWORK_NOTE : PRODUCTION_NETWORK_NOTE)[wisp];
 
@@ -47,7 +40,6 @@ ${network}
 </body></html>`;
 };
 
-/** UTF-8 の HTML を data: URL にする。base64 なら 1 バイトあたりの膨らみが小さく、上限に余裕が残る */
 export const pageToDataUrl = (html: string): string => {
   const bytes = new TextEncoder().encode(html);
   let binary = "";

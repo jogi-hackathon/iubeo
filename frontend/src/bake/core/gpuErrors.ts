@@ -11,9 +11,6 @@ type GpuDeviceLike = {
   popErrorScope(): Promise<{message: string} | null>;
 };
 
-// GPU のバリデーションエラー(バインドグループ不正、パイプライン作成失敗など)を確実に検知する。
-// three は Uncaptured エラーを console に出すだけで例外にしないため、device のエラーイベントと
-// pushErrorScope の両方で拾い、run() の結果と一緒に例外として投げる
 export class GpuErrorWatch {
   private readonly device: GpuDeviceLike;
   private readonly errors: string[] = [];
@@ -64,8 +61,6 @@ export class GpuErrorWatch {
   }
 }
 
-// 最初のチャンクの結果が明らかに異常(全部 0 / 全部 EMBEDDED)なら止める。
-// 実行に失敗したカーネルは読み戻しが全 0 になるため、その見逃しを防ぐ
 export const checkFirstChunk = (
   label: string,
   values: ArrayLike<number>,

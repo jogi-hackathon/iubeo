@@ -10,12 +10,6 @@ const decodeBase64Url = (text) => {
   return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
 };
 
-/**
- * トークンを検証し、プレイヤー ID（sub）を返す。無効なら null。
- * @param {string} token
- * @param {string} key バックエンドと共有する鍵（IUBEO_WISP_KEY。32 バイト以上）
- * @param {number} nowSeconds 検証する時刻（Unix 秒）
- */
 export const verifyWispToken = async (token, key, nowSeconds = Math.floor(Date.now() / 1000)) => {
   const dot = token.indexOf(".");
   if (dot < 0) {

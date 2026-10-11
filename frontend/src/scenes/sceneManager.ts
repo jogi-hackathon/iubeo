@@ -4,14 +4,9 @@ export type SceneState = {current: SceneName};
 
 export type SceneManagerOptions = {
   initial: SceneName;
-  /** 使えるシーン。ここに無いシーンへの切り替え・初期化はできない */
   available: readonly SceneName[];
 };
 
-/**
- * 今のシーン(current)だけを持つ純粋な状態。App はこの current を描画する。
- * 切り替えの流れ(遷移中の状態・演出・フック)は SceneTransitionManager が持ち、最後にここへ commit する
- */
 export const createSceneManager = ({
   initial,
   available,

@@ -2,11 +2,8 @@ import type {Vector3Tuple} from "three";
 
 import {UNDER_SHEET_OFFSET} from "../paperSheet";
 
-/** 前脚・キャンバスの面が、鉛直から後ろへ倒れる角度(rad。約 11 度) */
 export const EASEL_LEAN = 0.2;
-/** キャンバス(木枠込み)の大きさ。幅 x 高さ。ワークスペースの机の幅(1.6m)の半分強 */
 export const CANVAS_SIZE = [0.9, 1.0] as const;
-/** キャンバスの中心の高さ。EYE_HEIGHT(1.6m)より少し下で、立ったまま見下ろさず正面から見られる */
 export const CANVAS_CENTER_HEIGHT = 1.25;
 
 const FRONT_LEG_SPAN = 0.76;
@@ -15,7 +12,6 @@ const FRONT_FOOT_Z = 0.3;
 const FRONT_TOP_HEIGHT = 1.85;
 const REAR_FOOT_Z = -0.6;
 const FRAME_DEPTH = 0.03;
-/** 紙(板)を、木枠の前面から浮かせる距離。木枠と重ならず(z-fighting しない)、浮いて見えない程度 */
 const PAPER_LIFT = 0.001;
 const PAPER_MARGIN = 0.05;
 
@@ -35,22 +31,17 @@ const TOP_BAR_PROTRUDE = 0.006;
 const STRETCHER_HEIGHT = 0.45;
 const STRETCHER_SIZE = 0.035;
 
-/** 部品の種類(木の骨組み・金物)。色は今どれも真っ白で、CanvasObject が種類ごとに持つ */
 export type EaselLook = "wood" | "accent";
 
 export type EaselPart = {
   look: EaselLook;
-  /** 部品の中心 */
   position: Vector3Tuple;
-  /** 単位の箱(一辺 1)に掛ける大きさ */
   scale: Vector3Tuple;
   rotation?: Vector3Tuple;
 };
 
-/** 紙(絵の面)の配置。見た目が変わる部品なので、イーゼルの部品(EaselPart)とは分けて CanvasPaper が描く */
 export type PaperPlacement = Omit<EaselPart, "look">;
 
-/** 配置を mesh の props(position・scale・rotation)に直す。rotation が無ければ付けない */
 export const placementProps = ({
   position,
   scale,
@@ -69,7 +60,6 @@ const ORIGIN: Vector3Tuple = [
   CANVAS_CENTER_HEIGHT,
   frontZAt(CANVAS_CENTER_HEIGHT),
 ];
-/** キャンバスの面に沿った位置。u は面に沿って上、n は面の法線(手前)、x は横(右) */
 const onPlane = (u: number, n: number, x = 0): Vector3Tuple => [
   ORIGIN[0] + x,
   ORIGIN[1] + u * cos + n * sin,
@@ -106,7 +96,6 @@ const frontX = FRONT_LEG_SPAN / 2;
 const legPoint = (x: number, y: number): Vector3Tuple => [x, y, frontZAt(y)];
 const stretcherY = STRETCHER_HEIGHT;
 
-/** 前脚をつなぐ上の横木。木枠の上に出ていて、正面から見える */
 export const TOP_BAR_PART: EaselPart = {
   look: "wood",
   position: onPlane(TOP_BAR_U, 0),
@@ -114,7 +103,6 @@ export const TOP_BAR_PART: EaselPart = {
   rotation: LEAN_ROTATION,
 };
 
-/** 後脚。足元は前脚のずっと後ろで、上端は横木の中心に差す(浮かせない) */
 export const REAR_LEG_PART: EaselPart = strut(
   "wood",
   [0, 0, REAR_FOOT_Z],
@@ -145,7 +133,6 @@ const LEGS: readonly EaselPart[] = [
 
 const frameN = LEG_SIZE / 2 + FRAME_DEPTH / 2;
 
-/** 押さえ。底面が木枠の天面(面に沿って CANVAS_SIZE[1]/2)に載る */
 export const CLAMP_PART: EaselPart = {
   look: "accent",
   position: onPlane(
@@ -200,32 +187,19 @@ const CANVAS_PARTS: readonly EaselPart[] = [
   },
 ];
 
-/** 部品すべて(描画の順) */
 export const EASEL_PARTS: readonly EaselPart[] = [...LEGS, ...CANVAS_PARTS];
 
-/**
- * 紙(絵を描く面)の大きさ。幅 x 高さ。木枠(CANVAS_SIZE)より縁(PAPER_MARGIN)ぶん小さい。
- * 拡散の演出のマス(diffusionMaterial の LATENT)も、この縦横比で割る
- */
 export const PAPER_SIZE = [
   CANVAS_SIZE[0] - 2 * PAPER_MARGIN,
   CANVAS_SIZE[1] - 2 * PAPER_MARGIN,
 ] as const;
 
-/**
- * 紙の配置。木枠の前面に沿わせた、厚みの無い板(PlaneGeometry。scale の z は 1)。
- * uv は [0,1]²(u は +x、v は上)
- */
 export const PAPER_PLACEMENT: PaperPlacement = {
   position: onPlane(0, paperFrontN),
   scale: [PAPER_SIZE[0], PAPER_SIZE[1], 1],
   rotation: LEAN_ROTATION,
 };
 
-/**
- * 下敷きの配置。紙と同じ大きさの板を、紙と木枠の間に置き、右下へ UNDER_SHEET_OFFSET ずらす。
- * 紙からはみ出た細い L 字だけが見え、紙の落とす影の代わりになる(ワークスペースの紙と同じ 2 枚重ね)
- */
 export const UNDER_SHEET_PLACEMENT: PaperPlacement = {
   position: onPlane(
     -UNDER_SHEET_OFFSET,

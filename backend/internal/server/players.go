@@ -15,7 +15,6 @@ func (s *Server) me(playerID string) api.Me {
 	return me
 }
 
-// CreatePlayer は匿名プレイヤーを作り Cookie を発行する。有効な Cookie があればそのプレイヤーを返す
 func (s *Server) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	if id, ok := s.signer.FromRequest(r); ok {
 		writeJSON(w, http.StatusOK, s.me(id))
@@ -26,7 +25,6 @@ func (s *Server) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, s.me(id))
 }
 
-// GetMe は自分の ID と参加中のセッションを返す
 func (s *Server) GetMe(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.authenticate(w, r)
 	if !ok {

@@ -7,7 +7,6 @@ export interface DebugFlags {
   freeCamera: boolean;
 }
 
-/** VITE_ENABLE_DEBUG=true のときだけデバッグ機能(?debug・ホットキー)が有効になる */
 export const DEBUG_AVAILABLE = import.meta.env.VITE_ENABLE_DEBUG === "true";
 
 const ALL_OFF: DebugFlags = {
@@ -23,7 +22,6 @@ const ALL_ON: DebugFlags = {
   freeCamera: false,
 };
 
-/** デバッグ機能が有効で、URL に ?debug が付いているか(デバッグ用の既定シーン・stats・grid の ON の条件) */
 export const DEBUG_REQUESTED =
   DEBUG_AVAILABLE && new URLSearchParams(window.location.search).has("debug");
 

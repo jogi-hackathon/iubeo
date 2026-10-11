@@ -1,40 +1,22 @@
 import type * as Moq from "@moq/net";
 
-/** Opus の 1 フレーム（20ms @ 48kHz）。マイクの PCM をこの長さに切って送る */
 const FRAME_SAMPLES = 960;
 const SAMPLE_RATE = 48000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export type MoqVoiceOptions = {
-  /** MoQ(WebTransport)の URL。例: https://media.example.test:4443 */
   url: string;
-  /** VC の JWT。moq-relay が ?jwt= として auth-url へ渡す */
   token: string;
-  /** 部屋（セッション id） */
   room: string;
-  /** 自分の id（プレイヤー id） */
   id: string;
-  /** 他の人から届いた Opus のフレーム */
   onPeerAudio: (peer: string, opus: Uint8Array) => void;
   onError?: (message: string) => void;
-  /** Opus のビットレート(bps)。既定 48000。声なら 32k〜64k が目安 */
   bitrate?: number;
-  /** Opus の 1 フレームの長さ(ms)。既定 20。短いほど低遅延、長いほど圧縮効率がよい */
   frameDurationMs?: number;
-  /** Opus のエンコーダ複雑度(0〜10)。既定 5。上げるほど高品質だが CPU を使う */
   complexity?: number;
 };
 
-/**
- * MoQ(moq-lite / WebTransport)で声を送る・受ける。
- * 各クライアントは broadcast `vc-bench/<room>/<id>` の `audio` トラックを publish し、
- * roster に居る他の人の broadcast を subscribe する。Opus のフレームは単一フレームの
- * group = QUIC datagram として送る（best-effort）。位置はゲーム側の transforms を使い、ここでは扱わない。
- *
- * `@moq/net` は重く、モジュールの評価でブラウザの API に触れることがあるので、
- * 実際に繋ぐとき（start）に動的 import する
- */
 export class MoqVoice {
   private Moq!: typeof import("@moq/net");
   private conn?: Moq.Connection.Established;
@@ -65,7 +47,6 @@ export class MoqVoice {
       consume: origin,
       signal: AbortSignal.timeout(15000),
     });
-    // moq-lite は datagram、IETF は group が最小単位（bench/client と同じ扱い）
     this.ietf = !String(this.conn.version).startsWith("moq-lite");
 
     const broadcast = origin.createBroadcast(
@@ -81,7 +62,6 @@ export class MoqVoice {
       output: (chunk) => this.sendOpus(chunk),
       error: (e) => opts.onError?.(`encode: ${e.message}`),
     });
-    // 声なのでモノラル。ビットレートと複雑度で品質を上げられる（frameDuration は WebCodecs では µs）
     this.frameSamples = Math.round(
       (SAMPLE_RATE * (opts.frameDurationMs ?? 20)) / 1000,
     );
@@ -123,12 +103,9 @@ export class MoqVoice {
           payload,
         );
       }
-    } catch {
-      /* 接続が閉じた */
-    }
+    } catch {}
   }
 
-  /** マイクの PCM を 20ms ずつ Opus にして送る。enabled が false の間は送らない（push-to-talk） */
   publishPcm(pcm: Float32Array, enabled: boolean): void {
     if (!enabled || !this.encoder) {
       return;
@@ -198,9 +175,7 @@ export class MoqVoice {
         }
         this.opts.onPeerAudio(peer, datagram.payload);
       }
-    } catch {
-      /* subscription closed */
-    }
+    } catch {}
   }
 
   private async pumpGroups(
@@ -221,9 +196,7 @@ export class MoqVoice {
           this.opts.onPeerAudio(peer, frame.payload);
         }
       }
-    } catch {
-      /* subscription closed */
-    }
+    } catch {}
   }
 
   close(): void {

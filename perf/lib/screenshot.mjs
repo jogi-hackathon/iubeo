@@ -1,5 +1,3 @@
-// 見た目の回帰チェック用のスクリーンショット。起動完了後、静止画と前進後の 2 枚を撮る
-// 使い方: node perf/lib/screenshot.mjs <label>   → perf/results/<label>/shot-{still,moved}.png
 import {mkdirSync} from "node:fs";
 import {join} from "node:path";
 import {CHROME_PATH, DIST, PERF, importFromFrontend} from "./paths.mjs";

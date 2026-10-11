@@ -6,7 +6,6 @@ interface State {
   error: Error | null;
 }
 
-/** <App /> 以下(Canvas 内のレンダラー初期化失敗を含む)の例外を BootScreen のエラー画面と同じ見た目で出す */
 export class BootErrorBoundary extends Component<
   {children?: ReactNode},
   State

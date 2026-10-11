@@ -35,7 +35,6 @@ func TestIssueAndVerify(t *testing.T) {
 		t.Errorf("claims = %+v", c)
 	}
 
-	// vc と同じ手順で読めること(alg=EdDSA、base64url、3 パート)
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		t.Fatalf("token = %s", token)

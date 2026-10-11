@@ -8,51 +8,35 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// State はセッションの内部状態(サーバーの正)。セッションの goroutine だけが持ち、Step でだけ変える。
-// クライアントへは Snapshot などで配る形に組み立てる(state-schema.md §3)
 type State struct {
-	ID        string
-	Mode      api.SessionMode
-	Status    api.SessionStatus
-	CreatedAt time.Time
-	StartedAt time.Time
-	// Seq は確定状態を変えるメッセージごとに増やす
-	Seq     int64
-	Players []PlayerState
-	Objects []ObjectState
-	Items   []ItemState
-	Team    api.Team
-	// Actions は作業中のワークスペース・キャンバス・PC のアクション
-	Actions []ObjectAction
-	// Phases はフェーズの決まり、Phase は今(または最後)のフェーズ
-	Phases PhaseRules
-	Phase  PhaseState
-	// Result は決着。決着前は Outcome が空
-	Result api.Result
-	// BypassAt は最後のフェーズを生き残って bypassPermission を立てた時刻、FireAt は火をつけた時刻。まだならゼロ
-	BypassAt time.Time
-	FireAt   time.Time
-	rng      rand.PCG
-	// CPUAgents は CPU の段取り(プレイヤー id ごと)。フェーズ開始時に resetCPUAgents で作り直す
-	CPUAgents map[string]CPUAgent
-	// CPUPersonas は CPU の人格(プレイヤー id ごと)。セッション開始時に決まり、フェーズをまたいで同じ
+	ID          string
+	Mode        api.SessionMode
+	Status      api.SessionStatus
+	CreatedAt   time.Time
+	StartedAt   time.Time
+	Seq         int64
+	Players     []PlayerState
+	Objects     []ObjectState
+	Items       []ItemState
+	Team        api.Team
+	Actions     []ObjectAction
+	Phases      PhaseRules
+	Phase       PhaseState
+	Result      api.Result
+	BypassAt    time.Time
+	FireAt      time.Time
+	rng         rand.PCG
+	CPUAgents   map[string]CPUAgent
 	CPUPersonas map[string]CPUPersona
-	// CPULastAt は CPU の移動を進めた最後の時刻。tick の間隔から歩いた距離を出す
-	CPULastAt time.Time
-	// CPUItemSeq は CPU が作ったファイルの id の連番
-	CPUItemSeq int
+	CPULastAt   time.Time
+	CPUItemSeq  int
 
-	// StartTimeout までに人間全員が接続しなければ解散する
-	StartTimeout time.Duration
-	// 人間が全員切断してから AbandonTimeout たっても誰も戻らなければ破棄する
-	AbandonTimeout time.Duration
-	// AllDisconnectedAt は人間が全員切断した時刻。誰かが接続していればゼロ
+	StartTimeout      time.Duration
+	AbandonTimeout    time.Duration
 	AllDisconnectedAt time.Time
-	// Ended は終わった(決着・解散・破棄)。以降の入力は無視する
-	Ended bool
+	Ended             bool
 }
 
-// PlayerState はプレイヤーの内部状態
 type PlayerState struct {
 	ID         string
 	Kind       api.PlayerKind
@@ -60,13 +44,11 @@ type PlayerState struct {
 	Connection api.ConnectionStatus
 	Life       api.LifeStatus
 	Transform  api.Transform
-	// ConnID は今の接続。無ければ 0
-	ConnID   uint64
-	reported bool
-	moved    bool
+	ConnID     uint64
+	reported   bool
+	moved      bool
 }
 
-// ObjectState はオブジェクトの内部状態。data は配るときに items から組み立てる
 type ObjectState struct {
 	ID           string
 	Kind         api.ObjectKind
@@ -76,7 +58,6 @@ type ObjectState struct {
 	Availability api.ObjectAvailability
 }
 
-// LocationKind はアイテムの所在の種類
 type LocationKind string
 
 const (
@@ -85,33 +66,26 @@ const (
 	OnObject    LocationKind = "object"
 )
 
-// Location はアイテムの所在
 type Location struct {
 	Kind     LocationKind
 	ObjectID string
 	PlayerID string
 }
 
-// ItemState はアイテム(ファイル・ライター)の内部状態。所在に関係なくひとつの一覧で持つ
 type ItemState struct {
 	ID       string
 	Kind     api.ItemKind
 	Status   api.FileStatus
 	Color    string
 	Location Location
-	// Home はライターの置き場(lighter_stand)の id。切断・脱落したらここに戻す
-	Home string
+	Home     string
 }
 
-// Timeouts はセッションの時間の決まり
 type Timeouts struct {
 	Start   time.Duration
 	Abandon time.Duration
 }
 
-// NewMultiplayerState は自動マッチングでそろったプレイヤーの、開始前(waiting)の状態を作る。
-// humanIDs の並びが席の順で、そのあとに cpuIDs が続く(CPU は接続しないので connected で作り、開始を待たせない)。
-// seed はタスクの分配に使う乱数の種
 func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
@@ -180,7 +154,6 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		})
 	}
 	st.Items = st.initialItems()
-	// CPU には人格を割り当てる(人数分をシャッフルして、なるべく違う人格にする)
 	r := rand.New(&st.rng)
 	order := r.Perm(len(cpuPersonas))
 	for i, pid := range cpuIDs {
@@ -248,7 +221,6 @@ func (st *State) player(id string) *PlayerState {
 	return &st.Players[i]
 }
 
-// HasPlayer はプレイヤーが参加者かどうかを返す
 func (st *State) HasPlayer(id string) bool {
 	return st.player(id) != nil
 }
@@ -324,7 +296,6 @@ func (st *State) gameObject(o ObjectState) api.GameObject {
 	return g
 }
 
-// Snapshot はセッション全体を配る形に組み立てる(state-schema.md §4)
 func (st *State) Snapshot(now time.Time) api.SessionSnapshot {
 	snap := api.SessionSnapshot{
 		SchemaVersion: api.N2,

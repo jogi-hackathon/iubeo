@@ -17,7 +17,6 @@ type Flagged = Material & {[KEY]?: boolean};
 export const isSkipGTAO = (material: object): boolean =>
   (material as {[KEY]?: unknown})[KEY] === true;
 
-/** value が undefined なら目印ごと外す(元々無かったマテリアルを元に戻す用)。変えたら material.needsUpdate = true にする */
 export const setSkipGTAO = (
   material: Material,
   value: boolean | undefined,
@@ -29,6 +28,5 @@ export const setSkipGTAO = (
   }
 };
 
-/** 現在の値(未設定なら undefined)。setSkipGTAO で元に戻すために控える */
 export const getSkipGTAO = (material: Material): boolean | undefined =>
   (material as Flagged)[KEY];

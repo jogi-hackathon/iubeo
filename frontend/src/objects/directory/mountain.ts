@@ -1,7 +1,6 @@
 import type {Vec3} from "../../props/types";
 import {createRandom, hashString} from "./random";
 
-/** 書類の板 1 枚。size は (幅, 厚み, 奥行き)、position は山の足元中心からの相対。向きは Y 軸まわりの yaw だけ */
 export type Sheet = {
   position: Vec3;
   yaw: number;
@@ -9,10 +8,6 @@ export type Sheet = {
   color: string;
 };
 
-/**
- * 束からはみ出す、薄い紙(厚さ数 mm〜1cm)。rotation は Euler(順序 YXZ)で (傾き, yaw, ひねり)。
- * 傾きは、幅の軸(周方向)まわり。負で段の縁から外へ垂れ下がり、正で外側の端が持ち上がって斜めに立てかかる
- */
 export type LooseSheet = {
   position: Vec3;
   rotation: Vec3;
@@ -20,10 +15,6 @@ export type LooseSheet = {
   color: string;
 };
 
-/**
- * 芯の三角形メッシュ(足元中心が原点。y が上)。uvs は AO のベイク用で、チャート(段ごとの側面・上面)ごとに [0,1]²。
- * groups は、チャートごとの indices の範囲(頂点はチャートをまたいで共有しない)
- */
 export type CoreMesh = {
   positions: number[];
   uvs: number[];
@@ -31,10 +22,6 @@ export type CoreMesh = {
   groups: Array<{start: number; count: number}>;
 };
 
-/**
- * 在庫ファイルを割り当てられる束。真上から見える束の上面で、
- * x・z は上面の中心、topY は上面の高さ、yaw・width・depth は上面の向きと大きさ(足元中心からの相対)
- */
 export type Candidate = {
   x: number;
   z: number;
@@ -46,25 +33,15 @@ export type Candidate = {
 
 export type Mountain = {
   height: number;
-  /** 段の外側の半径(下の段から順に)。上の段ほど狭い */
   tierRadii: number[];
-  /** 段ごとの高さ(m) */
   tierHeight: number;
   core: CoreMesh;
-  /** 山を構成する束の板 */
   sheets: Sheet[];
-  /** 束や段の縁からはみ出す、薄い紙(差し色は、この一部にだけ、ごく少数) */
   looseSheets: LooseSheet[];
-  /** 成果物の板(下の方の段の束の上)。先頭から、成果物の数だけ見せる */
   outputSheets: Sheet[];
-  /** 在庫ファイルを割り当てられる束(下の方の段の、上の段に隠れずに見える束) */
   candidates: Candidate[];
 };
 
-/**
- * 山の大きさを決める値。段数・段の外側の半径(下の段と上の段。間の段は、同じ幅ずつ狭くなる)・高さの範囲(m)。
- * 束の大きさ・本の積み方・はみ出す紙などは、大きさによらず共通
- */
 export type MountainSize = {
   tiers: number;
   radiusBottom: number;
@@ -75,7 +52,6 @@ export type MountainSize = {
 
 export type MountainSizeName = "large" | "small";
 
-/** large は既定(test など)。small は room のような狭い部屋用 */
 export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
   large: {
     tiers: 7,
@@ -95,22 +71,15 @@ export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
 
 const REACH_MARGIN = 0.8;
 
-/** 山(芯と、束の端まで)が収まる、足元中心からの半径(m) */
 export const mountainReach = (size: MountainSizeName): number =>
   MOUNTAIN_SIZES[size].radiusBottom + REACH_MARGIN;
 
-/** 山の高さの上限(m) */
 export const mountainHeightMax = (size: MountainSizeName): number =>
   MOUNTAIN_SIZES[size].heightMax;
 
-/**
- * 俯瞰のカメラの、地面からの高さの下限(m)。真上からは、上の段が下の段の縁を隠すので、
- * 山の高さの約 2 倍から見て、下の段の上面を見えるようにする
- */
 export const mountainViewHeight = (size: MountainSizeName): number =>
   mountainHeightMax(size) * 2;
 
-/** large の値(後方互換) */
 export const MOUNTAIN_HEIGHT_MAX = mountainHeightMax("large");
 export const MOUNTAIN_REACH = mountainReach("large");
 export const VIEW_HEIGHT = mountainViewHeight("large");
@@ -120,17 +89,14 @@ const ASKEW_RATE = 0.15;
 const BUNDLE_WIDTH: [number, number] = [0.55, 0.75];
 const BUNDLE_DEPTH: [number, number] = [0.36, 0.44];
 const BUNDLE_PITCH = 0.66;
-/** はみ出す紙の枚数 */
 export const LOOSE_COUNT = 64;
 const CANDIDATE_TIERS = 4;
-/** 成果物として増やして見せる板の上限 */
 export const OUTPUT_MAX = 24;
 const CORE_SEGMENTS = 16;
 const CORE_INSET = 0.1;
 const CORE_DROP = 0.05;
 const CORE_SKIRT = 0.3;
 
-// 束は紙の白だけ(少し揺らす)。差し色は、薄いはみ出し紙の、ごく少数にだけ使う(大きな箱には使わない)
 export const PAPERS = ["#ffffff", "#fafaf8", "#f5f5f2", "#fcfcfb"] as const;
 const ACCENTS = ["#c9a46a", "#8fa7a0", "#b98277", "#7f94b3"] as const;
 const ACCENT_RATE = 0.12;
@@ -180,15 +146,8 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
   return {positions, uvs, indices, groups};
 };
 
-/** ディレクトリの山の seed。山の形はこの値と大きさだけで決まる(id やシーンには依らない) */
 export const DIRECTORY_MOUNTAIN_SEED = "directory-1";
 
-/**
- * 段(テラス)を上へ行くほど狭く積んだ、書類の山(手続き生成)。seed から決まる(ディレクトリは固定の seed を使う)。
- * 各段は、上の段に覆われない外周の帯(幅 0.5m ほど)に、束(厚みの違う白い本を 4〜6 冊重ねた小さな山積み)を並べる。
- * 束は、ずれ・回転・はみ出しを付けて不規則に崩す。段の内側は、見えない芯(段々の円柱)で埋める。
- * 段数・半径・高さは sizeName(MOUNTAIN_SIZES)で決まる(既定の large)
- */
 export const buildMountain = (
   seed: string,
   sizeName: MountainSizeName = "large",
@@ -358,7 +317,6 @@ export const buildMountain = (
   };
 };
 
-/** 真上のカメラ(足元中心の真上、地面から cameraHeight)から、面の中心が、上の段の縁に隠れずに見えるか */
 export const isVisibleFromAbove = (
   face: Pick<Candidate, "x" | "z" | "topY">,
   tierRadii: readonly number[],

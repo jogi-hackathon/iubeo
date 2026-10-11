@@ -61,13 +61,6 @@ type Props = {
   stock: readonly StockFile[];
 };
 
-/**
- * ディレクトリの俯瞰ビュー。取り出すファイルを選ぶ間だけ、ディレクトリの中に出す。
- * カメラを山の真上へ補間で移し、在庫のファイルを山の束(下の方の段の、真上から見える束)にランダムに割り当てて色の縁を出し、仮想カーソルで狙って左クリックで取る。
- * ファイルを取れたら自動で、右クリックなら取らずに、一人称へ補間で戻る。
- * この間、プレイヤーの移動・視点入力とカメラは overview が預かり(core/playerControl)、視点入力はここが消費する。
- * カメラは固定で、マウスの移動量は画面上の仮想カーソル(OverviewCursor)を動かす
- */
 export function DirectoryOverview({
   directoryId,
   position,
@@ -159,7 +152,6 @@ export function DirectoryOverview({
 
   useEffect(() => () => setCameraDetached(false), []);
 
-  // pointer lock が外れたら(Esc)、狙えないので戻る
   useEffect(() => {
     if (!locked) {
       overview.leave();

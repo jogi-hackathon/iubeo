@@ -53,10 +53,6 @@ interface AdapterLike {
   isFallbackAdapter?: boolean;
 }
 
-/**
- * WebGPUBackend は adapter を保持しないので、同じ条件(ADAPTER_OPTIONS = three の WebGPUBackend.init と同じ)で
- * もう一度 adapter を取って中身を見る
- */
 const adapterInfo = async (): Promise<Record<string, unknown>> => {
   const gpu = (
     navigator as {
@@ -197,7 +193,7 @@ function BakePage() {
             : ""}
         </div>
       </div>
-      {/* 描画はしない(frameloop="never")。シーンをマウントしてコライダーを登録させるためだけに使う */}
+
       <Canvas
         gl={createRenderer}
         frameloop="never"

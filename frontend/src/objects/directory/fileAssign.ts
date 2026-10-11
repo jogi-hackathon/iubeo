@@ -1,14 +1,5 @@
 import type {Candidate} from "./mountain";
 
-/**
- * 俯瞰 1 回分(入ってから出るまで)の、在庫ファイルと束(候補)の割り当て。山の束のうち、下の方の段で
- * 真上から見える候補の中から、ファイルごとに 1 つをランダムに割り当てる。
- * - 割り当ては、俯瞰に入るたびに新しくやり直す(呼び出し側が入るたびに作る)。一人称では色が見えないので、見た目は跳ばない。
- *   乱数は注入できる(テスト用)
- * - 一度割り当てたファイルは、俯瞰の間は動かない。他の人の借用・返却で在庫が変わっても、既存の割り当てはそのまま。
- *   新しく現れたファイルは、空いている束に足す。いま在庫に無い(借りられている)ファイルの束も確保したままにして、
- *   返却されたら元の束に戻す
- */
 export const createFileAssigner = (
   candidateCount: number,
   random: () => number = Math.random,
@@ -52,7 +43,6 @@ export const createFileAssigner = (
 
 export type FileAssigner = ReturnType<typeof createFileAssigner>;
 
-/** 視線の当たり判定に使う板(束の上面)。座標はワールド座標(x・z は中心、y は上面の高さ) */
 export type FilePlate = {
   id: string;
   x: number;
@@ -65,7 +55,6 @@ export type FilePlate = {
 
 type Point = {x: number; y: number; z: number};
 
-/** 候補の束の上面を、ワールド座標の板にする(base はディレクトリの足元の位置) */
 export const plateOf = (
   id: string,
   c: Candidate,
@@ -81,11 +70,6 @@ export const plateOf = (
   depth: c.depth,
 });
 
-/**
- * 視線(origin から direction)が当たっているファイルの id。板ごとに、その上面の高さの水平面との交点を、
- * 板のローカル座標(yaw だけ回っている)に直して、矩形の中に入っていれば当たり。
- * 高さが板ごとに違うので、当たったもののうち、カメラに最も近いものを選ぶ。pad は当たり判定の余白(m)
- */
 export const pickFile = (
   origin: Point,
   direction: Point,

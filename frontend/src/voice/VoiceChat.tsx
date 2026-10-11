@@ -10,16 +10,6 @@ const isTyping = (target: EventTarget | null): boolean =>
     target.tagName === "TEXTAREA" ||
     target.isContentEditable);
 
-/**
- * サンドボックスのセッション中だけ VC に繋ぐ。見た目は出さず（HUD を使わない）、
- * 状態は照準（Reticle）の輪だけで伝える。
- *
- * - マウントで接続し、アンマウントで切る
- * - V を押している間だけマイクを送る（push-to-talk）。マイクは最初に押したときに取得する
- * - M でミュートを切り替える
- * - PC（ゲーム内ブラウザ）を使っている間は、キーを PC に渡すため何もしない
- * - 毎フレーム、カメラを聞き手にして、roster に居る人の声をその位置に置く
- */
 export function VoiceChat({
   sessionId,
   playerId,

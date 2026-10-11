@@ -1,7 +1,3 @@
-// ブラウザのコンソール(エラー・警告)と失敗したリクエストを全部集める。
-// 使い方: node perf/lib/console-audit.mjs [--url <URL> | --dist <ビルド出力>] [--seconds 15] [--click] [--debug]
-//   --url を省略すると、PERF_DIST(既定 frontend/.cloudflare/output/v0/workers/default/assets)を配って開く。
-//   --click を付けると、画面の中央をクリックしてから見る(ポインタロック・入力の経路のエラーも拾う)。
 import {CHROME_PATH, DIST, importFromFrontend} from "./paths.mjs";
 import {serveDir} from "./serve.mjs";
 import {parseArgs} from "./util.mjs";
@@ -27,7 +23,6 @@ const browser = await chromium.launch({
     "--enable-unsafe-webgpu",
     "--enable-features=WebGPU",
     "--ignore-gpu-blocklist",
-    // コンソールの警告も全部出す(既定だと deprecation などが隠れる)
     "--enable-logging=stderr",
     "--v=0",
   ],
@@ -56,7 +51,6 @@ try {
   });
 
   await page.goto(base, {waitUntil: "load"});
-  // 起動の覆いが外れるまで待つ(取れなくても続ける)
   await page
     .waitForFunction(() => document.querySelector("canvas") && !document.querySelector('.cover-overlay[data-covered="true"]'), null, {timeout: 120000, polling: 50})
     .catch(() => console.log("(覆いが外れるのを待てなかった)"));

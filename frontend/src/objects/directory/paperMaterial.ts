@@ -64,21 +64,6 @@ const stripeFactorNode = (phase: Node<"float">, seed: Node<"float">) => {
   return mix(factor, float(AVG_FACTOR), fade);
 };
 
-/**
- * 束用のマテリアル。板 1 枚を、白い本として描く。地の色は板ごとの色(まとめたジオメトリでは頂点色、
- * InstancedMesh では instanceColor)で、その上に明るさの係数を掛ける。
- * - 上面・下面は表紙(上面には、縁の内側に細い枠線)
- * - 長辺の片方(板ごとに seed で決まる)は背表紙(2 本の背バンド)
- * - 残りの 3 面は、上下が表紙の板の断面、その間がページの小口(細い横縞。表紙のすぐ下は影で少し暗い)
- * 板ごとの大きさと seed は、属性 `sheetInfo`(vec4: 幅, 厚み, 奥行き, seed)から読む。
- * 位置は箱のローカル位置(-0.5〜0.5)に大きさを掛けて、ワールド単位で測る。
- * - merged: 板を 1 つにまとめたジオメトリ用(geometry.ts の buildSheetsGeometry)。箱のローカル位置・法線は、
- *   頂点属性 `bookLocal`・`bookNormal` から読む。uv を持つので、ベイク AO(aoMap)を貼れる
- * - それ以外: InstancedMesh の箱ジオメトリ用。ローカル位置・法線は position・normal そのもので、
- *   sheetInfo は instanced 属性(setSheetInfo で書く)
- * 燃える演出の侵食(corruption.ts)を重ねる。侵食の色に板の色が掛からないよう、まとめたジオメトリの頂点色は
- * vertexColors で掛けず、元の色の側にだけ掛ける(InstancedMesh の色は白い成果物の板だけなので、そのまま掛かってよい)
- */
 export const createPaperMaterial = ({
   merged,
 }: {
@@ -135,7 +120,6 @@ export const createPaperMaterial = ({
   return material;
 };
 
-/** 箱ジオメトリに、インスタンスごとの (幅, 厚み, 奥行き, seed) を書く。seed は通し番号から決める */
 export const setSheetInfo = (
   geometry: BoxGeometry,
   sizes: readonly Vec3[],
@@ -148,5 +132,4 @@ export const setSheetInfo = (
   geometry.setAttribute("sheetInfo", new InstancedBufferAttribute(data, 4));
 };
 
-/** 板の通し番号から、縞と背の向きの seed */
 export const sheetSeed = (index: number): number => (index * 0.618) % 97;

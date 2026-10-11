@@ -25,13 +25,11 @@ const KINDS: Record<string, KindEntry> = {
   [LIGHTER_STAND_KIND]: {Renderer: LighterStandObject, features: []},
 };
 
-/** kind → 見た目(無い kind は DummyObject の箱で描く。ManagedObjects が引く) */
 export const kindRenderers: Readonly<
   Record<string, ComponentType<{object: GameObject}>>
 > = Object.fromEntries(
   Object.entries(KINDS).map(([kind, entry]) => [kind, entry.Renderer]),
 );
 
-/** kind が持つ機能の名前(例: directory → ["overview"]) */
 export const kindFeatures = (kind: string): readonly string[] =>
   KINDS[kind]?.features ?? [];

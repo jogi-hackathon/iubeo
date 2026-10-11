@@ -26,9 +26,7 @@ import {
 
 export type CrtControls = {
   material: MeshBasicNodeMaterial;
-  /** 電源の立ち上がり 0..1 */
   on: {value: number};
-  /** 起動成功後のラスタ展開 0..1 */
   boot: {value: number};
   time: {value: number};
 };
