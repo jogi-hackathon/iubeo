@@ -1,12 +1,24 @@
 import {useEffect, useMemo} from "react";
-import {BoxGeometry, CylinderGeometry, MeshStandardMaterial} from "three";
+import {
+  BoxGeometry,
+  type BufferGeometry,
+  CylinderGeometry,
+  MeshStandardMaterial,
+} from "three";
+import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
 
 import {aoModeUserData} from "../../bake/aoMode";
 import {BVHCollider} from "../../core/bvh";
 import {useControlLockWhileWorking} from "../controlLock";
 import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
-import {DESK_PARTS, type DeskPart, type PartLook} from "./desk";
+import {
+  DESK_BODY,
+  DESK_FEET,
+  DESK_PARTS,
+  type DeskPart,
+  type PartLook,
+} from "./desk";
 import {WorkspaceFile} from "./WorkspaceFile";
 
 const CYLINDER_SEGMENTS = 10;
@@ -17,18 +29,19 @@ const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
   accent: new MeshStandardMaterial({color: "#3a3a3a"}),
 };
 
-const partGeometry = ({shape, scale: [x, y, z]}: DeskPart) =>
-  shape === "box"
-    ? new BoxGeometry(x, y, z)
-    : new CylinderGeometry(x, z, y, CYLINDER_SEGMENTS);
+const partGeometry = ({
+  shape,
+  scale: [x, y, z],
+  radius,
+  segments = 1,
+}: DeskPart): BufferGeometry =>
+  shape === "cylinder"
+    ? new CylinderGeometry(x, z, y, CYLINDER_SEGMENTS)
+    : radius
+      ? new RoundedBoxGeometry(x, y, z, segments, radius)
+      : new BoxGeometry(x, y, z);
 
-function Part({
-  part,
-  geometry,
-}: {
-  part: DeskPart;
-  geometry: BoxGeometry | CylinderGeometry;
-}) {
+function Part({part, geometry}: {part: DeskPart; geometry: BufferGeometry}) {
   return (
     <mesh
       geometry={geometry}
@@ -61,10 +74,17 @@ export function WorkspaceObject({object}: {object: GameObject}) {
   return (
     <group userData={aoModeUserData("realtime")}>
       <BVHCollider enabled={visible}>
-        {DESK_PARTS.map((part, i) => (
+        {DESK_BODY.map((part, i) => (
           <Part key={i} part={part} geometry={geometries[i]!} />
         ))}
       </BVHCollider>
+      {DESK_FEET.map((part, i) => (
+        <Part
+          key={i}
+          part={part}
+          geometry={geometries[DESK_BODY.length + i]!}
+        />
+      ))}
       <WorkspaceFile working={object.users.length > 0} />
     </group>
   );
