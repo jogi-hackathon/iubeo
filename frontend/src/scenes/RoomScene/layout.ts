@@ -38,6 +38,9 @@ const besideWindow = (zFrom: number, zTo: number): WallSpec => ({
   size: [WALL_THICKNESS, WINDOW_SIZE, zTo - zFrom],
 });
 
+/** 壁の内側の面が方眼のマスの境目に乗る(ROOM_SIZE・ROOM_CENTER_Z が整数なので) */
+export const ROOM_FLOOR_TILE = 1;
+
 /** 部屋の床。上面が y=0 で、壁の下まで敷く(共通の TiledFloor は使わない) */
 export const ROOM_FLOOR: WallSpec = {
   position: [0, -WALL_THICKNESS / 2, ROOM_CENTER_Z],
