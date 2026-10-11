@@ -1,15 +1,18 @@
 import type {Camera, Scene} from "three";
 import {outline} from "three/addons/tsl/display/OutlineNode.js";
 import {
+  abs,
   clamp,
   float,
   Fn,
+  fract,
   If,
   max,
   mix,
   screenSize,
   screenUV,
   sin,
+  smoothstep,
   texture,
   time,
   vec2,
@@ -19,12 +22,15 @@ import type {Node, RenderTarget} from "three/webgpu";
 
 import {
   powerOutlineColor,
+  powerOutlineDash,
   powerOutlineFade,
   powerOutlineSelection,
 } from "../powerOutlineSelection";
 
 const POWER_OUTLINE_WIDTH = 10;
 const POWER_WOBBLE_PX = 0;
+const DASH_PERIODS_PER_SCREEN_HEIGHT = 45;
+const DASH_SPEED = 1.5;
 
 export const createPowerOutline = (scene: Scene, camera: Camera) => {
   // 選択が空のあいだは OutlineNode が自分のパスを全部飛ばすので、狙いの縁取りと同じくグラフには常に入れておく
@@ -79,13 +85,31 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
     return edge.add(powerOutlinePass.visibleEdge.mul(0));
   })();
 
+  // 縁に沿った長さはポストプロセスでは取れないので、画面の斜め縞で代用する(縁が縞と平行な 45° の所は破線に見えない)
+  // 画面の高さを基準にして、解像度や DPR が違っても見た目の細かさと速さをそろえる
+  const aspect = screenSize.x.div(screenSize.y);
+  const dashPhase = fract(
+    screenUV.x
+      .mul(aspect)
+      .add(screenUV.y)
+      .mul(DASH_PERIODS_PER_SCREEN_HEIGHT)
+      .sub(time.mul(DASH_SPEED)),
+  );
+  const dashAa = screenSize.y.reciprocal().mul(DASH_PERIODS_PER_SCREEN_HEIGHT);
+  const dashOn = smoothstep(
+    float(0.25).sub(dashAa),
+    float(0.25).add(dashAa),
+    abs(dashPhase.sub(0.5)),
+  );
+  const dash = mix(float(1), dashOn, powerOutlineDash);
+
   return {
     composite: (color: Node<"vec4">): Node<"vec4"> =>
       vec4(
         mix(
           color.rgb,
           powerOutlineColor,
-          clamp(powerEdge, 0, 1).mul(powerOutlineFade),
+          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade),
         ),
         color.a,
       ),

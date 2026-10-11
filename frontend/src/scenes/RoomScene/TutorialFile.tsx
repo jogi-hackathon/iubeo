@@ -2,7 +2,10 @@ import {useLayoutEffect, useRef} from "react";
 import type {Group} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
-import {addPowerOutline} from "../../camera/postprocess/powerOutlineSelection";
+import {
+  addPowerOutline,
+  GUIDE_OUTLINE,
+} from "../../camera/postprocess/powerOutlineSelection";
 import {
   FILE_PLATE_LIFT,
   FilePlateMesh,
@@ -20,7 +23,6 @@ import {
 export const TUTORIAL_FILE_ID = "room.tutorial-file";
 export const TUTORIAL_FILE_COLOR = "#2a9d5c";
 
-const HIGHLIGHT_COLOR = "#2ee06a";
 const HIT_MARGIN = 0.1;
 const HIT_HEIGHT = 0.1;
 
@@ -40,7 +42,7 @@ export function TutorialFile({onTake}: {onTake: () => void}) {
     });
     const offOutline = addPowerOutline(group, {
       ignoreDistance: true,
-      color: HIGHLIGHT_COLOR,
+      ...GUIDE_OUTLINE,
     });
     return () => {
       offTarget();

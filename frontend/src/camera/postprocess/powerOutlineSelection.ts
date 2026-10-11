@@ -21,7 +21,15 @@ export const powerOutlineFadeAt = (distance: number): number => {
 
 export const POWER_OUTLINE_DEFAULT_COLOR = "#ff1f2e";
 
-type Entry = {object: Object3D; ignoreDistance: boolean; color: string};
+/** チュートリアルで「次はこれ」と示す縁取り。色付きの縁取りを特別に見せたいので、案内は色を持たせず破線の動きで目立たせる */
+export const GUIDE_OUTLINE = {color: "#000000", dashed: true} as const;
+
+type Entry = {
+  object: Object3D;
+  ignoreDistance: boolean;
+  color: string;
+  dashed: boolean;
+};
 const registered: Entry[] = [];
 const selection: Object3D[] = [];
 
@@ -32,6 +40,8 @@ export const powerOutlineFade = uniform(0);
 export const powerOutlineColor = uniform(
   new Color(POWER_OUTLINE_DEFAULT_COLOR),
 );
+/** 1 で破線にする。色と同じく選択された先頭の物で決める */
+export const powerOutlineDash = uniform(0);
 
 /**
  * 力の縁取りを付ける。戻り値で外す(2 回外しても何もしない)。
@@ -42,9 +52,10 @@ export const addPowerOutline = (
   {
     ignoreDistance = false,
     color = POWER_OUTLINE_DEFAULT_COLOR,
-  }: {ignoreDistance?: boolean; color?: string} = {},
+    dashed = false,
+  }: {ignoreDistance?: boolean; color?: string; dashed?: boolean} = {},
 ): (() => void) => {
-  const entry: Entry = {object, ignoreDistance, color};
+  const entry: Entry = {object, ignoreDistance, color, dashed};
   registered.push(entry);
   return () => {
     const i = registered.indexOf(entry);
@@ -60,8 +71,9 @@ const worldPosition = new Vector3();
 export const updatePowerOutline = (cameraPosition: Vector3): void => {
   selection.length = 0;
   let fade = 0;
-  let color: string | null = null;
-  for (const {object, ignoreDistance, color: entryColor} of registered) {
+  let head: Entry | null = null;
+  for (const entry of registered) {
+    const {object, ignoreDistance} = entry;
     const f = ignoreDistance
       ? 1
       : powerOutlineFadeAt(
@@ -70,9 +82,10 @@ export const updatePowerOutline = (cameraPosition: Vector3): void => {
     if (f > 0) {
       selection.push(object);
       fade = Math.max(fade, f);
-      color ??= entryColor;
+      head ??= entry;
     }
   }
   powerOutlineFade.value = fade;
-  powerOutlineColor.value.set(color ?? POWER_OUTLINE_DEFAULT_COLOR);
+  powerOutlineColor.value.set(head?.color ?? POWER_OUTLINE_DEFAULT_COLOR);
+  powerOutlineDash.value = head?.dashed ? 1 : 0;
 };

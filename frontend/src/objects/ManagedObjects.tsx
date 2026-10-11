@@ -2,7 +2,10 @@ import {useCallback, useEffect, useMemo, useRef} from "react";
 import type {Group} from "three";
 
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
-import {addPowerOutline} from "../camera/postprocess/powerOutlineSelection";
+import {
+  addPowerOutline,
+  GUIDE_OUTLINE,
+} from "../camera/postprocess/powerOutlineSelection";
 import {useIsEnabled, useIsHighlighted, useIsVisible} from "../core/toggles";
 import {useIsObjectDisabled} from "./disabledObjects";
 import {DummyObject} from "./DummyObject";
@@ -13,8 +16,6 @@ import {type LayoutSlot, LayoutItemContext} from "./layoutContext";
 import {ObjectStateContext} from "./objectContext";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
-
-const HIGHLIGHT_COLOR = "#2ee06a";
 
 function ObjectRoot({
   object,
@@ -47,7 +48,7 @@ function ObjectRoot({
     }
     return addPowerOutline(root, {
       ignoreDistance: true,
-      color: HIGHLIGHT_COLOR,
+      ...GUIDE_OUTLINE,
     });
   }, [highlighted, visible]);
   const state = useMemo(() => ({visible, enabled}), [visible, enabled]);
