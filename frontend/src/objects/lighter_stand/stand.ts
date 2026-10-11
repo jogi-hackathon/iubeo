@@ -3,8 +3,8 @@ import type {Vector3Tuple} from "three";
 import {DESK_HEIGHT} from "../workspace/desk";
 
 /**
- * 置き場を置く、机ローカルの位置(原点は机の足元の中心、+Z が手前)。天板の右手前で、左手前の紙の束と対になる。
- * 中央の作業スペース・右奥のペン立て・PC(タワーとマウス)のどれとも重ならない。各シーンは、これを机の位置・向きで置く
+ * 置き場を置く、机ローカルの位置(原点は机の足元の中心、+Z が手前)。天板の右手前。
+ * 各シーンは、これを机の位置・向きで置く
  */
 export const LIGHTER_STAND_ON_DESK: Vector3Tuple = [0.6, DESK_HEIGHT, 0.2];
 
@@ -25,5 +25,4 @@ export const STAND_FOOTPRINT = [HIT_SIZE[0], HIT_SIZE[2]] as const;
 
 /** 跡の厚さ。天板の上面に貼った薄板(天板とちらつかないよう、わずかに厚みを持たせる) */
 export const MARK_HEIGHT = 0.001;
-/** 跡の色。天板(#f4f2ec)より一段暗い、同じ温かみの白 */
 export const MARK_COLOR = "#dcd8cd";

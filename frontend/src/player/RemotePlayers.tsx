@@ -4,6 +4,7 @@ import {useMemo, useState} from "react";
 import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {HeldItem} from "../items";
+import {useWorkingAtWorkspace} from "../objects/workspace/useWorkingAtWorkspace";
 import {playerManager} from "./playerStore";
 import {PlayerSkeleton} from "./skeleton";
 import {createPlayerState} from "./state";
@@ -12,7 +13,8 @@ import {usePlayersState} from "./usePlayers";
 
 function RemotePlayer({player}: {player: PlayerStatus}) {
   const state = useMemo(() => createPlayerState(0, 0, 0), []);
-  const {playerId, heldItem} = player;
+  const {playerId} = player;
+  const heldItem = useWorkingAtWorkspace(playerId) ? null : player.heldItem;
   const [placed, setPlaced] = useState(false);
 
   useFrame(() => {

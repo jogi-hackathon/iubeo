@@ -1,6 +1,8 @@
+import {useMyPlayerId} from "../../authority/useMyPlayerId";
 import {useCameraDetached} from "../../core/cameraDetached";
 import {useDebugFlags} from "../../core/debug/flags";
 import {HeldItem, useItemState} from "../../items";
+import {useWorkingAtWorkspace} from "../../objects/workspace/useWorkingAtWorkspace";
 import {localPlayer} from "../local";
 import {PlayerSkeleton} from "./PlayerSkeleton";
 
@@ -8,7 +10,8 @@ import {PlayerSkeleton} from "./PlayerSkeleton";
 export function LocalPlayerSkeleton() {
   const {freeCamera} = useDebugFlags();
   const detached = useCameraDetached();
-  const {held} = useItemState();
+  const {held: item} = useItemState();
+  const held = useWorkingAtWorkspace(useMyPlayerId()) ? null : item;
   return (
     <PlayerSkeleton
       state={localPlayer}

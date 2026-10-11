@@ -2,14 +2,7 @@ import {Box3, BoxGeometry, Mesh, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
 import {mountainReach} from "../../../objects/directory/mountain";
-import {
-  KEYBOARD,
-  MEMO,
-  MONITOR_BODY_DEPTH,
-  MONITOR_Z,
-  MOUSE,
-  TOWER,
-} from "../../../objects/pc/dimensions";
+import {HINGE, LAPTOP, LID, MEMO} from "../../../objects/pc/dimensions";
 import {CHAIR_PARTS} from "../../../props/chairParts";
 import {
   CANVAS_POSITION,
@@ -17,6 +10,7 @@ import {
   CHAIR_POSITION,
   DIRECTORY_POSITION,
   PC_POSITION,
+  PC_YAW,
   ROOM_INNER_X,
   ROOM_INNER_Z_NORTH,
   ROOM_FLOOR,
@@ -194,23 +188,41 @@ describe("room layout", () => {
     expect(PC_POSITION[2]).toBeGreaterThan(WORKSPACE_POSITION[2] - 0.4);
   });
 
-  it("PC の、机に載る部品はすべて天板(奥行き 0.8m)の内側に収まる", () => {
+  it("PC の、机に載る部品はすべて天板(1.6m x 0.8m)の内側に収まる", () => {
+    const offsetX = PC_POSITION[0] - WORKSPACE_POSITION[0];
     const offsetZ = PC_POSITION[2] - WORKSPACE_POSITION[2];
-    const parts: [string, number, number][] = [
-      ["モニタ本体", MONITOR_Z - MONITOR_BODY_DEPTH / 2, MONITOR_Z + 0.2],
-      ["モニタ台座", MONITOR_Z - 0.14, MONITOR_Z + 0.12],
-      ["タワー", TOWER.z - TOWER.depth / 2, TOWER.z + TOWER.depth / 2],
+    const cos = Math.cos(PC_YAW);
+    const sin = Math.sin(PC_YAW);
+    const parts: [string, [number, number], [number, number]][] = [
       [
-        "キーボード",
-        KEYBOARD.z - KEYBOARD.depth / 2,
-        KEYBOARD.z + KEYBOARD.depth / 2,
+        "ノートの本体",
+        [-LAPTOP.width / 2, LAPTOP.width / 2],
+        [LAPTOP.z - LAPTOP.depth / 2, LAPTOP.z + LAPTOP.depth / 2],
       ],
-      ["マウス", MOUSE.z - MOUSE.depth / 2, MOUSE.z + MOUSE.depth / 2],
-      ["メモ", MEMO.z - MEMO.height / 2, MEMO.z + MEMO.height / 2],
+      [
+        "蓋",
+        [-LAPTOP.width / 2, LAPTOP.width / 2],
+        [HINGE.z - LID.height * Math.sin(LID.tilt), HINGE.z],
+      ],
+      [
+        "メモ",
+        [MEMO.x - MEMO.width / 2, MEMO.x + MEMO.width / 2],
+        [MEMO.z - MEMO.height * Math.sin(-MEMO.tilt), MEMO.z],
+      ],
     ];
-    for (const [name, back, front] of parts) {
-      expect(back + offsetZ, name).toBeGreaterThanOrEqual(-0.4);
-      expect(front + offsetZ, name).toBeLessThanOrEqual(0.4);
+    for (const [name, xs, zs] of parts) {
+      for (const x of xs) {
+        for (const z of zs) {
+          expect(offsetX + x * cos + z * sin, name).toBeGreaterThanOrEqual(
+            -0.8,
+          );
+          expect(offsetX + x * cos + z * sin, name).toBeLessThanOrEqual(0.8);
+          expect(offsetZ - x * sin + z * cos, name).toBeGreaterThanOrEqual(
+            -0.4,
+          );
+          expect(offsetZ - x * sin + z * cos, name).toBeLessThanOrEqual(0.4);
+        }
+      }
     }
   });
 
