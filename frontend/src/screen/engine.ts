@@ -52,28 +52,21 @@ export const engineManifestUrls = (
 };
 
 /**
- * 非圧縮の .wasm が同じ場所にあればそちらを使う。非圧縮ならブラウザが application/wasm で
- * 配信するので instantiateStreaming（ダウンロードと並行してコンパイル）が効き、zstd の展開も省ける
+ * マニフェストが指す wasm をそのまま使う。
+ *
+ * 以前は「非圧縮の .wasm が同じ場所にあればそちらを使う」と HEAD で確かめていた(非圧縮ならブラウザが
+ * application/wasm で配信するので instantiateStreaming が効き、zstd の展開も省ける)。
+ * だが実際には圧縮版(.zst)しか置いていないので、HEAD は毎回 404 になり、往復 1 回とコンソールの
+ * エラー(GET/HEAD の 404 はブラウザが必ずログに出す)を毎回払っていた。
+ * どちらを置くかはパック側(scripts/link-engine.mjs の findWasm)が決めるので、ここでは推測しない。
+ * 非圧縮の wasm を配れば instantiateStreaming の利益を得られる(そのときは compressed=false で来る)。
  */
-const preferUncompressed = async (
+const resolveWasm = (
   wasm: NonNullable<EngineManifest["wasm"]>,
-): Promise<{url: string; compressed: boolean}> => {
-  const url = engineUrl(wasm.url ?? "");
-  if (!wasm.compressed || !url.endsWith(".zst")) {
-    return {url, compressed: !!wasm.compressed};
-  }
-  const raw = url.slice(0, -".zst".length);
-  try {
-    const response = await fetch(raw, {method: "HEAD"});
-    if (
-      response.ok &&
-      (response.headers.get("content-type") ?? "").includes("wasm")
-    ) {
-      return {url: raw, compressed: false};
-    }
-  } catch {}
-  return {url, compressed: true};
-};
+): {url: string; compressed: boolean} => ({
+  url: engineUrl(wasm.url ?? ""),
+  compressed: !!wasm.compressed,
+});
 
 export const resolveEngine = async (
   search: string,
@@ -88,7 +81,7 @@ export const resolveEngine = async (
       if (manifest.wasm?.url) {
         return {
           entry: engineUrl(manifest.entry ?? ENTRY_FALLBACK),
-          wasm: await preferUncompressed(manifest.wasm),
+          wasm: resolveWasm(manifest.wasm),
           version: manifest.version,
         };
       }
