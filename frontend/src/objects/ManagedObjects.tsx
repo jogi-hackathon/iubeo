@@ -71,6 +71,8 @@ function ObjectRoot({
 }
 
 const warnedIds = new Set<string>();
+/** レイアウトに合わないオブジェクトの警告を出すまでの待ち(ms)。シーンの切り替えの行き過ぎを黙らせるため */
+const UNMATCHED_WARN_DELAY_MS = 300;
 
 /**
  * objectManager のオブジェクトを、シーンのレイアウトに従って描画する。レイアウトの項目と id が一致した物だけ描く
@@ -92,15 +94,20 @@ export function ManagedObjects({
     [layout, objects],
   );
   useEffect(() => {
-    if (!import.meta.env.DEV) {
+    if (!import.meta.env.DEV || unmatched.length === 0) {
       return;
     }
-    for (const o of unmatched) {
-      if (!warnedIds.has(o.id)) {
-        warnedIds.add(o.id);
-        console.warn(`レイアウトに無いオブジェクトは描かない: ${o.id}`);
+    // シーンの切り替えの直後は、前のシーンのオブジェクトがまだ objectStore に残っていることがある
+    // (残っている間は描かない)。それは数フレームで消えるので、少し待ってから、まだ残っている物だけを警告する
+    const timer = setTimeout(() => {
+      for (const o of unmatched) {
+        if (!warnedIds.has(o.id)) {
+          warnedIds.add(o.id);
+          console.warn(`レイアウトに無いオブジェクトは描かない: ${o.id}`);
+        }
       }
-    }
+    }, UNMATCHED_WARN_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [unmatched]);
   return (
     <>

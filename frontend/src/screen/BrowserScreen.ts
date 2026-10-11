@@ -89,6 +89,11 @@ export class BrowserScreen implements ScreenSource {
       CONTENT_HEIGHT,
       location.search,
     );
+    // 1 回だけ描いておく。canvas をまだ一度も描いていないうちに CanvasTexture が GPU へ上がると、
+    // Chrome が「Browser fails extracting valid resource from external image」を出して転送を飛ばす
+    // (テクスチャを作った時点で needsUpdate が立ち、最初の描画で上げられる)。
+    // 電源が入るまでは画面は暗いので、ここで描いた物は見えない
+    this.compose();
     this.syncTimer = window.setInterval(() => void this.syncUrl(), URL_SYNC_MS);
   }
 

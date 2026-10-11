@@ -10,12 +10,19 @@ import {lockPlayerControl} from "../core/playerControl";
 import {warmupShaders} from "../core/ShaderWarmup";
 import {bindNavigator} from "../flow/store";
 import {overview} from "../objects/directory/overview";
+import {setAimedObjectId} from "../objects/interaction/aimStore";
 import {pcSession} from "../objects/pc/session";
 import {localPlayer} from "../player/local";
 import {createSceneManager} from "./sceneManager";
 import {resetSceneReady, whenSceneReady} from "./sceneReady";
 import {createSceneTransitionManager} from "./sceneTransitionManager";
 import {applySpawn} from "./spawn";
+import {
+  createStyledTransition,
+  type DiveTransitionStyle,
+  type TransitionStyle,
+} from "./styledTransition";
+import {setTransitionActive} from "./transitionActive";
 
 const initial = import.meta.env.DEV && DEBUG_REQUESTED ? "test" : "room";
 
@@ -25,7 +32,24 @@ export const sceneManager = createSceneManager({
   available: sceneNames,
 });
 
-let releaseTransitionLock: (() => void) | null = null;
+const coverStyle: TransitionStyle = {
+  run: () => coverScreen(),
+  waitReady: (scene) =>
+    showBarWhileWaiting(whenSceneReady(scene).then(warmupShaders)),
+  finish: () => {
+    uncoverScreen();
+  },
+};
+
+const styled = createStyledTransition({
+  coverStyle,
+  lockControl: lockPlayerControl,
+  onTransitionStart: () => setAimedObjectId(null),
+  setActive: setTransitionActive,
+});
+
+export const setDiveStyle = styled.setDiveStyle;
+export type {DiveTransitionStyle};
 
 /**
  * シーンの切り替えの流れ(goTo・遷移中の状態・フック)。切り替えの結果は sceneManager に commit される。
@@ -34,19 +58,11 @@ let releaseTransitionLock: (() => void) | null = null;
  */
 export const sceneTransitionManager = createSceneTransitionManager({
   sceneManager,
-  runTransition: () => {
-    releaseTransitionLock = lockPlayerControl();
-    return coverScreen();
-  },
-  waitReady: (scene) =>
-    showBarWhileWaiting(whenSceneReady(scene).then(warmupShaders)),
-  finishTransition: () => {
-    uncoverScreen();
-    releaseTransitionLock?.();
-    releaseTransitionLock = null;
-  },
+  ...styled.hooks,
   canStart: () => !coverStore.getState().booting,
 });
+
+styled.bind(sceneTransitionManager);
 
 sceneTransitionManager.onPrepare(({to}) => resetSceneReady(to));
 
