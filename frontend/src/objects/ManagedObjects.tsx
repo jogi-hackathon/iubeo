@@ -1,8 +1,9 @@
-import {useCallback, useEffect, useMemo} from "react";
-import type {Object3D} from "three";
+import {useCallback, useEffect, useMemo, useRef} from "react";
+import type {Group} from "three";
 
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
-import {useIsEnabled, useIsVisible} from "../core/toggles";
+import {addPowerOutline} from "../camera/postprocess/powerOutlineSelection";
+import {useIsEnabled, useIsHighlighted, useIsVisible} from "../core/toggles";
 import {useIsObjectDisabled} from "./disabledObjects";
 import {DummyObject} from "./DummyObject";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
@@ -12,6 +13,8 @@ import {type LayoutSlot, LayoutItemContext} from "./layoutContext";
 import {ObjectStateContext} from "./objectContext";
 import type {GameObject} from "./types";
 import {useObjectsState} from "./useObjects";
+
+const HIGHLIGHT_COLOR = "#2ee06a";
 
 function ObjectRoot({
   object,
@@ -25,14 +28,28 @@ function ObjectRoot({
   const {id} = object;
   const {name, item} = slot;
   const visible = useIsVisible(name);
+  const highlighted = useIsHighlighted(name);
+  const group = useRef<Group>(null);
   const toggledOn = useIsEnabled(name);
   const disabledByKind = useIsObjectDisabled(id);
   const enabled = toggledOn && !disabledByKind;
   const register = useCallback(
-    (root: Object3D | null) =>
-      root && enabled ? registerTarget(id, root) : undefined,
+    (root: Group | null) => {
+      group.current = root;
+      return root && enabled ? registerTarget(id, root) : undefined;
+    },
     [id, enabled],
   );
+  useEffect(() => {
+    const root = group.current;
+    if (!highlighted || !visible || !root) {
+      return;
+    }
+    return addPowerOutline(root, {
+      ignoreDistance: true,
+      color: HIGHLIGHT_COLOR,
+    });
+  }, [highlighted, visible]);
   const state = useMemo(() => ({visible, enabled}), [visible, enabled]);
   const Renderer = kindRenderers[object.kind] ?? DummyObject;
   return (

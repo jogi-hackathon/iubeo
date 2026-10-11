@@ -5,12 +5,14 @@ export type ToggleState = {
   hidden: ReadonlySet<string>;
   /** 機能 OFF のキー。ここに無いキーは機能 ON(初期状態は全部 ON) */
   disabled: ReadonlySet<string>;
+  highlighted: ReadonlySet<string>;
 };
 
 /** ストアの初期状態。ここに挙げたキーだけ、最初から非表示・機能 OFF にする(省略は全部表示・全部機能 ON) */
 export type ToggleInitial = {
   hidden?: readonly string[];
   disabled?: readonly string[];
+  highlighted?: readonly string[];
 };
 
 /**
@@ -31,6 +33,7 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
   let state: ToggleState = {
     hidden: new Set(initial.hidden),
     disabled: new Set(initial.disabled),
+    highlighted: new Set(initial.highlighted),
   };
   const listeners = new Set<() => void>();
 
@@ -79,6 +82,14 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
         notify();
       }
     },
+    isHighlighted: (key: string): boolean => state.highlighted.has(key),
+    setHighlighted: (key: string, highlighted: boolean): void => {
+      const next = toggled(state.highlighted, key, highlighted);
+      if (next) {
+        state = {...state, highlighted: next};
+        notify();
+      }
+    },
     setEnabled: (key: string, enabled: boolean): void => {
       const disabled = toggled(state.disabled, key, !enabled);
       if (disabled) {
@@ -97,7 +108,11 @@ export const TogglesContext = createContext<ToggleStore | null>(null);
 /** 配下のシーンのトグルのストア。トグルを持たないシーンでは null */
 export const useToggles = (): ToggleStore | null => useContext(TogglesContext);
 
-const ALL_ON: ToggleState = {hidden: new Set(), disabled: new Set()};
+const ALL_ON: ToggleState = {
+  hidden: new Set(),
+  disabled: new Set(),
+  highlighted: new Set(),
+};
 const noSubscribe = () => () => {};
 
 /** store のトグルの状態を購読する。store が null なら、全部表示・全部機能 ON で変わらない */
@@ -123,6 +138,13 @@ export const useIsEnabled = (key: string): boolean => {
   const store = useToggles();
   return useSyncExternalStore(store ? store.subscribe : noSubscribe, () =>
     store ? store.isEnabled(key) : true,
+  );
+};
+
+export const useIsHighlighted = (key: string): boolean => {
+  const store = useToggles();
+  return useSyncExternalStore(store ? store.subscribe : noSubscribe, () =>
+    store ? store.isHighlighted(key) : false,
   );
 };
 

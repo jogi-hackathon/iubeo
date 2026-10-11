@@ -4,8 +4,8 @@ import {LocalAuthority} from "../../authority/local/LocalAuthority";
 import {createToggleStore, useIsVisible} from "../../core/toggles";
 import {TogglesProvider} from "../../core/TogglesProvider";
 import {ManagedObjects} from "../../objects";
-import {featureKey} from "../../objects/layout";
 import {Chair, Wall} from "../../props";
+import {tutorialStore, useTutorial} from "../../tutorial";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {ROOM_INITIAL} from "./initial";
 import {
@@ -17,11 +17,14 @@ import {
 } from "./layout";
 import {MatchmakingButton} from "./MatchmakingButton";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
+import {TutorialDirector} from "./TutorialDirector";
+import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorialLook";
 import {WindowPlug} from "./WindowPlug";
 
 function RoomProps() {
   const chairVisible = useIsVisible(CHAIR_KEY);
   const windowVisible = useIsVisible(WINDOW_KEY);
+  const {completed} = useTutorial();
   return (
     <>
       <WhiteWorld />
@@ -37,8 +40,13 @@ function RoomProps() {
         visible={false}
         ao="realtime"
       />
-      <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
-      <MatchmakingButton />
+      <Chair
+        position={CHAIR_POSITION}
+        visible={chairVisible}
+        collidable={false}
+        ao="realtime"
+      />
+      {completed && <MatchmakingButton />}
     </>
   );
 }
@@ -56,11 +64,16 @@ function RoomProps() {
  */
 export function RoomScene() {
   const [toggles] = useState(() =>
-    createToggleStore({disabled: [featureKey("directory", "overview")]}),
+    createToggleStore(
+      toggleInitialFor(
+        tutorialStore.getState().completed ? COMPLETED_LOOK : HIDDEN_LOOK,
+      ),
+    ),
   );
   return (
     <TogglesProvider store={toggles}>
       <RoomProps />
+      <TutorialDirector />
       <LocalAuthority
         scene="room"
         layout={ROOM_LAYOUT}
