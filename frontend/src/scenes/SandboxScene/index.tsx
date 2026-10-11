@@ -46,7 +46,6 @@ function SandboxZone({
       {ZONE_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
-      {}
       <Wall
         position={ZONE_WINDOW_BLOCKER.position}
         size={ZONE_WINDOW_BLOCKER.size}

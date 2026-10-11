@@ -16,6 +16,7 @@ export const MATCHMAKING_BUTTON_ID = "room.matchmaking-button";
 const IDLE_COLOR = "#4cd964";
 const QUEUED_COLOR = "#ff9f43";
 
+// TODO(tutorial): チュートリアルの終わりにマッチングを始める形に置き換える。それまでの仮の入口
 export function MatchmakingButton() {
   const flow = useGameFlow();
   const root = useRef<Group>(null);

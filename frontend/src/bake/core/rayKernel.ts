@@ -1,3 +1,5 @@
+// three-mesh-bvh の WebGPU API は unstable。使い方は node_modules/three-mesh-bvh/src/webgpu/ と
+// 同リポジトリの example/webgpu_gpuPathTracingSimple.js に合わせている。
 import type {BufferGeometry} from "three";
 import {BVHComputeData, wgslTagFn} from "three-mesh-bvh/webgpu";
 import {localId, storage, uniform, workgroupId} from "three/tsl";
@@ -92,7 +94,9 @@ export class RayKernel {
     const resultNode = storage(this.result, "uint", capacity * results);
     this.countUniform = uniform(0, "uint");
 
-    const kernelFn = wgslTagFn`
+    // round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
+    // raycastFirstHit の side は sign(-dot(dir, geometricNormal)): +1 が表面、-1 が裏面
+    const kernelFn = wgslTagFn /* wgsl */ `
       // fn
       fn castRays(
         workgroupSize: vec3u,

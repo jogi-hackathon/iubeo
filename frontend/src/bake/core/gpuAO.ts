@@ -137,7 +137,7 @@ export type ProbeStats = {
 const VISIBILITY: RayKernelExtra = {
   results: 2,
   decl: "var backHits = 0u; var misses = 0u;",
-  perRay: `
+  perRay: /* wgsl */ `
           var farRay: Ray;
           farRay.origin = origin;
           farRay.direction = dir;
