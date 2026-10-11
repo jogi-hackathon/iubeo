@@ -9,6 +9,8 @@ export const HINGE = {
   y: LAPTOP.thickness,
   z: LAPTOP.z - LAPTOP.depth / 2 + 0.01,
   radius: 0.007,
+  x: 0.13,
+  length: 0.06,
 } as const;
 
 export const LID = {

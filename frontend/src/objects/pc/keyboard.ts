@@ -77,3 +77,25 @@ const build = (): KeyCap[] => {
 };
 
 export const KEY_CAPS: readonly KeyCap[] = build();
+
+export type KeyCapGroup = {
+  width: number;
+  depth: number;
+  caps: readonly KeyCap[];
+};
+
+const groupBySize = (caps: readonly KeyCap[]): KeyCapGroup[] => {
+  const groups = new Map<string, KeyCapGroup>();
+  for (const cap of caps) {
+    const key = `${cap.width.toFixed(6)}:${cap.depth.toFixed(6)}`;
+    const group = groups.get(key);
+    if (group) {
+      (group.caps as KeyCap[]).push(cap);
+    } else {
+      groups.set(key, {width: cap.width, depth: cap.depth, caps: [cap]});
+    }
+  }
+  return [...groups.values()];
+};
+
+export const KEY_CAP_GROUPS: readonly KeyCapGroup[] = groupBySize(KEY_CAPS);
