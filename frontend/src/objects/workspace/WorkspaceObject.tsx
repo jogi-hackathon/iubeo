@@ -6,12 +6,10 @@ import {BVHCollider} from "../../core/bvh";
 import {useControlLockWhileWorking} from "../controlLock";
 import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
-import {DESK_PARTS, type DeskPart, type PartLook, type PartShape} from "./desk";
+import {DESK_PARTS, type DeskPart, type PartLook} from "./desk";
 import {WorkspaceFile} from "./WorkspaceFile";
 
 const CYLINDER_SEGMENTS = 10;
-
-type Geometries = Record<PartShape, BoxGeometry | CylinderGeometry>;
 
 const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
   top: new MeshStandardMaterial({color: "#ffffff"}),
@@ -19,13 +17,23 @@ const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
   accent: new MeshStandardMaterial({color: "#3a3a3a"}),
 };
 
-function Part({part, geometries}: {part: DeskPart; geometries: Geometries}) {
+const partGeometry = ({shape, scale: [x, y, z]}: DeskPart) =>
+  shape === "box"
+    ? new BoxGeometry(x, y, z)
+    : new CylinderGeometry(x, z, y, CYLINDER_SEGMENTS);
+
+function Part({
+  part,
+  geometry,
+}: {
+  part: DeskPart;
+  geometry: BoxGeometry | CylinderGeometry;
+}) {
   return (
     <mesh
-      geometry={geometries[part.shape]}
+      geometry={geometry}
       material={MATERIALS[part.look]}
       position={part.position}
-      scale={part.scale}
       {...(part.rotation && {rotation: part.rotation})}
     />
   );
@@ -41,16 +49,10 @@ function Part({part, geometries}: {part: DeskPart; geometries: Geometries}) {
 export function WorkspaceObject({object}: {object: GameObject}) {
   useControlLockWhileWorking(object);
   const {visible} = useObjectState();
-  const geometries = useMemo<Geometries>(
-    () => ({
-      box: new BoxGeometry(1, 1, 1),
-      cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
-    }),
-    [],
-  );
+  const geometries = useMemo(() => DESK_PARTS.map(partGeometry), []);
   useEffect(
     () => () => {
-      for (const geometry of Object.values(geometries)) {
+      for (const geometry of geometries) {
         geometry.dispose();
       }
     },
@@ -60,7 +62,7 @@ export function WorkspaceObject({object}: {object: GameObject}) {
     <group userData={aoModeUserData("realtime")}>
       <BVHCollider enabled={visible}>
         {DESK_PARTS.map((part, i) => (
-          <Part key={i} part={part} geometries={geometries} />
+          <Part key={i} part={part} geometry={geometries[i]!} />
         ))}
       </BVHCollider>
       <WorkspaceFile working={object.users.length > 0} />
