@@ -17,6 +17,7 @@ import {readinessOf} from "./scenes/readiness";
 import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
+import {DiveDirector, WarmupProbe} from "./transition/dive/DiveDirector";
 
 registerDevTab({
   id: "scene",
@@ -54,6 +55,8 @@ export function App() {
         <LocalPlayerSkeleton />
         <FirstPersonCamera />
         <FlyCamera />
+        <DiveDirector />
+        <WarmupProbe />
         <PostProcess />
         <ShaderWarmup />
       </GameCanvas>

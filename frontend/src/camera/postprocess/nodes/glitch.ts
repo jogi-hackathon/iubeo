@@ -14,7 +14,7 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import type {Node, TextureNode} from "three/webgpu";
+import type {Node} from "three/webgpu";
 
 import {glitchStrength} from "../glitchState";
 
@@ -29,10 +29,10 @@ const rand = (x: Node<"float">): Node<"float"> =>
   fract(sin(x.mul(12.9898)).mul(43758.5453));
 
 export const createGlitch = () => ({
-  scene: (sceneColor: TextureNode): Node<"vec4"> =>
+  scene: (sampleAt: (uv: Node<"vec2">) => Node<"vec4">): Node<"vec4"> =>
     Fn(() => {
       const result = vec4(0).toVar();
-      result.assign(sceneColor);
+      result.assign(sampleAt(screenUV));
       If(glitchStrength.greaterThan(0), () => {
         const band = floor(screenUV.y.mul(BANDS)).add(
           floor(time.mul(STEPS_PER_SECOND)).mul(17),
@@ -48,13 +48,9 @@ export const createGlitch = () => ({
           .mul(active);
         const uvShifted = vec2(screenUV.x.add(shift), screenUV.y);
         const lumaAt = (offset: number) =>
-          dot(
-            sceneColor.sample(uvShifted.add(vec2(offset, 0))).level(float(0))
-              .rgb,
-            LUMA,
-          );
+          dot(sampleAt(uvShifted.add(vec2(offset, 0))).rgb, LUMA);
         const gray = lumaAt(GHOST).add(lumaAt(-GHOST)).mul(0.5);
-        const original = sceneColor.sample(screenUV).level(float(0));
+        const original = sampleAt(screenUV);
         result.assign(vec4(mix(original.rgb, vec3(gray), active), original.a));
       });
       return result;
