@@ -1,5 +1,5 @@
 import {useThree} from "@react-three/fiber";
-import {useEffect} from "react";
+import {useLayoutEffect} from "react";
 import {
   Float32BufferAttribute,
   LinearFilter,
@@ -185,7 +185,11 @@ const syncIntensity = (materials: readonly AOMaterial[]) => {
 export function BakedAO({scene}: {scene: string}) {
   const root = useThree((s) => s.scene);
 
-  useEffect(() => {
+  // useLayoutEffect にしてある: シーンの切り替えでは、commit の直後に新しいシーンのベイク対象が
+  // (layout effect で)登録され、この effect の後始末(effect だと passive)より先に通知が届く。
+  // その通知で古いシーンの apply が走ると、新しいシーンの mesh を見て「ベイク結果が合わない」と警告する。
+  // layout にすると、後始末が同じ commit の中で(通知のマイクロタスクより先に)走るので、古い effect は何もしない
+  useLayoutEffect(() => {
     let disposed = false;
     // 最初の貼り付け(または貼らないと決まる)までシェーダーのウォームアップを待たせる。aoMap を貼るとマテリアルが再コンパイルされるため
     const releaseWarmup = holdShaderWarmup();
