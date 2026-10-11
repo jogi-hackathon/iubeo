@@ -89,7 +89,7 @@ type Timeouts struct {
 func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdAt time.Time, timeouts Timeouts, phases PhaseRules, seed uint64) State {
 	st := State{
 		ID:             id,
-		Mode:           api.SessionModeMultiplayer,
+		Mode:           api.Multiplayer,
 		Status:         api.SessionStatusWaiting,
 		CreatedAt:      createdAt,
 		StartTimeout:   timeouts.Start,

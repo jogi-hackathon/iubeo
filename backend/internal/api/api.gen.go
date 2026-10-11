@@ -36,21 +36,6 @@ func (e ConnectionStatus) Valid() bool {
 	}
 }
 
-// Defines values for CreateSessionRequestMode.
-const (
-	CreateSessionRequestModeSingle CreateSessionRequestMode = "single"
-)
-
-// Valid indicates whether the value is a known member of the CreateSessionRequestMode enum.
-func (e CreateSessionRequestMode) Valid() bool {
-	switch e {
-	case CreateSessionRequestModeSingle:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EffectMessageName.
 const (
 	EffectMessageNameConflict EffectMessageName = "conflict"
@@ -470,16 +455,13 @@ func (e SessionFinishedMessageType) Valid() bool {
 
 // Defines values for SessionMode.
 const (
-	SessionModeMultiplayer SessionMode = "multiplayer"
-	SessionModeSingle      SessionMode = "single"
+	Multiplayer SessionMode = "multiplayer"
 )
 
 // Valid indicates whether the value is a known member of the SessionMode enum.
 func (e SessionMode) Valid() bool {
 	switch e {
-	case SessionModeMultiplayer:
-		return true
-	case SessionModeSingle:
+	case Multiplayer:
 		return true
 	default:
 		return false
@@ -727,14 +709,6 @@ type ClientMessage struct {
 
 // ConnectionStatus defines model for ConnectionStatus.
 type ConnectionStatus string
-
-// CreateSessionRequest defines model for CreateSessionRequest.
-type CreateSessionRequest struct {
-	Mode CreateSessionRequestMode `json:"mode"`
-}
-
-// CreateSessionRequestMode defines model for CreateSessionRequest.Mode.
-type CreateSessionRequestMode string
 
 // DirectoryData defines model for DirectoryData.
 type DirectoryData struct {
@@ -1311,9 +1285,6 @@ type GetVoiceToken200JSONResponseBody struct {
 
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
-
-// CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
-type CreateSessionJSONRequestBody = CreateSessionRequest
 
 // AsTransformMessage returns the union data inside the ClientMessage as a TransformMessage
 func (t ClientMessage) AsTransformMessage() (TransformMessage, error) {
@@ -2028,9 +1999,6 @@ type ServerInterface interface {
 	// GetMe 自分の ID と、参加中のセッション
 	// (GET /api/v1/players/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
-	// CreateSession シングルモードのセッションを作る
-	// (POST /api/v1/sessions)
-	CreateSession(w http.ResponseWriter, r *http.Request)
 	// GetSession セッションのスナップショット(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId})
 	GetSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
@@ -2118,20 +2086,6 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateSession operation middleware
-func (siw *ServerInterfaceWrapper) CreateSession(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2363,7 +2317,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.JoinMatchmaking)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/sessions", wrapper.CreateSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sessions/{sessionId}", wrapper.GetSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sessions/{sessionId}/ws", wrapper.ConnectSession)
 

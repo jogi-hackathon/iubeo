@@ -4,7 +4,6 @@ type Schemas = components["schemas"];
 
 export type Me = Schemas["Me"];
 export type MatchmakingStatus = Schemas["MatchmakingStatus"];
-export type CreateSessionRequest = Schemas["CreateSessionRequest"];
 export type ApiErrorBody = Schemas["Error"];
 
 export type SessionSnapshot = Schemas["SessionSnapshot"];

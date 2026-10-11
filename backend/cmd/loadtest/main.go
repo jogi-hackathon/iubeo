@@ -127,7 +127,7 @@ func main() {
 	var (
 		compare = flag.String("compare", "", "結果 JSON をカンマ区切りで指定し、負荷試験ではなく比較チャートを描く")
 		labels  = flag.String("labels", "", "-compare のラベルをカンマ区切りで指定(既定はファイル名)")
-		title   = flag.String("title", "Fargate x86_64 vs ARM64 (Graviton)", "比較チャートの見出し")
+		title   = flag.String("title", "Cloudflare Containers vs EC2 (東京)", "比較チャートの見出し")
 
 		baseURL   = flag.String("url", "", "対象の URL(例 http://localhost:8080)")
 		origin    = flag.String("origin", "http://localhost:5173", "Origin ヘッダ。サーバーの IUBEO_ALLOWED_ORIGINS に含まれる必要がある")

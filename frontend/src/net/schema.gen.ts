@@ -125,26 +125,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/sessions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * シングルモードのセッションを作る
-     * @description マルチプレイのセッションは自動マッチングでのみ作られる。
-     */
-    post: operations["createSession"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/sessions/{sessionId}": {
     parameters: {
       query?: never;
@@ -219,7 +199,7 @@ export interface components {
       message: string;
     };
     /** @enum {string} */
-    SessionMode: "single" | "multiplayer";
+    SessionMode: "multiplayer";
     /** @enum {string} */
     SessionStatus: "waiting" | "playing" | "intermission" | "finished";
     /** @enum {string} */
@@ -339,10 +319,6 @@ export interface components {
       queuedAt: string;
       /** @description status が matched のときだけ */
       sessionId?: string;
-    };
-    CreateSessionRequest: {
-      /** @enum {string} */
-      mode: "single";
     };
     /** @description 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個 */
     Item: {
@@ -937,32 +913,6 @@ export interface operations {
           "application/json": components["schemas"]["Error"];
         };
       };
-    };
-  };
-  createSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateSessionRequest"];
-      };
-    };
-    responses: {
-      /** @description 作ったセッション */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SessionSnapshot"];
-        };
-      };
-      401: components["responses"]["Unauthorized"];
-      409: components["responses"]["Conflict"];
     };
   };
   getSession: {
