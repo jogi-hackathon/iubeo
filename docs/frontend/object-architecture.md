@@ -3,7 +3,7 @@
 フロントエンドで、オブジェクト(ディレクトリ・ワークスペースなど)の状態がどこから来て、誰が置き、どう描くかの方針をまとめる。
 サーバーとの通信の形は [state-schema.md](../backend/state-schema.md) を正とし、この文書はクライアント側の責務を扱う。
 
-> **状態: 実装済み(A〜E)。** 残りは §8・§9。
+> **状態: 実装済み(A〜F)。** 残りは §8・§9。
 
 ## 1. 用語
 
@@ -12,7 +12,7 @@
 | オブジェクト | サーバーの状態にある、置かれた物(`GameObject`)。持ち歩くアイテム(ファイル・ライター)とは別 |
 | 種類(`kind`) | オブジェクトの種類。`directory` / `workspace` / `canvas` / `pc` など |
 | `scope` / `owner` / `seat` | オブジェクトが個人の物(`personal`)か共有(`shared`)か / 個人の物の持ち主 / プレイヤーの席番号。state-schema の値 |
-| id の約束 | サーバーが付けるオブジェクトの id の決まり(`directory-1` / `workspace-{席}` / `canvas-{席}` / `lighter_stand-{席}`)。state-schema §6 |
+| id の約束 | サーバーが付けるオブジェクトの id の決まり(`directory-1` / `workspace-{席}` / `canvas-{席}` / `pc-{席}` / `lighter_stand-{席}`)。state-schema §6 |
 | プロップ | イス・壁・窓など、シーンが自分で置く飾り。オブジェクトではなく、状態を持たない |
 | オーソリティ(authority) | オブジェクトの状態を持ち、ルールを決める相手。状態を配り、インタラクトの要求を受けて結果を決める。`LocalAuthority` か `ServerAuthority`(→ §2) |
 | `LocalAuthority` | フロントに埋め込んだ、ブラウザの中の簡易サーバー |
@@ -36,7 +36,7 @@
 
 | シーン | オーソリティ | 用途 |
 |---|---|---|
-| room | `LocalAuthority` | チュートリアル。完全にローカルで、サーバーを使わない |
+| room | `LocalAuthority` | チュートリアル。オブジェクトの状態とルールはローカルで持つ(PC の画面だけは WISP のトークンと `/judge` を使う) |
 | test | `LocalAuthority` | 開発用。見た目・インタラクトの確認 |
 | sandbox | `ServerAuthority`(マルチ) | ゲーム本体。セッションに入っていないとき(デバッグでの直接移動・AO のベイク)は、オーソリティを置かず建物だけを出す |
 
@@ -47,7 +47,7 @@
 ```tsx
 // room(RoomScene)。initial は、シーンが決める初期設定(項目名ごと。在庫など)
 <LocalAuthority scene="room" layout={ROOM_LAYOUT} initial={ROOM_INITIAL} />
-<ManagedObjects layout={ROOM_LAYOUT} />
+<ManagedObjects layout={ROOM_LAYOUT} ao="realtime" />
 
 // sandbox(SandboxScene)。session は、マウントのときの gameFlow.currentSession()
 {session && (
@@ -58,10 +58,13 @@
       playerId={session.playerId}
       spawnOf={sandboxSpawnOf}
       onReady={gameFlow.sessionReady}
+      onFinished={gameFlow.sessionFinished}
       onClosed={gameFlow.sessionClosed}
     />
     <ManagedObjects layout={SANDBOX_LAYOUT} ao="realtime" />
     <RemotePlayers />
+    <VoiceChat sessionId={session.sessionId} playerId={session.playerId} />
+    <SpectateOnElimination />
   </>
 )}
 ```
@@ -92,7 +95,7 @@
 
 ```
 room(LocalAuthority)にいる
-  → startMatchmaking(今は room の机の上の仮ボタンと開発用パネルのボタンがきっかけ)
+  → startMatchmaking(今は、チュートリアルを終えると room に出る仮ボタンと、開発用パネルのボタンがきっかけ)
   → プレイヤー ID を発行(Cookie)。参加中のセッションがあれば、待機を飛ばして成立
   → マッチングの待機を要求(room にいたまま待つ。1 秒ごとに状況を見る)
   → マッチング成立(sessionId が決まる)
@@ -103,7 +106,7 @@ room(LocalAuthority)にいる
 
 ゲームの流れ(`flow/gameFlow.ts`)は、シーンもオーソリティも知らない純粋な状態機械で、状態は `idle` → `issuing` → `queued` → `matched` → `entering` → `inSession`(失敗は `error`)。HTTP・シーンの移動・待ちは引数で受け取る。
 
-- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の机の上に置いた仮のボタン(`scenes/RoomScene/MatchmakingButton.tsx`。チュートリアルで置き換える予定の TODO つき)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ。仮のボタンはオーソリティが管理するオブジェクトにはせず、シーンが置く操作対象(`objects/interaction/clientTargets.ts`)として狙いとクリックだけを登録する。
+- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の机の上に置いた仮のボタン(`scenes/RoomScene/MatchmakingButton.tsx`。チュートリアルを終えた後だけ出す。チュートリアルの終わりに自動でマッチングを始める形に置き換える予定の TODO つき)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ。仮のボタンはオーソリティが管理するオブジェクトにはせず、シーンが置く操作対象(`objects/interaction/clientTargets.ts`)として狙いとクリックだけを登録する。
 - 待機中の扱い(サーバー側の事実に合わせる):
   - サーバーは 10 秒見ないと待機列から外すので、1 秒ごとに GET する。GET が 404(`not_queued`)なら入り直す。
   - 入るとき 409(`in_session`)なら、既にセッションに居る。`GET /players/me` の `sessionId` で成立として進む。
@@ -130,11 +133,12 @@ room(LocalAuthority)にいる
 オブジェクトをどこに、どの向き・見た目で置くかは、クライアントのシーンが決める(サーバーは位置を配らない。state-schema §6)。
 
 ```ts
-// RoomScene/layout.ts(イメージ)。キーが項目名
-export const ROOM_LAYOUT = {
-  directory: directoryItem({id: "directory-1", position: [...], look: "small"}),
-  desk: {id: "workspace-1", position: [...], yaw: 0},
-  easel: {id: "canvas-1", position: [...], yaw: CANVAS_YAW}, // canvas の id はまだ約束に無い(仮)
+// RoomScene/layout.ts(要約)。キーが項目名
+export const ROOM_LAYOUT: SceneLayout = {
+  directory: directoryItem({id: "directory-1", position: DIRECTORY_POSITION, look: "small"}),
+  workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
+  canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
+  pc: {id: "pc-1", position: PC_POSITION, yaw: PC_YAW, look: "plain"},
 };
 ```
 
@@ -152,19 +156,28 @@ export const ROOM_LAYOUT = {
 1 つの種類の見た目と、クライアントで完結する振る舞いは、その種類のコンポーネントの中にフックで閉じ込める。
 
 ```tsx
+// objects/workspace/WorkspaceObject.tsx(要約)
 function WorkspaceObject({object}: {object: GameObject}) {
-  const data = useWorkspaceData(object); // data の解釈
   useControlLockWhileWorking(object); // 作業中の操作のロック
-  useInteraction(object, onInteract); // マウントで登録、アンマウントで解除
-  return <Desk />;
+  return <WorkspaceFile working={object.users.length > 0} />; // 机の部品(Part)は省略
 }
+
+// objects/pc/PcObject.tsx(要約)。クライアントで完結する処理がある種類だけ、インタラクトの処理を登録する
+useInteraction(object, pcInteraction); // マウントで登録、アンマウントで解除
 ```
 
+- `useInteraction` で登録した処理が `true` を返すと、そこで終わる(ディレクトリの俯瞰ビューなど)。登録が無いか `false` なら、既定どおり `interact` をオーソリティへ送る(`objects/interaction/handlers.ts`)。
+
 - 中央に残すのは、`ObjectManager`(状態)、`ManagedObjects`(種類 → コンポーネントの表と、レイアウトの適用)、`Interaction`(視線の先の判定)だけ。
+
 - 種類を足す・消すときに触るのは、その種類のフォルダと、表の 1 行だけ。種類の一覧を中央に別に持たない。
+
 - コンポーネントが持つのは見た目と、俯瞰ビューを開く・操作をロックするなどのクライアント側の振る舞いだけ。ルールは持たない(→ §3.1)。
+
 - 見た目の形(ディレクトリの山の積み方など)は、オブジェクトの `id` ではなくレイアウトの項目から決める(今は `id` を山の乱数の種にしていて、見た目が id の付け方に左右される)。
+
 - room の小さいディレクトリと sandbox の大きいディレクトリは、種類は同じ `directory` で、見た目のコンポーネントを分ける(`SmallDirectory` / `LargeDirectory`)。振る舞いは共通のフックで共有し、どちらで描くかはレイアウトの項目が決める。
+
 - レイアウトの項目はあるが、種類 → コンポーネントの表に無い種類は、箱で描く(test の確認用の種類 `dummy` は `LocalAuthority` の中だけで使い、スキーマには足さない)。
 
 ## 7. `LocalAuthority` と開発用の操作
@@ -185,12 +198,13 @@ function WorkspaceObject({object}: {object: GameObject}) {
 | D | `LocalAuthority`(room・test)、自分の ID と要求の送り先をオーソリティから引く | 済 |
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
 | F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
+| - | room のチュートリアル(`tutorial/`、`scenes/RoomScene/TutorialDirector.tsx`)。終えるとマッチングのボタンが出る | 済 |
 
 残り:
 
-- マッチングのきっかけは room の仮のボタン(チュートリアルの終わりから呼ぶ形に置き換えるのは未実装。`MatchmakingButton.tsx` の TODO)。
+- マッチングのきっかけは、チュートリアルを終えた後に出る room の仮のボタン(チュートリアルの終わりに自動でマッチングを始める形に置き換えるのは未実装。`MatchmakingButton.tsx` の TODO)。シングルプレイの動線は設けない(人数がそろわなければ CPU で埋まる。state-schema §6.1)。
 - 勝敗画面は作らない(結果は console と HUD の 1 行だけ)。
-- フェーズの数値・バランスの調整、マッチングで人数が足りないときの扱いは未着手(issue #84 の対象外)。
+- フェーズの数値・バランスの調整は未着手(issue #84 の対象外)。
 
 ## 9. 後で片付けるもの・依頼事項
 

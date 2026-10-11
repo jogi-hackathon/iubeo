@@ -6,7 +6,7 @@
 ## 実行
 
 ```sh
-# 全体を 1 回(ビルド・バンドル・ブラウザ 3 モード・Go ベンチ・負荷試験)。回数は既定 3
+# 全体を 1 回(ビルド・バンドル・ブラウザ 4 モード・Go ベンチ・負荷試験)。回数は既定 3
 perf/run-all.sh <label> [回数]          # 例: perf/run-all.sh baseline 3
 node perf/lib/summarize.mjs baseline after   # ラベルごとの中央値を並べる(変化率つき)
 ```
@@ -18,6 +18,7 @@ cd frontend && pnpm exec vite build --sourcemap              # 計測対象の�
 node ../perf/lib/bench-browser.mjs --label x --runs 3 --seconds 8                    # 通常
 node ../perf/lib/bench-browser.mjs --label x --runs 3 --seconds 6 --uncapped --move  # 上限なし・前進
 node ../perf/lib/bench-browser.mjs --label x --runs 3 --seconds 2 --net regular4g --cpu 4  # 4G 相当 + CPU 4 倍遅延
+node ../perf/lib/bench-browser.mjs --label x --runs 3 --seconds 1 --repeat --net regular4g --cpu 4  # 再訪(HTTP キャッシュあり)
 node ../perf/lib/bundle-report.mjs                                                    # サイズ・内訳(PERF_DEEP=1 で three の内訳)
 node ../perf/lib/screenshot.mjs <label>                                               # 見た目の回帰チェック用
 node ../perf/lib/diff-shots.mjs A.png B.png                                           # 2 枚の差分
@@ -36,7 +37,7 @@ cd ../backend && go test ./internal/session -run '^$' -bench . -benchmem -count 
 | fps (通常) | vsync 有りの実際の表示。60 で頭打ちになるので、負荷の変化は見えにくい |
 | JS 転送量 | ブラウザが実際に受け取った JS の大きさ(サーバー側は br/gzip で配信。キャッシュ済み) |
 | RTT / 配信間隔 | 負荷試験。自分の transform が配信で戻るまでと、transforms の届く間隔 |
-| Go ベンチ | `Step`・受信デコード・配信の JSON 化の 1 回あたりのコスト |
+| Go ベンチ | `Step`・受信デコード・配信のエンコード(JSON とバイナリ)の 1 回あたりのコスト |
 
 ## 測り方の注意
 
@@ -50,6 +51,7 @@ cd ../backend && go test ./internal/session -run '^$' -bench . -benchmem -count 
 ## ファイル
 
 - `run-all.sh` … 全体の実行
+- `ws-ab.sh` … 位置のメッセージの方式(JSON / バイナリ)を交互に負荷試験し、サーバーの CPU 時間とメモリも記録する
 - `lib/bench-browser.mjs` … ブラウザ計測(起動・フレーム・ロングタスク・転送量)
 - `lib/bundle-report.mjs` … バンドルのサイズ(raw/gzip/brotli)と sourcemap からの内訳
 - `lib/serve.mjs` … 静的配信(br/gzip 圧縮つき、SPA フォールバック)。`PERF_ENGINE_DIR` を渡すと `/engine/*` をそこから配る(R2 の再現)
