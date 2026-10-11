@@ -134,7 +134,7 @@ export const ROOM_LAYOUT: SceneLayout = {
   }),
   workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
-  pc: {id: "pc-1", position: PC_POSITION},
+  pc: {id: "pc-1", position: PC_POSITION, look: "plain"},
 };
 
 /**

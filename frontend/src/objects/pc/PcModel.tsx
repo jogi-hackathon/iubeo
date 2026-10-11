@@ -46,11 +46,13 @@ export function PcModel({
   screen,
   screenRef,
   memoRef,
+  showMemo = true,
   on,
 }: {
   screen: MeshBasicNodeMaterial;
   screenRef?: Ref<Mesh>;
   memoRef?: Ref<Mesh>;
+  showMemo?: boolean;
   on: boolean;
 }) {
   const glass = useMemo(() => createCurvedScreenGeometry(), []);
@@ -62,9 +64,11 @@ export function PcModel({
       <Tower />
       <Keyboard />
       <Mouse />
-      <group position={[MEMO.x, 0, MEMO.z]} rotation={[MEMO.tilt, 0, 0]}>
-        <TaskMemo ref={memoRef} />
-      </group>
+      {showMemo && (
+        <group position={[MEMO.x, 0, MEMO.z]} rotation={[MEMO.tilt, 0, 0]}>
+          <TaskMemo ref={memoRef} />
+        </group>
+      )}
     </group>
   );
 }

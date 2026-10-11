@@ -323,6 +323,7 @@ export function PcObject({object}: {object: GameObject}) {
       screen={logoOn && !showing ? logoCrt.material : crt.material}
       screenRef={screenRef}
       memoRef={memoRef}
+      showMemo={item.look !== "plain"}
       on={showing || logoOn}
     />
   );
