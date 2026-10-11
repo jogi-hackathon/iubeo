@@ -1,8 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import {
-  BAR_FILL_MS,
-  BAR_HOLD_MS,
   COVER_BAR_DELAY_MS,
   COVER_IN_MS,
   COVER_OUT_MS,
@@ -70,23 +68,16 @@ describe("coverScreen / uncoverScreen", () => {
 });
 
 describe("finishBootCover", () => {
-  it("進捗バーを 100% まで伸ばし切ってから、起動を終えて覆いを外す", async () => {
+  it("進捗バーを 100% にして、待たずに起動を終えて覆いを外す", () => {
     coverStore.setCovered(true);
     coverStore.setBar(6, 5);
-    const p = finishBootCover();
+    finishBootCover();
 
-    await vi.advanceTimersByTimeAsync(0);
-    expect(coverStore.getState()).toMatchObject({
-      covered: true,
-      booting: true,
-      bar: {total: 6, done: 6},
-    });
-
-    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS);
-    await p;
+    // バーの伸びを待たない(フェードアウトと同時に走らせる)
     expect(coverStore.getState()).toMatchObject({
       covered: false,
       booting: false,
+      bar: {total: 6, done: 6},
     });
   });
 });
@@ -101,12 +92,9 @@ describe("showBarWhileWaiting", () => {
     expect(coverStore.getState().bar).toBeNull();
   });
 
-  it("準備が遅ければ、COVER_BAR_DELAY_MS のあとにバーを出し、終わったら 100% まで伸ばし切ってから resolve する", async () => {
+  it("準備が遅ければ、COVER_BAR_DELAY_MS のあとにバーを出し、終わったら 100% にする", async () => {
     const gate = deferred();
-    let done = false;
-    const p = showBarWhileWaiting(gate.promise).then(() => {
-      done = true;
-    });
+    const p = showBarWhileWaiting(gate.promise);
 
     await vi.advanceTimersByTimeAsync(COVER_BAR_DELAY_MS - 1);
     expect(coverStore.getState().bar).toBeNull();
@@ -114,24 +102,17 @@ describe("showBarWhileWaiting", () => {
     expect(coverStore.getState().bar).toMatchObject({total: 1, done: 0});
 
     gate.resolve();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(coverStore.getState().bar).toMatchObject({total: 1, done: 1});
-    expect(done).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS);
     await p;
-    expect(done).toBe(true);
     expect(coverStore.getState().bar).toMatchObject({total: 1, done: 1});
   });
 
-  it("準備が終わっても覆いは外さない(バーを伸ばし切っても covered のまま)", async () => {
+  it("準備が終わっても覆いは外さない(バーを 100% にしても covered のまま)", async () => {
     coverStore.setCovered(true);
     const gate = deferred();
     const p = showBarWhileWaiting(gate.promise);
     await vi.advanceTimersByTimeAsync(COVER_BAR_DELAY_MS * 10);
     expect(coverStore.getState().covered).toBe(true);
     gate.resolve();
-    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS);
     await p;
     expect(coverStore.getState().covered).toBe(true);
   });

@@ -6,10 +6,6 @@ export const COVER_IN_MS = 300;
 export const COVER_OUT_MS = 500;
 /** 覆った後、準備を待っている間に進捗バーを出すまでの時間(速い遷移ではバーを出さない) */
 export const COVER_BAR_DELAY_MS = 500;
-/** 進捗バーが 100% まで伸び切る時間(ms)。CSS の .cover-bar-fill の transition と合わせる */
-export const BAR_FILL_MS = 400;
-/** バーが 100% に達したあと、覆いを外し始めるまで止めておく時間(ms) */
-export const BAR_HOLD_MS = 150;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,28 +27,29 @@ export const uncoverScreen = (): void => {
 };
 
 /**
- * 出ている進捗バーを 100% まで伸ばし切り、少し止めてから resolve する(バーが進んでいる途中でフェードを始めない)。
- * バーが出ていなければ、すぐ resolve する
+ * 出ている進捗バーを 100% まで伸ばす。伸び切るのを待たない。
+ * バーの伸び(CSS の transition)は覆いのフェードアウトと同時に走るので、フェードが終わる頃には 100% に着いている。
+ * 待つと、その分だけそのまま操作できない時間が伸びる(起動・シーンの遷移のどちらでも毎回払う)。
+ * バーが出ていなければ何もしない
  */
-export const completeBar = async (): Promise<void> => {
+export const completeBar = (): void => {
   const bar = coverStore.getState().bar;
   if (bar === null) {
     return;
   }
   coverStore.setBar(bar.total, bar.total);
-  await sleep(BAR_FILL_MS + BAR_HOLD_MS);
 };
 
 /** 起動の覆いを外し、シーンの遷移を始められるようにする。進捗バーを 100% にしてから外す */
-export const finishBootCover = async (): Promise<void> => {
-  await completeBar();
+export const finishBootCover = (): void => {
+  completeBar();
   coverStore.finishBoot();
   uncoverScreen();
 };
 
 /**
  * ready が終わるまで待つ。覆ったまま COVER_BAR_DELAY_MS 以上かかったら、単一の段階(シーンの準備)の進捗バーを出す。
- * 終わったら、バーが出ていれば 100% まで伸ばし切ってから resolve する(覆いは外さない。バーは覆いと一緒にフェードアウトさせる)。
+ * 終わったら、バーが出ていれば 100% にする(覆いは外さない。バーは覆いと一緒にフェードアウトさせる)。
  * ready が終わらなければ、ずっと覆ったまま待つ。ready が reject したら、バーを消して例外を伝える
  */
 export const showBarWhileWaiting = async (
@@ -69,5 +66,5 @@ export const showBarWhileWaiting = async (
     throw e;
   }
   clearTimeout(timer);
-  await completeBar();
+  completeBar();
 };

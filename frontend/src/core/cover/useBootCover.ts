@@ -31,7 +31,7 @@ export function useBootCover(initialScene: SceneName, warmedUp: boolean): void {
       coverStore.setBar(total, bootStageDone({total, warmedUp, sceneReady}));
     }
     if (warmedUp && sceneReady) {
-      void finishBootCover();
+      finishBootCover();
     }
   }, [warmedUp, sceneReady]);
 }
