@@ -52,7 +52,9 @@ browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2）
 | `IUBEO_VC_MEDIA_URL` | `https://media.thirdlf03.com:4443` | MoQ(WebTransport) |
 
 EC2 では `terraform.tfvars` の `vc_private_key` / `vc_signaling_url` / `vc_media_url` から
-`/etc/iubeo/env` に入る（`infra/aws/terraform/README.md`）。手元は `.env` に書く（`.env` は追跡しない）。
+`/etc/iubeo/env` に入る（`infra/aws/terraform/README.md`）。ただし `/etc/iubeo/env` は初回起動時にしか
+作らないので、**VC を入れる前に作ったインスタンスには入っていない**（503 になる）。反映の手順は
+`infra/aws/terraform/README.md` の「注意」を参照。手元は `.env` に書く（`.env` は追跡しない）。
 
 ```sh
 # 手元の例
@@ -60,6 +62,19 @@ IUBEO_VC_PRIVATE_KEY=<vc ホストの private.jwk の d>
 IUBEO_VC_SIGNALING_URL=wss://vc.thirdlf03.com/v1/signaling
 IUBEO_VC_MEDIA_URL=https://media.thirdlf03.com:4443
 ```
+
+Cloudflare Containers（`target` が `ec2` でないとき。ADR-0005）では、`cf` で入れた Worker の env を
+**`worker/backend.ts` の `voiceEnv` が `container.start` の env へ載せる**。Worker の env はコンテナへ
+自動で渡らないので、`cloudflare.config.ts` に足すだけでは効かない。鍵の投入は 1 回だけ:
+
+```sh
+# VC ホストの /etc/vc/keys/private.jwk の d。値は terraform.tfvars の vc_private_key と同じ
+cf workers secrets update IUBEO_VC_PRIVATE_KEY --worker iubeo-backend --text <d>
+```
+
+`IUBEO_VC_SIGNALING_URL` / `IUBEO_VC_MEDIA_URL` は秘密ではないので `cloudflare.config.ts` に
+`bindings.text` で直書きする。3 つとも揃っていないとサーバーは「VC 無し」になり、
+`GET /api/v1/voice/token` は 503（`voice_unavailable`）を返す。
 
 ## 対象ブラウザ
 

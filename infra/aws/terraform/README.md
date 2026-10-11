@@ -69,5 +69,24 @@ Discord の interactions エンドポイントには `control_function_url` を�
 
 - セッションはバックエンドのメモリ上にしか無いので、インスタンスを停止・再起動すると**全セッションが消えます**。
   自動停止（既定 3 時間後）もこの対象です。
+
 - EIP は停止しても解放されず、アドレスも変わりません。フロントの向き先（オリジン）を書き換える必要はありません。
+
 - `user_data` を変えてもインスタンスは作り直しません（`user_data_replace_on_change = false`）。反映は手で行います。
+  とくに `/etc/iubeo/env` は**初回起動時にしか作らない**（署名鍵と WISP 鍵を作り直さないため）。
+  そのため、あとから足した env（例: `IUBEO_VC_*`）は既存インスタンスには入らず、`deploy_command`
+  （イメージの入れ替え）でも入りません。反映するには次のどちらか:
+
+  - **作り直す**: `terraform apply -replace=aws_instance.backend`
+    （EIP はそのまま。署名鍵と WISP 鍵は生成し直しになるので、プレイヤーの Cookie は無効になる）
+
+  - **起動中のインスタンスに足す**（鍵はそのまま。backend だけ再起動する）
+
+    ```sh
+    aws ssm send-command --region ap-northeast-1 --document-name AWS-RunShellScript \
+      --targets Key=instanceids,Values=$(terraform output -raw backend_instance_id) \
+      --parameters commands='printf "IUBEO_VC_PRIVATE_KEY=%s\nIUBEO_VC_SIGNALING_URL=%s\nIUBEO_VC_MEDIA_URL=%s\n" "<VC ホストの private.jwk の d>" "wss://vc.thirdlf03.com/v1/signaling" "https://media.thirdlf03.com:4443" >> /etc/iubeo/env; systemctl restart iubeo'
+    ```
+
+  反映できたかは、セッション中に `GET /api/v1/voice/token` が 200（未設定なら 503 `voice_unavailable`）
+  になることで確かめます（[voice-chat.md](../../../docs/voice-chat.md)）。

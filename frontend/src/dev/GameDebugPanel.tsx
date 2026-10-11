@@ -1,14 +1,8 @@
-import {
-  type CSSProperties,
-  Fragment,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import {type CSSProperties, Fragment, useSyncExternalStore} from "react";
 
 import {authorityRegistry} from "../authority/registry";
 import {useTeamState} from "../authority/team";
-import {useDebugFlags} from "../core/debug/flags";
+import {mutedStyle, rowStyle} from "../core/debug/ui";
 import type {JsonValue} from "../core/json";
 import {useItemState} from "../items";
 import type {Team} from "../net/types";
@@ -20,34 +14,31 @@ import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
 import {useSceneState} from "../scenes/useScene";
 import {type LocalDevOps, getLocalDevOps} from "./localDevOps";
 
-// パネルは Canvas の外の DOM なので、操作するには Esc で pointer lock を解除してから使う。
-// SceneDebugPanel(左上)・PostProcessPanel(右上)と重ならないよう左下に置く
-const panelStyle: CSSProperties = {
-  position: "fixed",
-  bottom: 0,
-  left: 0,
-  boxSizing: "border-box",
-  width: 360,
-  padding: "6px 8px",
-  font: "11px/1.5 ui-monospace, Menlo, monospace",
-  color: "#fff",
-  background: "rgba(0,0,0,0.75)",
-  zIndex: 10001,
+const headStyle: CSSProperties = {...mutedStyle, marginTop: 6};
+
+let lastRejected = "";
+const rejectedListeners = new Set<() => void>();
+objectManager.on("interactRejected", ({objectId, reason}) => {
+  lastRejected = `${objectId}: ${reason}`;
+  for (const l of rejectedListeners) {
+    l();
+  }
+});
+const subscribeRejected = (l: () => void) => {
+  rejectedListeners.add(l);
+  return () => rejectedListeners.delete(l);
 };
-const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
-const headStyle: CSSProperties = {marginTop: 6, opacity: 0.7};
 
 /**
- * Shift+F10 で開くオブジェクト・アイテム管理パネル(VITE_ENABLE_DEBUG=true のときのみ)。
+ * dev パネルの Game タブ(オブジェクト・アイテム・チームの管理)。
  * 今の窓口(local / server / none)を表示する。開発用の操作(置く・外す・手持ち)は、窓口が dev を持つときだけ使える
  * (ローカルのオーソリティが無ければ、押せないように無効にする)。interact だけは、実際のゲームと同じく objectManager から要求を送る
  */
 export function GameDebugPanel() {
-  const {game} = useDebugFlags();
   const {objects} = useObjectsState();
   const {held} = useItemState();
   const {current: sceneName} = useSceneState();
-  const [rejected, setRejected] = useState("");
+  const rejected = useSyncExternalStore(subscribeRejected, () => lastRejected);
   const authority = useSyncExternalStore(
     authorityRegistry.subscribe,
     authorityRegistry.current,
@@ -59,20 +50,8 @@ export function GameDebugPanel() {
     TEST_SPARE_IDS.includes(item.id),
   );
 
-  useEffect(
-    () =>
-      objectManager.on("interactRejected", ({objectId, reason}) =>
-        setRejected(`${objectId}: ${reason}`),
-      ),
-    [],
-  );
-
-  if (!game) {
-    return null;
-  }
-
   return (
-    <div style={panelStyle}>
+    <>
       <div style={headStyle}>authority: {kind}</div>
       {hasSpares && (
         <div style={rowStyle}>
@@ -161,7 +140,7 @@ export function GameDebugPanel() {
           edit held file
         </button>
       </div>
-    </div>
+    </>
   );
 }
 

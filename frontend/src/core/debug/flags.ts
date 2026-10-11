@@ -5,12 +5,6 @@ export interface DebugFlags {
   grid: boolean;
   bvh: boolean;
   freeCamera: boolean;
-  /** ポストプロセス調整パネル(camera/postprocess) */
-  postfx: boolean;
-  /** シーン管理パネル(scenes/SceneDebugPanel) */
-  scene: boolean;
-  /** オブジェクト・アイテム管理パネル(dev/GameDebugPanel) */
-  game: boolean;
 }
 
 /** VITE_ENABLE_DEBUG=true のときだけデバッグ機能(?debug・ホットキー)が有効になる */
@@ -21,18 +15,12 @@ const ALL_OFF: DebugFlags = {
   grid: false,
   bvh: false,
   freeCamera: false,
-  postfx: false,
-  scene: false,
-  game: false,
 };
 const ALL_ON: DebugFlags = {
   stats: true,
   grid: true,
   bvh: false,
   freeCamera: false,
-  postfx: false,
-  scene: false,
-  game: false,
 };
 
 /** デバッグ機能が有効で、URL に ?debug が付いているか(デバッグ用の既定シーン・stats・grid の ON の条件) */
