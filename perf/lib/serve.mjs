@@ -63,13 +63,41 @@ const loadHeaderRules = async (root) => {
   return rules;
 };
 
-/** root 配下を配るサーバーを起動し、{url, close} を返す */
-export const serveDir = async (root, port = 0) => {
+/** root 配下を配るサーバーを起動し、{url, close} を返す。
+ * engineDir を渡すと /engine/* をそこから配る(R2 のエンジン配信の再現。見つからなければ 404 で、SPA に落とさない)。
+ * 既定では圧縮しない(いまの R2 は gecko.js を圧縮せずに返すため。PERF_ENGINE_COMPRESS=1 で br を付ける) */
+export const serveDir = async (root, port = 0, {engineDir = process.env.PERF_ENGINE_DIR} = {}) => {
   const rules = await loadHeaderRules(root);
   const noCache = process.env.PERF_NO_CACHE === "1";
   return new Promise((resolve) => {
     const server = createServer(async (req, res) => {
       const pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      if (engineDir && pathname.startsWith("/engine/")) {
+        const file = normalize(join(engineDir, pathname.slice("/engine/".length)));
+        try {
+          if (!file.startsWith(engineDir)) throw new Error("outside engine dir");
+          const raw = await readFile(file);
+          const headers = {
+            "content-type": TYPES[extname(file)] ?? "application/octet-stream",
+            "cache-control": "public, max-age=3600",
+            "cross-origin-resource-policy": "cross-origin",
+          };
+          let body = raw;
+          if (process.env.PERF_ENGINE_COMPRESS === "1" && COMPRESSIBLE.has(extname(file))) {
+            const accept = String(req.headers["accept-encoding"] ?? "");
+            const enc = accept.includes("br") ? "br" : accept.includes("gzip") ? "gzip" : null;
+            if (enc) {
+              body = compressed(file, raw, enc);
+              headers["content-encoding"] = enc;
+            }
+          }
+          res.writeHead(200, headers);
+          res.end(req.method === "HEAD" ? undefined : body);
+        } catch {
+          res.writeHead(404).end();
+        }
+        return;
+      }
       let file = normalize(join(root, pathname));
       if (!file.startsWith(root) || pathname === "/_headers") {
         file = join(root, "index.html");
