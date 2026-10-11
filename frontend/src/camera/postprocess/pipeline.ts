@@ -27,6 +27,7 @@ import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 
 import {createAimOutline} from "./nodes/aimOutline";
 import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
+import {createGlitch} from "./nodes/glitch";
 import {pixelateUV} from "./nodes/pixelate";
 import {createPowerOutline} from "./nodes/powerOutline";
 import {
@@ -87,6 +88,7 @@ export const createPostProcessPipeline = (
   // 使うグラフに含めたときだけ更新される。effect の on/off をまたいで使い回す。
   // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
   const bloomNode = bloom(sceneColor);
+  const glitch = createGlitch();
   const aimOutline = createAimOutline(scene, camera);
   const powerOutline = createPowerOutline(scene, camera);
 
@@ -116,9 +118,8 @@ export const createPostProcessPipeline = (
       );
     }
 
-    let color: Node<"vec4"> = s.bloom.enabled
-      ? sceneColor.add(bloomNode)
-      : sceneColor;
+    const base = glitch.scene(sceneColor);
+    let color: Node<"vec4"> = s.bloom.enabled ? base.add(bloomNode) : base;
 
     color = powerOutline.composite(color);
     color = aimOutline.composite(color);

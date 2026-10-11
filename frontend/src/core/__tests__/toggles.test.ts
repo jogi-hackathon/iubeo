@@ -213,3 +213,26 @@ describe("アクティブなトグルの登録簿", () => {
     off2();
   });
 });
+
+describe("highlighted", () => {
+  it("初期は空で、setHighlighted で付け外しでき、変わったときだけ通知する", () => {
+    const store = createToggleStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+    expect(store.isHighlighted("workspace")).toBe(false);
+
+    store.setHighlighted("workspace", true);
+    store.setHighlighted("workspace", true);
+    expect(store.isHighlighted("workspace")).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    store.setHighlighted("workspace", false);
+    expect(store.isHighlighted("workspace")).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("initial.highlighted で最初から付けられる", () => {
+    const store = createToggleStore({highlighted: ["directory"]});
+    expect(store.isHighlighted("directory")).toBe(true);
+  });
+});

@@ -11,10 +11,10 @@ import {sceneTransitionManager} from "./sceneStore";
 import {useSceneState, useTransitionState} from "./useScene";
 
 function ToggleRows({store}: {store: ToggleStore}) {
-  const {hidden, disabled} = useToggleStoreState(store);
+  const {hidden, disabled, highlighted} = useToggleStoreState(store);
   return (
     <div style={{marginTop: 6}}>
-      <div>room: 表示 / 機能</div>
+      <div>room: 表示 / 機能 / 縁</div>
       {ROOM_PROP_KEYS.map((key) => (
         <div key={key}>
           <input
@@ -29,6 +29,12 @@ function ToggleRows({store}: {store: ToggleStore}) {
             checked={!disabled.has(key)}
             disabled={hidden.has(key)}
             onChange={(e) => store.setEnabled(key, e.target.checked)}
+          />
+          <input
+            type="checkbox"
+            aria-label={`${key} 縁取り`}
+            checked={highlighted.has(key)}
+            onChange={(e) => store.setHighlighted(key, e.target.checked)}
           />{" "}
           {key}
         </div>

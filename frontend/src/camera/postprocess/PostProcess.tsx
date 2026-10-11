@@ -4,6 +4,7 @@ import {Vector3} from "three";
 import type {Renderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {updateGlitch} from "./glitchState";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
 import {updatePowerOutline} from "./powerOutlineSelection";
 import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
@@ -34,6 +35,7 @@ export function PostProcess() {
   useFrame(() => {
     if (pipeline.current && getPostProcessSettings().enabled) {
       updatePowerOutline(camera.getWorldPosition(cameraPosition));
+      updateGlitch();
       pipeline.current.render();
     } else {
       gl.render(scene, camera);

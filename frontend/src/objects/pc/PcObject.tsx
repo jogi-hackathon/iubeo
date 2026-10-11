@@ -9,6 +9,7 @@ import {getEyePosition, localPlayer} from "../../player";
 import {isSearchResultsUrl} from "../../screen/browserChrome";
 import {prewarmEngine} from "../../screen/engine";
 import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
+import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import {objectManager} from "../objectStore";
@@ -17,6 +18,7 @@ import {createCrtMaterial} from "./crtMaterial";
 import {createSearchDeliverable} from "./deliverable";
 import {pcInteraction} from "./interaction";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
+import {createLogoTexture} from "./logoScreen";
 import {PcModel} from "./PcModel";
 import {type PcPhase, pcSession, usePcSession} from "./session";
 import {taskStore, useTask} from "./task";
@@ -64,6 +66,25 @@ export function PcObject({object}: {object: GameObject}) {
     setSkipGTAO(crt.material, true);
     return () => crt.material.dispose();
   }, [crt]);
+
+  const logoOn = usePcLogo();
+  const logoTexture = useMemo(() => createLogoTexture(), []);
+  const logoCrt = useMemo(
+    () =>
+      createCrtMaterial(
+        logoTexture,
+        logoTexture.image.width,
+        logoTexture.image.height,
+      ),
+    [logoTexture],
+  );
+  useEffect(() => {
+    setSkipGTAO(logoCrt.material, true);
+    return () => {
+      logoCrt.material.dispose();
+      logoTexture.dispose();
+    };
+  }, [logoCrt, logoTexture]);
 
   useEffect(
     () => () => {
@@ -266,6 +287,19 @@ export function PcObject({object}: {object: GameObject}) {
       BOOT_RATE,
       dt,
     );
+    logoCrt.time.value += dt;
+    logoCrt.on.value = approach(
+      logoCrt.on.value,
+      logoOn ? 1 : 0,
+      POWER_RATE,
+      dt,
+    );
+    logoCrt.boot.value = approach(
+      logoCrt.boot.value,
+      logoOn ? 1 : 0,
+      BOOT_RATE,
+      dt,
+    );
     if (
       getEyePosition(localPlayer, eye).distanceTo(
         pcPosition.set(...item.position),
@@ -286,10 +320,10 @@ export function PcObject({object}: {object: GameObject}) {
 
   return (
     <PcModel
-      screen={crt.material}
+      screen={logoOn && !showing ? logoCrt.material : crt.material}
       screenRef={screenRef}
       memoRef={memoRef}
-      on={showing}
+      on={showing || logoOn}
     />
   );
 }

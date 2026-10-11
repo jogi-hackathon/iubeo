@@ -10,11 +10,18 @@ interface ChairProps {
   position: Vec3;
   yaw?: number;
   visible?: boolean;
+  collidable?: boolean;
   ao?: AOMode;
 }
 
 /** 椅子。部品の寸法はジオメトリに焼き込み(scale を使わない)、BVH コライダー込み */
-export function Chair({position, yaw = 0, visible = true, ao}: ChairProps) {
+export function Chair({
+  position,
+  yaw = 0,
+  visible = true,
+  collidable = true,
+  ao,
+}: ChairProps) {
   const geometries = useMemo(
     () => CHAIR_PARTS.map((part) => new BoxGeometry(...part.size)),
     [],
@@ -30,7 +37,7 @@ export function Chair({position, yaw = 0, visible = true, ao}: ChairProps) {
 
   return (
     <group position={position} rotation={[0, yaw, 0]} visible={visible}>
-      <BVHCollider enabled={visible}>
+      <BVHCollider enabled={visible && collidable}>
         {CHAIR_PARTS.map((part, i) => (
           <mesh
             key={i}

@@ -43,7 +43,7 @@ const OUTLINE = 0.02;
 const OUTLINE_AIMED = 0.055;
 const AIMED_SCALE = 1.1;
 const THICKNESS = 0.012;
-const LIFT = 0.02;
+export const FILE_PLATE_LIFT = 0.02;
 
 const FILL = new MeshBasicMaterial({color: "#ffffff"});
 setSkipGTAO(FILL, true);
@@ -105,7 +105,7 @@ export function DirectoryOverview({
   const plates = useMemo<FilePlate[]>(
     () =>
       assigned.map(({file, candidate}) =>
-        plateOf(file.id, candidate, position, LIFT),
+        plateOf(file.id, candidate, position, FILE_PLATE_LIFT),
       ),
     [assigned, position],
   );
@@ -218,7 +218,11 @@ export function DirectoryOverview({
           key={file.id}
           color={file.color}
           aimed={file.id === aimedFileId}
-          position={[candidate.x, candidate.topY + LIFT, candidate.z]}
+          position={[
+            candidate.x,
+            candidate.topY + FILE_PLATE_LIFT,
+            candidate.z,
+          ]}
           yaw={candidate.yaw}
           width={candidate.width}
           depth={candidate.depth}
@@ -237,7 +241,7 @@ type PlateProps = {
   depth: number;
 };
 
-function FilePlateMesh({
+export function FilePlateMesh({
   color,
   aimed,
   position,
