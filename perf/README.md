@@ -52,11 +52,25 @@ cd ../backend && go test ./internal/session -run '^$' -bench . -benchmem -count 
 - `run-all.sh` … 全体の実行
 - `lib/bench-browser.mjs` … ブラウザ計測(起動・フレーム・ロングタスク・転送量)
 - `lib/bundle-report.mjs` … バンドルのサイズ(raw/gzip/brotli)と sourcemap からの内訳
-- `lib/serve.mjs` … 静的配信(br/gzip 圧縮つき、SPA フォールバック)
+- `lib/serve.mjs` … 静的配信(br/gzip 圧縮つき、SPA フォールバック)。`PERF_ENGINE_DIR` を渡すと `/engine/*` をそこから配る(R2 の再現)
+- `lib/console-audit.mjs` … コンソールのエラー・警告と、失敗したリクエストを全部出す(下の「コンソールをきれいに保つ」)
 - `lib/screenshot.mjs` / `lib/diff-shots.mjs` … 見た目の回帰チェック
 - `lib/summarize.mjs` … 中央値の要約・比較
 - `results/<label>/` … 結果(JSON・Go ベンチの出力・要約)。`results/` と `.tmp/` は git 管理外。数値の要約は `NOTES.md`
 - `NOTES.md` … 計測ログと判断の記録
+
+## コンソールをきれいに保つ
+
+エラー・警告が出ていると、本物の異常が見えなくなる。次の 3 つを定期的に見て、0 件を保つ:
+
+```sh
+node perf/lib/console-audit.mjs --url http://localhost:5173                      # 開発サーバー(room)
+node perf/lib/console-audit.mjs --url http://localhost:5173 --query debug        # 開発サーバー(?debug)
+PERF_ENGINE_DIR=frontend/engine-local node perf/lib/console-audit.mjs --dist <ビルド出力>   # 本番ビルド
+```
+
+セッションの通し(マッチング → 試合)も見る。バックエンドを起動し、`?debug` の dev パネルの Flow タブで
+「start matchmaking」を押して確かめる(NOTES.md のラウンド 9 に、消した物と確認した条件を書いてある)。
 
 ## 深掘り用の追加ツール(デバッグシーンと大人数の計測)
 

@@ -14,6 +14,8 @@ import {bloom} from "three/addons/tsl/display/BloomNode.js";
 import {vignette} from "three/addons/tsl/display/CRT.js";
 import {
   float,
+  Fn,
+  If,
   mix,
   pass,
   renderOutput,
@@ -25,6 +27,7 @@ import {
 } from "three/tsl";
 import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 
+import {proxyView} from "../../transition/dive/proxyView";
 import {createAimOutline} from "./nodes/aimOutline";
 import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
 import {createGlitch} from "./nodes/glitch";
@@ -92,6 +95,21 @@ export const createPostProcessPipeline = (
   const aimOutline = createAimOutline(scene, camera);
   const powerOutline = createPowerOutline(scene, camera);
 
+  const sampleScene = (uv: Node<"vec2">): Node<"vec4"> =>
+    Fn(() => {
+      const result = sceneColor.sample(uv).level(float(0)).toVar();
+      If(proxyView.blend.greaterThan(0), () => {
+        result.assign(
+          mix(
+            result,
+            proxyView.textureNode.sample(uv).level(float(0)),
+            proxyView.blend,
+          ),
+        );
+      });
+      return result;
+    })();
+
   let pixelated: ReturnType<typeof rtt> | null = null;
   let key = "";
 
@@ -118,11 +136,14 @@ export const createPostProcessPipeline = (
       );
     }
 
-    const base = glitch.scene(sceneColor);
-    let color: Node<"vec4"> = s.bloom.enabled ? base.add(bloomNode) : base;
+    const sceneWeight = proxyView.blend.oneMinus();
+    const base = glitch.scene(sampleScene);
+    let color: Node<"vec4"> = s.bloom.enabled
+      ? base.add(bloomNode.mul(sceneWeight))
+      : base;
 
-    color = powerOutline.composite(color);
-    color = aimOutline.composite(color);
+    color = powerOutline.composite(color, sceneWeight);
+    color = aimOutline.composite(color, sceneWeight);
 
     if (s.pixelate.enabled) {
       pixelated = rtt(color, null, null, {
