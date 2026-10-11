@@ -24,12 +24,15 @@ export type VoiceState = {
 };
 
 type VoiceToken = {
+  available: true;
   token: string;
   room: string;
   signalingUrl: string;
   mediaUrl: string;
   expiresAt: string;
 };
+
+type VoiceUnavailable = {available: false; reason?: string};
 
 const IDLE: VoiceState = {
   status: "idle",
@@ -38,12 +41,15 @@ const IDLE: VoiceState = {
   micReady: false,
 };
 
-const fetchVoiceToken = async (): Promise<VoiceToken> => {
+const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
   const res = await fetch("/api/v1/voice/token", {credentials: "same-origin"});
   if (!res.ok) {
     throw new Error(`voice token: HTTP ${res.status}`);
   }
-  return (await res.json()) as VoiceToken;
+  const body = (await res.json()) as VoiceToken | VoiceUnavailable;
+  // サーバーに設定が無いときは available=false が返る(openapi.yaml)。壊れているわけではないので、
+  // 例外(とコンソールの警告)にはしない。開発環境や VC を入れていない環境ではこれになる
+  return body.available ? body : null;
 };
 
 export const createVoiceEngine = () => {
@@ -170,6 +176,10 @@ export const createVoiceEngine = () => {
     try {
       const token = await fetchVoiceToken();
       if (mine !== generation) {
+        return;
+      }
+      if (token === null) {
+        set({status: "unavailable", detail: "この環境ではVCを使わない"});
         return;
       }
       audio = createVoiceAudio();

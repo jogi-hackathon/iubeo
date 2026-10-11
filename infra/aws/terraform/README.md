@@ -88,5 +88,5 @@ Discord の interactions エンドポイントには `control_function_url` を�
       --parameters commands='printf "IUBEO_VC_PRIVATE_KEY=%s\nIUBEO_VC_SIGNALING_URL=%s\nIUBEO_VC_MEDIA_URL=%s\n" "<VC ホストの private.jwk の d>" "wss://vc.thirdlf03.com/v1/signaling" "https://media.thirdlf03.com:4443" >> /etc/iubeo/env; systemctl restart iubeo'
     ```
 
-  反映できたかは、セッション中に `GET /api/v1/voice/token` が 200（未設定なら 503 `voice_unavailable`）
-  になることで確かめます（[voice-chat.md](../../../docs/voice-chat.md)）。
+  反映できたかは、セッション中に `GET /api/v1/voice/token` が `available: true` を返すことで確かめます
+  （未設定なら 200 で `available: false`。[voice-chat.md](../../../docs/voice-chat.md)）。
