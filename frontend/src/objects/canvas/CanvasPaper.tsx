@@ -1,24 +1,46 @@
 import {useFrame} from "@react-three/fiber";
 import {useEffect, useMemo, useRef} from "react";
-import {BoxGeometry} from "three";
+import {MeshStandardMaterial, PlaneGeometry} from "three";
 
 import {denoiseProgress, stepAppear, stepFade} from "./diffusion";
 import {createDiffusionPaper} from "./diffusionMaterial";
-import {PAPER_PLACEMENT} from "./easel";
+import {
+  type PaperPlacement,
+  PAPER_PLACEMENT,
+  UNDER_SHEET_PLACEMENT,
+} from "./easel";
+
+/** 下敷きの色。ワークスペースの紙の下の 1 枚と同じ */
+const UNDER_SHEET_COLOR = "#d4d4d8";
 
 /**
- * キャンバスの紙(絵を描く面)。作業中(active)の間、拡散モデルがノイズから絵を起こしていく演出を描く(diffusionMaterial)。
+ * キャンバスの紙(絵を描く面)。木枠の前面に沿わせた 1 枚の板(ワークスペースの紙と同じ PlaneGeometry)で、
+ * 作業中(active)の間、拡散モデルがノイズから絵を起こしていく演出を描く(diffusionMaterial)。それ以外は真っ白。
  * 作業が始まると、白い紙がマスごとにノイズへ置き換わり、段ごとにノイズが薄れて絵が現れる。
  * 作業が終わる(結果が反映される)と、描き上がった絵が、上から順にすっと白い紙へ消えていく。時間の割り振りは diffusion.ts。
  * 描く絵とノイズは、作業ごとに変える。
+ * 紙の下には、少し灰色の下敷きを右下へずらして重ね、影の代わりにする(ワークスペースの紙と同じ 2 枚重ね)。
  *
- * - 演出はマテリアルの色だけで出すので、板は増えない
  * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)
  * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap と、演出の進み具合が、それぞれに付くため)
  */
 export function CanvasPaper({active = false}: {active?: boolean}) {
-  const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  const [geometry, underGeometry] = useMemo(
+    () => [new PlaneGeometry(1, 1), new PlaneGeometry(1, 1)],
+    [],
+  );
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      underGeometry.dispose();
+    },
+    [geometry, underGeometry],
+  );
+  const underSheet = useMemo(
+    () => new MeshStandardMaterial({color: UNDER_SHEET_COLOR}),
+    [],
+  );
+  useEffect(() => () => underSheet.dispose(), [underSheet]);
   const paper = useMemo(createDiffusionPaper, []);
   useEffect(() => () => paper.material.dispose(), [paper]);
   const state = useRef({wasActive: false, elapsed: 0});
@@ -40,12 +62,23 @@ export function CanvasPaper({active = false}: {active?: boolean}) {
   });
 
   return (
-    <mesh
-      geometry={geometry}
-      material={paper.material}
-      position={PAPER_PLACEMENT.position}
-      scale={PAPER_PLACEMENT.scale}
-      {...(PAPER_PLACEMENT.rotation && {rotation: PAPER_PLACEMENT.rotation})}
-    />
+    <>
+      <mesh
+        geometry={underGeometry}
+        material={underSheet}
+        {...placementProps(UNDER_SHEET_PLACEMENT)}
+      />
+      <mesh
+        geometry={geometry}
+        material={paper.material}
+        {...placementProps(PAPER_PLACEMENT)}
+      />
+    </>
   );
 }
+
+const placementProps = ({position, scale, rotation}: PaperPlacement) => ({
+  position,
+  scale,
+  ...(rotation && {rotation}),
+});

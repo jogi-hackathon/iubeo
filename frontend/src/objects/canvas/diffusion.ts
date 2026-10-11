@@ -1,6 +1,6 @@
 import {CANVAS_ACTION_MS} from "./data";
 
-/** 白い紙が、ノイズに置き換わりきるまでの秒数(マスごとにばらばらに置き換わる) */
+/** ノイズが紙の全面に出揃うまでの秒数(マスごとにばらばらに現れる) */
 export const APPEAR_SECONDS = 0.25;
 /** 描き上がった絵が、白い紙に戻りきるまでの秒数(作業が終わってから。上から順に、白へ消えていく) */
 export const VANISH_SECONDS = 0.4;

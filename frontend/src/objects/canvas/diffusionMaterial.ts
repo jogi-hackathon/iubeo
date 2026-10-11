@@ -7,7 +7,6 @@ import {
   max,
   min,
   mix,
-  normalLocal,
   pow,
   select,
   sin,
@@ -125,7 +124,7 @@ export interface DiffusionPaper {
   material: MeshStandardNodeMaterial;
   /** ノイズを取り除いた度合い(0: ノイズだけ、1: 描き上がり)。段(STEPS)に刻んで描く */
   progress: {value: number};
-  /** ノイズが出ているマスの割合(0: 真っ白な紙、1: 全マス)。マスごとに、ばらばらの順で白と置き換わる */
+  /** ノイズが出ているマスの割合(0: 真っ白な紙、1: 全マス)。マスごとに、ばらばらの順で現れる */
   appear: {value: number};
   /** 演出が残っている高さ(1: 全面、0: 真っ白な紙)。下げると、上のマスの行から順に白へ消えていく */
   fade: {value: number};
@@ -134,13 +133,14 @@ export interface DiffusionPaper {
 }
 
 /**
- * キャンバスの紙のマテリアル。拡散モデル(Diffusion)が、ノイズから絵を起こしていく様子をシェーダーで描く。
+ * キャンバスの紙(CanvasPaper)のマテリアル。拡散モデル(Diffusion)が、ノイズから絵を起こしていく様子をシェーダーで描く。
  * 空(skybox)と同じく、マスごと・段ごとの乱数(cellHash)でノイズを作り、段ごとに引き直して重ねる。
  *
  * - 紙を LATENT のマス(潜在の画素)に分け、マスごとに x_t = √(1-σ²)·x̂0 + σ·ε を描く。σ(ノイズの強さ)は段が進むほど 0 へ下がる(NOISE_FALLOFF)
  * - x̂0(その段で見えている絵)は、最初は 2^COARSE_LEVELS マス単位の大づかみな絵で、進むにつれ細かくなる(粗い形 → 細部の順に決まる)
  * - ε は作業ごとに固定のノイズと、段ごとに引き直すノイズを混ぜたもの。段が進むたびに、ざらつきが入れ替わりながら薄れる
- * - 色は灰色だけ(真っ白な世界に合わせる)。正面(+Z 面)だけに描き、縁の面は白のまま
+ * - 色は灰色だけ(真っ白な世界に合わせる)
+ * - まだノイズが出ていないマス・消えたマスは、真っ白な紙のまま
  * - ノードのマテリアルなので、ベイク AO(aoMap)も、そのまま貼れる(BakedAO)
  */
 export const createDiffusionPaper = (): DiffusionPaper => {
@@ -176,9 +176,7 @@ export const createDiffusionPaper = (): DiffusionPaper => {
     .add(noiseLevel.mul(noise));
   const tone = xt.mul(LATENT_SCALE).add(LATENT_MEAN).clamp(0, 1);
 
-  const shown = cellHash(cell, seedKey, 20)
-    .lessThan(appear)
-    .and(normalLocal.z.greaterThan(0.5));
+  const shown = cellHash(cell, seedKey, 20).lessThan(appear);
   const row = cell.y.add(0.5).div(LATENT[1]);
   const remain = fade
     .mul(1 + WIPE_EDGE)

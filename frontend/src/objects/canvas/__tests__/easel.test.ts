@@ -1,4 +1,12 @@
-import {Box3, BoxGeometry, Group, Mesh, Raycaster, Vector3} from "three";
+import {
+  Box3,
+  BoxGeometry,
+  Group,
+  Mesh,
+  PlaneGeometry,
+  Raycaster,
+  Vector3,
+} from "three";
 import {describe, expect, it} from "vitest";
 
 import {EYE_HEIGHT} from "../../../player/constants";
@@ -14,6 +22,7 @@ import {
   PAPER_SIZE,
   REAR_LEG_PART,
   TOP_BAR_PART,
+  UNDER_SHEET_PLACEMENT,
 } from "../easel";
 
 const PAPER = "paper";
@@ -25,7 +34,9 @@ const buildEasel = () => {
     [PAPER, PAPER_PLACEMENT],
   ];
   const meshes = entries.map(([part, placement]) => {
-    const mesh = new Mesh(new BoxGeometry(1, 1, 1));
+    const mesh = new Mesh(
+      part === PAPER ? new PlaneGeometry(1, 1) : new BoxGeometry(1, 1, 1),
+    );
     mesh.position.set(...placement.position);
     mesh.scale.set(...placement.scale);
     if (placement.rotation) {
@@ -139,5 +150,42 @@ describe("easel", () => {
     const [first] = ray.intersectObject(group, true);
     expect(first).toBeDefined();
     expect(first!.object.userData.part).not.toBe(PAPER);
+  });
+
+  it("紙は木枠の前面に、浮いて見えない近さ(5mm 未満)で沿う", () => {
+    const {group} = buildEasel();
+    const eye = new Vector3(0, EYE_HEIGHT, 1.2);
+    const target = new Vector3(...PAPER_PLACEMENT.position);
+    const ray = new Raycaster(eye, target.clone().sub(eye).normalize());
+    const [paper, frame] = ray.intersectObject(group, true);
+    expect(paper!.object.userData.part).toBe(PAPER);
+    expect(frame).toBeDefined();
+    expect(frame!.distance - paper!.distance).toBeGreaterThan(0);
+    expect(frame!.distance - paper!.distance).toBeLessThan(0.005);
+  });
+
+  it("下敷きは紙と木枠の間にあり、右下へだけ少しはみ出る", () => {
+    const {group} = buildEasel();
+    const under = new Mesh(new PlaneGeometry(1, 1));
+    under.position.set(...UNDER_SHEET_PLACEMENT.position);
+    under.scale.set(...UNDER_SHEET_PLACEMENT.scale);
+    under.rotation.set(...UNDER_SHEET_PLACEMENT.rotation!);
+    under.userData.part = "under";
+    group.add(under);
+    group.updateMatrixWorld(true);
+    const eye = new Vector3(0, EYE_HEIGHT, 1.2);
+    const hitAt = (dx: number, du: number) => {
+      const paper = new Mesh(new PlaneGeometry(1, 1));
+      paper.position.set(...PAPER_PLACEMENT.position);
+      paper.rotation.set(...PAPER_PLACEMENT.rotation!);
+      paper.updateMatrixWorld(true);
+      const target = paper.localToWorld(new Vector3(dx, du, 0));
+      const ray = new Raycaster(eye, target.sub(eye).normalize());
+      return ray.intersectObject(group, true)[0]!.object.userData.part;
+    };
+    const [w, h] = PAPER_SIZE;
+    expect(hitAt(0, 0)).toBe(PAPER);
+    expect(hitAt(w / 2 + 0.003, -h / 2 - 0.003)).toBe("under");
+    expect(hitAt(-w / 2 - 0.003, h / 2 + 0.003)).not.toBe("under");
   });
 });

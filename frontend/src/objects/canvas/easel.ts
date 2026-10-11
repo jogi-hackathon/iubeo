@@ -13,14 +13,17 @@ const FRONT_FOOT_Z = 0.3;
 const FRONT_TOP_HEIGHT = 1.85;
 const REAR_FOOT_Z = -0.6;
 const FRAME_DEPTH = 0.03;
-const PAPER_DEPTH = 0.02;
+/** 紙(板)を、木枠の前面から浮かせる距離。木枠と重ならず(z-fighting しない)、浮いて見えない程度 */
+const PAPER_LIFT = 0.001;
+/** 下敷き(影の代わりの、少し灰色の紙)を、紙から右下へずらす量。ワークスペースの紙の下の 1 枚と同じ */
+const UNDER_SHEET_OFFSET = 0.006;
 const PAPER_MARGIN = 0.05;
 
 const LEDGE_SIZE: Vector3Tuple = [0.98, 0.03, 0.1];
 const LIP_SIZE: Vector3Tuple = [0.98, 0.02, 0.012];
 const LIP_SETBACK = 0.002;
 
-const CLAMP_SIZE: Vector3Tuple = [0.6, 0.04, FRAME_DEPTH + PAPER_DEPTH + 0.01];
+const CLAMP_SIZE: Vector3Tuple = [0.6, 0.04, FRAME_DEPTH + 0.01];
 const TAB_WIDTH = 0.16;
 const TAB_OVERLAP = 0.02;
 
@@ -129,7 +132,6 @@ const LEGS: readonly EaselPart[] = [
 ];
 
 const frameN = LEG_SIZE / 2 + FRAME_DEPTH / 2;
-const paperN = LEG_SIZE / 2 + FRAME_DEPTH + PAPER_DEPTH / 2 - 0.002;
 
 /** 押さえ。底面が木枠の天面(面に沿って CANVAS_SIZE[1]/2)に載る */
 export const CLAMP_PART: EaselPart = {
@@ -142,7 +144,7 @@ export const CLAMP_PART: EaselPart = {
   rotation: LEAN_ROTATION,
 };
 
-const paperFrontN = paperN + PAPER_DEPTH / 2;
+const paperFrontN = LEG_SIZE / 2 + FRAME_DEPTH + PAPER_LIFT;
 const clampFrontN = LEG_SIZE / 2 + CLAMP_SIZE[2];
 const TAB_BOTTOM_U = CANVAS_SIZE[1] / 2 - PAPER_MARGIN - TAB_OVERLAP;
 const TAB_TOP_U = CANVAS_SIZE[1] / 2 + 0.02;
@@ -198,9 +200,31 @@ export const PAPER_SIZE = [
   CANVAS_SIZE[1] - 2 * PAPER_MARGIN,
 ] as const;
 
-/** 紙の配置。木枠の前面に、PAPER_DEPTH の薄い箱を少し(2mm)埋めて載せる。uv は +Z 面が [0,1]²(u は +x、v は上) */
+/**
+ * 紙の配置。木枠の前面に沿わせた、厚みの無い板(PlaneGeometry。scale の z は 1)。
+ * uv は [0,1]²(u は +x、v は上)
+ */
 export const PAPER_PLACEMENT: PaperPlacement = {
-  position: onPlane(0, paperN),
-  scale: [PAPER_SIZE[0], PAPER_SIZE[1], PAPER_DEPTH],
+  position: onPlane(0, paperFrontN),
+  scale: [PAPER_SIZE[0], PAPER_SIZE[1], 1],
+  rotation: LEAN_ROTATION,
+};
+
+const underSheetCenter = onPlane(
+  -UNDER_SHEET_OFFSET,
+  paperFrontN - PAPER_LIFT / 2,
+);
+
+/**
+ * 下敷きの配置。紙と同じ大きさの板を、紙と木枠の間に置き、右下へ UNDER_SHEET_OFFSET ずらす。
+ * 紙からはみ出た細い L 字だけが見え、紙の落とす影の代わりになる(ワークスペースの紙と同じ 2 枚重ね)
+ */
+export const UNDER_SHEET_PLACEMENT: PaperPlacement = {
+  position: [
+    underSheetCenter[0] + UNDER_SHEET_OFFSET,
+    underSheetCenter[1],
+    underSheetCenter[2],
+  ],
+  scale: PAPER_PLACEMENT.scale,
   rotation: LEAN_ROTATION,
 };
