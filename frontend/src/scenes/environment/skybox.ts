@@ -56,9 +56,10 @@ const rayDirection = (px: Node<"vec2">): Node<"vec3"> => {
 
 /**
  * 乱数(0〜1)。cell ごと・step(時間)ごと・n(用途)ごとに系列を分ける。
- * 種は uint で組む(f32 だと 2^24 を超えたところで隣のセルの種が同じ値に潰れ、横に揃った模様になる。uint は桁あふれで回るだけ)
+ * 種は uint で組む(f32 だと 2^24 を超えたところで隣のセルの種が同じ値に潰れ、横に揃った模様になる。uint は桁あふれで回るだけ)。
+ * キャンバスの拡散の演出(objects/canvas/diffusionMaterial)も、同じ乱数でノイズを作る
  */
-const cellHash = (
+export const cellHash = (
   cell: Node<"vec2">,
   step: Node<"float">,
   n: number,

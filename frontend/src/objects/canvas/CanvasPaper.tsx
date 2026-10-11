@@ -1,63 +1,48 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo} from "react";
-import {BoxGeometry, MeshStandardMaterial, type Texture} from "three";
+import {useEffect, useMemo, useRef} from "react";
+import {BoxGeometry} from "three";
 
+import {denoiseProgress, stepAppear, stepFade} from "./diffusion";
+import {createDiffusionPaper} from "./diffusionMaterial";
 import {PAPER_PLACEMENT} from "./easel";
 
-const PULSE_COLOR = "#7fd1ff";
-const PULSE_HZ = 2;
-
 /**
- * キャンバスの紙(絵を描く面)。表示内容は texture で差し替える。null なら真っ白な紙。
- * active の間(キャンバスで作業中)は、モックの演出として、紙が水色に脈動する。本物の演出ができたら、これを texture に置き換える。
- * 画像そのものではなく、拡散モデルのように絵ができあがっていく演出(筆を重ねる、飛沫が重なるなど)を載せる場所なので、
- * 描く側(Canvas2D で描き足す CanvasTexture など)がテクスチャを更新し、ここはそれを貼るだけにする。
+ * キャンバスの紙(絵を描く面)。作業中(active)の間、拡散モデルがノイズから絵を起こしていく演出を描く(diffusionMaterial)。
+ * 作業が始まると、白い紙がマスごとにノイズへ置き換わり、段ごとにノイズが薄れて絵が現れる。
+ * 作業が終わる(結果が反映される)と、描き上がった絵が、上から順にすっと白い紙へ消えていく。時間の割り振りは diffusion.ts。
+ * 描く絵とノイズは、作業ごとに変える。
  *
- * - テクスチャは、呼び出し側が持ち、破棄も呼び出し側が行う(ここでは dispose しない)。縦横比は PAPER_SIZE。
- *   色のテクスチャなら colorSpace は SRGBColorSpace にしておく。中身を描き換えたら、呼び出し側が needsUpdate を立てる
- * - 演出は紙自身の emissive で出すので、板は増えない
- * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)。
- *   テクスチャの有無で mesh を出し入れせず、material.map だけを切り替える
- * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap が、それぞれに付くため)
+ * - 演出はマテリアルの色だけで出すので、板は増えない
+ * - ベイク対象(baked)なので、CanvasObject の BakeTarget の配下に、常に置く(後から足した mesh はベイク対象にならない)
+ * - ジオメトリ・マテリアルはキャンバスごとに持つ(uv1・aoMap と、演出の進み具合が、それぞれに付くため)
  */
-export function CanvasPaper({
-  texture = null,
-  active = false,
-}: {
-  texture?: Texture | null;
-  active?: boolean;
-}) {
+export function CanvasPaper({active = false}: {active?: boolean}) {
   const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const material = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: "#ffffff",
-        emissive: PULSE_COLOR,
-        emissiveIntensity: 0,
-      }),
-    [],
-  );
-  useEffect(() => () => material.dispose(), [material]);
+  const paper = useMemo(createDiffusionPaper, []);
+  useEffect(() => () => paper.material.dispose(), [paper]);
+  const state = useRef({wasActive: false, elapsed: 0});
 
-  useEffect(() => {
-    const changed = !material.map !== !texture;
-    material.map = texture;
-    if (changed) {
-      material.needsUpdate = true;
+  useFrame((_, dt) => {
+    const s = state.current;
+    if (active && !s.wasActive) {
+      s.elapsed = 0;
+      paper.appear.value = 0;
+      paper.seed.value = Math.floor(Math.random() * 65536);
     }
-  }, [material, texture]);
-
-  useFrame(({clock}) => {
-    const wave =
-      0.5 + 0.5 * Math.sin(clock.elapsedTime * Math.PI * 2 * PULSE_HZ);
-    material.emissiveIntensity = active ? 0.3 + 1.7 * wave : 0;
+    s.wasActive = active;
+    if (active) {
+      s.elapsed += dt;
+      paper.progress.value = denoiseProgress(s.elapsed);
+    }
+    paper.appear.value = stepAppear(paper.appear.value, active, dt);
+    paper.fade.value = stepFade(paper.fade.value, active, dt);
   });
 
   return (
     <mesh
       geometry={geometry}
-      material={material}
+      material={paper.material}
       position={PAPER_PLACEMENT.position}
       scale={PAPER_PLACEMENT.scale}
       {...(PAPER_PLACEMENT.rotation && {rotation: PAPER_PLACEMENT.rotation})}
