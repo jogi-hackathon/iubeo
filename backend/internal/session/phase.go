@@ -104,7 +104,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		Tasks:      tasks,
 	}
 	// CPU の段取りを引き直す(区画のスポーンに立ち、個体差を作る)
-	st.resetCpuAgents()
+	st.resetCPUAgents()
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
@@ -272,7 +272,7 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 	return nil
 }
 
-func (st State) apiPhase() api.Phase {
+func (st *State) apiPhase() api.Phase {
 	ph := api.Phase{
 		Number:     st.Phase.Number,
 		Status:     st.Phase.Status,

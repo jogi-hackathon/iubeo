@@ -34,10 +34,10 @@ type Config struct {
 	BypassDuration time.Duration
 	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
 	FireDuration time.Duration
-	// CpuFillAfter は、自動マッチングでこの時間たっても人数がそろわないとき、足りない分を CPU で埋める
+	// CPUFillAfter は、自動マッチングでこの時間たっても人数がそろわないとき、足りない分を CPU で埋める
 	// (IUBEO_CPU_FILL_AFTER。既定 30s。0 で無効。人数がそろう通常の経路には影響しない)。
 	// 「待たせすぎず、でも CPU 戦になる」ための待ち時間。1 人でも通しで遊べるようにする
-	CpuFillAfter time.Duration
+	CPUFillAfter time.Duration
 	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
 	WispKey []byte
 	// WispURL は WISP の WebSocket の基点(IUBEO_WISP_URL。例: wss://example.test/wisp/)。WispKey と組で使う
@@ -62,7 +62,7 @@ func Load(getenv func(string) string) (Config, error) {
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
 		// 待機が長いときは CPU とマッチする(1 人でも通しで遊べる)。0 で無効
-		CpuFillAfter: 30 * time.Second,
+		CPUFillAfter: 30 * time.Second,
 	}
 	var errs []error
 
@@ -132,7 +132,7 @@ func Load(getenv func(string) string) (Config, error) {
 		if dur, err := time.ParseDuration(v); err != nil || dur < 0 {
 			errs = append(errs, fmt.Errorf("IUBEO_CPU_FILL_AFTER must be a duration such as 30s (0 disables it): %q", v))
 		} else {
-			cfg.CpuFillAfter = dur
+			cfg.CPUFillAfter = dur
 		}
 	}
 

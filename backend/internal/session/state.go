@@ -33,14 +33,14 @@ type State struct {
 	BypassAt time.Time
 	FireAt   time.Time
 	rng      rand.PCG
-	// CpuAgents は CPU の段取り(プレイヤー id ごと)。フェーズ開始時に resetCpuAgents で作り直す
-	CpuAgents map[string]CpuAgent
-	// CpuPersonas は CPU の人格(プレイヤー id ごと)。セッション開始時に決まり、フェーズをまたいで同じ
-	CpuPersonas map[string]CpuPersona
-	// CpuLastAt は CPU の移動を進めた最後の時刻。tick の間隔から歩いた距離を出す
-	CpuLastAt time.Time
-	// CpuItemSeq は CPU が作ったファイルの id の連番
-	CpuItemSeq int
+	// CPUAgents は CPU の段取り(プレイヤー id ごと)。フェーズ開始時に resetCPUAgents で作り直す
+	CPUAgents map[string]CPUAgent
+	// CPUPersonas は CPU の人格(プレイヤー id ごと)。セッション開始時に決まり、フェーズをまたいで同じ
+	CPUPersonas map[string]CPUPersona
+	// CPULastAt は CPU の移動を進めた最後の時刻。tick の間隔から歩いた距離を出す
+	CPULastAt time.Time
+	// CPUItemSeq は CPU が作ったファイルの id の連番
+	CPUItemSeq int
 
 	// StartTimeout までに人間全員が接続しなければ解散する
 	StartTimeout time.Duration
@@ -122,8 +122,8 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		AbandonTimeout: timeouts.Abandon,
 		Phases:         phases,
 		rng:            *rand.NewPCG(seed, seed),
-		CpuAgents:      map[string]CpuAgent{},
-		CpuPersonas:    map[string]CpuPersona{},
+		CPUAgents:      map[string]CPUAgent{},
+		CPUPersonas:    map[string]CPUPersona{},
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
@@ -184,12 +184,12 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 	r := rand.New(&st.rng)
 	order := r.Perm(len(cpuPersonas))
 	for i, pid := range cpuIDs {
-		st.CpuPersonas[pid] = cpuPersonas[order[i%len(order)]]
+		st.CPUPersonas[pid] = cpuPersonas[order[i%len(order)]]
 	}
 	return st
 }
 
-func (st State) initialItems() []ItemState {
+func (st *State) initialItems() []ItemState {
 	items := make([]ItemState, 0, len(directoryStock)+len(st.Players))
 	for _, f := range directoryStock {
 		items = append(items, ItemState{
@@ -212,8 +212,8 @@ func (st State) initialItems() []ItemState {
 	return items
 }
 
-func (st State) clone() State {
-	c := st
+func (st *State) clone() State {
+	c := *st
 	c.Players = slices.Clone(st.Players)
 	for i := range c.Players {
 		c.Players[i].Transform.Position = slices.Clone(st.Players[i].Transform.Position)
@@ -225,16 +225,16 @@ func (st State) clone() State {
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
 	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
-	if st.CpuAgents != nil {
-		c.CpuAgents = make(map[string]CpuAgent, len(st.CpuAgents))
-		for k, v := range st.CpuAgents {
-			c.CpuAgents[k] = v
+	if st.CPUAgents != nil {
+		c.CPUAgents = make(map[string]CPUAgent, len(st.CPUAgents))
+		for k, v := range st.CPUAgents {
+			c.CPUAgents[k] = v
 		}
 	}
-	if st.CpuPersonas != nil {
-		c.CpuPersonas = make(map[string]CpuPersona, len(st.CpuPersonas))
-		for k, v := range st.CpuPersonas {
-			c.CpuPersonas[k] = v
+	if st.CPUPersonas != nil {
+		c.CPUPersonas = make(map[string]CPUPersona, len(st.CPUPersonas))
+		for k, v := range st.CPUPersonas {
+			c.CPUPersonas[k] = v
 		}
 	}
 	return c
@@ -249,11 +249,11 @@ func (st *State) player(id string) *PlayerState {
 }
 
 // HasPlayer はプレイヤーが参加者かどうかを返す
-func (st State) HasPlayer(id string) bool {
+func (st *State) HasPlayer(id string) bool {
 	return st.player(id) != nil
 }
 
-func (st State) heldItem(playerID string) *api.Item {
+func (st *State) heldItem(playerID string) *api.Item {
 	for _, it := range st.Items {
 		if it.Location.Kind != HeldBy || it.Location.PlayerID != playerID {
 			continue
@@ -271,7 +271,7 @@ func (st State) heldItem(playerID string) *api.Item {
 	return nil
 }
 
-func (st State) playerStatus(p PlayerState) api.PlayerStatus {
+func (st *State) playerStatus(p PlayerState) api.PlayerStatus {
 	return api.PlayerStatus{
 		PlayerId:   p.ID,
 		Kind:       p.Kind,
@@ -286,7 +286,7 @@ func isStockStatus(s api.FileStatus) bool {
 	return s == api.FileStatusUnedited || s == api.FileStatusEdited
 }
 
-func (st State) directoryData(objectID string) api.DirectoryData {
+func (st *State) directoryData(objectID string) api.DirectoryData {
 	data := api.DirectoryData{Stock: []api.StockFile{}}
 	for _, it := range st.Items {
 		if it.Kind != api.File || it.Location.Kind != InDirectory || it.Location.ObjectID != objectID {
@@ -301,7 +301,7 @@ func (st State) directoryData(objectID string) api.DirectoryData {
 	return data
 }
 
-func (st State) gameObject(o ObjectState) api.GameObject {
+func (st *State) gameObject(o ObjectState) api.GameObject {
 	g := api.GameObject{
 		Id:           o.ID,
 		Kind:         o.Kind,
@@ -325,7 +325,7 @@ func (st State) gameObject(o ObjectState) api.GameObject {
 }
 
 // Snapshot はセッション全体を配る形に組み立てる(state-schema.md §4)
-func (st State) Snapshot(now time.Time) api.SessionSnapshot {
+func (st *State) Snapshot(now time.Time) api.SessionSnapshot {
 	snap := api.SessionSnapshot{
 		SchemaVersion: api.N2,
 		SessionId:     st.ID,

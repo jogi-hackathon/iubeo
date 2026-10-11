@@ -385,14 +385,14 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 					Type    string `json:"type"`
 					Session struct {
 						Players []struct {
-							PlayerId string `json:"playerId"`
+							PlayerID string `json:"playerId"`
 							Seat     int    `json:"seat"`
 						} `json:"players"`
 					} `json:"session"`
 				}
 				if json.Unmarshal(data, &snap) == nil && snap.Type == "snapshot" {
 					for _, p := range snap.Session.Players {
-						if p.PlayerId == playerID {
+						if p.PlayerID == playerID {
 							mySeat = p.Seat
 						}
 					}
@@ -401,7 +401,7 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 			var msg struct {
 				Type    string `json:"type"`
 				Players []struct {
-					PlayerId  string `json:"playerId"`
+					PlayerID  string `json:"playerId"`
 					Transform struct {
 						Seq int64 `json:"seq"`
 					} `json:"transform"`
@@ -416,7 +416,7 @@ func runClient(ctx context.Context, opts options, c *collector, ready chan<- str
 			}
 			last = now
 			for _, p := range msg.Players {
-				if p.PlayerId != playerID {
+				if p.PlayerID != playerID {
 					continue
 				}
 				mu.Lock()
@@ -541,15 +541,15 @@ func createPlayer(ctx context.Context, client *http.Client, baseURL string) (str
 		return "", fmt.Errorf("プレイヤー作成が %s", resp.Status)
 	}
 	var me struct {
-		PlayerId string `json:"playerId"`
+		PlayerID string `json:"playerId"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
 		return "", err
 	}
-	if me.PlayerId == "" {
+	if me.PlayerID == "" {
 		return "", errors.New("playerId が空")
 	}
-	return me.PlayerId, nil
+	return me.PlayerID, nil
 }
 
 func joinMatchmaking(ctx context.Context, client *http.Client, baseURL string) (string, error) {
@@ -585,15 +585,15 @@ func joinMatchmaking(ctx context.Context, client *http.Client, baseURL string) (
 		}
 		var st struct {
 			Status    string `json:"status"`
-			SessionId string `json:"sessionId"`
+			SessionID string `json:"sessionId"`
 		}
 		err = json.NewDecoder(resp.Body).Decode(&st)
 		_ = resp.Body.Close()
 		if err != nil {
 			return "", err
 		}
-		if st.Status == "matched" && st.SessionId != "" {
-			return st.SessionId, nil
+		if st.Status == "matched" && st.SessionID != "" {
+			return st.SessionID, nil
 		}
 	}
 }
