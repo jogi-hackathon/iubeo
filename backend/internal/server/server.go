@@ -55,4 +55,3 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, b
 func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
-
