@@ -675,6 +675,36 @@ func (e TransformsMessageType) Valid() bool {
 	}
 }
 
+// Defines values for VoiceTokenAvailable.
+const (
+	True VoiceTokenAvailable = true
+)
+
+// Valid indicates whether the value is a known member of the VoiceTokenAvailable enum.
+func (e VoiceTokenAvailable) Valid() bool {
+	switch e {
+	case True:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceUnavailableAvailable.
+const (
+	False VoiceUnavailableAvailable = false
+)
+
+// Valid indicates whether the value is a known member of the VoiceUnavailableAvailable enum.
+func (e VoiceUnavailableAvailable) Valid() bool {
+	switch e {
+	case False:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetHealth200JSONResponseBodyStatus.
 const (
 	Ok GetHealth200JSONResponseBodyStatus = "ok"
@@ -1206,6 +1236,9 @@ type Vec3 = []float64
 
 // VoiceToken defines model for VoiceToken.
 type VoiceToken struct {
+	// Available VC が使える
+	Available VoiceTokenAvailable `json:"available"`
+
 	// ExpiresAt トークンの期限
 	ExpiresAt time.Time `json:"expiresAt"`
 
@@ -1227,6 +1260,23 @@ type VoiceToken struct {
 	// Token VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
 	Token string `json:"token"`
 }
+
+// VoiceTokenAvailable VC が使える
+type VoiceTokenAvailable bool
+
+// VoiceUnavailable このサーバーでは VC を使えない(設定が無い)
+type VoiceUnavailable struct {
+	// Available VC が使えない
+	Available VoiceUnavailableAvailable `json:"available"`
+
+	// Reason 使えない理由
+	//
+	// Example: voice chat is not configured
+	Reason *string `json:"reason,omitempty"`
+}
+
+// VoiceUnavailableAvailable VC が使えない
+type VoiceUnavailableAvailable bool
 
 // WispToken defines model for WispToken.
 type WispToken struct {
@@ -1253,6 +1303,11 @@ type Unauthorized = Error
 
 // Unavailable defines model for Unavailable.
 type Unavailable = Error
+
+// GetVoiceToken200JSONResponseBody defines parameters for GetVoiceToken.
+type GetVoiceToken200JSONResponseBody struct {
+	union json.RawMessage
+}
 
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
@@ -1890,6 +1945,68 @@ func (t ServerMessage) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ServerMessage) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsVoiceToken returns the union data inside the GetVoiceToken200JSONResponseBody as a VoiceToken
+func (t GetVoiceToken200JSONResponseBody) AsVoiceToken() (VoiceToken, error) {
+	var body VoiceToken
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceToken overwrites any union data inside the GetVoiceToken200JSONResponseBody as the provided VoiceToken
+func (t *GetVoiceToken200JSONResponseBody) FromVoiceToken(v VoiceToken) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceToken performs a merge with any union data inside the GetVoiceToken200JSONResponseBody, using the provided VoiceToken
+func (t *GetVoiceToken200JSONResponseBody) MergeVoiceToken(v VoiceToken) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceUnavailable returns the union data inside the GetVoiceToken200JSONResponseBody as a VoiceUnavailable
+func (t GetVoiceToken200JSONResponseBody) AsVoiceUnavailable() (VoiceUnavailable, error) {
+	var body VoiceUnavailable
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceUnavailable overwrites any union data inside the GetVoiceToken200JSONResponseBody as the provided VoiceUnavailable
+func (t *GetVoiceToken200JSONResponseBody) FromVoiceUnavailable(v VoiceUnavailable) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceUnavailable performs a merge with any union data inside the GetVoiceToken200JSONResponseBody, using the provided VoiceUnavailable
+func (t *GetVoiceToken200JSONResponseBody) MergeVoiceUnavailable(v VoiceUnavailable) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t GetVoiceToken200JSONResponseBody) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *GetVoiceToken200JSONResponseBody) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
