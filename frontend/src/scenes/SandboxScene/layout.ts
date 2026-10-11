@@ -111,6 +111,8 @@ export const ZONE_WINDOW_BLOCKER: WallSpec = {
   size: [WINDOW_SIZE, WINDOW_SIZE, t],
 };
 
+export const ZONE_FLOOR_TILE = 2;
+
 /** 区画の床。三角形 (0, 0)・外側の頂点 (±OUTER_HALF_WIDTH, r+t) の板で、上面が y=0、厚さ t(共通の TiledFloor は使わない) */
 export const ZONE_FLOOR: SlabSpec = {
   polygon: [

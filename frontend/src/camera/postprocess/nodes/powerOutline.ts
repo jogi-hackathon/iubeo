@@ -1,15 +1,19 @@
 import type {Camera, Scene} from "three";
 import {outline} from "three/addons/tsl/display/OutlineNode.js";
 import {
+  abs,
   clamp,
   float,
   Fn,
+  fract,
   If,
   max,
   mix,
+  rtt,
   screenSize,
   screenUV,
   sin,
+  smoothstep,
   texture,
   time,
   vec2,
@@ -19,12 +23,17 @@ import type {Node, RenderTarget} from "three/webgpu";
 
 import {
   powerOutlineColor,
+  powerOutlineDash,
   powerOutlineFade,
   powerOutlineSelection,
 } from "../powerOutlineSelection";
 
 const POWER_OUTLINE_WIDTH = 10;
 const POWER_WOBBLE_PX = 0;
+const DILATE_RESOLUTION_SCALE = 0.5;
+const DILATE_TEXELS = Math.round(POWER_OUTLINE_WIDTH * DILATE_RESOLUTION_SCALE);
+const DASH_PERIODS_PER_SCREEN_HEIGHT = 45;
+const DASH_SPEED = 1.5;
 
 export const createPowerOutline = (scene: Scene, camera: Camera) => {
   // 選択が空のあいだは OutlineNode が自分のパスを全部飛ばすので、狙いの縁取りと同じくグラフには常に入れておく
@@ -54,30 +63,68 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
       .level(float(0));
     return m.g.oneMinus().mul(m.r.oneMinus());
   };
+  // 円形に全方向を読むと 1 ピクセル 144 回のサンプルになり FPS が半分に落ちたので、横→縦の 2 パスの最大値で広げる(縁の角は四角くなる)。
+  // 縁の内側はフル解像度のマスクで切るので、広げる側は半解像度で足りる。パスの中の screenSize は半解像度の大きさになる
+  const dilateAlong = (
+    sampleAt: (offset: number) => Node<"float">,
+  ): Node<"vec4"> =>
+    Fn(() => {
+      const cover = sampleAt(0).toVar();
+      If(powerOutlineFade.greaterThan(0).and(cover.lessThan(1)), () => {
+        for (let offset = 1; offset <= DILATE_TEXELS; offset++) {
+          cover.assign(max(cover, max(sampleAt(offset), sampleAt(-offset))));
+        }
+      });
+      return vec4(cover, 0, 0, 1);
+    })();
+  const dilateOptions = {resolutionScale: DILATE_RESOLUTION_SCALE};
+  const coverX = rtt(
+    dilateAlong((dx) => visibleSelectedAt(dx, 0)),
+    null,
+    null,
+    dilateOptions,
+  );
+  const coverXY = rtt(
+    dilateAlong(
+      (dy) =>
+        coverX.sample(screenUV.add(vec2(0, dy).div(screenSize))).level(float(0))
+          .r,
+    ),
+    null,
+    null,
+    dilateOptions,
+  );
   const powerEdge = Fn(() => {
     const edge = float(0).toVar();
     If(powerOutlineFade.greaterThan(0), () => {
-      const cover = float(0).toVar();
-      for (let radius = 1; radius <= POWER_OUTLINE_WIDTH; radius++) {
-        const directions = radius <= 2 ? 8 : 16;
-        for (let k = 0; k < directions; k++) {
-          const angle = (k / directions) * Math.PI * 2;
-          cover.assign(
-            max(
-              cover,
-              visibleSelectedAt(
-                radius * Math.cos(angle),
-                radius * Math.sin(angle),
-              ),
-            ),
-          );
-        }
-      }
-      edge.assign(cover.mul(powerMask.sample(screenUV).level(float(0)).r));
+      edge.assign(
+        coverXY
+          .sample(screenUV)
+          .level(float(0))
+          .r.mul(powerMask.sample(screenUV).level(float(0)).r),
+      );
     });
     // OutlineNode はグラフに入れないとマスクを毎フレーム更新しないので、結果に影響しない形(0 倍)でつなぐ
     return edge.add(powerOutlinePass.visibleEdge.mul(0));
   })();
+
+  // 縁に沿った長さはポストプロセスでは取れないので、画面の斜め縞で代用する(縁が縞と平行な 45° の所は破線に見えない)
+  // 画面の高さを基準にして、解像度や DPR が違っても見た目の細かさと速さをそろえる
+  const aspect = screenSize.x.div(screenSize.y);
+  const dashPhase = fract(
+    screenUV.x
+      .mul(aspect)
+      .add(screenUV.y)
+      .mul(DASH_PERIODS_PER_SCREEN_HEIGHT)
+      .sub(time.mul(DASH_SPEED)),
+  );
+  const dashAa = screenSize.y.reciprocal().mul(DASH_PERIODS_PER_SCREEN_HEIGHT);
+  const dashOn = smoothstep(
+    float(0.25).sub(dashAa),
+    float(0.25).add(dashAa),
+    abs(dashPhase.sub(0.5)),
+  );
+  const dash = mix(float(1), dashOn, powerOutlineDash);
 
   return {
     composite: (color: Node<"vec4">): Node<"vec4"> =>
@@ -85,12 +132,14 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
         mix(
           color.rgb,
           powerOutlineColor,
-          clamp(powerEdge, 0, 1).mul(powerOutlineFade),
+          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade),
         ),
         color.a,
       ),
     dispose: (): void => {
       powerOutlinePass.dispose();
+      coverX.dispose();
+      coverXY.dispose();
     },
   };
 };

@@ -1,9 +1,6 @@
-import {useEffect, useMemo} from "react";
-import {CanvasTexture, RepeatWrapping, SRGBColorSpace} from "three";
-import {MeshStandardNodeMaterial} from "three/webgpu";
-
 import {type AOMode, aoModeUserData} from "../bake/aoMode";
 import {BVHCollider} from "../core/bvh";
+import {useGridFloorMaterial} from "./gridFloorMaterial";
 
 interface TiledFloorProps {
   size?: number;
@@ -12,47 +9,14 @@ interface TiledFloorProps {
   ao?: AOMode;
 }
 
-const createTileTexture = (repeat: number) => {
-  const px = 256;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = px;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, px, px);
-    ctx.strokeStyle = "#c4c4c4";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, px, px);
-  }
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.wrapS = texture.wrapT = RepeatWrapping;
-  texture.repeat.set(repeat, repeat);
-  texture.anisotropy = 8;
-  return texture;
-};
-
-/**
- * 上面が y=0 の平らな床。淡い格子線のタイル付き。BVH コライダー込み。
- * マテリアルはノードのマテリアルにする(焼いた後で消えた物の影を、ベイク AO から消せるように。bake/aoErase)
- */
+/** 上面が y=0 の平らな床。淡い格子線のタイル付き。BVH コライダー込み */
 export function TiledFloor({
   size = 200,
   thickness = 1,
   tileSize = 2,
   ao,
 }: TiledFloorProps) {
-  const material = useMemo(() => new MeshStandardNodeMaterial(), []);
-  useEffect(() => () => material.dispose(), [material]);
-  useEffect(() => {
-    const texture = createTileTexture(size / tileSize);
-    material.map = texture;
-    material.needsUpdate = true;
-    return () => {
-      material.map = null;
-      texture.dispose();
-    };
-  }, [material, size, tileSize]);
+  const material = useGridFloorMaterial(tileSize);
 
   return (
     <BVHCollider>

@@ -37,7 +37,7 @@ export function WhiteWorld() {
   return (
     <>
       <fog attach="fog" args={[SKY_HORIZON, 15, 90]} />
-      <hemisphereLight args={["#ffffff", "#d8d8d8", 2.2]} />
+      <hemisphereLight args={["#ffffff", "#efefef", 2.2]} />
       <directionalLight position={[8, 20, 6]} intensity={0.7} />
     </>
   );
