@@ -20,3 +20,7 @@ export {
   tutorialStore,
 } from "./tutorialStore";
 export {useTutorial} from "./useTutorial";
+export {
+  startTutorialPresenceHeartbeat,
+  touchTutorialPresence,
+} from "./tutorialPresence";

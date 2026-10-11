@@ -110,7 +110,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
 
 本番では、WISP は誰でも使えないようにする（オープンプロキシになるため）。
 
-- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。合言葉（`IUBEO_WISP_PASS`）は廃止した。いまはルームに入った人（= Cookie がある人）に発行する。「セッション中・マッチング中・チュートリアル中」に絞るのは未対応（`backend/api/openapi.yaml` の TODO）
+- バックエンドが `GET /api/v1/wisp/token` で、セッション中・マッチング待機/成立後・チュートリアル中（`POST /api/v1/tutorial/presence` の heartbeat）のプレイヤーにだけ、期限つき（5 分）の署名トークン付き URL を返す（鍵は `IUBEO_WISP_KEY`）。合言葉（`IUBEO_WISP_PASS`）は廃止した
 - WISP の Worker（`worker/wisp.ts`）は、KV の `target` で転送先を決める（backend と同じ切り替え）:
   - `ec2` のとき: EC2 上の WISP（8081、EIP から出る）へそのまま流す。トークンは EC2 側がインスタンス上の鍵で検証する。Cloudflare の共有 IP を避けられるので Google が使える
   - それ以外: トークンを Worker で検証してから、Container（`wisp/`、wisp-js）へ流す

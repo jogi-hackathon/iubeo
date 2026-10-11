@@ -3,11 +3,13 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/tutorial"
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
@@ -16,6 +18,7 @@ type Server struct {
 	signer            *player.Signer
 	sessions          *session.Manager
 	matchmaker        *matchmaking.Matchmaker
+	tutorialPresence  *tutorial.Presence
 	allowedOrigins    []string
 	wisp              *wisp.Issuer
 	wispURL           string
@@ -27,7 +30,13 @@ type Server struct {
 var _ api.ServerInterface = (*Server)(nil)
 
 func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker, allowedOrigins []string) *Server {
-	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker, allowedOrigins: allowedOrigins}
+	return &Server{
+		signer:           signer,
+		sessions:         sessions,
+		matchmaker:       matchmaker,
+		tutorialPresence: tutorial.NewPresence(time.Now, tutorial.StaleAfter),
+		allowedOrigins:   allowedOrigins,
+	}
 }
 
 func (s *Server) Handler() http.Handler {

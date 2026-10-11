@@ -67,14 +67,36 @@ export interface paths {
     };
     /**
      * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
-     * @description WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人(= ルームに入った人)だけに、
-     *     期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
-     *     合言葉(X-Iubeo-Wisp-Pass)は廃止した。チュートリアルを入れたら「セッション中・マッチング中・
-     *     チュートリアル中」だけに絞る(TODO)。
+     * @description WISP は誰でも使えると、オープンプロキシになる。セッション参加中・マッチング待機/成立後・
+     *     チュートリアル中(クライアントが `POST /api/v1/tutorial/presence` で heartbeat している間)の
+     *     プレイヤーにだけ、期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを
+     *     検証してから流す。合言葉(X-Iubeo-Wisp-Pass)は廃止した。
      */
     get: operations["getWispToken"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tutorial/presence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * チュートリアル中であることをサーバーに知らせる
+     * @description チュートリアルの進行状態はクライアント(localStorage)側にあり、サーバーは直接は知らない。
+     *     ルームでチュートリアルを進めている間、クライアントが定期的にこのエンドポイントを叩く。
+     *     最後の heartbeat から一定時間経過すると、WISP トークン発行の対象外になる。
+     */
+    post: operations["touchTutorialPresence"];
     delete?: never;
     options?: never;
     head?: never;
@@ -812,6 +834,25 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       503: components["responses"]["Unavailable"];
+    };
+  };
+  touchTutorialPresence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 記録した */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components["responses"]["Unauthorized"];
     };
   };
   getVoiceToken: {

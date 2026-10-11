@@ -8,8 +8,10 @@ import {FILE_KIND, itemManager, parseFileData} from "../../items";
 import {localPlayer} from "../../player/local";
 import {
   pcLogo,
+  startTutorialPresenceHeartbeat,
   tutorialManager,
   tutorialStore,
+  useTutorial,
   useTutorialFlow,
 } from "../../tutorial";
 import {TUTORIAL_FILE_COLOR, TutorialFile} from "./TutorialFile";
@@ -46,6 +48,7 @@ const giveUneditedFile = () =>
 
 export function TutorialDirector() {
   const toggles = useToggles();
+  const {completed} = useTutorial();
   const flow = useTutorialFlow();
   const target = lookFor(flow);
   const [look, setLook] = useState<TutorialLook>(() =>
@@ -90,6 +93,13 @@ export function TutorialDirector() {
     tutorialManager.start();
     return () => tutorialManager.abort();
   }, []);
+
+  useEffect(() => {
+    if (completed) {
+      return;
+    }
+    return startTutorialPresenceHeartbeat();
+  }, [completed]);
 
   useEffect(() => {
     if (flow.status === "idle") {

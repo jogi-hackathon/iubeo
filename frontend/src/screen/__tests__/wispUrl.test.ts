@@ -78,6 +78,14 @@ describe("resolveWispUrl", () => {
     expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 
+  it("403（WISP 対象外）も WISP 無しとして扱う", async () => {
+    expect(
+      await resolveWispUrl(undefined, async () =>
+        jsonResponse(403, {code: "not_eligible"}),
+      ),
+    ).toBeUndefined();
+  });
+
   it("未ログイン(401)や未設定(503)、通信の失敗は、WISP 無し（undefined）として扱い、例外は投げない", async () => {
     expect(
       await resolveWispUrl(undefined, async () =>

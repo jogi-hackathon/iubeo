@@ -19,7 +19,7 @@ var wispKey = []byte("ffffffffffffffffffffffffffffffff")
 func newWispTestServer(t *testing.T, withWisp bool) http.Handler {
 	t.Helper()
 	sessions := session.NewManager(session.NewMemoryStore(), time.Now, session.DefaultConfig)
-	srv := New(player.NewSigner(testKey), sessions, matchmaking.New(3, sessions, time.Now, matchmaking.Options{}), []string{testOrigin})
+	srv := New(player.NewSigner(testKey), sessions, matchmaking.New(1, sessions, time.Now, matchmaking.Options{}), []string{testOrigin})
 	if withWisp {
 		srv.WithWisp(wisp.NewIssuer(wispKey, 0, time.Now), "wss://example.test/wisp/")
 	}
@@ -33,11 +33,43 @@ func TestWispTokenRequiresCookie(t *testing.T) {
 	}
 }
 
-func TestWispTokenIssuedForPlayer(t *testing.T) {
+func TestWispTokenForbiddenWithoutActivity(t *testing.T) {
 	h := newWispTestServer(t, true)
 	cookie := playerCookie(t, do(t, h, http.MethodPost, "/api/v1/players"))
-
 	res := do(t, h, http.MethodGet, "/api/v1/wisp/token", cookie)
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", res.StatusCode)
+	}
+}
+
+func TestWispTokenIssuedWhenMatchmaking(t *testing.T) {
+	h := newWispTestServer(t, true)
+	cookie := playerCookie(t, do(t, h, http.MethodPost, "/api/v1/players"))
+	if res := do(t, h, http.MethodPost, "/api/v1/matchmaking", cookie); res.StatusCode != http.StatusOK {
+		t.Fatalf("join matchmaking: status = %d", res.StatusCode)
+	}
+	res := do(t, h, http.MethodGet, "/api/v1/wisp/token", cookie)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+}
+
+func TestWispTokenIssuedForTutorialPresence(t *testing.T) {
+	h := newWispTestServer(t, true)
+	cookie := playerCookie(t, do(t, h, http.MethodPost, "/api/v1/players"))
+	if res := do(t, h, http.MethodPost, "/api/v1/tutorial/presence", cookie); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("tutorial presence: status = %d", res.StatusCode)
+	}
+	res := do(t, h, http.MethodGet, "/api/v1/wisp/token", cookie)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+}
+
+func TestWispTokenIssuedForSessionMember(t *testing.T) {
+	h := newWispTestServer(t, true)
+	_, players := matchPlayers(t, h, 1)
+	res := do(t, h, http.MethodGet, "/api/v1/wisp/token", players[0].cookie)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", res.StatusCode)
 	}
@@ -58,7 +90,7 @@ func TestWispTokenIssuedForPlayer(t *testing.T) {
 	if !ok {
 		t.Fatal("issued token does not verify")
 	}
-	me := decode[api.Me](t, do(t, h, http.MethodGet, "/api/v1/players/me", cookie))
+	me := decode[api.Me](t, do(t, h, http.MethodGet, "/api/v1/players/me", players[0].cookie))
 	if id != me.PlayerId {
 		t.Fatalf("token sub = %q, want %q", id, me.PlayerId)
 	}
@@ -67,9 +99,17 @@ func TestWispTokenIssuedForPlayer(t *testing.T) {
 	}
 }
 
+func TestTouchTutorialPresenceRequiresCookie(t *testing.T) {
+	res := do(t, newWispTestServer(t, true), http.MethodPost, "/api/v1/tutorial/presence")
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", res.StatusCode)
+	}
+}
+
 func TestWispTokenUnavailableWithoutConfig(t *testing.T) {
 	h := newWispTestServer(t, false)
 	cookie := playerCookie(t, do(t, h, http.MethodPost, "/api/v1/players"))
+	do(t, h, http.MethodPost, "/api/v1/tutorial/presence", cookie)
 	res := do(t, h, http.MethodGet, "/api/v1/wisp/token", cookie)
 	if res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", res.StatusCode)
