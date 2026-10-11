@@ -1,6 +1,5 @@
 import type {
   ApiErrorBody,
-  CreateSessionRequest,
   MatchmakingStatus,
   Me,
   SessionSnapshot,
@@ -67,8 +66,6 @@ export const createApiClient = ({
     getMatchmaking: () =>
       request<MatchmakingStatus>("GET", "/api/v1/matchmaking"),
     leaveMatchmaking: () => request<undefined>("DELETE", "/api/v1/matchmaking"),
-    createSession: (body: CreateSessionRequest) =>
-      request<SessionSnapshot>("POST", "/api/v1/sessions", body),
     getSession: (sessionId: string) =>
       request<SessionSnapshot>(
         "GET",
