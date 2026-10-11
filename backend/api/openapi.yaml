@@ -186,30 +186,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /api/v1/sessions:
-    post:
-      tags: [sessions]
-      operationId: createSession
-      summary: シングルモードのセッションを作る
-      description: マルチプレイのセッションは自動マッチングでのみ作られる。
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateSessionRequest"
-      responses:
-        "201":
-          description: 作ったセッション
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SessionSnapshot"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          $ref: "#/components/responses/Conflict"
-
   /api/v1/sessions/{sessionId}:
     parameters:
       - $ref: "#/components/parameters/SessionId"
@@ -336,7 +312,7 @@ components:
 
     SessionMode:
       type: string
-      enum: [single, multiplayer]
+      enum: [multiplayer]
     SessionStatus:
       type: string
       enum: [waiting, playing, intermission, finished]
@@ -464,14 +440,6 @@ components:
         sessionId:
           description: status が matched のときだけ
           type: string
-    CreateSessionRequest:
-      type: object
-      required: [mode]
-      properties:
-        mode:
-          type: string
-          enum: [single]
-
     Item:
       description: 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個
       type: object

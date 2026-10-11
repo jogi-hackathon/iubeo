@@ -44,10 +44,6 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, api.Error{Code: code, Message: message})
 }
 
-func notImplemented(w http.ResponseWriter) {
-	writeError(w, http.StatusNotImplemented, "not_implemented", "not implemented")
-}
-
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, bool) {
 	id, ok := s.signer.FromRequest(r)
 	if !ok {
@@ -59,5 +55,3 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, b
 func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
-
-func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }

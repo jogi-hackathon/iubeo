@@ -7,6 +7,8 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 )
 
+// WithVoice は Voice Chat のトークンを発行できるようにする。設定が揃っていなければ
+// GetVoiceToken は 200 で available: false を返す(503 ではない)。
 func (s *Server) WithVoice(issuer *voice.Issuer, signalingURL, mediaURL string) *Server {
 	s.voice = issuer
 	s.voiceSignalingURL = signalingURL

@@ -107,7 +107,7 @@ export default {
 
 /**
  * Voice Chat の env。Worker の env はコンテナへ自動で渡らないので、ここで明示的に載せる。
- * 3 つとも揃っているときだけ渡し、欠けていればサーバー側が「VC 無し」として動く(トークンは 503)。
+ * 3 つとも揃っているときだけ渡し、欠けていればサーバー側が「VC 無し」として動く(トークンは 200 で available: false)。
  * 署名だけなのでコンテナにインターネットは要らない(enableInternet: false のまま)
  */
 const voiceEnv = (env: Env): Record<string, string> => {
