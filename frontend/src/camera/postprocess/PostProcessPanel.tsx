@@ -211,6 +211,53 @@ export function PostProcessPanel() {
           onChange={(updateRate) => set({skyNoise: {updateRate}})}
         />
       </Section>
+      <Section title="Sea">
+        <Check
+          label="enabled"
+          checked={s.sea.enabled}
+          onChange={(enabled) => set({sea: {enabled}})}
+        />
+        <Slider
+          label="crest"
+          value={s.sea.crest}
+          min={-50}
+          max={0}
+          step={0.5}
+          onChange={(crest) => set({sea: {crest}})}
+        />
+        <Slider
+          label="amplitude"
+          value={s.sea.amplitude}
+          min={0}
+          max={15}
+          step={0.1}
+          onChange={(amplitude) => set({sea: {amplitude}})}
+        />
+        <Slider
+          label="wavelength"
+          value={s.sea.wavelengthScale}
+          min={0.25}
+          max={4}
+          step={0.05}
+          onChange={(wavelengthScale) => set({sea: {wavelengthScale}})}
+        />
+        <Slider
+          label="speed"
+          value={s.sea.speed}
+          min={0}
+          max={5}
+          step={0.05}
+          onChange={(speed) => set({sea: {speed}})}
+        />
+        <Slider
+          label="cell px"
+          value={s.sea.cellSize}
+          min={4}
+          max={24}
+          step={1}
+          onChange={(cellSize) => set({sea: {cellSize}})}
+        />
+      </Section>
       <Section title="Vignette">
         <Check
           label="enabled"

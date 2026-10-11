@@ -1,3 +1,4 @@
+import type {Camera} from "three";
 import {
   cameraProjectionMatrixInverse,
   cameraWorldMatrix,
@@ -23,9 +24,10 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import type {Node} from "three/webgpu";
+import type {Node, WebGPURenderer} from "three/webgpu";
 
 import type {PostProcessSettings} from "../../camera/postprocess/settings";
+import {createSea} from "./sea";
 
 /** 地平線の色。フォグと同じにして、遠景が空に継ぎ目なく溶けるようにする */
 export const SKY_HORIZON = "#ffffff";
@@ -97,6 +99,7 @@ export interface Skybox {
   node: Node<"vec3">;
   /** 設定を uniform に反映する(再コンパイルは起きない) */
   apply(settings: PostProcessSettings): void;
+  update(renderer: WebGPURenderer, camera: Camera): void;
 }
 
 const createSkybox = (): Skybox => {
@@ -111,6 +114,7 @@ const createSkybox = (): Skybox => {
     updateRate: uniform(2),
   };
 
+  const sea = createSea();
   const px = screenCoordinate.xy;
   const dir = rayDirection(px);
   const layerAt = (dirY: Node<"float">): Node<"float"> =>
@@ -190,10 +194,13 @@ const createSkybox = (): Skybox => {
     float(0.82),
   );
   rgb = select(dropped, vec3(dropLevel), rgb);
+  rgb = select(dir.y.lessThan(0), sea.colorAt(px), rgb);
 
   return {
     node: rgb.clamp(0, 1),
+    update: (renderer, camera) => sea.update(renderer, camera),
     apply(s) {
+      sea.apply(s);
       const n = s.skyNoise;
       u.enabled.value = n.enabled ? 1 : 0;
       u.intensity.value = n.intensity;

@@ -1,10 +1,12 @@
-import {useThree} from "@react-three/fiber";
+import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect} from "react";
+import type {WebGPURenderer} from "three/webgpu";
 
 import {
   getPostProcessSettings,
   subscribePostProcessSettings,
 } from "../../camera/postprocess/settings";
+import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {getSkybox, SKY_HORIZON} from "./skybox";
 
 /**
@@ -27,6 +29,10 @@ export function WhiteWorld() {
       scene.backgroundNode = null;
     };
   }, [scene]);
+
+  useFrame(({gl, camera}) => {
+    getSkybox().update(gl as unknown as WebGPURenderer, camera);
+  }, FRAME_PRIORITY.sea);
 
   return (
     <>

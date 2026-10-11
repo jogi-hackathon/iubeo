@@ -9,5 +9,6 @@ export const FRAME_PRIORITY = {
   skeleton: 0,
   interact: 0,
   warmup: 0,
+  sea: 0,
   render: 1,
 } as const;
