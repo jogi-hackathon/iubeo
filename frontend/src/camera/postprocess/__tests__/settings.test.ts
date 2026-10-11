@@ -25,6 +25,7 @@ describe("postprocess settings", () => {
     expect(s.vignette.enabled).toBe(true);
     expect(s.toneMapping).toBe("neutral");
     expect(s.exposure).toBe(1.2);
+    expect(s.upscale).toEqual({enabled: true, sharpness: 0.2});
   });
 
   it("トップレベルの項目を更新し、購読者へ通知する", () => {

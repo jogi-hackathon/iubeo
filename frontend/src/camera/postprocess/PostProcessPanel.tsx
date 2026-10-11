@@ -44,6 +44,23 @@ export function PostProcessPanel() {
           </select>
         </label>
       </Section>
+      <Section title="Upscale">
+        {/* 内部解像度(graphics の resolutionScale)から画面の解像度へ。off はバイリニア(比較用) */}
+        <Check
+          label="FSR1"
+          checked={s.upscale.enabled}
+          onChange={(enabled) => set({upscale: {enabled}})}
+        />
+        <Slider
+          label="sharpness"
+          value={s.upscale.sharpness}
+          min={0}
+          max={2}
+          step={0.05}
+          disabled={!s.upscale.enabled}
+          onChange={(sharpness) => set({upscale: {sharpness}})}
+        />
+      </Section>
       <Section title="AO">
         {/* ベイク AO と GTAO の分担は prop ごとの AO モード(src/bake/aoMode.ts)。show AO only は合成後の AO。
             baked を外すと aoMap ごと外れ、baked モードの面も GTAO に戻る */}

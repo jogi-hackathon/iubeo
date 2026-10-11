@@ -34,5 +34,13 @@ export const graphicsStore = storageManager.defineStore<GraphicsSettings>({
   parse: parseGraphicsSettings,
 });
 
+/**
+ * Canvas(ドローイングバッファ)の DPR。1 以下の resolutionScale は Canvas ではなくシーンの内部解像度(getRenderScale)で
+ * 落とし、ポストプロセスが FSR1 で画面の解像度へ上げる。1 を超える分(スーパーサンプリング)だけ Canvas を大きくする
+ */
 export const getDpr = (settings: GraphicsSettings): number =>
-  settings.resolutionScale * window.devicePixelRatio;
+  Math.max(1, settings.resolutionScale) * window.devicePixelRatio;
+
+/** シーン(と AO・ブルーム)を描く内部解像度の、画面に対する比率(0〜1) */
+export const getRenderScale = (settings: GraphicsSettings): number =>
+  Math.min(1, settings.resolutionScale);

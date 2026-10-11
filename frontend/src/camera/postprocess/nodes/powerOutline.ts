@@ -136,6 +136,11 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
         ),
         color.a,
       ),
+    /** 広げるパスの解像度を、シーンの内部解像度(pipeline の renderScale)に合わせる */
+    setRenderScale: (renderScale: number): void => {
+      coverX.setResolutionScale(DILATE_RESOLUTION_SCALE * renderScale);
+      coverXY.setResolutionScale(DILATE_RESOLUTION_SCALE * renderScale);
+    },
     dispose: (): void => {
       powerOutlinePass.dispose();
       coverX.dispose();

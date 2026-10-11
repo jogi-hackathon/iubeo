@@ -4,6 +4,7 @@ import {Vector3} from "three";
 import type {Renderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {getRenderScale, graphicsStore} from "../../core/graphics";
 import {updateGlitch} from "./glitchState";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
 import {updatePowerOutline} from "./powerOutlineSelection";
@@ -20,13 +21,18 @@ export function PostProcess() {
 
   useEffect(() => {
     const p = createPostProcessPipeline(gl, scene, camera);
+    p.setRenderScale(getRenderScale(graphicsStore.get()));
     p.apply(getPostProcessSettings());
     const unsubscribe = subscribePostProcessSettings(() =>
       p.apply(getPostProcessSettings()),
     );
+    const unsubscribeGraphics = graphicsStore.subscribe(() =>
+      p.setRenderScale(getRenderScale(graphicsStore.get())),
+    );
     pipeline.current = p;
     return () => {
       unsubscribe();
+      unsubscribeGraphics();
       pipeline.current = null;
       p.dispose();
     };

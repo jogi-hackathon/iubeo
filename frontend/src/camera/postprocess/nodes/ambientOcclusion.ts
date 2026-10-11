@@ -83,13 +83,16 @@ export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
     aoOnlyPass,
     contextFor: (s: PostProcessSettings) =>
       s.ao.enabled ? contexts[s.ao.denoise ? "denoised" : "raw"] : null,
-    apply: (s: PostProcessSettings): void => {
+    /** renderScale はシーンの内部解像度(pipeline)。AO の解像度は、その内部解像度に対する s.ao.resolutionScale */
+    apply: (s: PostProcessSettings, renderScale: number): void => {
       aoPass.radius.value = s.ao.radius;
       aoPass.scale.value = s.ao.scale;
       aoPass.thickness.value = s.ao.thickness;
       aoPass.samples.value = s.ao.samples;
-      aoPass.resolutionScale = s.ao.resolutionScale;
-      denoised.setResolutionScale(s.ao.resolutionScale);
+      prePass.setResolutionScale(renderScale);
+      aoOnlyPass.setResolutionScale(renderScale);
+      aoPass.resolutionScale = s.ao.resolutionScale * renderScale;
+      denoised.setResolutionScale(s.ao.resolutionScale * renderScale);
     },
     dispose: (): void => {
       denoised.dispose();

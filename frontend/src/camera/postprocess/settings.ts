@@ -67,6 +67,14 @@ export interface PostProcessSettings {
     samples: number;
     resolutionScale: number;
   };
+  /**
+   * 内部解像度(core/graphics の resolutionScale)から画面の解像度への引き伸ばし。FSR1(EASU + RCAS)。
+   * off はバイリニア(比較用)。sharpness は RCAS の強さ(0 が最大、2 で無し)
+   */
+  upscale: {
+    enabled: boolean;
+    sharpness: number;
+  };
   /** 事前ベイクした AO(src/bake/BakedAO.tsx が静的 mesh の aoMap に貼る) */
   bakedAO: {
     /**
@@ -121,6 +129,7 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     samples: 16,
     resolutionScale: 0.5,
   },
+  upscale: {enabled: true, sharpness: 0.2},
   bakedAO: {enabled: true, intensity: 1},
 };
 

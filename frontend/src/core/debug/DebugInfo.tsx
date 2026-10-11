@@ -2,6 +2,7 @@ import {addAfterEffect, useThree} from "@react-three/fiber";
 import {useEffect} from "react";
 
 import {useAppContext} from "../../boot/context";
+import {getRenderScale} from "../graphics";
 
 const INTERVAL_MS = 500;
 
@@ -144,7 +145,7 @@ export function DebugInfo() {
         `FPS      ${fps.toFixed(0)}`,
         "Backend  WebGPU",
         `GPU      ${gpuName}`,
-        `Res      ${r.domElement.width}x${r.domElement.height} (dpr ${r.getPixelRatio().toFixed(2)}, scale ${resolutionScale})`,
+        `Res      ${r.domElement.width}x${r.domElement.height} (dpr ${r.getPixelRatio().toFixed(2)}, scale ${resolutionScale}, render ${getRenderScale(settings)})`,
         `FPS cap  ${fpsLimit ?? "none"}`,
         `Draw     ${fmt(snap.drawCalls)}`,
         `Tris     ${fmt(snap.triangles)}  Lines ${fmt(snap.lines)}  Pts ${fmt(snap.points)}`,
