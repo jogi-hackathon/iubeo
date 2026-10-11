@@ -9,7 +9,7 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
 const MIN_FPS_LIMIT = 20;
 
-const DEFAULTS: GraphicsSettings = {resolutionScale: 1, fpsLimit: null};
+const DEFAULTS: GraphicsSettings = {resolutionScale: 0.75, fpsLimit: 60};
 
 export const parseGraphicsSettings = (raw: unknown): GraphicsSettings => {
   if (typeof raw !== "object" || raw === null) {

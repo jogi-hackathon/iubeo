@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {graphicsStore, parseGraphicsSettings} from "../graphics";
 
-const DEFAULTS = {resolutionScale: 1, fpsLimit: null};
+const DEFAULTS = {resolutionScale: 0.75, fpsLimit: 60};
 
 const GRAPHICS_KEY = "iubeo:graphics";
 
@@ -58,20 +58,28 @@ describe("parseGraphicsSettings", () => {
     );
   });
 
-  it("resolutionScale の不正型・NaN は 1", () => {
+  it("resolutionScale の不正型・NaN は既定値", () => {
     expect(parseGraphicsSettings({resolutionScale: "2"}).resolutionScale).toBe(
-      1,
+      DEFAULTS.resolutionScale,
     );
     expect(parseGraphicsSettings({resolutionScale: NaN}).resolutionScale).toBe(
-      1,
+      DEFAULTS.resolutionScale,
     );
   });
 
-  it("fpsLimit が null・0以下・NaN なら null", () => {
-    expect(parseGraphicsSettings({fpsLimit: null}).fpsLimit).toBeNull();
-    expect(parseGraphicsSettings({fpsLimit: 0}).fpsLimit).toBeNull();
-    expect(parseGraphicsSettings({fpsLimit: -30}).fpsLimit).toBeNull();
-    expect(parseGraphicsSettings({fpsLimit: NaN}).fpsLimit).toBeNull();
+  it("fpsLimit が null・0以下・NaN なら既定値", () => {
+    expect(parseGraphicsSettings({fpsLimit: null}).fpsLimit).toBe(
+      DEFAULTS.fpsLimit,
+    );
+    expect(parseGraphicsSettings({fpsLimit: 0}).fpsLimit).toBe(
+      DEFAULTS.fpsLimit,
+    );
+    expect(parseGraphicsSettings({fpsLimit: -30}).fpsLimit).toBe(
+      DEFAULTS.fpsLimit,
+    );
+    expect(parseGraphicsSettings({fpsLimit: NaN}).fpsLimit).toBe(
+      DEFAULTS.fpsLimit,
+    );
   });
 
   it("fpsLimit が 1〜19 なら 20 に丸める", () => {
