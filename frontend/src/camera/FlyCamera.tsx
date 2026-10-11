@@ -5,6 +5,7 @@ import {Euler, Vector3} from "three";
 import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
+import {isPlayerControlLocked} from "../core/playerControl";
 import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
 import {applyLook, type Look} from "../player";
@@ -25,6 +26,10 @@ export function FlyCamera() {
   const active = useRef(false);
 
   useFrame(({camera}, delta) => {
+    if (isPlayerControlLocked()) {
+      active.current = false;
+      return;
+    }
     if (!freeCamera && spectate !== "spectating") {
       active.current = false;
       return;

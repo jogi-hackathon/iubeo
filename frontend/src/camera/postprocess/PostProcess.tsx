@@ -1,9 +1,10 @@
 import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect, useRef} from "react";
-import {Vector3} from "three";
-import type {Renderer} from "three/webgpu";
+import {type PerspectiveCamera, Vector3} from "three";
+import type {Renderer, WebGPURenderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {proxyView} from "../../transition/dive/proxyView";
 import {updateGlitch} from "./glitchState";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
 import {updatePowerOutline} from "./powerOutlineSelection";
@@ -33,6 +34,12 @@ export function PostProcess() {
   }, [gl, scene, camera]);
 
   useFrame(() => {
+    if (proxyView.active) {
+      proxyView.render(
+        gl as unknown as WebGPURenderer,
+        camera as PerspectiveCamera,
+      );
+    }
     if (pipeline.current && getPostProcessSettings().enabled) {
       updatePowerOutline(camera.getWorldPosition(cameraPosition));
       updateGlitch();
