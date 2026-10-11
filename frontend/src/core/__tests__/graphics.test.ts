@@ -7,7 +7,7 @@ import {
   parseGraphicsSettings,
 } from "../graphics";
 
-const DEFAULTS = {resolutionScale: 0.75, fpsLimit: 60};
+const DEFAULTS = {resolutionScale: 0.5, fpsLimit: 60};
 
 const GRAPHICS_KEY = "iubeo:graphics";
 

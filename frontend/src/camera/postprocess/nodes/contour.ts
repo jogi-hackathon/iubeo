@@ -1,7 +1,5 @@
 import {Color} from "three";
 import {
-  cameraFar,
-  cameraNear,
   dot,
   float,
   Fn,
@@ -28,7 +26,12 @@ const LINE_COLOR = "#000000";
  * のどちらかを線にする。深度は奥側だけ見るので線は手前の物の側に 1 テクセル、法線は +x・+y だけ見て 1 テクセルに保つ。
  * 遠くは線が密になって汚れるので、距離で薄くする。空(深度 1)は距離で消える
  */
-export const createContour = (normal: TextureNode, depth: TextureNode) => {
+export const createContour = (
+  normal: TextureNode,
+  depth: TextureNode,
+  /** シーンのカメラの near / far(pipeline が毎フレーム入れる。TSL の cameraNear は後処理の中では quad のカメラの値になる) */
+  camera: {near: Node<"float">; far: Node<"float">},
+) => {
   const strength = uniform(0);
   const depthThreshold = uniform(0.02);
   const normalThreshold = uniform(0.25);
@@ -41,8 +44,8 @@ export const createContour = (normal: TextureNode, depth: TextureNode) => {
     const distanceAt = (offset: Node<"vec2">): Node<"float"> =>
       perspectiveDepthToViewZ(
         depth.sample(screenUV.add(offset)).level(float(0)).r,
-        cameraNear,
-        cameraFar,
+        camera.near,
+        camera.far,
       ).negate();
     const normalAt = (offset: Node<"vec2">): Node<"vec3"> =>
       normal.sample(screenUV.add(offset)).level(float(0)).xyz;

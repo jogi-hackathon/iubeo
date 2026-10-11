@@ -102,6 +102,8 @@ export const createPostProcessPipeline = (
   const vignetteIntensity = uniform(0);
   const vignetteSmoothness = uniform(0);
   const upscaleSharpness = uniform(0.2);
+  // 後処理の中で TSL の cameraNear / cameraFar を読むと quad のカメラの値になるので、シーンのカメラの値を毎フレーム渡す
+  const cameraPlanes = {near: uniform(0.1), far: uniform(100)};
   let renderScale = 1;
 
   const occlusion = createAmbientOcclusion(scene, camera);
@@ -112,7 +114,11 @@ export const createPostProcessPipeline = (
   // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
   const bloomNode = bloom(sceneColor);
   const glitch = createGlitch();
-  const contour = createContour(occlusion.normal, occlusion.depth);
+  const contour = createContour(
+    occlusion.normal,
+    occlusion.depth,
+    cameraPlanes,
+  );
   const grain = createGrain();
   // 2 つの縁取りの選択を 1 回のマスクで描き、隠れは pre-pass の深度と比べる(シーンの再描画なし)
   const selection = createSelectionMask(
@@ -212,7 +218,12 @@ export const createPostProcessPipeline = (
   };
 
   return {
-    render: () => pipeline.render(),
+    render: () => {
+      const planes = camera as {near?: number; far?: number};
+      cameraPlanes.near.value = planes.near ?? cameraPlanes.near.value;
+      cameraPlanes.far.value = planes.far ?? cameraPlanes.far.value;
+      pipeline.render();
+    },
     apply(s) {
       current = s;
       exposure.value = s.exposure;
