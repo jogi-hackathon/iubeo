@@ -80,4 +80,5 @@ WebTransport（HTTP/3）を使うので **Chrome / Edge のみ**。Firefox・Saf
 - トークンの TTL は 30 分。セッションが終わっても、発行済みトークンは期限まで有効
   （接続中の MoQ は切れない）
 - マイクは最初の push-to-talk まで取得しない。セッションを抜けたら止める
-- 音声の符号化は WebCodecs の Opus。`@moq/net` は 0.4.1 に固定（`vc` の bench と同じ）
+- 音声の符号化は WebCodecs の Opus（モノラル 48kbps、20ms フレーム、`latencyMode: realtime`）。`MoqVoice` の `bitrate` / `frameDurationMs` / `complexity` で調整できる。`@moq/net` は 0.4.1 に固定（`vc` の bench と同じ）
+- Opus の in-band FEC（`useinbandfec`）はエンコードはできるが、**WebCodecs の `AudioDecoder` に損失フレームを復元する API が無い**ので、いまは使っていない（MoQ の datagram は非信頼なので、損失対策は別途: 同一フレームの二重送信、重要な区間を group 側に載せる、など）
