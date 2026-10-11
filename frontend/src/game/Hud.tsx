@@ -19,7 +19,7 @@ import {stockColorsOf} from "./stockColors";
 export const NOTICE_MS = 5000;
 
 // Canvas の外の DOM オーバーレイ。本番(DEV パネル無し)でも出す。
-// 開発用パネルは四隅にあるので、重ならないよう上中央に置く
+// 開発用パネルは右端、stats は左上にあるので、重ならないよう上中央に置く
 const panelStyle: CSSProperties = {
   position: "fixed",
   top: 10,

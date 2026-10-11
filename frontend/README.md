@@ -47,7 +47,8 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 `.env.development` の `VITE_ENABLE_DEBUG=true` のとき有効。
 
 - `?debug` クエリ
-- `F9`: ポストプロセスパネル / `F10`: シーンパネル / `Shift+F10`: ゲームパネル
+- `F10`: dev パネルの開閉 / `Shift+F10`: 次のタブへ(View・Scene・PostFX、`pnpm dev` のときは Game・Flow も)
+- `F6`: stats と grid / `F8`: フリーカメラ(プレイ中に切り替えられるよう、パネルとは別のキーにしてある)
 
 `VITE_RENDERER=webgl` にすると WebGL2 を強制し、起動エラー画面を確認できる。
 

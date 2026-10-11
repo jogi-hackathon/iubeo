@@ -1,24 +1,10 @@
-import {type CSSProperties, useEffect, useState} from "react";
+import {useEffect, useState} from "react";
 
 import {useMyPlayerId} from "../authority/useMyPlayerId";
-import {useDebugFlags} from "../core/debug/flags";
+import {mutedStyle, rowStyle} from "../core/debug/ui";
 import {gameFlow, useGameFlow} from "../flow";
 import {playerManager, usePlayersState} from "../player";
 import {useSceneState} from "../scenes/useScene";
-
-const panelStyle: CSSProperties = {
-  position: "fixed",
-  top: 80,
-  left: 0,
-  boxSizing: "border-box",
-  width: 220,
-  padding: "6px 8px",
-  font: "11px/1.5 ui-monospace, Menlo, monospace",
-  color: "#fff",
-  background: "rgba(0,0,0,0.75)",
-  zIndex: 10001,
-};
-const rowStyle: CSSProperties = {display: "flex", gap: 6, marginTop: 4};
 
 const short = (id: string) => id.slice(0, 8);
 
@@ -67,20 +53,16 @@ function Players() {
 }
 
 /**
- * ゲームの流れ(flow/)の状態と、マッチングの開始・取り消しのボタン。デバッグ(game)が有効なとき出す。
+ * dev パネルの Flow タブ。ゲームの流れ(flow/)の状態と、マッチングの開始・取り消しのボタン。
  * 開始はゲームの流れの startMatchmaking を 1 回呼ぶだけ(将来、チュートリアルの終わりから同じ関数を呼ぶ)。
  * 2 人目以降は、別のブラウザプロファイルかシークレットウィンドウで開く(Cookie を分ける)
  */
 export function GameFlowPanel() {
-  const {game} = useDebugFlags();
   const flow = useGameFlow();
   const {current: sceneName} = useSceneState();
-  if (!game) {
-    return null;
-  }
   const idle = flow.status === "idle" || flow.status === "error";
   return (
-    <div style={panelStyle}>
+    <>
       <div>flow: {flow.status}</div>
       {flow.status === "idle" && flow.notice === "replaced" && (
         <div>別のタブで入り直したので、こちらは切れた(replaced)</div>
@@ -98,7 +80,7 @@ export function GameFlowPanel() {
               </>
             )}
           </div>
-          <div style={{opacity: 0.7}}>
+          <div style={mutedStyle}>
             IUBEO_MATCH_SIZE 人そろうと始まる(2
             人目以降は別のブラウザかシークレットウィンドウで開く)
           </div>
@@ -124,11 +106,11 @@ export function GameFlowPanel() {
         </button>
       </div>
       {sceneName === "sandbox" && idle && (
-        <div style={{opacity: 0.7}}>
+        <div style={mutedStyle}>
           sandbox にセッション無しで居る。room などへ移ってから始める
         </div>
       )}
       {flow.status === "inSession" && <Players />}
-    </div>
+    </>
   );
 }
