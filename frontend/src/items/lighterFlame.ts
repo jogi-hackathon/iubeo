@@ -14,13 +14,16 @@ import {
 } from "three/tsl";
 import {
   BackSide,
+  Group,
   LatheGeometry,
+  Mesh,
   MeshBasicNodeMaterial,
   type Node,
   Vector2,
 } from "three/webgpu";
 
 import {setSkipGTAO} from "../camera/postprocess/skipGTAO";
+import {registerShaderSwatch} from "../core/shaderSwatches";
 import {
   LIGHTER_FLAME_CORE,
   LIGHTER_FLAME_PROFILE,
@@ -108,3 +111,13 @@ setSkipGTAO(outlineMaterial, true);
 
 export const FLAME_MATERIAL = flameMaterial;
 export const FLAME_OUTLINE_MATERIAL = outlineMaterial;
+
+// ライターを持って蓋を開けるまで描かれないので、見本をウォームアップに描かせる
+registerShaderSwatch("lighterFlame", () => {
+  const group = new Group();
+  group.add(
+    new Mesh(FLAME_GEOMETRY, FLAME_MATERIAL),
+    new Mesh(FLAME_GEOMETRY, FLAME_OUTLINE_MATERIAL),
+  );
+  return group;
+});

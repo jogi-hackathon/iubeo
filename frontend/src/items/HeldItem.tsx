@@ -4,11 +4,13 @@ import {
   BackSide,
   BoxGeometry,
   CylinderGeometry,
-  type Group,
+  Group,
+  Mesh,
   MeshBasicMaterial,
 } from "three";
 
 import {setSkipGTAO} from "../camera/postprocess/skipGTAO";
+import {registerShaderSwatch} from "../core/shaderSwatches";
 import {FILE_KIND, parseFileData} from "./file";
 import {
   heldLighterPose,
@@ -78,6 +80,19 @@ const UNIT_GEOMETRIES: Record<
   box: new BoxGeometry(1, 1, 1),
   cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
 };
+
+// 手に持つまでマウントされないので、塗りと縁取り(BackSide)の見本をウォームアップに描かせる。
+// ファイルの色ごとの縁取りは OUTLINE_MATERIAL と同じシェーダー・設定(色は uniform)なので、見本は 1 つで足りる。炎は lighterFlame が登録する
+registerShaderSwatch("heldItem", () => {
+  const group = new Group();
+  group.add(
+    new Mesh(UNIT_GEOMETRIES.box, FILL_MATERIAL),
+    new Mesh(UNIT_GEOMETRIES.box, OUTLINE_MATERIAL),
+    new Mesh(UNIT_GEOMETRIES.cylinder, ACCENT_MATERIAL),
+  );
+  return group;
+});
+
 function LighterPartMesh({part}: {part: LighterPart}) {
   const outline =
     part.look === "body"

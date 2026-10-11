@@ -3,10 +3,19 @@ import {useEffect, useMemo, useRef} from "react";
 import {Sprite} from "three/webgpu";
 
 import {bakedAOErase} from "../../bake/aoErase";
+import {registerShaderSwatch} from "../../core/shaderSwatches";
 import type {Vec3} from "../../props/types";
 import {CORRUPT_SECONDS, directoryCorruption} from "./corruption";
 import {createFireMaterial, fireParamsFor, IGNITE_SECONDS} from "./fire";
 import {mountainReach, type MountainSizeName} from "./mountain";
+
+// 火がつくまでマウントされないので、見本をウォームアップに描かせる。シェーダーは山の大きさ(粒の数)によらず同じ
+registerShaderSwatch("directoryFire", () => {
+  const params = fireParamsFor("small");
+  const sprite = new Sprite(createFireMaterial(params).material);
+  sprite.count = params.count;
+  return sprite;
+});
 
 const AO_ERASE_REACH = 1.3;
 const FIRE_FADE_RATIO = 0.25;
