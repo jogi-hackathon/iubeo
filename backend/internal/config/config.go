@@ -22,7 +22,7 @@ type Config struct {
 	IntermissionDuration time.Duration
 	BypassDuration       time.Duration
 	FireDuration         time.Duration
-	CpuFillAfter         time.Duration
+	CPUFillAfter         time.Duration
 	WispKey              []byte
 	WispURL              string
 	VCSeed               []byte
@@ -39,7 +39,7 @@ func Load(getenv func(string) string) (Config, error) {
 		IntermissionDuration: 15 * time.Second,
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
-		CpuFillAfter:         30 * time.Second,
+		CPUFillAfter:         30 * time.Second,
 	}
 	var errs []error
 
@@ -108,7 +108,7 @@ func Load(getenv func(string) string) (Config, error) {
 		if dur, err := time.ParseDuration(v); err != nil || dur < 0 {
 			errs = append(errs, fmt.Errorf("IUBEO_CPU_FILL_AFTER must be a duration such as 30s (0 disables it): %q", v))
 		} else {
-			cfg.CpuFillAfter = dur
+			cfg.CPUFillAfter = dur
 		}
 	}
 

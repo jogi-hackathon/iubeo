@@ -14,7 +14,7 @@ const (
 	cpuReachEpsilon = 0.2
 )
 
-type CpuPersona struct {
+type CPUPersona struct {
 	Name        string
 	WalkSpeed   float64
 	JitterMax   time.Duration
@@ -22,7 +22,7 @@ type CpuPersona struct {
 	ThinkPause  time.Duration
 }
 
-var cpuPersonas = []CpuPersona{
+var cpuPersonas = []CPUPersona{
 	{Name: "せっかち", WalkSpeed: 3.1, JitterMax: 300 * time.Millisecond, Reliability: 0.85, ThinkPause: 200 * time.Millisecond},
 	{Name: "丁寧", WalkSpeed: 2.0, JitterMax: 900 * time.Millisecond, Reliability: 0.97, ThinkPause: 800 * time.Millisecond},
 	{Name: "マイペース", WalkSpeed: 2.2, JitterMax: 1200 * time.Millisecond, Reliability: 0.9, ThinkPause: 1200 * time.Millisecond},
@@ -42,7 +42,7 @@ const (
 	cpuStageDone
 )
 
-type CpuAgent struct {
+type CPUAgent struct {
 	Stage       cpuStage
 	TaskID      string
 	Target      [3]float64
@@ -55,9 +55,9 @@ type CpuAgent struct {
 	Skip        bool
 }
 
-func (st *State) resetCpuAgents() {
-	st.CpuAgents = map[string]CpuAgent{}
-	st.CpuLastAt = time.Time{}
+func (st *State) resetCPUAgents() {
+	st.CPUAgents = map[string]CPUAgent{}
+	st.CPULastAt = time.Time{}
 	for i := range st.Players {
 		p := &st.Players[i]
 		if p.Kind != api.Cpu || p.Life != api.Alive {
@@ -67,11 +67,11 @@ func (st *State) resetCpuAgents() {
 		p.Transform.Position = []float64{pos[0], pos[1], pos[2]}
 		p.Transform.Yaw = cpuSeatYaw(p.Seat)
 		st.cpuMarkMoved(p)
-		persona, ok := st.CpuPersonas[p.ID]
+		persona, ok := st.CPUPersonas[p.ID]
 		if !ok {
 			persona = cpuPersonas[0]
 		}
-		st.CpuAgents[p.ID] = CpuAgent{
+		st.CPUAgents[p.ID] = CPUAgent{
 			Stage:       cpuStageIdle,
 			Reliability: persona.Reliability,
 			WalkSpeed:   persona.WalkSpeed,
@@ -88,8 +88,8 @@ func (st *State) cpuMarkMoved(p *PlayerState) {
 }
 
 func (st *State) cpuNewID() string {
-	st.CpuItemSeq++
-	return "cpu-" + strconv.Itoa(st.CpuItemSeq)
+	st.CPUItemSeq++
+	return "cpu-" + strconv.Itoa(st.CPUItemSeq)
 }
 
 func (st *State) cpuStep(now time.Time) []Output {
@@ -97,13 +97,13 @@ func (st *State) cpuStep(now time.Time) []Output {
 		return nil
 	}
 	dt := 0.0
-	if !st.CpuLastAt.IsZero() {
-		dt = now.Sub(st.CpuLastAt).Seconds()
+	if !st.CPULastAt.IsZero() {
+		dt = now.Sub(st.CPULastAt).Seconds()
 	}
 	if dt < 0 || dt > 1 {
 		dt = 0.05
 	}
-	st.CpuLastAt = now
+	st.CPULastAt = now
 
 	var out []Output
 	for i := range st.Players {
@@ -111,14 +111,14 @@ func (st *State) cpuStep(now time.Time) []Output {
 		if p.Kind != api.Cpu || p.Life != api.Alive {
 			continue
 		}
-		a := st.CpuAgents[p.ID]
+		a := st.CPUAgents[p.ID]
 		out = append(out, st.cpuAdvance(p, &a, dt, now)...)
-		st.CpuAgents[p.ID] = a
+		st.CPUAgents[p.ID] = a
 	}
 	return out
 }
 
-func (st *State) cpuAdvance(p *PlayerState, a *CpuAgent, dt float64, now time.Time) []Output {
+func (st *State) cpuAdvance(p *PlayerState, a *CPUAgent, dt float64, now time.Time) []Output {
 	switch a.Stage {
 	case cpuStageIdle:
 		return st.cpuStartTask(p, a, now)
@@ -146,7 +146,7 @@ func (st *State) cpuAdvance(p *PlayerState, a *CpuAgent, dt float64, now time.Ti
 	return nil
 }
 
-func (st *State) cpuMove(p *PlayerState, a *CpuAgent, dt float64) bool {
+func (st *State) cpuMove(p *PlayerState, a *CPUAgent, dt float64) bool {
 	pos := p.Transform.Position
 	if len(pos) != 3 {
 		pos = []float64{a.Target[0], a.Target[1], a.Target[2]}
@@ -179,7 +179,7 @@ func (st *State) cpuMove(p *PlayerState, a *CpuAgent, dt float64) bool {
 	return false
 }
 
-func (st *State) cpuStartTask(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuStartTask(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuPendingTask(p.ID)
 	if t == nil {
 		a.Stage = cpuStageDone
@@ -207,7 +207,7 @@ func (st *State) cpuStartTask(p *PlayerState, a *CpuAgent, now time.Time) []Outp
 	return nil
 }
 
-func (st *State) cpuFetch(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuFetch(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuTask(p.ID, a.TaskID)
 	dir := st.object(directoryID)
 	if t == nil || dir == nil {
@@ -237,7 +237,7 @@ func (st *State) cpuFetch(p *PlayerState, a *CpuAgent, now time.Time) []Output {
 	return out
 }
 
-func (st *State) cpuWork(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuWork(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuTask(p.ID, a.TaskID)
 	if t == nil {
 		a.Stage = cpuStageDone
@@ -292,7 +292,7 @@ func (st *State) cpuWork(p *PlayerState, a *CpuAgent, now time.Time) []Output {
 	return out
 }
 
-func (st *State) cpuAfterWork(p *PlayerState, a *CpuAgent) {
+func (st *State) cpuAfterWork(p *PlayerState, a *CPUAgent) {
 	if a.Skip {
 		a.Stage = cpuStageDone
 		return
@@ -301,7 +301,7 @@ func (st *State) cpuAfterWork(p *PlayerState, a *CpuAgent) {
 	a.Target = cpuWaypoint(p.Seat, cpuLocalDirectory)
 }
 
-func (st *State) cpuDeliver(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuDeliver(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	held := st.held(p.ID)
 	dir := st.object(directoryID)
 	if held == nil || dir == nil {

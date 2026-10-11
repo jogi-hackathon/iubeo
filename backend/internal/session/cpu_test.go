@@ -21,9 +21,9 @@ func newCPUState(t *testing.T, humans, cpus []string) State {
 
 func forceReliable(st State, ids ...string) State {
 	for _, id := range ids {
-		a := st.CpuAgents[id]
+		a := st.CPUAgents[id]
 		a.Reliability = 1
-		st.CpuAgents[id] = a
+		st.CPUAgents[id] = a
 	}
 	return st
 }
@@ -72,8 +72,8 @@ func TestCPUStartsWithoutConnecting(t *testing.T) {
 
 func TestCPUAssignsPersonas(t *testing.T) {
 	st := newCPUState(t, []string{"p1"}, []string{"cpu-1", "cpu-2"})
-	p1, ok1 := st.CpuPersonas["cpu-1"]
-	p2, ok2 := st.CpuPersonas["cpu-2"]
+	p1, ok1 := st.CPUPersonas["cpu-1"]
+	p2, ok2 := st.CPUPersonas["cpu-2"]
 	if !ok1 || !ok2 || p1.Name == "" || p2.Name == "" {
 		t.Fatalf("personas = %+v, %+v", p1, p2)
 	}

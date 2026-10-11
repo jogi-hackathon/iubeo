@@ -92,7 +92,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		DeadlineAt: now.Add(st.Phases.Duration),
 		Tasks:      tasks,
 	}
-	st.resetCpuAgents()
+	st.resetCPUAgents()
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
@@ -260,7 +260,7 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 	return nil
 }
 
-func (st State) apiPhase() api.Phase {
+func (st *State) apiPhase() api.Phase {
 	ph := api.Phase{
 		Number:     st.Phase.Number,
 		Status:     st.Phase.Status,
