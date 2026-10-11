@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -19,43 +18,12 @@ var wispKey = []byte("ffffffffffffffffffffffffffffffff")
 
 func newWispTestServer(t *testing.T, withWisp bool) http.Handler {
 	t.Helper()
-	return newWispTestServerWithPass(t, withWisp, "")
-}
-
-func newWispTestServerWithPass(t *testing.T, withWisp bool, pass string) http.Handler {
-	t.Helper()
 	sessions := session.NewManager(session.NewMemoryStore(), time.Now, session.DefaultConfig)
 	srv := New(player.NewSigner(testKey), sessions, matchmaking.New(3, sessions, time.Now, matchmaking.Options{}), []string{testOrigin})
 	if withWisp {
-		srv.WithWisp(wisp.NewIssuer(wispKey, 0, time.Now), "wss://example.test/wisp/", pass)
+		srv.WithWisp(wisp.NewIssuer(wispKey, 0, time.Now), "wss://example.test/wisp/")
 	}
 	return srv.Handler()
-}
-
-func getWispToken(t *testing.T, h http.Handler, pass string, cookie *http.Cookie) *http.Response {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/wisp/token", nil)
-	req.AddCookie(cookie)
-	if pass != "" {
-		req.Header.Set("X-Iubeo-Wisp-Pass", pass)
-	}
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	return rec.Result()
-}
-
-func TestWispTokenRequiresPassWhenConfigured(t *testing.T) {
-	h := newWispTestServerWithPass(t, true, "open-sesame")
-	cookie := playerCookie(t, do(t, h, http.MethodPost, "/api/v1/players"))
-
-	for _, pass := range []string{"", "wrong"} {
-		if res := getWispToken(t, h, pass, cookie); res.StatusCode != http.StatusForbidden {
-			t.Errorf("pass %q: status = %d, want 403", pass, res.StatusCode)
-		}
-	}
-	if res := getWispToken(t, h, "open-sesame", cookie); res.StatusCode != http.StatusOK {
-		t.Errorf("right pass: status = %d, want 200", res.StatusCode)
-	}
 }
 
 func TestWispTokenRequiresCookie(t *testing.T) {
