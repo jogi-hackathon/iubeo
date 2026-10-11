@@ -29,7 +29,9 @@ import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 import {disarmPipelineWatch} from "../../core/debug/pipelineWatch";
 import {createAimOutline} from "./nodes/aimOutline";
 import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
+import {createContour} from "./nodes/contour";
 import {createGlitch} from "./nodes/glitch";
+import {createGrain} from "./nodes/grain";
 import {pixelateUV} from "./nodes/pixelate";
 import {createPowerOutline} from "./nodes/powerOutline";
 import {createSelectionMask} from "./nodes/selectionMask";
@@ -71,6 +73,8 @@ const structureKey = (s: PostProcessSettings): string =>
     s.ao.showOnly,
     s.ao.enabled && s.ao.denoise,
     s.upscale.enabled,
+    s.contour.enabled,
+    s.grain.enabled,
   ].join("|");
 
 type Disposable = {dispose(): void};
@@ -108,6 +112,8 @@ export const createPostProcessPipeline = (
   // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
   const bloomNode = bloom(sceneColor);
   const glitch = createGlitch();
+  const contour = createContour(occlusion.normal, occlusion.depth);
+  const grain = createGrain();
   // 2 つの縁取りの選択を 1 回のマスクで描き、隠れは pre-pass の深度と比べる(シーンの再描画なし)
   const selection = createSelectionMask(
     scene,
@@ -163,6 +169,9 @@ export const createPostProcessPipeline = (
     const base = glitch.scene(sceneColor);
     let color: Node<"vec4"> = s.bloom.enabled ? base.add(bloomNode) : base;
 
+    if (s.contour.enabled) {
+      color = contour.composite(color);
+    }
     color = powerOutline.composite(color);
     color = aimOutline.composite(color);
 
@@ -186,6 +195,10 @@ export const createPostProcessPipeline = (
         magFilter: NearestFilter,
       });
       full = pixelated.sample(pixelateUV(pixelSize));
+    }
+
+    if (s.grain.enabled) {
+      full = grain.composite(full);
     }
 
     if (s.vignette.enabled) {
@@ -214,6 +227,8 @@ export const createPostProcessPipeline = (
         VIGNETTE_MIN_SMOOTHNESS,
       );
       upscaleSharpness.value = s.upscale.sharpness;
+      contour.apply(s.contour);
+      grain.apply(s.grain.amount);
       applyRenderScale(s);
 
       const next = structureKey(s);

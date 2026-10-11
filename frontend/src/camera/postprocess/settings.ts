@@ -54,6 +54,23 @@ export interface PostProcessSettings {
     smoothness: number;
   };
   /**
+   * 物の縁の細い輪郭線(AO の pre-pass の法線・深度から)。depthThreshold は隣との奥行きの差の比、
+   * normalThreshold は 1 - dot(法線)。fadeStart〜fadeEnd(m)で薄くなる
+   */
+  contour: {
+    enabled: boolean;
+    strength: number;
+    depthThreshold: number;
+    normalThreshold: number;
+    fadeStart: number;
+    fadeEnd: number;
+  };
+  /** フィルムグレイン(画面の解像度で画素ごとのノイズ。バンディングを散らすディザも兼ねる)。amount は ±amount/2 */
+  grain: {
+    enabled: boolean;
+    amount: number;
+  };
+  /**
    * GTAO によるリアルタイム AO。間接光(ambient など)だけを減衰させる。
    * ベイク AO(bakedAO)との分担は prop ごとの AO モード(src/bake/aoMode.ts)で決まる
    */
@@ -119,6 +136,15 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     cellSize: 8,
   },
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
+  contour: {
+    enabled: true,
+    strength: 0.35,
+    depthThreshold: 0.02,
+    normalThreshold: 0.25,
+    fadeStart: 6,
+    fadeEnd: 25,
+  },
+  grain: {enabled: true, amount: 0.03},
   ao: {
     enabled: true,
     showOnly: false,

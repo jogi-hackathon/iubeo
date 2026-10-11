@@ -26,6 +26,8 @@ describe("postprocess settings", () => {
     expect(s.toneMapping).toBe("neutral");
     expect(s.exposure).toBe(1.2);
     expect(s.upscale).toEqual({enabled: true, sharpness: 0.2});
+    expect(s.contour.enabled).toBe(true);
+    expect(s.grain).toEqual({enabled: true, amount: 0.03});
   });
 
   it("トップレベルの項目を更新し、購読者へ通知する", () => {
