@@ -33,9 +33,8 @@ type Config struct {
 	// FireDuration は、火をつけてから victory にするまでの長さ(IUBEO_FIRE_DURATION。既定 10s。time.ParseDuration の形で、正の値)
 	FireDuration time.Duration
 	// CpuFillAfter は、自動マッチングでこの時間たっても人数がそろわないとき、足りない分を CPU で埋める
-	// (IUBEO_CPU_FILL_AFTER。既定 0 = 無効。人数がそろう通常の経路には影響しない)。
-	// デバッグ用: 動作確認のたびに 3 人分のブラウザと Cookie をそろえるのが大変なので、1 人でも通しを試せるようにする。
-	// 既定を無効にしてあるので、使う環境(手元など)だけ明示的に有効にする
+	// (IUBEO_CPU_FILL_AFTER。既定 30s。0 で無効。人数がそろう通常の経路には影響しない)。
+	// 「待たせすぎず、でも CPU 戦になる」ための待ち時間。1 人でも通しで遊べるようにする
 	CpuFillAfter time.Duration
 	// WispKey は WISP 接続用のトークンを署名する鍵(IUBEO_WISP_KEY。任意。無ければ WISP のトークンは発行しない)
 	WispKey []byte
@@ -55,8 +54,8 @@ func Load(getenv func(string) string) (Config, error) {
 		IntermissionDuration: 15 * time.Second,
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
-		// CPU 埋めは既定で無効。使う環境(デバッグ)だけ IUBEO_CPU_FILL_AFTER を明示する
-		CpuFillAfter: 0,
+		// 待機が長いときは CPU とマッチする(1 人でも通しで遊べる)。0 で無効
+		CpuFillAfter: 30 * time.Second,
 	}
 	var errs []error
 

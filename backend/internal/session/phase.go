@@ -103,6 +103,8 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		DeadlineAt: now.Add(st.Phases.Duration),
 		Tasks:      tasks,
 	}
+	// CPU の段取りを引き直す(区画のスポーンに立ち、個体差を作る)
+	st.resetCpuAgents()
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 

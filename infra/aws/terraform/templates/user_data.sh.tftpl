@@ -23,8 +23,8 @@ if [ ! -f /etc/iubeo/env ]; then
     echo "IUBEO_SIGNING_KEY=$SIGNING_KEY"
     echo "IUBEO_ALLOWED_ORIGINS=${allowed_origins}"
     echo "IUBEO_MATCH_SIZE=3"
-    # CPU 埋め(デバッグ用)は本番相当では無効にする。既定も 0 だが、意図を残すため明示する
-    echo "IUBEO_CPU_FILL_AFTER=0"
+    # 待機が長いときは CPU とマッチする(1 人でも遊べる)。0 にすれば待ち続ける
+    echo "IUBEO_CPU_FILL_AFTER=30s"
 %{ if wisp_pass != "" ~}
     echo "IUBEO_WISP_KEY=$WISP_KEY"
     echo "IUBEO_WISP_URL=${wisp_url}"

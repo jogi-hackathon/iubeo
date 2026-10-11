@@ -33,8 +33,12 @@ type State struct {
 	BypassAt time.Time
 	FireAt   time.Time
 	rng      rand.PCG
-	// CpuNextAt は CPU が次にタスクを片付ける時刻(プレイヤー id ごと)。デバッグ用の CPU だけが使う
-	CpuNextAt map[string]time.Time
+	// CpuAgents は CPU の段取り(プレイヤー id ごと)。フェーズ開始時に resetCpuAgents で作り直す
+	CpuAgents map[string]CpuAgent
+	// CpuPersonas は CPU の人格(プレイヤー id ごと)。セッション開始時に決まり、フェーズをまたいで同じ
+	CpuPersonas map[string]CpuPersona
+	// CpuLastAt は CPU の移動を進めた最後の時刻。tick の間隔から歩いた距離を出す
+	CpuLastAt time.Time
 	// CpuItemSeq は CPU が作ったファイルの id の連番
 	CpuItemSeq int
 
@@ -118,7 +122,8 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		AbandonTimeout: timeouts.Abandon,
 		Phases:         phases,
 		rng:            *rand.NewPCG(seed, seed),
-		CpuNextAt:      map[string]time.Time{},
+		CpuAgents:      map[string]CpuAgent{},
+		CpuPersonas:    map[string]CpuPersona{},
 	}
 	st.Objects = append(st.Objects, ObjectState{
 		ID:           directoryID,
@@ -175,6 +180,12 @@ func NewMultiplayerState(id string, humanIDs []string, cpuIDs []string, createdA
 		})
 	}
 	st.Items = st.initialItems()
+	// CPU には人格を割り当てる(人数分をシャッフルして、なるべく違う人格にする)
+	r := rand.New(&st.rng)
+	order := r.Perm(len(cpuPersonas))
+	for i, pid := range cpuIDs {
+		st.CpuPersonas[pid] = cpuPersonas[order[i%len(order)]]
+	}
 	return st
 }
 
@@ -214,10 +225,16 @@ func (st State) clone() State {
 	c.Items = slices.Clone(st.Items)
 	c.Actions = slices.Clone(st.Actions)
 	c.Phase.Tasks = slices.Clone(st.Phase.Tasks)
-	if st.CpuNextAt != nil {
-		c.CpuNextAt = make(map[string]time.Time, len(st.CpuNextAt))
-		for k, v := range st.CpuNextAt {
-			c.CpuNextAt[k] = v
+	if st.CpuAgents != nil {
+		c.CpuAgents = make(map[string]CpuAgent, len(st.CpuAgents))
+		for k, v := range st.CpuAgents {
+			c.CpuAgents[k] = v
+		}
+	}
+	if st.CpuPersonas != nil {
+		c.CpuPersonas = make(map[string]CpuPersona, len(st.CpuPersonas))
+		for k, v := range st.CpuPersonas {
+			c.CpuPersonas[k] = v
 		}
 	}
 	return c
