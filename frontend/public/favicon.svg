@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- ツールコールの括弧 < > の中に、人の形をした「i」。人が道具として呼ばれる世界(と iubeo の頭文字) -->
-  <rect width="32" height="32" rx="7" fill="#111"/>
-  <g fill="none" stroke="#a8a8a3" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9.5 7.5 L4.5 16 L9.5 24.5"/>
-    <path d="M22.5 7.5 L27.5 16 L22.5 24.5"/>
+  <!-- 部屋の真ん中にある紙の山(ディレクトリ)。白い紙に黒い輪郭(ゲームのアウトライン)、在庫の赤いファイルが 1 枚はみ出す -->
+  <g stroke="#111" stroke-width="1.8" stroke-linejoin="round" fill="#fafaf8">
+    <path d="M2 22 H30 V29.5 H2 Z"/>
+    <path d="M18 18.5 L30.5 15.5 L31 18 L19.5 21 Z" fill="#e63946"/>
+    <path d="M5.5 15.5 L27 14.5 L27.3 22 L5.2 22 Z"/>
+    <path d="M8.5 8 L24.5 9.5 L23.8 15 L7.8 14.6 Z"/>
+    <path d="M6 7.5 L17 2.5 L20 6 L9.5 9.8 Z"/>
   </g>
-  <circle cx="16" cy="8.6" r="3.4" fill="#3ddc84"/>
-  <rect x="12.6" y="13.6" width="6.8" height="12.4" rx="2.2" fill="#f7f7f4"/>
+  <g fill="none" stroke="#c9c9c4" stroke-width="1" stroke-linecap="round">
+    <path d="M3.5 24.5 H28.5 M3.5 27 H28.5 M7 18 H25.5 M10 11.5 H22.5"/>
+  </g>
 </svg>
