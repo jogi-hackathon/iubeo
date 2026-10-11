@@ -5,7 +5,12 @@ import {BakeTarget} from "../../bake/BakeTarget";
 import {useControlLockWhileWorking} from "../controlLock";
 import type {GameObject} from "../types";
 import {CanvasPaper} from "./CanvasPaper";
-import {EASEL_PARTS, type EaselLook, type EaselPart} from "./easel";
+import {
+  EASEL_PARTS,
+  type EaselLook,
+  type EaselPart,
+  placementProps,
+} from "./easel";
 
 // マテリアルは種類ごとに 1 つを共有する(ベイク対象だけで使うので、aoMap を貼っても対象外の mesh には影響しない)。
 // ジオメトリは部品ごとに持つ(ベイク AO の uv1 はジオメトリに付くので、共有できない)
@@ -21,16 +26,14 @@ function Part({part, geometry}: {part: EaselPart; geometry: BoxGeometry}) {
     <mesh
       geometry={geometry}
       material={MATERIALS[part.look]}
-      position={part.position}
-      scale={part.scale}
-      {...(part.rotation && {rotation: part.rotation})}
+      {...placementProps(part)}
     />
   );
 }
 
 /**
  * キャンバス: イーゼルに立てかけた絵の面のモック(Image Generation のタスクで使う場所)。寸法と部品の配置は easel.ts。
- * 作業中(users に誰かいる)の間だけ、紙(絵を描く面。CanvasPaper)が演出のモックとして水色に脈動する。それ以外は真っ白。
+ * 作業中(users に誰かいる)の間だけ、紙(CanvasPaper。木枠の前面に沿わせた板)に、拡散モデルがノイズから絵を起こしていく演出が出る。それ以外は真っ白。
  *
  * - AO はベイクだけ(baked。GTAO は掛けない)。キャンバスは動かず、形は固定なので、シーンと一緒に焼ける
  *   (`pnpm bake:ao`。ベイクページも同じ位置でキャンバスを置く)。位置・部品を変えたり、置くキャンバスの数が変わったら再ベイクが要る。

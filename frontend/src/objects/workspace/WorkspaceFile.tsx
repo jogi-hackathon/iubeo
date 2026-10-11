@@ -9,6 +9,7 @@ import {
   SRGBColorSpace,
 } from "three";
 
+import {UNDER_SHEET_COLOR, UNDER_SHEET_OFFSET} from "../paperSheet";
 import {WORKSPACE_ACTION_MS} from "./data";
 import {FILE_POSITION, FILE_SIZE} from "./desk";
 import {
@@ -29,8 +30,6 @@ const CURSOR_BLINK_HZ = 2;
 const CURSOR_WIDTH = 0.004;
 const SHEET_LIFT = 0.0005;
 const CURSOR_LIFT = SHEET_LIFT * 2;
-const UNDER_SHEET_OFFSET = 0.006;
-const UNDER_SHEET_COLOR = "#d4d4d8";
 const FLAT: [number, number, number] = [-Math.PI / 2, 0, 0];
 
 const PLANE = new PlaneGeometry(1, 1);
