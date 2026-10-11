@@ -1,7 +1,7 @@
 # ADR-0005: デプロイ構成
 
 - 日付: 2026-10-07
-- ステータス: Proposed
+- ステータス: Accepted
 - 関連: [ADR-0002](ADR-0002-backend-technology-selection.md) / [ADR-0004](ADR-0004-backend-session-runtime.md) / [infra/aws/terraform/README.md](../../infra/aws/terraform/README.md) / [backend/cmd/loadtest/README.md](../../backend/cmd/loadtest/README.md)
 
 ## 背景
@@ -19,29 +19,37 @@
 以下を採用する。
 
 1. **フロントは Cloudflare Workers Static Assets で配信し、`cf` でデプロイする**
-   - 静的アセットのリクエストは無料・無制限なので、フロントの費用は $0
-1. **開発用のバックエンドは Cloudflare Containers に常設する(Go のコンテナをそのまま載せる)**
-   - `schedulingPolicy: "durable-object"`、`standard-1`、`maxInstances: 1`
-   - 30 分アクセスが無ければコンテナが眠るので、**触っていない間は $0**
-1. **画面と API は同じ Worker・同じオリジンにする**
-   - Worker が `/api/*` と `/healthz` をコンテナへ転送し、それ以外は静的アセットを返す
+   - Worker は `iubeo-frontend`(静的アセット + 中継)。静的アセットのリクエストは無料・無制限なので、フロントの費用は $0
+   - `/api/*`・`/healthz` はバックエンドの Worker へ、`/wisp/*` は WISP の Worker へ、サービスバインディングで流す。`/judge`(検索の判定)はこの Worker が自分で受ける
+1. **バックエンドの Worker(`iubeo-backend`)はフロントと分ける**
+   - コンテナを持つ Worker は Worker Previews に対応していないため。フロントだけをプレビューできるようにする(プレビューは本番のバックエンドを向く)
+1. **転送先は KV の `target` で切り替える**
+   - `ec2` なら EC2(東京)へ、それ以外なら Cloudflare Containers へ流す(`frontend/worker/backend.ts`)
+   - 転送先が落ちていても、黙って他方へは流さない。セッションはメモリ上にしか無く、2 つのバックエンドは状態を共有しないので、切り替わるとプレイヤーが別々のゲームに分裂するため
+1. **開発用・フォールバックのバックエンドは Cloudflare Containers に置く(Go のコンテナをそのまま載せる)**
+   - `schedulingPolicy: "durable-object"`、`standard-1`。Durable Object は名前を固定した 1 つ(`getByName("game")`)なので、コンテナも 1 つ
+   - 5 分アクセスが無ければコンテナが眠るので、**触っていない間は $0**
+1. **画面と API は同じオリジンにする**
    - プレイヤーの Cookie は `SameSite=Lax` なので、別サイトに置くと送られず 401 になる。`workers.dev` は Public Suffix List にあるため、別サブドメインは「別サイト」扱いになる
-1. **本番相当(東京)は EC2 + Elastic IP にして、コマンドで起動・停止する**
-   - EIP は停止しても解放されず**アドレスも変わらない**ので、フロントの向き先を書き換えずに済む
+1. **本番相当(東京)は EC2 + Elastic IP にして、必要なときだけ起動する**
+   - EIP は停止しても解放されず**アドレスも変わらない**ので、Worker の向き先(`iubeo-origin.thirdlf03.com`)を書き換えずに済む
    - 停止中の固定費は **$4.57/月**(EBS + EIP)で、ECS の $25.64/月 と比べて圧倒的に安い
-   - ALB が要らないので **ACM 証明書も不要**になり、TLS は Cloudflare の Origin 証明書で受ける
-   - 起動は `ec2:StartInstances` の 1 回(立ち上がり 40 秒ほど)。自動停止は EventBridge Scheduler に「N 時間後の 1 回」を登録して行う
-1. **AWS 側は EC2 + EIP だけにする(ALB / ECS / NAT / ACM は使わない)**
-   - `infra/aws/terraform/` がその実体。ALB を置かないので ACM 証明書も不要
-   - リソースは 15 個だけ(VPC / サブネット1 / IGW / SG / EC2 / EIP / IAM / ECR)
-   - セキュリティグループは 8080 を **Cloudflare の IP 帯のみ**許可し、SSH は開けず SSM Session Manager で操作する
+   - 起動・停止は Lambda が行う(Discord の `/ec2start` `/ec2stop`)。起動したら `/healthz` が返るのを待って KV の `target` を `ec2` にし、停止するときは先に KV を消してから止める。自動停止は EventBridge Scheduler に「N 時間後(既定 3 時間)の 1 回」を登録して行う
+1. **AWS 側は EC2 + EIP と、その起動・停止とデプロイの仕組みだけにする(ALB / ECS / NAT / ACM は使わない)**
+   - `infra/aws/terraform/` がその実体。VPC / 公開サブネット 1 / IGW / SG / EC2 / EIP / ECR(backend・wisp)/ IAM、起動・停止の Lambda と Function URL・EventBridge Scheduler、デプロイ用の GitHub OIDC と SSM パラメータ
+   - ALB を置かないので ACM 証明書も不要。TLS は Cloudflare で終わり、Worker から EC2 へは HTTP(8080)で流す
+   - セキュリティグループは 8080(backend)と 8081(WISP)を **Cloudflare の IP 帯のみ**許可し、SSH は開けず SSM Session Manager で操作する
    - 署名鍵は初回起動時にインスタンス上で生成する。Secrets Manager を使わないので state に秘密が入らない
+1. **WISP(PC の画面が実サイトへ出るプロキシ)も同じ形にする**
+   - `iubeo-wisp` の Worker が KV の `target` を見て、`ec2` なら EC2 の 8081 へ、それ以外は Cloudflare のコンテナへ流す。EC2 から出ると出口が EIP になり、検索エンジンに弾かれにくい
 
 ```text
-ブラウザ ──▶ iubeo-frontend Workers Static Assets(SPA)
-   │             │
-   │             ├─ /api/*, /healthz ──▶ Durable Object ──▶ iubeo-backend(Cloudflare Container / 開発用)
-   │             └─ (起動中のみ) ────────▶ EC2 + EIP(東京 / 本番相当)
+ブラウザ ──▶ iubeo-frontend(Workers Static Assets の SPA + 中継)
+   │             ├─ /api/*, /healthz ──▶ iubeo-backend ─┬─ target=ec2 ──▶ EC2 + EIP :8080(東京 / 本番相当)
+   │             │                                       └─ それ以外 ────▶ Durable Object ──▶ Cloudflare Container
+   │             ├─ /wisp/* ──────────▶ iubeo-wisp ─────┬─ target=ec2 ──▶ EC2 + EIP :8081
+   │             │                                       └─ それ以外 ────▶ Durable Object ──▶ Cloudflare Container
+   │             └─ /judge ───────────▶ Workers AI(検索の判定)
    └─ 同じオリジンなので Cookie が飛ぶ
 ```
 
@@ -49,8 +57,8 @@
 
 - **固定費が 1 桁安い。** AWS(ECS/Fargate + ALB)はアクセスが無くても $47.28/月かかるのに対し、Cloudflare は Workers Paid の $5/月 + コンテナの起動時間だけで済む。開発用に常設しても、遊ばれていない間は眠るのでほぼ $0
 - フロントは既に `cf` で動いており、Go サーバーはコンテナなのでそのまま載る
-- 1 セッション = 1 プロセスという ADR-0004 の制約は `maxInstances: 1` と Durable Object でそのまま表現できる
-- ただし**コンテナは東京に固定できない。** 実測では大阪(kix06)に配置された。Cloudflare の配置制約は `APAC` のような広い単位しか無く、しかも DO ポリシーでは `constraints` 自体が使えない。**レイテンシを詰めたいときは東京に置ける EC2 へ逃がす**
+- 1 セッション = 1 プロセスという ADR-0004 の制約は、名前を固定した Durable Object 1 つでそのまま表現できる
+- ただし**コンテナは東京に固定できない。** 実測では大阪(kix06)に配置された。Cloudflare の配置制約は `APAC` のような広い単位しか無く、しかも DO ポリシーでは `constraints` 自体が使えない(Durable Object の `locationHint` は `apac-ne` にしてある)。**レイテンシを詰めたいときは東京に置ける EC2 へ逃がす**
 
 ## 実測(2026-10-07、実際にデプロイして計測)
 
@@ -79,7 +87,7 @@
 - 概要: 東京リージョンに Fargate のタスクを 1 つ置き、ALB の背後に出す。Terraform で一元管理する
 - 利点: 常時起動なのでコールドスタートが無い。リージョンとネットワーク経路を完全に制御できる。マネージドな TLS 終端とヘルスチェックが付く
 - 欠点 / リスク: **アクセスが無くても $47.14/月かかる。** ALB とそのパブリック IPv4 だけで $25.04 を占め、これは止められない(消すしかない)
-- 却下理由: 固定費が Cloudflare の 7 倍近い。ADR-0004 でタスクを 1 つに固定する以上、ECS の本来の価値(複数タスクのオーケストレーション)も使えない。**Terraform は残してあるので、常時起動が必要になれば戻せる**
+- 却下理由: 固定費が Cloudflare の 7 倍近い。ADR-0004 でタスクを 1 つに固定する以上、ECS の本来の価値(複数タスクのオーケストレーション)も使えない。ECS 用の Terraform は EC2 の構成に置き換えたので、常時起動が必要になって戻すなら書き直しになる
 
 ### 案C: AWS Lightsail
 
@@ -99,5 +107,5 @@
 
 - 概要: Go サーバーを TypeScript の Durable Object に移植する
 - 利点: アイドル時もコールドスタートが無く、$5/月が下限。スケールも良い。ADR-0004 の設計(1 セッション = 1 ゴルーチン、純粋な関数)は Durable Object にほぼそのまま乗る
-- 欠点 / リスク: Go の実装 1,895 行とテスト 1,614 行の書き換えになる
+- 欠点 / リスク: Go の実装 1,895 行とテスト 1,614 行(2026-10-07 時点)の書き換えになる
 - 却下理由: 今は Go のコンテナをそのまま載せられるので、書き換えの見返りが小さい。**コールドスタートが問題になったら、ADR-0004 の設計を活かしてこの案に進む**

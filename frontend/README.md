@@ -31,12 +31,16 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 | --------------------------------- | ---------------------------------------- |
 | `pnpm dev` | 開発サーバー(5173 固定) |
 | `pnpm engine:link` | PC の画面の Gecko エンジンを取り込む(初回だけ) |
-| `pnpm build` | 型チェック後に `dist/` へビルド |
+| `pnpm build` | 型チェック後にビルド(出力は `.cloudflare/output/`) |
 | `pnpm preview` | ビルド結果の確認 |
-| `pnpm typecheck` | `tsc --noEmit`(本体と Node 側の2系統) |
+| `pnpm typecheck` | `tsc --noEmit`(本体・Node 側・Worker の3系統) |
 | `pnpm test` | vitest(テストは各所の `__tests__/`) |
 | `pnpm lint` / `pnpm lint:fix` | oxlint + oxfmt のチェック / oxlint の自動修正 |
-| `pnpm format` | oxfmt で整形 |
+| `pnpm format` / `pnpm format:check` | oxfmt で整形 / 整形のチェック |
+| `pnpm gen:api` | `backend/api/openapi.yaml` から `src/net/schema.gen.ts` を生成([ADR-0006](../docs/adr/ADR-0006-typescript7-openapi-codegen.md)) |
+| `pnpm wisp` | WISP プロキシを単独で立てる(下記) |
+| `pnpm cf:build` / `pnpm cf:dry-run` | 型チェック後に `cf build` / `cf deploy --dry-run`(アップロードなし) |
+| `pnpm deploy` | 型チェック後に `cf deploy`(フロントの Worker) |
 | `pnpm bake:ao` | AO のベイク(下記) |
 | `pnpm shot:pc --out=<path>` | PC の 3D モデルを 3 視点で撮る(`pc.html`。下記) |
 
@@ -47,7 +51,7 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 `.env.development` の `VITE_ENABLE_DEBUG=true` のとき有効。
 
 - `?debug` クエリ
-- `F10`: dev パネルの開閉 / `Shift+F10`: 次のタブへ(View・Scene・PostFX、`pnpm dev` のときは Game・Flow も)
+- `F10`: dev パネルの開閉 / `Shift+F10`: 次のタブへ(View・Scene・PostFX、`pnpm dev` のときは Game・Flow・Tutorial も)
 - `F6`: stats と grid / `F8`: フリーカメラ(プレイ中に切り替えられるよう、パネルとは別のキーにしてある)
 
 `VITE_RENDERER=webgl` にすると WebGL2 を強制し、起動エラー画面を確認できる。
@@ -79,7 +83,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 - wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`PcObject` の `prewarmEngine`）で先に取っておき、
   PC を開くときは blob URL としてエンジンに渡す。クリック時に残るのは展開とコンパイル（1 秒弱）だけ。
   33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
-  （64 行目の `prefetchEngineWasm`）
+  （`src/screen/engine.ts` の `prefetchEngineWasm`）
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
 
@@ -87,7 +91,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
 
-- 本番（Cloudflare）には載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番では「NO ENGINE」になる。
+- エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。
 
 - 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
 
@@ -106,7 +110,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
 
 本番では、WISP は誰でも使えないようにする（オープンプロキシになるため）。
 
-- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。合言葉（`IUBEO_WISP_PASS`）は廃止した。いまはルームに入った人（= Cookie がある人）に発行し、チュートリアルを入れたら「セッション中・マッチング中・チュートリアル中」に絞る予定（`backend/api/openapi.yaml`）
+- バックエンドが `GET /api/v1/wisp/token` で、プレイヤーの Cookie があるときだけ、期限つき（5 分）の署名トークン付きの URL を返す（鍵は `IUBEO_WISP_KEY`）。合言葉（`IUBEO_WISP_PASS`）は廃止した。いまはルームに入った人（= Cookie がある人）に発行する。「セッション中・マッチング中・チュートリアル中」に絞るのは未対応（`backend/api/openapi.yaml` の TODO）
 - WISP の Worker（`worker/wisp.ts`）は、KV の `target` で転送先を決める（backend と同じ切り替え）:
   - `ec2` のとき: EC2 上の WISP（8081、EIP から出る）へそのまま流す。トークンは EC2 側がインスタンス上の鍵で検証する。Cloudflare の共有 IP を避けられるので Google が使える
   - それ以外: トークンを Worker で検証してから、Container（`wisp/`、wisp-js）へ流す
@@ -117,7 +121,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
   - `IUBEO_WISP_ENABLED=1 pnpm exec cf deploy`（WISP を deploy した後。付けないと `/wisp` は 503。プレビューも付けない）
 - 手元から frontend をデプロイするときは `VITE_ENGINE_BASE_URL` も要る。付けないと本番でエンジンが取れず PC が「NO ENGINE」のままになる（CI はリポジトリ変数から入れる）。例: `IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=https://pub-0f02f960393243b2ad1e49137b42875a.r2.dev pnpm exec cf deploy`
 - 本番のドメイン（`iubeo.thirdlf03.com`）は、`iubeo-frontend` の Custom Domain としてアタッチしてある（Cloudflare が DNS と証明書を管理する）。cf からは管理しないので、消した・作り直したときはダッシュボード（Workers → iubeo-frontend → Domains & Routes）か Workers Domains API で付け直す。`iubeo-origin.thirdlf03.com` は EC2 の EIP への A レコード（DNS only）で、Worker からオリジンへ向けるために要る
-- secret は 2 つ。`IUBEO_WISP_KEY` は backend と wisp の両方に、同じ値で登録する（32 バイト以上）。`IUBEO_SIGNING_KEY` は backend に登録する。EC2 側の鍵は別物で、インスタンス上の `/etc/iubeo/env` に置く（infra/aws/terraform/README.md）
+- secret は、backend（`iubeo-backend`）に `IUBEO_SIGNING_KEY`・`IUBEO_WISP_KEY`・`IUBEO_VC_PRIVATE_KEY`、wisp（`iubeo-wisp`）に `WISP_KEY` を登録する。`IUBEO_WISP_KEY` と `WISP_KEY` は同じ値（32 バイト以上）。EC2 側の鍵は別物で、インスタンス上の `/etc/iubeo/env` に置く（infra/aws/terraform/README.md）
 
 `VITE_WISP_URL`（開発の既定は `ws://127.0.0.1:5001/`）があれば、トークンは使わずそこへ直結する。
 
@@ -217,16 +221,28 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 
 | ディレクトリ | 役割 |
 | ------------ | ------------------------------------------------------------ |
+| `authority/` | オーソリティ(`local/` の `LocalAuthority`、`server/` の `ServerAuthority`)と、その登録・勝利フラグ |
 | `bake/` | AO ベイク一式 |
 | `boot/` | 起動処理(WebGPU 判定、アセット読み込み、エラー画面) |
 | `camera/` | カメラ、`postprocess/`(ポストプロセスと設定パネル) |
-| `core/` | Canvas・レンダラー・入力・`bvh/`(コライダー登録) |
-| `dev/` | 開発時のみのデバッグパネルとダミーサーバー役(本番に入らない) |
-| `items/` | アイテム |
-| `objects/` | サーバーが置くオブジェクト(`directory/`、`workspace/` など) |
-| `player/` | プレイヤー操作・物理・スケルトン |
+| `core/` | Canvas・レンダラー・入力・`bvh/`(コライダー登録)・`cover/`(白いオーバーレイ)・`debug/`・観戦 |
+| `dev/` | 開発時のみのデバッグパネル(本番に入らない) |
+| `flow/` | ゲームの流れ(プレイヤー ID の発行 → マッチング → sandbox → room) |
+| `game/` | フェーズ・タスク・結果の状態と HUD、脱落後の観戦 |
+| `items/` | 手に持つアイテム(ファイル・ライター) |
+| `judge/` | 検索の判定(Workers AI の Clef)の要求と応答。Worker(`worker/judge.ts`)からも使う |
+| `net/` | HTTP と WebSocket の接続、位置のバイナリ形式、OpenAPI から生成した型(`schema.gen.ts`) |
+| `objects/` | オーソリティが置くオブジェクト(`directory/`、`workspace/`、`canvas/`、`pc/`、`lighter_stand/`)と狙い・インタラクト |
+| `pc/` | PC の 3D モデルを撮るページ(`pc.html`。dev 専用) |
+| `player/` | プレイヤー操作・物理・スケルトン、他のプレイヤーの描画 |
 | `props/` | `BVHCollider` で包む基本プロップ |
-| `scenes/` | シーン定義と環境 |
+| `scenes/` | シーン定義と環境、シーンの切り替えと準備完了 |
+| `screen/` | PC の画面(Gecko エンジン、画面の合成、キー入力、WISP の接続先) |
+| `transition/` | シーン切り替えの演出(`dive/`) |
+| `tutorial/` | room のチュートリアルの手順と進み具合 |
+| `voice/` | ボイスチャット([docs/voice-chat.md](../docs/voice-chat.md)) |
+
+`worker/` は Cloudflare の Worker(`frontend.ts`・`backend.ts`・`wisp.ts`・`judge.ts`。`wispToken.ts` は WISP のトークンの検証)、`scripts/` は開発用のスクリプトと Vite のプラグイン。
 
 ## コード規約
 

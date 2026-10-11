@@ -7,7 +7,7 @@
 ## 構成
 
 ```
-browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2）
+browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2 / Cloudflare Containers）
    │                                   セッション参加者に EdDSA JWT を発行
    │
    ├──wss──▶ vc-elixir (vc.thirdlf03.com/v1/signaling)   roster（誰が居るか）

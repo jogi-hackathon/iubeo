@@ -4,11 +4,11 @@
 
 | ファイル | きっかけ | 内容 |
 | --- | --- | --- |
-| `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | まず `changes` で変更パスを見て、関係するジョブだけ走らせる。backend の gofmt/build/vet/test（`backend/**`）、frontend の lint/test/build（`frontend/**`）、terraform の fmt/validate（`infra/**`） |
+| `ci.yml` | PR と、`deploy-*.yml` からの呼び出し（`workflow_call`） | まず `changes` で変更パスを見て、関係するジョブだけ走らせる。backend の gofmt/build/vet/test と golangci-lint（`backend/**`）、frontend の API 型の生成物のずれの確認（`pnpm gen:api` の差分）と lint/test/build（`frontend/**` か `backend/api/**`）、terraform の fmt/validate（`infra/**`） |
 | `preview.yml` | **main に向けた PR**（`frontend/**` の変更） | Worker Preview を作り、URL を PR にコメント |
-| `deploy-cloudflare.yml` | main への push（`frontend/**` か `backend/**` か `.github/workflows/deploy-cloudflare.yml`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ フロント Worker |
+| `deploy-cloudflare.yml` | main への push（`frontend/**`・`backend/**`・`wisp/**`・`.github/workflows/deploy-cloudflare.yml`）、手動実行 | CI → バックエンド Worker（backend に変更があるときだけ）→ WISP Worker → フロント Worker |
 | `deploy-backend.yml` | main への push（`backend/**` または `.github/workflows/deploy-backend.yml`）、手動実行 | CI → arm64 のイメージを ECR へ push（同じ sha のタグが既にあれば push は飛ばす）→ デプロイ対象のタグを更新 |
-| `deploy-wisp.yml` | main への push（`wisp/**` または `.github/workflows/deploy-wisp.yml`）、手動実行 | CI → arm64 の WISP イメージを ECR へ push → WISP のデプロイ対象タグを更新 |
+| `deploy-wisp.yml` | main への push（`wisp/**` または `.github/workflows/deploy-wisp.yml`）、手動実行 | CI → arm64 の WISP イメージを ECR へ push（同じ sha のタグが既にあれば push は飛ばす）→ WISP のデプロイ対象タグを更新 |
 
 ### デプロイは CI の成功が前提
 
@@ -51,6 +51,8 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 | `ECR_REPOSITORY` | `terraform output -raw ecr_repository_url` |
 | `ECR_WISP_REPOSITORY` | `terraform output -raw wisp_ecr_repository_url` |
 | `CLOUDFLARE_ACCOUNT_ID` | `bf2196e6a0e1ba61db76cf62ca00cafa` |
+| `VITE_ENGINE_BASE_URL` | PC の画面のエンジンの配信元（R2 の公開 URL。[frontend/README.md](../../frontend/README.md) の「エンジンの配信元」） |
+| `VITE_ENABLE_DEBUG` | 本番ビルドの `VITE_ENABLE_DEBUG`（デバッグ機能を有効にするか） |
 
 ### Secrets
 
@@ -58,16 +60,24 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare のダッシュボードで発行。権限は **Workers Scripts: Edit** + **Workers KV Storage: Edit** |
 
-### バックエンド Worker の Secrets（Cloudflare 側に置く）
+### Worker の Secrets（Cloudflare 側に置く）
 
-`iubeo-backend` の秘密は GitHub ではなく Cloudflare 側に持ちます。CI のバックエンドデプロイは
+`iubeo-backend`・`iubeo-wisp` の秘密は GitHub ではなく Cloudflare 側に持ちます。CI のデプロイは
 `--secrets-file` を渡さない（既存の値をそのまま使う）ので、初回だけ手で入れます。
+
+`iubeo-backend`:
 
 | 名前 | 用途 |
 | --- | --- |
 | `IUBEO_SIGNING_KEY` | プレイヤーの Cookie の署名 |
 | `IUBEO_WISP_KEY` | WISP のトークンの署名 |
 | `IUBEO_VC_PRIVATE_KEY` | VC の JWT の署名（値は VC ホストの `private.jwk` の `d`。[voice-chat.md](../../docs/voice-chat.md)） |
+
+`iubeo-wisp`:
+
+| 名前 | 用途 |
+| --- | --- |
+| `WISP_KEY` | WISP のトークンの検証。`iubeo-backend` の `IUBEO_WISP_KEY` と同じ値 |
 
 ```sh
 cf workers secrets update IUBEO_VC_PRIVATE_KEY --worker iubeo-backend --text <d>
@@ -97,7 +107,7 @@ aws ssm send-command --region ap-northeast-1 \
 
 ## OIDC の信頼ポリシー
 
-`deploy-backend.yml` は GitHub OIDC で一時資格情報を受け取ります。信頼ポリシーは
+`deploy-backend.yml` と `deploy-wisp.yml` は GitHub OIDC で一時資格情報を受け取ります。信頼ポリシーは
 **main への push だけ**に絞ってあります（`infra/aws/terraform/ci.tf`）。
 
 リポジトリの OIDC sub は不変 ID 形式です（`use_immutable_subject: true`）。sub は次のとおりです。
@@ -110,12 +120,12 @@ ID を含めているのは、名前の使い回しを防ぐためです。
 
 ### ブランチから試したいとき
 
-上の sub が `main` に一致しないので、ブランチから `deploy-backend.yml` を試すと
+上の sub が `main` に一致しないので、ブランチから `deploy-backend.yml` / `deploy-wisp.yml` を試すと
 OIDC の引き受けに失敗します。試したい場合は `infra/aws/terraform/ci.tf` の
 `StringLike` の sub 末尾を `ref:refs/heads/main` から `*` に変えて `terraform apply` してください。
 作業が終わったら必ず元に戻してください。
 
-## Worker は 2 つある
+## Worker は 3 つある
 
 **DO 管理のコンテナを持つ Worker は Worker Previews に対応していません。**
 プレビューを取れるように、静的アセット側を分けてあります。
@@ -123,26 +133,34 @@ OIDC の引き受けに失敗します。試したい場合は `infra/aws/terraf
 | Worker | 中身 | デプロイ |
 | --- | --- | --- |
 | `iubeo-frontend` | 静的アセット(SPA) + プロキシ | `cf deploy` |
-| `iubeo-backend` | コンテナ + Durable Object + KV | `cf deploy --mode backend` |
+| `iubeo-backend` | コンテナ + Durable Object + KV（転送先の切り替え） | `cf deploy --mode backend` |
+| `iubeo-wisp` | WISP のコンテナ + Durable Object + KV（転送先の切り替え） | `cf deploy --mode wisp` |
 
-フロントはサービスバインディングでバックエンドを呼びます。**プレビューは
+フロントはサービスバインディングでバックエンドと WISP を呼びます。**プレビューは
 本番のバックエンドを向きます**（セッションはメモリ上にしか無いので実害なし）。
+プレビューには WISP のバインディングを付けない（`IUBEO_WISP_ENABLED` を付けない）ので、`/wisp` は 503 になります。
 
 ```sh
 cd frontend
 cf previews deploy <name>                  # PR ごとのプレビュー URL
-cf deploy                                  # フロント
-cf deploy --mode backend                   # バックエンド(要 secrets file)
+cf deploy --mode backend                   # バックエンド(初回は要 secrets file)
+cf deploy --mode wisp                      # WISP
+IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=<エンジンの配信元> cf deploy   # フロント
 ```
 
-**バックエンドを先に**デプロイしてください。サービスバインディングは
+`VITE_ENGINE_BASE_URL` が無いと、本番で PC の画面のエンジンが取れない（[frontend/README.md](../../frontend/README.md) の「エンジンの配信元」）。
+
+**バックエンド → WISP → フロントの順**にデプロイしてください。サービスバインディングは
 相手の Worker が存在しないと解決できません。
 
 初回だけ secrets file が要ります（2 回目以降は Worker に保存済みの鍵を使うので不要）。
 
 ```sh
-KEY=$(openssl rand -hex 32)
-printf 'IUBEO_SIGNING_KEY=%s\n' "$KEY" > /tmp/iubeo-secrets.env
+SIGNING_KEY=$(openssl rand -hex 32)
+WISP_KEY=$(openssl rand -hex 32)
+printf 'IUBEO_SIGNING_KEY=%s\nIUBEO_WISP_KEY=%s\nIUBEO_VC_PRIVATE_KEY=%s\n' "$SIGNING_KEY" "$WISP_KEY" "<VC ホストの private.jwk の d>" > /tmp/iubeo-secrets.env
 cf deploy --mode backend --secrets-file /tmp/iubeo-secrets.env
-rm -f /tmp/iubeo-secrets.env
+printf 'WISP_KEY=%s\n' "$WISP_KEY" > /tmp/iubeo-wisp-secrets.env   # backend の IUBEO_WISP_KEY と同じ値
+cf deploy --mode wisp --secrets-file /tmp/iubeo-wisp-secrets.env
+rm -f /tmp/iubeo-secrets.env /tmp/iubeo-wisp-secrets.env
 ```
