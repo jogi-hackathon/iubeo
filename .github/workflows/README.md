@@ -58,6 +58,21 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare のダッシュボードで発行。権限は **Workers Scripts: Edit** + **Workers KV Storage: Edit** |
 
+### バックエンド Worker の Secrets（Cloudflare 側に置く）
+
+`iubeo-backend` の秘密は GitHub ではなく Cloudflare 側に持ちます。CI のバックエンドデプロイは
+`--secrets-file` を渡さない（既存の値をそのまま使う）ので、初回だけ手で入れます。
+
+| 名前 | 用途 |
+| --- | --- |
+| `IUBEO_SIGNING_KEY` | プレイヤーの Cookie の署名 |
+| `IUBEO_WISP_KEY` | WISP のトークンの署名 |
+| `IUBEO_VC_PRIVATE_KEY` | VC の JWT の署名（値は VC ホストの `private.jwk` の `d`。[voice-chat.md](../../docs/voice-chat.md)） |
+
+```sh
+cf workers secrets update IUBEO_VC_PRIVATE_KEY --worker iubeo-backend --text <d>
+```
+
 ## バックエンドのデプロイの仕組み
 
 EC2 は**停止していることが多い**（それが節約の仕組み）ので、CI はインスタンスを触りません。
