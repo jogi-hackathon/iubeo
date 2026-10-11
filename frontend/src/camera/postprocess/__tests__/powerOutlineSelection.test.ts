@@ -7,6 +7,7 @@ import {
   POWER_OUTLINE_FADE_END,
   POWER_OUTLINE_FADE_START,
   powerOutlineColor,
+  powerOutlineDash,
   powerOutlineFade,
   powerOutlineFadeAt,
   powerOutlineSelection,
@@ -99,5 +100,22 @@ describe("縁取りの色", () => {
     expect(powerOutlineColor.value.getHexString()).toBe(
       POWER_OUTLINE_DEFAULT_COLOR.slice(1),
     );
+  });
+});
+
+describe("破線", () => {
+  it("選択された先頭の物が dashed のときだけ破線になる", () => {
+    const offDashed = addPowerOutline(at(1), {dashed: true});
+    const offSolid = addPowerOutline(at(2));
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineDash.value).toBe(1);
+
+    offDashed();
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineDash.value).toBe(0);
+
+    offSolid();
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineDash.value).toBe(0);
   });
 });
