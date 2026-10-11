@@ -5,6 +5,7 @@ import {
   createWarmupTracker,
   sceneSignature,
   WARMUP_MAX_MS,
+  WARMUP_STABLE_FRAMES,
   WARMUP_STABLE_MS,
 } from "../warmupTracker";
 
@@ -42,19 +43,28 @@ describe("createWarmupTracker", () => {
     expect(t.update("a", WARMUP_STABLE_MS)).toBe(true);
   });
 
+  it("時間が経っていても、最低 WARMUP_STABLE_FRAMES 回は描き直す", () => {
+    const t = createWarmupTracker(0);
+    for (let k = 1; k < WARMUP_STABLE_FRAMES; k++) {
+      expect(t.update("a", WARMUP_STABLE_MS * k)).toBe(false);
+    }
+    expect(t.update("a", WARMUP_STABLE_MS * WARMUP_STABLE_FRAMES)).toBe(true);
+  });
+
   it("構成が変わると待ち直す", () => {
     const t = createWarmupTracker(0);
     t.update("a", 0);
-    expect(t.update("b", WARMUP_STABLE_MS)).toBe(false);
-    expect(t.update("b", WARMUP_STABLE_MS * 2)).toBe(true);
+    expect(t.update("b", WARMUP_STABLE_MS * 2)).toBe(false);
+    expect(t.update("b", WARMUP_STABLE_MS * 3)).toBe(true);
   });
 
   it("held の間は終わらず、外れてから WARMUP_STABLE_MS 待つ", () => {
     const t = createWarmupTracker(0);
     t.update("a", 0, true);
     expect(t.update("a", WARMUP_STABLE_MS * 2, true)).toBe(false);
+    expect(t.update("a", WARMUP_STABLE_MS * 3, true)).toBe(false);
     expect(t.update("a", WARMUP_STABLE_MS * 3 - 1)).toBe(false);
-    expect(t.update("a", WARMUP_STABLE_MS * 3)).toBe(true);
+    expect(t.update("a", WARMUP_STABLE_MS * 4)).toBe(true);
   });
 
   it("held のままでも WARMUP_MAX_MS で打ち切る", () => {
