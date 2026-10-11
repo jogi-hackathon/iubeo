@@ -33,48 +33,65 @@ export type CrtControls = {
   time: {value: number};
 };
 
-export const createCrtMaterial = (
-  map: Texture,
-  width: number,
-  height: number,
-): CrtControls => {
-  const uTime = uniform(0);
-  const uOn = uniform(0);
-  const uBoot = uniform(0);
-  const uResolution = uniform(new Vector2(width, height));
+export type CrtEffectInput = {
+  sampleAt: (uvNode: Node<"vec2">) => Node<"vec4">;
+  uvNode: Node<"vec2">;
+  on: Node<"float">;
+  boot: Node<"float">;
+  time: Node<"float">;
+  resolution: Node<"vec2">;
+  strength?: Node<"float">;
+};
+
+export const crtEffect = ({
+  sampleAt,
+  uvNode,
+  on: uOn,
+  boot: uBoot,
+  time: uTime,
+  resolution: uResolution,
+  strength,
+}: CrtEffectInput): Node<"vec3"> => {
   const uMask = float(0.55);
   const uScanline = float(0.7);
+  const gate = (factor: Node<"float">): Node<"float"> =>
+    strength ? mix(float(1), factor, strength) : factor;
+  const gateAdd = (term: Node<"vec3">): Node<"vec3"> =>
+    strength ? term.mul(strength) : term;
 
-  const uvNode = uv();
   const c = uvNode.sub(vec2(0.5, 0.5));
 
-  const aberr = dot(c, c).mul(0.0024);
+  const aberrBase = dot(c, c).mul(0.0024);
+  const aberr = strength ? aberrBase.mul(strength) : aberrBase;
   let col: Node<"vec3"> = vec3(
-    texture(map, uvNode.add(c.mul(aberr))).r,
-    texture(map, uvNode).g,
-    texture(map, uvNode.sub(c.mul(aberr))).b,
+    sampleAt(uvNode.add(c.mul(aberr))).r,
+    sampleAt(uvNode).g,
+    sampleAt(uvNode.sub(c.mul(aberr))).b,
   );
 
   const texel = max(fwidth(uvNode), vec2(1, 1).div(uResolution));
   const grille = sin(uvNode.x.mul(Math.PI).div(texel.x)).mul(0.5).add(0.5);
-  col = col.mul(float(1).sub(uMask.mul(0.26).mul(grille)));
+  col = col.mul(gate(float(1).sub(uMask.mul(0.26).mul(grille))));
   const scan = sin(uvNode.y.mul(Math.PI).div(texel.y)).mul(0.5).add(0.5);
-  col = col.mul(float(1).sub(uScanline.mul(0.3).mul(scan)));
+  col = col.mul(gate(float(1).sub(uScanline.mul(0.3).mul(scan))));
 
   const tubeR = length(c.mul(vec2(1, 0.88))).mul(1.34);
   const vig = float(1).sub(smoothstep(0.18, 1.0, tubeR));
-  col = col.mul(mix(0.62, 1.0, vig));
-  col = col.add(col.mul(vig).mul(0.18));
+  col = col.mul(gate(mix(0.62, 1.0, vig)));
+  col = col.add(gateAdd(col.mul(vig).mul(0.18)));
 
-  col = col.div(float(1).add(col.mul(0.22)));
+  const compress = col.mul(0.22);
+  col = col.div(float(1).add(strength ? compress.mul(strength) : compress));
 
   const sheen = float(1).sub(
     smoothstep(0.0, 0.95, length(c.sub(vec2(-0.3, 0.36)))),
   );
   col = col.add(
-    vec3(0.03, 0.036, 0.048)
-      .mul(sheen)
-      .mul(mix(1.0, 0.45, uOn)),
+    gateAdd(
+      vec3(0.03, 0.036, 0.048)
+        .mul(sheen)
+        .mul(mix(1.0, 0.45, uOn)),
+    ),
   );
 
   const tube = mix(0.006, 1.0, clamp(uBoot, 0, 1));
@@ -99,8 +116,29 @@ export const createCrtMaterial = (
   const hum = sin(uvNode.y.mul(7).add(uTime.mul(0.7)))
     .mul(0.5)
     .add(0.5);
-  col = col.add(vec3(0.006).mul(hum).mul(float(1).sub(tube)));
-  col = col.mul(float(1).add(sin(uTime.mul(43)).mul(0.014).mul(uOn)));
+  col = col.add(gateAdd(vec3(0.006).mul(hum).mul(float(1).sub(tube))));
+  col = col.mul(gate(float(1).add(sin(uTime.mul(43)).mul(0.014).mul(uOn))));
+  return col;
+};
+
+export const createCrtMaterial = (
+  map: Texture,
+  width: number,
+  height: number,
+): CrtControls => {
+  const uTime = uniform(0);
+  const uOn = uniform(0);
+  const uBoot = uniform(0);
+  const uResolution = uniform(new Vector2(width, height));
+
+  const col = crtEffect({
+    sampleAt: (uvNode) => texture(map, uvNode),
+    uvNode: uv(),
+    on: uOn,
+    boot: uBoot,
+    time: uTime,
+    resolution: uResolution,
+  });
 
   const material = new MeshBasicNodeMaterial();
   material.colorNode = vec4(col, 1);
