@@ -7,12 +7,12 @@ import {
   LIGHTER_STAND_ON_DESK,
   STAND_FOOTPRINT,
 } from "../../../objects/lighter_stand/stand";
-import {MOUSE, TOWER} from "../../../objects/pc/dimensions";
+import {HINGE, LAPTOP, LID} from "../../../objects/pc/dimensions";
 import {
   DESK_HEIGHT,
-  ON_TOP,
+  FILE_POSITION,
+  FILE_SIZE,
   TOP_SIZE,
-  WORK_AREA_SIZE,
 } from "../../../objects/workspace/desk";
 import {CAPSULE_RADIUS, EYE_HEIGHT} from "../../../player/constants";
 import {CHAIR_PARTS} from "../../../props/chairParts";
@@ -438,9 +438,9 @@ describe.each(ZONES)("区画 %i のオブジェクトの置き場所", (zone) =>
       .clone()
       .sub(deskPos)
       .applyAxisAngle(Y_AXIS, -place(ZONE_WORKSPACE).yaw);
-    expect(local.x).toBeCloseTo(0);
+    expect(local.x).toBeCloseTo(PC_ON_DESK[0]);
     expect(local.y).toBeCloseTo(0.95);
-    expect(local.z).toBeCloseTo(-0.3);
+    expect(local.z).toBeCloseTo(PC_ON_DESK[2]);
     expect(Math.abs(local.z)).toBeLessThan(TOP_SIZE[2] / 2);
     expect(toZoneLocal(zone, [pc.x, pc.z])[1]).toBeGreaterThan(
       toZoneLocal(zone, [deskPos.x, deskPos.z])[1],
@@ -542,37 +542,35 @@ describe("机の上のライターの置き場", () => {
     expect(z1).toBeLessThanOrEqual(TOP_SIZE[2] / 2);
   });
 
-  it("中央の作業スペースに掛からない", () => {
-    const work = rect(
-      [0, 0, 0],
-      [WORK_AREA_SIZE[0] / 2, WORK_AREA_SIZE[1] / 2],
-    );
-    expect(overlapsRect(stand, work)).toBe(false);
+  it("中央に降りてくるファイル(紙の束)と重ならない", () => {
+    const file = rect(FILE_POSITION, [FILE_SIZE[0] / 2, FILE_SIZE[1] / 2]);
+    expect(overlapsRect(stand, file)).toBe(false);
   });
 
-  it("天板の小物(紙の束・ペン立て・ペン)と重ならない", () => {
-    for (const part of ON_TOP) {
-      const [sx, sy, sz] = part.scale;
-      const half: XZ = part.rotation
-        ? [Math.hypot(sx, sy, sz) / 2, Math.hypot(sx, sy, sz) / 2]
-        : part.shape === "cylinder"
-          ? [sx, sz]
-          : [sx / 2, sz / 2];
-      expect(overlapsRect(stand, rect(part.position, half))).toBe(false);
-    }
-  });
-
-  it("PC のタワー・マウスと重ならない", () => {
+  it("ノートPC の本体・蓋と重ならない", () => {
     const [px, , pz] = PC_ON_DESK;
-    const tower = rect(
-      [px + TOWER.x, 0, pz + TOWER.z],
-      [TOWER.width / 2, TOWER.depth / 2],
-    );
-    const mouse = rect(
-      [px + MOUSE.x, 0, pz + MOUSE.z],
-      [MOUSE.width / 2, MOUSE.depth / 2],
-    );
-    expect(overlapsRect(stand, tower)).toBe(false);
-    expect(overlapsRect(stand, mouse)).toBe(false);
+    const yaw = ZONE_PC.yaw - ZONE_WORKSPACE.yaw;
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const corners = [
+      [-LAPTOP.width / 2, HINGE.z - LID.height * Math.sin(LID.tilt)],
+      [LAPTOP.width / 2, HINGE.z - LID.height * Math.sin(LID.tilt)],
+      [-LAPTOP.width / 2, LAPTOP.z + LAPTOP.depth / 2],
+      [LAPTOP.width / 2, LAPTOP.z + LAPTOP.depth / 2],
+    ].map(([x, z]): XZ => [
+      px + (x as number) * cos + (z as number) * sin,
+      pz - (x as number) * sin + (z as number) * cos,
+    ]);
+    const laptop: Rect = [
+      [
+        Math.min(...corners.map(([x]) => x)),
+        Math.max(...corners.map(([x]) => x)),
+      ],
+      [
+        Math.min(...corners.map(([, z]) => z)),
+        Math.max(...corners.map(([, z]) => z)),
+      ],
+    ];
+    expect(overlapsRect(stand, laptop)).toBe(false);
   });
 });

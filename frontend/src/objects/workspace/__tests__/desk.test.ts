@@ -11,14 +11,7 @@ import {describe, expect, it} from "vitest";
 
 import {EYE_HEIGHT, PLAYER_HEIGHT} from "../../../player/constants";
 import {INTERACT_DISTANCE} from "../../interaction/aim";
-import {
-  DESK_HEIGHT,
-  DESK_PARTS,
-  type DeskPart,
-  ON_TOP,
-  TOP_SIZE,
-  WORK_AREA_SIZE,
-} from "../desk";
+import {DESK_HEIGHT, DESK_PARTS, type DeskPart, TOP_SIZE} from "../desk";
 
 const EPS = 1e-6;
 
@@ -60,27 +53,6 @@ describe("desk", () => {
       expect(b.min.z).toBeGreaterThanOrEqual(-TOP_SIZE[2] / 2 - EPS);
       expect(b.max.z).toBeLessThanOrEqual(TOP_SIZE[2] / 2 + EPS);
       expect(b.min.y).toBeGreaterThanOrEqual(-EPS);
-    }
-  });
-
-  it("天板の上の小物は天板に載っていて、中央の作業スペース(A4 が入る)にはかからない", () => {
-    const {meshes} = buildDesk();
-    const [halfX, halfZ] = [WORK_AREA_SIZE[0] / 2, WORK_AREA_SIZE[1] / 2];
-    expect(WORK_AREA_SIZE[0]).toBeGreaterThanOrEqual(0.297);
-    expect(WORK_AREA_SIZE[1]).toBeGreaterThanOrEqual(0.21);
-    const onTop = meshes.filter((m) =>
-      ON_TOP.includes(m.userData.part as DeskPart),
-    );
-    expect(onTop.length).toBe(ON_TOP.length);
-    for (const mesh of onTop) {
-      const b = bounds(mesh);
-      expect(b.min.y).toBeGreaterThanOrEqual(DESK_HEIGHT - EPS);
-      const outside =
-        b.max.x <= -halfX ||
-        b.min.x >= halfX ||
-        b.max.z <= -halfZ ||
-        b.min.z >= halfZ;
-      expect(outside).toBe(true);
     }
   });
 

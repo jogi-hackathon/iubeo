@@ -1,50 +1,79 @@
-export const KEY_ROWS = 5;
-export const KEY_COLS = 15;
-export const KEY_PITCH = 0.019;
-export const NUMPAD_ROWS = 5;
-export const NUMPAD_COLS = 4;
-/** 本体のブロックとテンキーの間 */
-export const NUMPAD_GAP = 0.022;
-/** キーキャップの一辺（ピッチに対する比率。隙間を空けて、粒が読めるようにする） */
-export const KEY_SIZE_RATIO = 0.82;
+import {LAPTOP} from "./dimensions";
 
-/** キーキャップの総数（インスタンス描画の数） */
-export const KEY_COUNT = KEY_ROWS * KEY_COLS + NUMPAD_ROWS * NUMPAD_COLS;
+export type KeyCap = {x: number; z: number; width: number; depth: number};
 
-/** キーキャップ 1 つの一辺(m) */
-export const keySize = (): number => KEY_PITCH * KEY_SIZE_RATIO;
+const U = 0.019;
+const GAP = 0.003;
+const ROW_UNITS = 15;
+const FN_ROW_DEPTH = 0.5;
+const FN_KEYS = 14;
+const ARROW_KEYS = 3;
+const BACK_MARGIN = 0.014;
 
-/** キーボード全体の幅(m)。台（KEYBOARD.width）に収まるかの確認に使う */
-export const keyboardKeysWidth = (): number => {
-  const key = keySize();
-  const main = (KEY_COLS - 1) * KEY_PITCH + key;
-  const pad = (NUMPAD_COLS - 1) * KEY_PITCH + key;
-  return main + NUMPAD_GAP + pad;
+const MAIN_ROWS: readonly (readonly number[])[] = [
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+  [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
+  [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],
+  [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75],
+  [1, 1, 1, 1.25, 5.5, 1.25, 1, 1, 1, 1],
+];
+
+const DEPTH = (FN_ROW_DEPTH + MAIN_ROWS.length) * U;
+
+export const KEYBOARD = {
+  width: ROW_UNITS * U,
+  depth: DEPTH,
+  z: LAPTOP.z - LAPTOP.depth / 2 + BACK_MARGIN + DEPTH / 2,
+} as const;
+
+const row = (
+  units: readonly number[],
+  z: number,
+  depthUnits: number,
+): KeyCap[] => {
+  const caps: KeyCap[] = [];
+  let left = -KEYBOARD.width / 2;
+  for (const w of units) {
+    caps.push({
+      x: left + (w * U) / 2,
+      z,
+      width: w * U - GAP,
+      depth: depthUnits * U - GAP,
+    });
+    left += w * U;
+  }
+  return caps;
 };
 
-/**
- * キーキャップの中心（x, z）を、机の上の座標で返す。前端は台の手前の縁に合わせ、
- * 左右は全体が台の中央に来るようにする
- */
-export const keyPositions = (
-  originZ: number,
-  depth: number,
-): Array<[number, number]> => {
-  const key = keySize();
-  const mainWidth = (KEY_COLS - 1) * KEY_PITCH + key;
-  const blockDepth = (KEY_ROWS - 1) * KEY_PITCH + key;
-  const left = -keyboardKeysWidth() / 2;
-  const front = originZ - depth / 2 + (depth - blockDepth) / 2 + key / 2;
-
-  const positions: Array<[number, number]> = [];
-  const push = (x0: number, rows: number, cols: number) => {
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        positions.push([x0 + col * KEY_PITCH, front + row * KEY_PITCH]);
-      }
-    }
-  };
-  push(left, KEY_ROWS, KEY_COLS);
-  push(left + mainWidth + NUMPAD_GAP, NUMPAD_ROWS, NUMPAD_COLS);
-  return positions;
+const splitArrows = (bottom: KeyCap[]): KeyCap[] => {
+  const arrows = bottom.splice(-ARROW_KEYS);
+  const half = 0.5;
+  const lower = arrows.map((cap) => ({
+    ...cap,
+    z: cap.z + U / 4,
+    depth: half * U - GAP,
+  }));
+  const middle = arrows[1]!;
+  const up = {...middle, z: middle.z - U / 4, depth: half * U - GAP};
+  return [...bottom, ...lower, up];
 };
+
+const build = (): KeyCap[] => {
+  const back = -KEYBOARD.depth / 2;
+  const fnRow = row(
+    Array.from({length: FN_KEYS}, () => ROW_UNITS / FN_KEYS),
+    back + (FN_ROW_DEPTH * U) / 2,
+    FN_ROW_DEPTH,
+  );
+  const main = MAIN_ROWS.flatMap((units, i) =>
+    row(units, back + FN_ROW_DEPTH * U + (i + 0.5) * U, 1),
+  );
+  const bottomStart = main.length - MAIN_ROWS[MAIN_ROWS.length - 1]!.length;
+  return [
+    ...fnRow,
+    ...main.slice(0, bottomStart),
+    ...splitArrows(main.slice(bottomStart)),
+  ];
+};
+
+export const KEY_CAPS: readonly KeyCap[] = build();

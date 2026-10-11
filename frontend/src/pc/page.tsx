@@ -29,9 +29,9 @@ const VIEWS: readonly View[] = [
     fov: 42,
   },
   {
-    label: "モニタ接写",
-    position: [0.34, 0.34, 0.62],
-    target: [0, 0.24, -0.06],
+    label: "画面接写",
+    position: [0.3, 0.3, 0.5],
+    target: [0, 0.13, -0.15],
     fov: 34,
   },
 ];
@@ -112,7 +112,7 @@ function DeskTop() {
   return (
     <mesh position={[0, -0.02, 0]}>
       <boxGeometry args={[1.6, 0.04, 0.8]} />
-      <meshStandardMaterial color="#f4f2ec" roughness={0.85} />
+      <meshStandardMaterial color="#ffffff" roughness={0.85} />
     </mesh>
   );
 }

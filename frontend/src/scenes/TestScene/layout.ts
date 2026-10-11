@@ -4,6 +4,7 @@ import {
   type SceneLayout,
 } from "../../objects/layout";
 import {LIGHTER_STAND_ON_DESK} from "../../objects/lighter_stand/stand";
+import {ON_DESK as PC_ON_DESK} from "../../objects/pc/dimensions";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
@@ -30,7 +31,14 @@ export const TEST_LAYOUT: SceneLayout = Object.fromEntries([
   ["directory", directoryItem({id: "directory-1", position: [14, 0, 1]})],
   ["workspace", {id: "workspace-1", position: [14, 0, -5]}],
   ["canvas", {id: "canvas-1", position: [11.5, 0, -5]}],
-  ["pc", {id: "pc-1", position: [14, DESK_HEIGHT, -5.03]}],
+  [
+    "pc",
+    {
+      id: "pc-1",
+      position: [14 + PC_ON_DESK.x, DESK_HEIGHT, -5 + PC_ON_DESK.z],
+      yaw: PC_ON_DESK.yaw,
+    },
+  ],
   [
     "lighter_stand",
     {

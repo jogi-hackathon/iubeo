@@ -1,4 +1,5 @@
 import {directoryItem, type SceneLayout} from "../../objects/layout";
+import {ON_DESK as PC_ON_DESK} from "../../objects/pc/dimensions";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
 
@@ -111,16 +112,12 @@ export const CANVAS_YAW = Math.atan2(
   ROOM_SPAWN_POSITION[2] - CANVAS_POSITION[2],
 );
 export const CHAIR_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z + 0.95];
-/**
- * PC は机の天板の上。モデルの原点が「天板の中心」なので、机の中心からほんの少し奥へ寄せるだけにする
- * (それ以上ずらすと、タワーやモニタの台座が奥の縁から落ちる。机に載る部品の z の張り出しは
- *  後ろ 0.36m・手前 0.41m。CRT の管の後端は高い所にあるので、縁から少し出るのは許す)
- */
 export const PC_POSITION: Vec3 = [
-  WORKSPACE_POSITION[0],
+  WORKSPACE_POSITION[0] + PC_ON_DESK.x,
   DESK_HEIGHT,
-  WORKSPACE_POSITION[2] - 0.03,
+  WORKSPACE_POSITION[2] + PC_ON_DESK.z,
 ];
+export const PC_YAW = PC_ON_DESK.yaw;
 
 /**
  * room に置くオブジェクトのレイアウト。項目名(directory・workspace・canvas・pc)がトグルのキーになる
@@ -134,12 +131,12 @@ export const ROOM_LAYOUT: SceneLayout = {
   }),
   workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
-  pc: {id: "pc-1", position: PC_POSITION, look: "plain"},
+  pc: {id: "pc-1", position: PC_POSITION, yaw: PC_YAW, look: "plain"},
 };
 
 /**
  * マッチングを始める仮のボタン(チュートリアルで置き換える。MatchmakingButton.tsx の TODO)。
- * 机の天板の右手前。PC(中央)・キーボード(手前中央)・鉛筆立て(右奥)・紙の束(左)を避けた位置
+ * 机の天板の右手前
  */
 export const MATCHMAKING_BUTTON_POSITION: Vec3 = [
   WORKSPACE_POSITION[0] + 0.62,

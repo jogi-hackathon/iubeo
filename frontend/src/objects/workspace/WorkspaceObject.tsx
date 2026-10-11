@@ -1,40 +1,28 @@
-import {useFrame} from "@react-three/fiber";
-import {useRef} from "react";
+import {useEffect, useMemo} from "react";
 import {BoxGeometry, CylinderGeometry, MeshStandardMaterial} from "three";
 
 import {aoModeUserData} from "../../bake/aoMode";
+import {BVHCollider} from "../../core/bvh";
 import {useControlLockWhileWorking} from "../controlLock";
+import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
-import {
-  DESK_HEIGHT,
-  DESK_PARTS,
-  type DeskPart,
-  type PartLook,
-  type PartShape,
-  WORK_AREA_SIZE,
-} from "./desk";
+import {DESK_PARTS, type DeskPart, type PartLook, type PartShape} from "./desk";
+import {WorkspaceFile} from "./WorkspaceFile";
 
 const CYLINDER_SEGMENTS = 10;
 
-const GEOMETRIES: Record<PartShape, BoxGeometry | CylinderGeometry> = {
-  box: new BoxGeometry(1, 1, 1),
-  cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
-};
+type Geometries = Record<PartShape, BoxGeometry | CylinderGeometry>;
+
 const MATERIALS: Record<PartLook, MeshStandardMaterial> = {
-  top: new MeshStandardMaterial({color: "#f4f2ec"}),
-  frame: new MeshStandardMaterial({color: "#d8d5cc"}),
+  top: new MeshStandardMaterial({color: "#ffffff"}),
+  frame: new MeshStandardMaterial({color: "#ffffff"}),
   accent: new MeshStandardMaterial({color: "#3a3a3a"}),
-  paper: new MeshStandardMaterial({color: "#fbfaf6"}),
 };
 
-const PANEL_THICKNESS = 0.02;
-const PANEL_COLOR = "#7fd1ff";
-const PANEL_PULSE_HZ = 2;
-
-function Part({part}: {part: DeskPart}) {
+function Part({part, geometries}: {part: DeskPart; geometries: Geometries}) {
   return (
     <mesh
-      geometry={GEOMETRIES[part.shape]}
+      geometry={geometries[part.shape]}
       material={MATERIALS[part.look]}
       position={part.position}
       scale={part.scale}
@@ -44,52 +32,38 @@ function Part({part}: {part: DeskPart}) {
 }
 
 /**
- * アクション中のアニメーションのモック。天板の作業スペースの上の光る板を脈動させる。
- * 本物のアニメーションができたら、この部品を差し替える(WorkspaceObject は、作業中の間だけ置く)
- */
-export function WorkspaceActionAnimation() {
-  const material = useRef<MeshStandardMaterial>(null);
-
-  useFrame(({clock}) => {
-    if (material.current) {
-      const wave =
-        0.5 + 0.5 * Math.sin(clock.elapsedTime * Math.PI * 2 * PANEL_PULSE_HZ);
-      material.current.emissiveIntensity = 0.3 + 1.7 * wave;
-    }
-  });
-
-  return (
-    <mesh position={[0, DESK_HEIGHT + PANEL_THICKNESS / 2, 0]}>
-      <boxGeometry
-        args={[WORK_AREA_SIZE[0], PANEL_THICKNESS, WORK_AREA_SIZE[1]]}
-      />
-      <meshStandardMaterial
-        ref={material}
-        color={PANEL_COLOR}
-        emissive={PANEL_COLOR}
-      />
-    </mesh>
-  );
-}
-
-/**
  * ワークスペース: 作業机のモック(ファイルの編集・新規作成をする場所)。寸法と部品の配置は desk.ts。
- * 天板と幕板・脚と貫の骨組み・右の引き出し、天板の上に紙の束・ペン立てを置き、
- * 中央の作業スペース(WORK_AREA_SIZE)は空けておく。作業中(users に誰かいる)の間だけ、そこに WorkspaceActionAnimation を出す。
  *
  * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
- * - モックなので、コライダーは持たない
  * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは机全体の外周に 1 本付く
  * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
  */
 export function WorkspaceObject({object}: {object: GameObject}) {
   useControlLockWhileWorking(object);
+  const {visible} = useObjectState();
+  const geometries = useMemo<Geometries>(
+    () => ({
+      box: new BoxGeometry(1, 1, 1),
+      cylinder: new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS),
+    }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      for (const geometry of Object.values(geometries)) {
+        geometry.dispose();
+      }
+    },
+    [geometries],
+  );
   return (
     <group userData={aoModeUserData("realtime")}>
-      {DESK_PARTS.map((part, i) => (
-        <Part key={i} part={part} />
-      ))}
-      {object.users.length > 0 && <WorkspaceActionAnimation />}
+      <BVHCollider enabled={visible}>
+        {DESK_PARTS.map((part, i) => (
+          <Part key={i} part={part} geometries={geometries} />
+        ))}
+      </BVHCollider>
+      <WorkspaceFile working={object.users.length > 0} />
     </group>
   );
 }
