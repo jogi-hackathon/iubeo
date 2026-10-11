@@ -1,5 +1,6 @@
 import {GameDebugPanel} from "./GameDebugPanel";
 import {GameFlowPanel} from "./GameFlowPanel";
+import {TutorialPanel} from "./TutorialPanel";
 
 /**
  * 開発時のみ読み込む(App から import.meta.env.DEV のときだけ動的 import する)。
@@ -10,6 +11,7 @@ export default function DevTools() {
     <>
       <GameDebugPanel />
       <GameFlowPanel />
+      <TutorialPanel />
     </>
   );
 }

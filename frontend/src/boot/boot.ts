@@ -1,5 +1,6 @@
 import {graphicsStore} from "../core/graphics";
 import {storageManager} from "../core/storage";
+import "../tutorial/tutorialStore";
 import {loadAssets} from "./assets";
 import {assertWebGPUAvailable} from "./capabilities";
 import type {AppContext} from "./context";
