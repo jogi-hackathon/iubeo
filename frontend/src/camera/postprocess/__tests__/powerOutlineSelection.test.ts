@@ -3,8 +3,10 @@ import {describe, expect, it} from "vitest";
 
 import {
   addPowerOutline,
+  POWER_OUTLINE_DEFAULT_COLOR,
   POWER_OUTLINE_FADE_END,
   POWER_OUTLINE_FADE_START,
+  powerOutlineColor,
   powerOutlineFade,
   powerOutlineFadeAt,
   powerOutlineSelection,
@@ -76,5 +78,26 @@ describe("updatePowerOutline", () => {
     updatePowerOutline(CAMERA);
     expect(powerOutlineSelection).toEqual([other]);
     offOther();
+  });
+});
+
+describe("縁取りの色", () => {
+  it("選択された先頭の物の色になり、何も無ければ既定の色に戻る", () => {
+    const offs = [
+      addPowerOutline(at(1), {color: "#00ff00"}),
+      addPowerOutline(at(2), {color: "#0000ff"}),
+    ];
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineColor.value.getHexString()).toBe("00ff00");
+
+    offs[0]?.();
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineColor.value.getHexString()).toBe("0000ff");
+
+    offs[1]?.();
+    updatePowerOutline(CAMERA);
+    expect(powerOutlineColor.value.getHexString()).toBe(
+      POWER_OUTLINE_DEFAULT_COLOR.slice(1),
+    );
   });
 });

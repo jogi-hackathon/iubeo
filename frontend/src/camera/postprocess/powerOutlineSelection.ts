@@ -1,4 +1,4 @@
-import {type Object3D, Vector3} from "three";
+import {Color, type Object3D, Vector3} from "three";
 import {uniform} from "three/tsl";
 
 /** 薄くし始める距離(m) */
@@ -19,7 +19,9 @@ export const powerOutlineFadeAt = (distance: number): number => {
   return 1 - t * t * (3 - 2 * t);
 };
 
-type Entry = {object: Object3D; ignoreDistance: boolean};
+export const POWER_OUTLINE_DEFAULT_COLOR = "#ff1f2e";
+
+type Entry = {object: Object3D; ignoreDistance: boolean; color: string};
 const registered: Entry[] = [];
 const selection: Object3D[] = [];
 
@@ -27,6 +29,9 @@ const selection: Object3D[] = [];
 export const powerOutlineSelection: Object3D[] = selection;
 /** 力の縁取りの濃さ(0〜1)。選択した物のうち一番近い物の濃さ。pipeline が縁のマスクに掛ける */
 export const powerOutlineFade = uniform(0);
+export const powerOutlineColor = uniform(
+  new Color(POWER_OUTLINE_DEFAULT_COLOR),
+);
 
 /**
  * 力の縁取りを付ける。戻り値で外す(2 回外しても何もしない)。
@@ -34,9 +39,12 @@ export const powerOutlineFade = uniform(0);
  */
 export const addPowerOutline = (
   object: Object3D,
-  {ignoreDistance = false}: {ignoreDistance?: boolean} = {},
+  {
+    ignoreDistance = false,
+    color = POWER_OUTLINE_DEFAULT_COLOR,
+  }: {ignoreDistance?: boolean; color?: string} = {},
 ): (() => void) => {
-  const entry: Entry = {object, ignoreDistance};
+  const entry: Entry = {object, ignoreDistance, color};
   registered.push(entry);
   return () => {
     const i = registered.indexOf(entry);
@@ -52,7 +60,8 @@ const worldPosition = new Vector3();
 export const updatePowerOutline = (cameraPosition: Vector3): void => {
   selection.length = 0;
   let fade = 0;
-  for (const {object, ignoreDistance} of registered) {
+  let color: string | null = null;
+  for (const {object, ignoreDistance, color: entryColor} of registered) {
     const f = ignoreDistance
       ? 1
       : powerOutlineFadeAt(
@@ -61,7 +70,9 @@ export const updatePowerOutline = (cameraPosition: Vector3): void => {
     if (f > 0) {
       selection.push(object);
       fade = Math.max(fade, f);
+      color ??= entryColor;
     }
   }
   powerOutlineFade.value = fade;
+  powerOutlineColor.value.set(color ?? POWER_OUTLINE_DEFAULT_COLOR);
 };
