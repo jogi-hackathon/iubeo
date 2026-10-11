@@ -20,9 +20,9 @@ const (
 	cpuReachEpsilon = 0.2
 )
 
-// CpuPersona は CPU の人格。動き方・作業の速さ・失敗のしやすさに個体差を作る。
+// CPUPersona は CPU の人格。動き方・作業の速さ・失敗のしやすさに個体差を作る。
 // セッション開始時に人数分を割り当て、フェーズをまたいで同じ
-type CpuPersona struct {
+type CPUPersona struct {
 	Name        string
 	WalkSpeed   float64
 	JitterMax   time.Duration
@@ -31,7 +31,7 @@ type CpuPersona struct {
 }
 
 // cpuPersonas は用意しておく人格。速いが雑・遅いが丁寧・マイペース・不器用・仕事人
-var cpuPersonas = []CpuPersona{
+var cpuPersonas = []CPUPersona{
 	{Name: "せっかち", WalkSpeed: 3.1, JitterMax: 300 * time.Millisecond, Reliability: 0.85, ThinkPause: 200 * time.Millisecond},
 	{Name: "丁寧", WalkSpeed: 2.0, JitterMax: 900 * time.Millisecond, Reliability: 0.97, ThinkPause: 800 * time.Millisecond},
 	{Name: "マイペース", WalkSpeed: 2.2, JitterMax: 1200 * time.Millisecond, Reliability: 0.9, ThinkPause: 1200 * time.Millisecond},
@@ -59,8 +59,8 @@ const (
 	cpuStageDone
 )
 
-// CpuAgent は CPU 1 体の段取り。フェーズごとに resetCpuAgents で作り直す
-type CpuAgent struct {
+// CPUAgent は CPU 1 体の段取り。フェーズごとに resetCPUAgents で作り直す
+type CPUAgent struct {
 	Stage  cpuStage
 	TaskID string
 	// Target は今向かっている足元の位置
@@ -80,10 +80,10 @@ type CpuAgent struct {
 	Skip bool
 }
 
-// resetCpuAgents はフェーズ開始時に CPU の段取りを引き直す。区画のスポーン地点に立ち、人格をあてる
-func (st *State) resetCpuAgents() {
-	st.CpuAgents = map[string]CpuAgent{}
-	st.CpuLastAt = time.Time{}
+// resetCPUAgents はフェーズ開始時に CPU の段取りを引き直す。区画のスポーン地点に立ち、人格をあてる
+func (st *State) resetCPUAgents() {
+	st.CPUAgents = map[string]CPUAgent{}
+	st.CPULastAt = time.Time{}
 	for i := range st.Players {
 		p := &st.Players[i]
 		if p.Kind != api.Cpu || p.Life != api.Alive {
@@ -93,11 +93,11 @@ func (st *State) resetCpuAgents() {
 		p.Transform.Position = []float64{pos[0], pos[1], pos[2]}
 		p.Transform.Yaw = cpuSeatYaw(p.Seat)
 		st.cpuMarkMoved(p)
-		persona, ok := st.CpuPersonas[p.ID]
+		persona, ok := st.CPUPersonas[p.ID]
 		if !ok {
 			persona = cpuPersonas[0]
 		}
-		st.CpuAgents[p.ID] = CpuAgent{
+		st.CPUAgents[p.ID] = CPUAgent{
 			Stage:       cpuStageIdle,
 			Reliability: persona.Reliability,
 			WalkSpeed:   persona.WalkSpeed,
@@ -115,8 +115,8 @@ func (st *State) cpuMarkMoved(p *PlayerState) {
 }
 
 func (st *State) cpuNewID() string {
-	st.CpuItemSeq++
-	return "cpu-" + strconv.Itoa(st.CpuItemSeq)
+	st.CPUItemSeq++
+	return "cpu-" + strconv.Itoa(st.CPUItemSeq)
 }
 
 // cpuStep は CPU を少しだけ進める。tick から呼ぶ
@@ -125,14 +125,14 @@ func (st *State) cpuStep(now time.Time) []Output {
 		return nil
 	}
 	dt := 0.0
-	if !st.CpuLastAt.IsZero() {
-		dt = now.Sub(st.CpuLastAt).Seconds()
+	if !st.CPULastAt.IsZero() {
+		dt = now.Sub(st.CPULastAt).Seconds()
 	}
 	if dt < 0 || dt > 1 {
 		// 長く止まっていた分をまとめて進めない(瞬間移動に見えるため)
 		dt = 0.05
 	}
-	st.CpuLastAt = now
+	st.CPULastAt = now
 
 	var out []Output
 	for i := range st.Players {
@@ -140,14 +140,14 @@ func (st *State) cpuStep(now time.Time) []Output {
 		if p.Kind != api.Cpu || p.Life != api.Alive {
 			continue
 		}
-		a := st.CpuAgents[p.ID]
+		a := st.CPUAgents[p.ID]
 		out = append(out, st.cpuAdvance(p, &a, dt, now)...)
-		st.CpuAgents[p.ID] = a
+		st.CPUAgents[p.ID] = a
 	}
 	return out
 }
 
-func (st *State) cpuAdvance(p *PlayerState, a *CpuAgent, dt float64, now time.Time) []Output {
+func (st *State) cpuAdvance(p *PlayerState, a *CPUAgent, dt float64, now time.Time) []Output {
 	switch a.Stage {
 	case cpuStageIdle:
 		return st.cpuStartTask(p, a, now)
@@ -176,7 +176,7 @@ func (st *State) cpuAdvance(p *PlayerState, a *CpuAgent, dt float64, now time.Ti
 }
 
 // cpuMove は目的地へ dt 秒ぶん歩く。着いたら true
-func (st *State) cpuMove(p *PlayerState, a *CpuAgent, dt float64) bool {
+func (st *State) cpuMove(p *PlayerState, a *CPUAgent, dt float64) bool {
 	pos := p.Transform.Position
 	if len(pos) != 3 {
 		pos = []float64{a.Target[0], a.Target[1], a.Target[2]}
@@ -211,7 +211,7 @@ func (st *State) cpuMove(p *PlayerState, a *CpuAgent, dt float64) bool {
 }
 
 // cpuStartTask は次の未完了のノルマを選び、最初に向かう場所を決める
-func (st *State) cpuStartTask(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuStartTask(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuPendingTask(p.ID)
 	if t == nil {
 		a.Stage = cpuStageDone
@@ -241,7 +241,7 @@ func (st *State) cpuStartTask(p *PlayerState, a *CpuAgent, now time.Time) []Outp
 }
 
 // cpuFetch はディレクトリから対象のファイルを取り出す。取れなければ少し待ってやり直す
-func (st *State) cpuFetch(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuFetch(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuTask(p.ID, a.TaskID)
 	dir := st.object(directoryID)
 	if t == nil || dir == nil {
@@ -273,7 +273,7 @@ func (st *State) cpuFetch(p *PlayerState, a *CpuAgent, now time.Time) []Output {
 }
 
 // cpuWork は作業台で作業を始める(サーバーの ObjectAction に乗る)。始められなければ少し待つ
-func (st *State) cpuWork(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuWork(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	t := st.cpuTask(p.ID, a.TaskID)
 	if t == nil {
 		a.Stage = cpuStageDone
@@ -331,7 +331,7 @@ func (st *State) cpuWork(p *PlayerState, a *CpuAgent, now time.Time) []Output {
 }
 
 // cpuAfterWork は作業が終わった後を決める。失敗を選んだ個体は、戻さずにそのままにする
-func (st *State) cpuAfterWork(p *PlayerState, a *CpuAgent) {
+func (st *State) cpuAfterWork(p *PlayerState, a *CPUAgent) {
 	if a.Skip {
 		a.Stage = cpuStageDone
 		return
@@ -341,7 +341,7 @@ func (st *State) cpuAfterWork(p *PlayerState, a *CpuAgent) {
 }
 
 // cpuDeliver は成果物をディレクトリへ戻す。達成の判定は interactDirectory の中で人間と同じ completeTask が行う
-func (st *State) cpuDeliver(p *PlayerState, a *CpuAgent, now time.Time) []Output {
+func (st *State) cpuDeliver(p *PlayerState, a *CPUAgent, now time.Time) []Output {
 	held := st.held(p.ID)
 	dir := st.object(directoryID)
 	if held == nil || dir == nil {
