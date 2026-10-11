@@ -7,9 +7,9 @@ import {HINGE, LAPTOP, LID, MEMO, SCREEN, TRACKPAD} from "./dimensions";
 import {KEY_CAPS, KEYBOARD} from "./keyboard";
 import {TaskMemo} from "./TaskMemo";
 
-const SHELL = "#f3f3f1";
-const SHELL_DARK = "#dedcd6";
-const TRIM = "#c9c7c1";
+const SHELL = "#f3f3f3";
+const SHELL_DARK = "#dddddd";
+const TRIM = "#c8c8c8";
 
 const KEY_HEIGHT = 0.0015;
 const WELL_HEIGHT = 0.0006;
