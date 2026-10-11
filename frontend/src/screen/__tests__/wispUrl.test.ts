@@ -6,10 +6,8 @@ import {
   replaceWispToken,
   resolveWispUrl,
   setFreshWispUrl,
-  WISP_PASS_HEADER,
   WISP_TOKEN_PATH,
   wispOverrideFrom,
-  wispPassFrom,
 } from "../wispUrl";
 
 const jsonResponse = (status: number, body: unknown): Response =>
@@ -64,18 +62,6 @@ describe("resolveWispUrl", () => {
     });
   });
 
-  it("合言葉があれば、ヘッダーで送る", async () => {
-    const url = "wss://example.test/wisp/?token=abc.def";
-    const fetchFn = vi.fn(async () =>
-      jsonResponse(200, {url, expiresAt: "2026-10-09T00:00:00Z"}),
-    );
-    expect(await resolveWispUrl(undefined, fetchFn, "open-sesame")).toBe(url);
-    expect(fetchFn).toHaveBeenCalledWith(WISP_TOKEN_PATH, {
-      credentials: "same-origin",
-      headers: {[WISP_PASS_HEADER]: "open-sesame"},
-    });
-  });
-
   it("Cookie が無い(401)ときは、匿名のプレイヤーを作ってから 1 回だけ取り直す", async () => {
     const url = "wss://example.test/wisp/?token=abc.def";
     let issued = false;
@@ -108,29 +94,6 @@ describe("resolveWispUrl", () => {
         throw new TypeError("network down");
       }),
     ).toBeUndefined();
-  });
-});
-
-describe("wispPassFrom", () => {
-  const memoryStorage = () => {
-    const items = new Map<string, string>();
-    return {
-      getItem: (key: string) => items.get(key) ?? null,
-      setItem: (key: string, value: string) => void items.set(key, value),
-    };
-  };
-
-  it("?wisppass= があれば使い、覚えておく（URL から消えても使える）", () => {
-    const storage = memoryStorage();
-    expect(wispPassFrom("?debug&wisppass=open-sesame", storage)).toBe(
-      "open-sesame",
-    );
-    expect(wispPassFrom("?debug", storage)).toBe("open-sesame");
-  });
-
-  it("どこにも無ければ undefined", () => {
-    expect(wispPassFrom("?debug", memoryStorage())).toBeUndefined();
-    expect(wispPassFrom("", undefined)).toBeUndefined();
   });
 });
 

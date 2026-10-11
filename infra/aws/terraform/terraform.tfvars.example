@@ -9,5 +9,6 @@ instance_type = "t4g.small"
 # サーバーは起動時にこれを検証し、空だと終了する。
 allowed_origins = ["https://iubeo.thirdlf03.com"]
 
-# WISP トークンの発行に要る合言葉。空なら EC2 側は WISP のトークンを発行しない
-wisp_pass = "change-me"
+# WISP のトークン発行を有効にする。有効にすると、プレイヤーの Cookie がある人に期限つきトークンを発行する
+# (合言葉は廃止)。Cloudflare 側の鍵の設定とは別物
+wisp_enabled = true

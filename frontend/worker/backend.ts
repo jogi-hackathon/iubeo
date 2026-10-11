@@ -23,7 +23,6 @@ import {DurableObject} from "cloudflare:workers";
 interface Env {
   IUBEO_SIGNING_KEY: string;
   IUBEO_WISP_KEY?: string;
-  IUBEO_WISP_PASS?: string;
   TARGET: KVNamespace;
 }
 
@@ -82,7 +81,7 @@ export class Backend extends DurableObject<Env> {
           IUBEO_SIGNING_KEY: key,
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
-          ...wispEnv(origin, this.env.IUBEO_WISP_KEY, this.env.IUBEO_WISP_PASS),
+          ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
         },
       });
     }
@@ -133,16 +132,14 @@ export default {
 const wispEnv = (
   origin: string,
   key: string | undefined,
-  pass: string | undefined,
 ): Record<string, string> => {
-  if (!key || !pass) {
+  if (!key) {
     return {};
   }
   const wsOrigin = origin.replace(/^http/, "ws");
   return {
     IUBEO_WISP_KEY: key,
     IUBEO_WISP_URL: `${wsOrigin}/wisp/`,
-    IUBEO_WISP_PASS: pass,
   };
 };
 
