@@ -1,12 +1,15 @@
 import {useEffect, useRef, useState} from "react";
-import type {MeshBasicNodeMaterial} from "three/webgpu";
+import type {
+  MeshBasicNodeMaterial,
+  MeshStandardNodeMaterial,
+} from "three/webgpu";
 
 import {ServerAuthority} from "../../authority/server/ServerAuthority";
 import {gameFlow} from "../../flow/store";
 import {SpectateOnElimination} from "../../game/SpectateOnElimination";
 import {ManagedObjects} from "../../objects";
 import {RemotePlayers} from "../../player";
-import {Chair, Slab, Wall} from "../../props";
+import {Chair, Slab, useGridFloorMaterial, Wall} from "../../props";
 import {VoiceChat} from "../../voice";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {
@@ -18,6 +21,7 @@ import {
   SANDBOX_LAYOUT,
   ZONE_COUNT,
   ZONE_FLOOR,
+  ZONE_FLOOR_TILE,
   ZONE_ROOF,
   ZONE_WALLS,
   ZONE_WINDOW_BLOCKER,
@@ -29,14 +33,16 @@ const ZONES = Array.from({length: ZONE_COUNT}, (_, i) => i);
 
 function SandboxZone({
   index,
+  floorMaterial,
   partitionMaterial,
 }: {
   index: number;
+  floorMaterial: MeshStandardNodeMaterial;
   partitionMaterial: MeshBasicNodeMaterial;
 }) {
   return (
     <group rotation={[0, seatYaw(index + 1), 0]}>
-      <Slab {...ZONE_FLOOR} />
+      <Slab {...ZONE_FLOOR} material={floorMaterial} />
       {ZONE_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
@@ -60,7 +66,7 @@ function SandboxZone({
  * 区画ごとに、床・外壁(窓の空洞つき)・左の仕切り・屋根・イスを置く(共通の床は使わず、区画ごとの床を敷く)。
  * 仕切りは中心から頂点まで届き、上端は屋根の稜線に沿う(ディレクトリの山は貫く)。壁より薄いすりガラスの板(型板ガラス風。FrostedPartition)で、
  * 背後は透けて見えるが、輪郭が歪む(格子の線も入れられるが、今は消している)。当たり判定はあるので、プレイヤーは自分の区画から出られない。
- * すりガラスのマテリアルは、このシーンのマウントで 1 つ作って 3 区画の仕切りで共有する。
+ * すりガラスと床の方眼のマテリアルは、このシーンのマウントで 1 つずつ作って 3 区画で共有する。
  * ディレクトリ(中心の large の山。3 区画で共有)・ワークスペース・キャンバス・PC は ManagedObjects が描く。
  * サンドボックスは出し入れするプロップがないので、トグルのストアは持たない。
  * サーバーが置くオブジェクトは、ベイク時と数・位置が違うとシーン全体のベイク AO が外れるので、
@@ -125,6 +131,7 @@ const useLeaveSessionOnUnmount = () => {
  * サンドボックスの建物(環境・3 区画の床・外壁・仕切り・屋根・イス)。サーバーが置くオブジェクトは含まない
  */
 export function SandboxStructure() {
+  const floorMaterial = useGridFloorMaterial(ZONE_FLOOR_TILE);
   const partitionMaterial = useFrostedPartitionMaterial();
   return (
     <>
@@ -133,6 +140,7 @@ export function SandboxStructure() {
         <SandboxZone
           key={zone}
           index={zone}
+          floorMaterial={floorMaterial}
           partitionMaterial={partitionMaterial}
         />
       ))}

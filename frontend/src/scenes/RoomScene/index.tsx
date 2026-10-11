@@ -4,13 +4,14 @@ import {LocalAuthority} from "../../authority/local/LocalAuthority";
 import {createToggleStore, useIsVisible} from "../../core/toggles";
 import {TogglesProvider} from "../../core/TogglesProvider";
 import {ManagedObjects} from "../../objects";
-import {Chair, Wall} from "../../props";
+import {Chair, useGridFloorMaterial, Wall} from "../../props";
 import {tutorialStore, useTutorial} from "../../tutorial";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {ROOM_INITIAL} from "./initial";
 import {
   CHAIR_POSITION,
   ROOM_FLOOR,
+  ROOM_FLOOR_TILE,
   ROOM_LAYOUT,
   ROOM_WALLS,
   WINDOW_PLUG,
@@ -25,10 +26,15 @@ function RoomProps() {
   const chairVisible = useIsVisible(CHAIR_KEY);
   const windowVisible = useIsVisible(WINDOW_KEY);
   const {completed} = useTutorial();
+  const floorMaterial = useGridFloorMaterial(ROOM_FLOOR_TILE);
   return (
     <>
       <WhiteWorld />
-      <Wall position={ROOM_FLOOR.position} size={ROOM_FLOOR.size} />
+      <Wall
+        position={ROOM_FLOOR.position}
+        size={ROOM_FLOOR.size}
+        material={floorMaterial}
+      />
       {ROOM_WALLS.map((wall, i) => (
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
