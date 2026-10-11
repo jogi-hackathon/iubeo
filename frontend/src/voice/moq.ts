@@ -18,6 +18,12 @@ export type MoqVoiceOptions = {
   /** 他の人から届いた Opus のフレーム */
   onPeerAudio: (peer: string, opus: Uint8Array) => void;
   onError?: (message: string) => void;
+  /** Opus のビットレート(bps)。既定 48000。声なら 32k〜64k が目安 */
+  bitrate?: number;
+  /** Opus の 1 フレームの長さ(ms)。既定 20。短いほど低遅延、長いほど圧縮効率がよい */
+  frameDurationMs?: number;
+  /** Opus のエンコーダ複雑度(0〜10)。既定 5。上げるほど高品質だが CPU を使う */
+  complexity?: number;
 };
 
 /**
@@ -38,6 +44,7 @@ export class MoqVoice {
   private readonly subs = new Set<string>();
   private acc = new Float32Array(0);
   private tsUs = 0;
+  private frameSamples = FRAME_SAMPLES;
   private ietf = false;
   private opts!: MoqVoiceOptions;
 
@@ -74,13 +81,29 @@ export class MoqVoice {
       output: (chunk) => this.sendOpus(chunk),
       error: (e) => opts.onError?.(`encode: ${e.message}`),
     });
-    this.encoder.configure({
+    // 声なのでモノラル。ビットレートと複雑度で品質を上げられる（frameDuration は WebCodecs では µs）
+    this.frameSamples = Math.round(
+      (SAMPLE_RATE * (opts.frameDurationMs ?? 20)) / 1000,
+    );
+    const config = {
       codec: "opus",
       sampleRate: SAMPLE_RATE,
       numberOfChannels: 1,
-      bitrate: 32000,
+      bitrate: opts.bitrate ?? 48000,
       latencyMode: "realtime",
-    } as AudioEncoderConfig);
+    } as AudioEncoderConfig;
+    try {
+      this.encoder.configure({
+        ...config,
+        opus: {
+          frameDuration: (opts.frameDurationMs ?? 20) * 1000,
+          complexity: opts.complexity ?? 5,
+        },
+      } as AudioEncoderConfig);
+    } catch {
+      // opus 拡張が無い実装では、素の設定で続ける
+      this.encoder.configure(config);
+    }
   }
 
   private sendOpus(chunk: EncodedAudioChunk): void {
@@ -114,18 +137,18 @@ export class MoqVoice {
     merged.set(this.acc);
     merged.set(pcm, this.acc.length);
     this.acc = merged;
-    while (this.acc.length >= FRAME_SAMPLES) {
-      const frame = this.acc.subarray(0, FRAME_SAMPLES).slice();
-      this.acc = this.acc.subarray(FRAME_SAMPLES);
+    while (this.acc.length >= this.frameSamples) {
+      const frame = this.acc.subarray(0, this.frameSamples).slice();
+      this.acc = this.acc.subarray(this.frameSamples);
       const audio = new AudioData({
         format: "f32-planar",
         sampleRate: SAMPLE_RATE,
-        numberOfFrames: FRAME_SAMPLES,
+        numberOfFrames: this.frameSamples,
         numberOfChannels: 1,
         timestamp: this.tsUs,
         data: frame.buffer as ArrayBuffer,
       });
-      this.tsUs += (FRAME_SAMPLES / SAMPLE_RATE) * 1e6;
+      this.tsUs += (this.frameSamples / SAMPLE_RATE) * 1e6;
       this.encoder.encode(audio);
       audio.close();
     }
