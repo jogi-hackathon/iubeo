@@ -53,7 +53,8 @@ browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2）
 
 EC2 では `terraform.tfvars` の `vc_private_key` / `vc_signaling_url` / `vc_media_url` から
 `/etc/iubeo/env` に入る（`infra/aws/terraform/README.md`）。ただし `/etc/iubeo/env` は初回起動時にしか
-作らないので、**VC を入れる前に作ったインスタンスには入っていない**（503 になる）。反映の手順は
+作らないので、**VC を入れる前に作ったインスタンスには入っていない**（`GET /api/v1/voice/token` が
+`available: false` を返す）。反映の手順は
 `infra/aws/terraform/README.md` の「注意」を参照。手元は `.env` に書く（`.env` は追跡しない）。
 
 ```sh
@@ -74,7 +75,8 @@ cf workers secrets update IUBEO_VC_PRIVATE_KEY --worker iubeo-backend --text <d>
 
 `IUBEO_VC_SIGNALING_URL` / `IUBEO_VC_MEDIA_URL` は秘密ではないので `cloudflare.config.ts` に
 `bindings.text` で直書きする。3 つとも揃っていないとサーバーは「VC 無し」になり、
-`GET /api/v1/voice/token` は 503（`voice_unavailable`）を返す。
+`GET /api/v1/voice/token` は 200 で `available: false` を返す（設定が無いのは異常ではないので、
+クライアントが毎回コンソールにエラーを出さないよう 200 にしている）。
 
 ## 対象ブラウザ
 

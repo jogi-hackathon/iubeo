@@ -1,14 +1,11 @@
 import {useThree} from "@react-three/fiber";
-import {useEffect} from "react";
+import {useLayoutEffect} from "react";
 import {
   Float32BufferAttribute,
-  LinearFilter,
   type Material,
   type Mesh,
-  NoColorSpace,
   type Object3D,
   type Texture,
-  TextureLoader,
 } from "three";
 import type {NodeMaterial} from "three/webgpu";
 
@@ -21,12 +18,8 @@ import {subscribeColliders} from "../core/bvh";
 import {holdShaderWarmup} from "../core/ShaderWarmup";
 import {erasableBakedAO} from "./aoErase";
 import {type AOMode, aoModeOf, skipsGTAO} from "./aoMode";
-import {
-  atlasUV,
-  type BakedAOLayout,
-  findLayoutMismatch,
-  parseLayout,
-} from "./format";
+import {loadBakedAO} from "./atlasCache";
+import {atlasUV, type BakedAOLayout, findLayoutMismatch} from "./format";
 import {assignCharts, listBakeMeshes, meshSignature} from "./meshes";
 import {bakedAOFiles} from "./paths";
 import {subscribeBakeTargets} from "./targets";
@@ -44,26 +37,14 @@ const isNodeMaterial = (m: Material): m is AOMaterial & NodeMaterial =>
 const materialsOf = (mesh: Mesh): Material[] =>
   Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
-const loadAtlas = async (url: string): Promise<Texture> => {
-  const texture = await new TextureLoader().loadAsync(url);
-  texture.colorSpace = NoColorSpace;
-  texture.flipY = false;
-  texture.generateMipmaps = false;
-  texture.minFilter = LinearFilter;
-  texture.magFilter = LinearFilter;
-  // aoMap は uv1(アトラス上の uv)で引く
-  texture.channel = 1;
-  return texture;
-};
-
-const applyAtlas = (
+export const applyBakedAtlas = (
+  meshes: readonly Mesh[],
   root: Object3D,
   layout: BakedAOLayout,
   texture: Texture,
 ):
   | {undo: () => void; materials: AOMaterial[]; warnings: string[]}
   | {mismatch: string} => {
-  const meshes = listBakeMeshes();
   const mismatch = findLayoutMismatch(layout, meshes.map(meshSignature));
   if (mismatch) {
     return {mismatch};
@@ -166,7 +147,7 @@ const applyAtlas = (
 };
 
 /** パネルのベイク AO の強さを aoMapIntensity に反映する(uniform なので再コンパイルは起きない) */
-const syncIntensity = (materials: readonly AOMaterial[]) => {
+export const syncIntensity = (materials: readonly AOMaterial[]) => {
   const {intensity} = getPostProcessSettings().bakedAO;
   for (const m of materials) {
     m.aoMapIntensity = intensity;
@@ -185,11 +166,14 @@ const syncIntensity = (materials: readonly AOMaterial[]) => {
 export function BakedAO({scene}: {scene: string}) {
   const root = useThree((s) => s.scene);
 
-  useEffect(() => {
+  // useLayoutEffect にしてある: シーンの切り替えでは、commit の直後に新しいシーンのベイク対象が
+  // (layout effect で)登録され、この effect の後始末(effect だと passive)より先に通知が届く。
+  // その通知で古いシーンの apply が走ると、新しいシーンの mesh を見て「ベイク結果が合わない」と警告する。
+  // layout にすると、後始末が同じ commit の中で(通知のマイクロタスクより先に)走るので、古い effect は何もしない
+  useLayoutEffect(() => {
     let disposed = false;
     // 最初の貼り付け(または貼らないと決まる)までシェーダーのウォームアップを待たせる。aoMap を貼るとマテリアルが再コンパイルされるため
     const releaseWarmup = holdShaderWarmup();
-    let texture: Texture | null = null;
     let undo: (() => void) | null = null;
     let applied: AOMaterial[] = [];
     let unsubscribe: (() => void) | null = null;
@@ -230,32 +214,18 @@ export function BakedAO({scene}: {scene: string}) {
     };
 
     (async () => {
-      const files = bakedAOFiles(scene);
-      const urls = {
-        atlas: `${import.meta.env.BASE_URL}${files.atlas}`,
-        layout: `${import.meta.env.BASE_URL}${files.layout}`,
-      };
-      const atlasPromise = loadAtlas(urls.atlas);
-      atlasPromise.catch(() => {});
-      const res = await fetch(urls.layout);
-      if (!res.ok || res.headers.get("content-type")?.startsWith("text/html")) {
+      const data = await loadBakedAO(scene);
+      if (disposed) {
+        return;
+      }
+      if (!data) {
         log(
           "info",
-          `${urls.layout} がありません。pnpm bake:ao --scene=${scene} でベイクできます`,
-        );
-        atlasPromise.then(
-          (t) => t.dispose(),
-          () => {},
+          `${bakedAOFiles(scene).layout} がありません。pnpm bake:ao --scene=${scene} でベイクできます`,
         );
         return;
       }
-      const layout = parseLayout(await res.arrayBuffer());
-      const atlas = await atlasPromise;
-      if (disposed) {
-        atlas.dispose();
-        return;
-      }
-      texture = atlas;
+      const {layout, atlas} = data;
 
       apply = () => {
         undo?.();
@@ -265,7 +235,7 @@ export function BakedAO({scene}: {scene: string}) {
           log("info", `${scene}: ベイク AO を外しました`);
           return;
         }
-        const result = applyAtlas(root, layout, atlas);
+        const result = applyBakedAtlas(listBakeMeshes(), root, layout, atlas);
         if ("mismatch" in result) {
           log(
             "warn",
@@ -305,7 +275,6 @@ export function BakedAO({scene}: {scene: string}) {
       unsubscribe?.();
       unsubscribeSettings();
       undo?.();
-      texture?.dispose();
     };
   }, [scene, root]);
 

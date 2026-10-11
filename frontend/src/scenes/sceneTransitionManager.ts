@@ -22,14 +22,14 @@ export type SceneTransitionManagerOptions = {
   /** commit のあと、to の準備ができるまで待つ。resolve するまで finishTransition を呼ばない */
   waitReady?: (scene: SceneName) => Promise<void>;
   /** 準備ができたあとに演出を終える(覆いを外す)。transitionEnd の前に呼ぶ */
-  finishTransition?: (ctx: SceneTransitionContext) => void;
+  finishTransition?: (ctx: SceneTransitionContext) => void | Promise<void>;
   /** 今、遷移を始めてよいか(起動の覆いの間など、始めてはいけないときは false)。false なら goTo は何もしない */
   canStart?: () => boolean;
 };
 
 const noTransition = (): Promise<void> => Promise.resolve();
 const noWait = (): Promise<void> => Promise.resolve();
-const noFinish = (): void => {};
+const noFinish = (): void | Promise<void> => {};
 const always = (): boolean => true;
 
 type Phase = "leave" | "prepare" | "enter";
@@ -156,7 +156,7 @@ export const createSceneTransitionManager = ({
         console.error(e);
       }
       try {
-        finishTransition(ctx);
+        await finishTransition(ctx);
       } catch (e) {
         console.error(e);
       }

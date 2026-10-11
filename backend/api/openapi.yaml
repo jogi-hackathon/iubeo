@@ -123,17 +123,20 @@ paths:
         セッションに居ない場合は 403。
       responses:
         "200":
-          description: 接続情報
+          description: |
+            接続情報。VC を設定していないサーバーでは `available: false` だけを返す。
+            「このサーバーでは使えない」はクライアントの異常ではないので、200 で返す
+            (4xx/5xx にすると、ブラウザが毎回コンソールにエラーを出す)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoiceToken"
+                oneOf:
+                  - $ref: "#/components/schemas/VoiceToken"
+                  - $ref: "#/components/schemas/VoiceUnavailable"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "503":
-          $ref: "#/components/responses/Unavailable"
 
   /api/v1/matchmaking:
     post:
@@ -412,8 +415,12 @@ components:
           format: date-time
     VoiceToken:
       type: object
-      required: [token, room, signalingUrl, mediaUrl, expiresAt]
+      required: [available, token, room, signalingUrl, mediaUrl, expiresAt]
       properties:
+        available:
+          description: VC が使える
+          type: boolean
+          enum: [true]
         token:
           description: VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
           type: string
@@ -433,6 +440,19 @@ components:
           description: トークンの期限
           type: string
           format: date-time
+    VoiceUnavailable:
+      description: このサーバーでは VC を使えない(設定が無い)
+      type: object
+      required: [available]
+      properties:
+        available:
+          description: VC が使えない
+          type: boolean
+          enum: [false]
+        reason:
+          description: 使えない理由
+          type: string
+          example: voice chat is not configured
     MatchmakingStatus:
       type: object
       required: [status, queuedAt]

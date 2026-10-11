@@ -71,8 +71,8 @@ const compareKeys = (a: number[], b: number[]): number => {
  * コライダーの登録順は Suspense 境界の位置や非同期ロードの完了順で変わるので、ワールド中心 → 頂点数 → サイズの順に
  * 並べ替えて、ベイクページとゲーム本体で同じ並びにする。並びと形が一致しているかは format.ts で検証する
  */
-export const listBakeMeshes = (): Mesh[] =>
-  [...new Set([...listColliders().map((c) => c.mesh), ...listBakeTargets()])]
+export const selectBakeMeshes = (candidates: Iterable<Mesh>): Mesh[] =>
+  [...new Set(candidates)]
     .filter(
       (m) =>
         aoModeOf(m) !== "realtime" &&
@@ -81,6 +81,12 @@ export const listBakeMeshes = (): Mesh[] =>
     .map((mesh) => ({mesh, key: sortKey(mesh)}))
     .sort((a, b) => compareKeys(a.key, b.key))
     .map(({mesh}) => mesh);
+
+export const listBakeMeshes = (): Mesh[] =>
+  selectBakeMeshes([
+    ...listColliders().map((c) => c.mesh),
+    ...listBakeTargets(),
+  ]);
 
 /**
  * geometry.groups(= マテリアルごとの面のまとまり。BoxGeometry なら6面)をそれぞれ1チャートとし、

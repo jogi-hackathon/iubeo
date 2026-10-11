@@ -291,6 +291,11 @@ export interface components {
       expiresAt: string;
     };
     VoiceToken: {
+      /**
+       * @description VC が使える
+       * @enum {boolean}
+       */
+      available: true;
       /** @description VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う */
       token: string;
       /**
@@ -313,6 +318,19 @@ export interface components {
        * @description トークンの期限
        */
       expiresAt: string;
+    };
+    /** @description このサーバーでは VC を使えない(設定が無い) */
+    VoiceUnavailable: {
+      /**
+       * @description VC が使えない
+       * @enum {boolean}
+       */
+      available: false;
+      /**
+       * @description 使えない理由
+       * @example voice chat is not configured
+       */
+      reason?: string;
     };
     MatchmakingStatus: {
       /** @enum {string} */
@@ -829,18 +847,23 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description 接続情報 */
+      /**
+       * @description 接続情報。VC を設定していないサーバーでは `available: false` だけを返す。
+       *     「このサーバーでは使えない」はクライアントの異常ではないので、200 で返す
+       *     (4xx/5xx にすると、ブラウザが毎回コンソールにエラーを出す)
+       */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["VoiceToken"];
+          "application/json":
+            | components["schemas"]["VoiceToken"]
+            | components["schemas"]["VoiceUnavailable"];
         };
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
-      503: components["responses"]["Unavailable"];
     };
   };
   getMatchmaking: {

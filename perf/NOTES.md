@@ -443,6 +443,54 @@ node 環境で読むテストが 2 件落ちる。製品コードの問題では
 - 注意点はラウンド 6 のまま。デプロイはサーバーを先に出す(古いフロント + 新しいサーバーは JSON のまま動く)。
 - 上の修正を入れた perf/binary-position は、そのまま main に fast-forward で載せられる。
 
+## ラウンド 9: コンソールのエラー・警告を 0 にする(2026-10-11)
+
+`perf/lib/console-audit.mjs` を足して、ブラウザのコンソール(エラー・警告)と失敗したリクエストを全部集めた。
+**エラーが常態化していると本物の異常が見えなくなる**ので、0 を保つ。
+
+### 見つけて直したもの
+
+| 出ていた物 | 原因 | 直し方 |
+|---|---|---|
+| `Failed to load resource: 404`(favicon.ico) | `index.html` に `<link rel="icon">` が無く、ブラウザが毎回 `/favicon.ico` を取りに行っていた | `public/favicon.svg` を足して指定 |
+| `THREE.Clock: This module has been deprecated` | `@react-three/fiber` 9 がストアを作るときに `new THREE.Clock()` を呼ぶ(時計を外から渡す口が無い)。three r183 の非推奨の警告 | `core/threeLog.ts` でこの 1 文だけ通さない(three の `setConsoleFunction` を使う。他の警告・エラーはそのまま) |
+| `THREE.WebGPURenderer: PCFSoftShadowMap has been removed` | R3F の既定(`shadows = false`)が「PCFSoftShadowMap を入れる」経路になり、three r186 では削除済み | `<Canvas shadows={{enabled: false, type: PCFShadowMap}}>` を明示(影を落とすライトが無いので見た目は変わらない) |
+| `CopyExternalImageToTexture(): Browser fails extracting valid resource...` | PC の画面の canvas を、一度も描かないうちに `CanvasTexture` として GPU へ上げていた(Chrome が転送を飛ばす) | `BrowserScreen` のコンストラクタで 1 回描いておく(電源が入るまで画面は暗いので見えない) |
+| `Failed to load resource: 404`(engine/\*/gecko.wasm) | `resolveEngine` が「非圧縮の wasm があれば使う」と HEAD で確かめていたが、実際には置いていないので毎回 404 | HEAD をやめる。どちらを置くかはパック側(`link-engine.mjs` の `findWasm`)が決める |
+| `WebSocket is closed before the connection is established` | まだ繋がっていないソケットを `close()` していた(React の StrictMode でセッションに入るたびに必ず) | 接続中は開いてから閉じる(`net/connection.ts`。届いた物は捨てる) |
+| `[bakedAO] ベイク結果がシーンと合わないので使いません`(room → sandbox の切り替えで毎回) | commit の直後に新しいシーンのベイク対象(layout effect)が登録され、古いシーンの `BakedAO` の後始末(passive effect)より先に通知が届く。古い effect が新しいシーンの mesh を見て「合わない」と判断していた | `BakedAO` を `useLayoutEffect` にする(後始末が同じ commit の中で、通知のマイクロタスクより先に走る) |
+| `レイアウトに無いオブジェクトは描かない: dummy-N`(dev のみ) | 同じ行き過ぎ。前のシーンのオブジェクトがまだ残っているのを拾っていた | 少し待ってから、まだ残っている物だけ警告する |
+| `Failed to load resource: 503`(`/api/v1/voice/token`) | VC を設定していないサーバーでは 503 を返していた。クライアントは「VC 無し」として扱っていたが、ブラウザは 4xx/5xx を必ずコンソールに出す | 200 で `available: false` を返す(`openapi.yaml`・`voice.go`・`schema.gen.ts`・クライアント・テスト・docs) |
+
+### 確認した条件(すべて 0 件)
+
+| 条件 | エラー・警告 | 失敗リクエスト |
+|---|---:|---:|
+| 開発サーバー(room) | 0 | 0 |
+| 開発サーバー(`?debug` = test シーン) | 0 | 0 |
+| 本番ビルド(エンジンを配って起動) | 0 | 0 |
+| マッチング → セッション → 試合(room → sandbox) | 0 | 0 |
+
+本番ビルドの計測は、`PERF_ENGINE_DIR` でエンジン(R2 の中身)を配って行う。配らないと、エンジンの
+取得が SPA の index.html に落ちて「MIME type が違う」という別のエラーが出る(計測用サーバーの都合)。
+
+**残しているもの**: PC を開くと、エンジン(Gecko の wasm)自身が stderr に何行か出す
+(`unsupported syscall: ...` など)。これは `engine-local/` のエンジン成果物の中の物で、このリポジトリの
+コードではない。エンジンの stderr は `printErr → console.warn` でそのまま出している
+(隠すと、ゲーム内ブラウザのページエラーも見えなくなるため)。
+
+### 見た目が変わっていないことの確認
+
+`BakedAO` を `useLayoutEffect` にしたので、AO を貼るタイミングが変わる。main のビルドと、この変更を
+入れたビルドのスクリーンショットを比べた(起動直後の静止と、前に 1 秒歩いた後):
+
+| 比較 | 最大差 | 差のあるピクセル |
+|---|---:|---:|
+| このビルド 同士 | 0 | 0 / 1,024,000 |
+| main 対 このビルド | 0 | 0 / 1,024,000 |
+
+画素まで同一だった(この環境では画面が決定的なので、比較がそのまま使える)。
+
 ## ラウンド 10: エンジンの wasm を起動の裏で先に取る(2026-10-12)
 
 PC を開いてから使えるようになるまでを分解して測った。\*\*待ちのほぼ全部が「エンジンの用意」\*\*で、

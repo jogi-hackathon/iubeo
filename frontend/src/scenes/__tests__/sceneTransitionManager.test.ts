@@ -392,7 +392,9 @@ describe("createSceneTransitionManager", () => {
         log.push(`wait:${scene}:${scenes.getState().current}`);
         return ready.promise;
       },
-      finishTransition: () => log.push("uncover"),
+      finishTransition: () => {
+        log.push("uncover");
+      },
     });
     m.on("transitionEnd", () => log.push("transitionEnd"));
     scenes.subscribe(() => log.push(`commit:${scenes.getState().current}`));
@@ -412,6 +414,32 @@ describe("createSceneTransitionManager", () => {
       "transitionEnd",
     ]);
     expect(m.getState()).toEqual({status: "idle"});
+  });
+
+  it("finishTransition が resolve するまで idle にならず、transitionEnd も出ない", async () => {
+    const finish = deferred();
+    const onEnd = vi.fn();
+    const {m} = make({finishTransition: () => finish.promise});
+    m.on("transitionEnd", onEnd);
+
+    const p = m.goTo("sandbox");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(m.getState().status).toBe("transitioning");
+    expect(onEnd).not.toHaveBeenCalled();
+
+    finish.resolve();
+    await p;
+    expect(m.getState()).toEqual({status: "idle"});
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishTransition が reject しても、遷移は完了する", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const {m} = make({finishTransition: () => Promise.reject(new Error("f"))});
+
+    await m.goTo("sandbox");
+    expect(m.getState()).toEqual({status: "idle"});
+    expect(error).toHaveBeenCalledTimes(1);
   });
 
   it("準備が終わらなければ、覆いを外さず transitioning のまま", async () => {

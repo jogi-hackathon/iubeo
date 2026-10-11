@@ -127,12 +127,15 @@ export const createPowerOutline = (scene: Scene, camera: Camera) => {
   const dash = mix(float(1), dashOn, powerOutlineDash);
 
   return {
-    composite: (color: Node<"vec4">): Node<"vec4"> =>
+    composite: (
+      color: Node<"vec4">,
+      weight: Node<"float"> = float(1),
+    ): Node<"vec4"> =>
       vec4(
         mix(
           color.rgb,
           powerOutlineColor,
-          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade),
+          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade).mul(weight),
         ),
         color.a,
       ),

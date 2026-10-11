@@ -20,6 +20,11 @@ import {pcInteraction} from "./interaction";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
 import {createLogoTexture} from "./logoScreen";
 import {PcModel} from "./PcModel";
+import {
+  getPortalMaterial,
+  registerPcScreen,
+  usePortalScreenId,
+} from "./pcScreenRegistry";
 import {type PcPhase, pcSession, usePcSession} from "./session";
 import {taskStore, useTask} from "./task";
 import {type PcCursor, usePcPointer} from "./usePcPointer";
@@ -103,6 +108,11 @@ export function PcObject({object}: {object: GameObject}) {
 
   const screenRef = useRef<Mesh>(null);
   const memoRef = useRef<Mesh>(null);
+  const portalId = usePortalScreenId();
+  useEffect(() => {
+    const mesh = screenRef.current;
+    return mesh ? registerPcScreen(object.id, mesh) : undefined;
+  }, [object.id]);
   const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
 
@@ -320,7 +330,13 @@ export function PcObject({object}: {object: GameObject}) {
 
   return (
     <PcModel
-      screen={logoOn && !showing ? logoCrt.material : crt.material}
+      screen={
+        portalId === object.id
+          ? getPortalMaterial()
+          : logoOn && !showing
+            ? logoCrt.material
+            : crt.material
+      }
       screenRef={screenRef}
       memoRef={memoRef}
       showMemo={item.look !== "plain"}
