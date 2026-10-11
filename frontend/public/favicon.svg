@@ -1,13 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- 部屋の真ん中にある紙の山(ディレクトリ)。白い紙に黒い輪郭(ゲームのアウトライン)、在庫の赤いファイルが 1 枚はみ出す -->
-  <g stroke="#111" stroke-width="1.8" stroke-linejoin="round" fill="#fafaf8">
-    <path d="M2 22 H30 V29.5 H2 Z"/>
-    <path d="M18 18.5 L30.5 15.5 L31 18 L19.5 21 Z" fill="#e63946"/>
-    <path d="M5.5 15.5 L27 14.5 L27.3 22 L5.2 22 Z"/>
-    <path d="M8.5 8 L24.5 9.5 L23.8 15 L7.8 14.6 Z"/>
-    <path d="M6 7.5 L17 2.5 L20 6 L9.5 9.8 Z"/>
-  </g>
-  <g fill="none" stroke="#c9c9c4" stroke-width="1" stroke-linecap="round">
-    <path d="M3.5 24.5 H28.5 M3.5 27 H28.5 M7 18 H25.5 M10 11.5 H22.5"/>
-  </g>
-</svg>
+  <!-- 部屋の真ん中にある紙の山(ディレクトリ)。平たい紙の束をずらして積み、側面の縞で紙の縁を、赤い 1 枚で在庫のファイルを表す -->
+  <path d="M1.5 23 L7.5 19.4 L30.5 19.4 L24.5 23 Z" fill="#fafaf8"/>
+  <path d="M24.5 23 L30.5 19.4 L30.5 25.9 L24.5 29.5 Z" fill="#d6d6d2"/>
+  <rect x="1.5" y="23" width="23" height="6.5" fill="#f2f2ef"/>
+  <path d="M2.1 24.50 H23.9 M2.1 26.00 H23.9 M2.1 27.50 H23.9" stroke="#9d9d98" stroke-width="0.65" fill="none"/>
+  <rect x="1.5" y="25.60" width="23" height="1.3" fill="#e63946"/>
+  <path d="M1.5 23 L7.5 19.4 L30.5 19.4 L30.5 25.9 L24.5 29.5 L1.5 29.5 Z" fill="none" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M1.5 23 H24.5 L30.5 19.4 M24.5 23 V29.5" fill="none" stroke="#111" stroke-width="0.8"/>
+  <path d="M0.8 20.5 L9 17.6 L10.6 19.6 L2.6 22.4 Z" fill="#e63946" stroke="#111" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M6 15.5 L12 11.9 L31 11.9 L25 15.5 Z" fill="#fafaf8"/>
+  <path d="M25 15.5 L31 11.9 L31 17.9 L25 21.5 Z" fill="#d6d6d2"/>
+  <rect x="6" y="15.5" width="19" height="6" fill="#f2f2ef"/>
+  <path d="M6.6 17.00 H24.4 M6.6 18.50 H24.4 M6.6 20.00 H24.4" stroke="#9d9d98" stroke-width="0.65" fill="none"/>
+  <path d="M6 15.5 L12 11.9 L31 11.9 L31 17.9 L25 21.5 L6 21.5 Z" fill="none" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M6 15.5 H25 L31 11.9 M25 15.5 V21.5" fill="none" stroke="#111" stroke-width="0.8"/>
+  <path d="M3.5 8.5 L9.5 4.9 L27.5 4.9 L21.5 8.5 Z" fill="#fafaf8"/>
+  <path d="M21.5 8.5 L27.5 4.9 L27.5 10.4 L21.5 14.0 Z" fill="#d6d6d2"/>
+  <rect x="3.5" y="8.5" width="18" height="5.5" fill="#f2f2ef"/>
+  <path d="M4.1 10.00 H20.9 M4.1 11.50 H20.9 M4.1 13.00 H20.9" stroke="#9d9d98" stroke-width="0.65" fill="none"/>
+  <path d="M3.5 8.5 L9.5 4.9 L27.5 4.9 L27.5 10.4 L21.5 14.0 L3.5 14.0 Z" fill="none" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M3.5 8.5 H21.5 L27.5 4.9 M21.5 8.5 V14.0" fill="none" stroke="#111" stroke-width="0.8"/>
+  <path d="M8 6 L17 1.5 L26 4 L17 8.5 Z" fill="#fafaf8" stroke="#111" stroke-width="1.3" stroke-linejoin="round"/></svg>
