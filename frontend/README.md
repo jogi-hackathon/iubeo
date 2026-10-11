@@ -76,6 +76,11 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - 初回の起動は、エンジンの wasm を読むので数十秒かかる（画面に「BOOTING」と出る）。2 回目以降は速い。
 
+- wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`PcObject` の `prewarmEngine`）で先に取っておき、
+  PC を開くときは blob URL としてエンジンに渡す。クリック時に残るのは展開とコンパイル（1 秒弱）だけ。
+  33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
+  （64 行目の `prefetchEngineWasm`）
+
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
 
 - `?task=<語>` でお題を固定できる（確認用）。
