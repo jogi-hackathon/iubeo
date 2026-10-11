@@ -23,6 +23,12 @@ import {DurableObject} from "cloudflare:workers";
 interface Env {
   IUBEO_SIGNING_KEY: string;
   IUBEO_WISP_KEY?: string;
+  /** Voice Chat の JWT を署名する Ed25519 の種(base64url 32 バイト)。無ければ VC は発行しない */
+  IUBEO_VC_PRIVATE_KEY?: string;
+  /** VC のシグナリング(WebSocket)の URL */
+  IUBEO_VC_SIGNALING_URL?: string;
+  /** VC の MoQ(WebTransport)の URL */
+  IUBEO_VC_MEDIA_URL?: string;
   TARGET: KVNamespace;
 }
 
@@ -82,6 +88,7 @@ export class Backend extends DurableObject<Env> {
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
           ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
+          ...voiceEnv(this.env),
         },
       });
     }
@@ -128,6 +135,25 @@ export default {
       .fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Voice Chat の env。Worker の env はコンテナへ自動で渡らないので、ここで明示的に載せる。
+ * 3 つとも揃っているときだけ渡し、欠けていればサーバー側が「VC 無し」として動く(トークンは 503)。
+ * 署名だけなのでコンテナにインターネットは要らない(enableInternet: false のまま)
+ */
+const voiceEnv = (env: Env): Record<string, string> => {
+  const {IUBEO_VC_PRIVATE_KEY: key} = env;
+  const signaling = env.IUBEO_VC_SIGNALING_URL;
+  const media = env.IUBEO_VC_MEDIA_URL;
+  if (!key || !signaling || !media) {
+    return {};
+  }
+  return {
+    IUBEO_VC_PRIVATE_KEY: key,
+    IUBEO_VC_SIGNALING_URL: signaling,
+    IUBEO_VC_MEDIA_URL: media,
+  };
+};
 
 const wispEnv = (
   origin: string,
