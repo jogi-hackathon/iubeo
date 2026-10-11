@@ -32,6 +32,8 @@ export type SocketLike = {
 };
 
 const OPEN = 1;
+/** 接続中(WebSocket.CONNECTING)。まだ繋がっていないソケットを閉じるとコンソールに警告が出る */
+const CONNECTING = 0;
 
 // サーバーの close code(backend/internal/session/conn.go)
 export const CLOSE_NORMAL = 1000;
@@ -297,7 +299,16 @@ export const createSessionConnection = ({
       cancelRetry = null;
       const s = socket;
       socket = null;
-      s?.close(CLOSE_NORMAL);
+      if (s !== null && s.readyState === CONNECTING) {
+        // まだ繋がっていないソケットを閉じると、ブラウザが「接続が確立する前に閉じた」とコンソールに警告を出す。
+        // 開くのを待ってから閉じる(繋がらなければブラウザ側が閉じる)。届いた物は socket を外してあるので捨てる
+        s.onmessage = null;
+        s.onopen = () => s.close(CLOSE_NORMAL);
+        s.onerror = () => {};
+        s.onclose = () => {};
+      } else {
+        s?.close(CLOSE_NORMAL);
+      }
       set({status: "closed", closeCode: CLOSE_NORMAL, closeReason: ""});
     },
   };
