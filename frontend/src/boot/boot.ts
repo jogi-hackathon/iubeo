@@ -1,4 +1,5 @@
-import {loadGraphicsSettings} from "../core/graphics";
+import {graphicsStore} from "../core/graphics";
+import {storageManager} from "../core/storage";
 import {loadAssets} from "./assets";
 import {assertWebGPUAvailable} from "./capabilities";
 import type {AppContext} from "./context";
@@ -20,9 +21,15 @@ export interface BootStep {
 /** 起動シーケンス。上から順に実行される(各モジュールは自己登録せず、ここに明示的に列挙する) */
 export const BOOT_STEPS: BootStep[] = [
   {
+    name: "storage",
+    run: () => {
+      storageManager.init();
+    },
+  },
+  {
     name: "settings",
     run: (d) => {
-      d.settings = loadGraphicsSettings();
+      d.settings = graphicsStore.get();
     },
   },
   {

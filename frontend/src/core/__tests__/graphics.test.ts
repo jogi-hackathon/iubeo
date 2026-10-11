@@ -1,0 +1,87 @@
+import {afterEach, describe, expect, it, vi} from "vitest";
+
+import {graphicsStore, parseGraphicsSettings} from "../graphics";
+
+const DEFAULTS = {resolutionScale: 1, fpsLimit: null};
+
+const GRAPHICS_KEY = "iubeo:graphics";
+
+const createMemoryLocalStorage = () => {
+  const map = new Map<string, string>();
+  return {
+    map,
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      map.set(key, value);
+    },
+    removeItem: (key: string) => {
+      map.delete(key);
+    },
+  };
+};
+
+describe("graphicsStore の配線", () => {
+  afterEach(() => {
+    graphicsStore.reset();
+    vi.unstubAllGlobals();
+  });
+
+  it("set した設定は iubeo:graphics に JSON で保存され、reset で消える", () => {
+    const storage = createMemoryLocalStorage();
+    vi.stubGlobal("localStorage", storage);
+
+    graphicsStore.set({resolutionScale: 0.5, fpsLimit: 30});
+    expect(JSON.parse(storage.map.get(GRAPHICS_KEY) ?? "null")).toEqual({
+      resolutionScale: 0.5,
+      fpsLimit: 30,
+    });
+
+    graphicsStore.reset();
+    expect(storage.map.has(GRAPHICS_KEY)).toBe(false);
+  });
+});
+
+describe("parseGraphicsSettings", () => {
+  it("オブジェクトでなければ DEFAULTS 相当を返す", () => {
+    expect(parseGraphicsSettings(null)).toEqual(DEFAULTS);
+    expect(parseGraphicsSettings(3)).toEqual(DEFAULTS);
+    expect(parseGraphicsSettings("text")).toEqual(DEFAULTS);
+  });
+
+  it("resolutionScale は 0.25〜2 に丸める", () => {
+    expect(parseGraphicsSettings({resolutionScale: 0.1}).resolutionScale).toBe(
+      0.25,
+    );
+    expect(parseGraphicsSettings({resolutionScale: 5}).resolutionScale).toBe(2);
+    expect(parseGraphicsSettings({resolutionScale: 1.5}).resolutionScale).toBe(
+      1.5,
+    );
+  });
+
+  it("resolutionScale の不正型・NaN は 1", () => {
+    expect(parseGraphicsSettings({resolutionScale: "2"}).resolutionScale).toBe(
+      1,
+    );
+    expect(parseGraphicsSettings({resolutionScale: NaN}).resolutionScale).toBe(
+      1,
+    );
+  });
+
+  it("fpsLimit が null・0以下・NaN なら null", () => {
+    expect(parseGraphicsSettings({fpsLimit: null}).fpsLimit).toBeNull();
+    expect(parseGraphicsSettings({fpsLimit: 0}).fpsLimit).toBeNull();
+    expect(parseGraphicsSettings({fpsLimit: -30}).fpsLimit).toBeNull();
+    expect(parseGraphicsSettings({fpsLimit: NaN}).fpsLimit).toBeNull();
+  });
+
+  it("fpsLimit が 1〜19 なら 20 に丸める", () => {
+    expect(parseGraphicsSettings({fpsLimit: 1}).fpsLimit).toBe(20);
+    expect(parseGraphicsSettings({fpsLimit: 19}).fpsLimit).toBe(20);
+  });
+
+  it("正常値はそのまま返す", () => {
+    expect(parseGraphicsSettings({resolutionScale: 0.5, fpsLimit: 60})).toEqual(
+      {resolutionScale: 0.5, fpsLimit: 60},
+    );
+  });
+});
