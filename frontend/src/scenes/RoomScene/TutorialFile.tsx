@@ -15,6 +15,7 @@ import {
   registerClientTarget,
   registerTarget,
 } from "../../objects/interaction";
+import {useIsAimed} from "../../objects/interaction/aimStore";
 import {
   TUTORIAL_FILE_CANDIDATE,
   tutorialFileWorldPosition,
@@ -40,16 +41,25 @@ export function TutorialFile({onTake}: {onTake: () => void}) {
     const offClient = registerClientTarget(TUTORIAL_FILE_ID, {
       interact: () => take.current(),
     });
-    const offOutline = addPowerOutline(group, {
-      ignoreDistance: true,
-      ...GUIDE_OUTLINE,
-    });
     return () => {
       offTarget();
       offClient();
-      offOutline();
     };
   }, []);
+
+  // 照準が合っている間は破線を止めて、黒の実線にする
+  const aimed = useIsAimed(TUTORIAL_FILE_ID);
+  useLayoutEffect(() => {
+    const group = root.current;
+    if (!group) {
+      return;
+    }
+    return addPowerOutline(group, {
+      ignoreDistance: true,
+      ...GUIDE_OUTLINE,
+      dashed: !aimed,
+    });
+  }, [aimed]);
 
   const candidate = TUTORIAL_FILE_CANDIDATE;
   if (!candidate) {
