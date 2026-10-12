@@ -111,7 +111,7 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
   contour: {
     enabled: true,
-    strength: 0.35,
+    strength: 0.1,
     depthThreshold: 0.02,
     normalThreshold: 0.25,
     fadeStart: 6,
