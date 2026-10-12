@@ -60,3 +60,26 @@ func TestVectorIsStable(t *testing.T) {
 		t.Fatalf("token = %s, want %s", token, vectorToken)
 	}
 }
+
+func TestVerifyWithGrace(t *testing.T) {
+	token, _, _ := NewIssuer(testKey, time.Minute, fixedNow(vectorNow)).Issue("p1")
+	expiredBy := func(d time.Duration) *Issuer {
+		return NewIssuer(testKey, time.Minute, fixedNow(vectorNow.Add(time.Minute+d)))
+	}
+	if id, ok := expiredBy(30*time.Minute).VerifyWithGrace(token, time.Hour); !ok || id != "p1" {
+		t.Fatalf("within grace: VerifyWithGrace = (%q, %v), want (p1, true)", id, ok)
+	}
+	if _, ok := expiredBy(2*time.Hour).VerifyWithGrace(token, time.Hour); ok {
+		t.Fatal("expired beyond grace must be rejected")
+	}
+	if _, ok := expiredBy(time.Second).VerifyWithGrace(token, 0); ok {
+		t.Fatal("grace 0 must reject expired tokens like Verify")
+	}
+	other := NewIssuer([]byte("ffffffffffffffffffffffffffffffff"), time.Minute, fixedNow(vectorNow.Add(time.Minute)))
+	if _, ok := other.VerifyWithGrace(token, time.Hour); ok {
+		t.Fatal("wrong key must be rejected even within grace")
+	}
+	if _, ok := expiredBy(0).VerifyWithGrace("", time.Hour); ok {
+		t.Fatal("empty token must be rejected")
+	}
+}

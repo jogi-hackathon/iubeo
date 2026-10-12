@@ -104,5 +104,9 @@ Discord の interactions エンドポイントには `control_function_url` を�
       --parameters commands='printf "IUBEO_VC_PRIVATE_KEY=%s\nIUBEO_VC_SIGNALING_URL=%s\nIUBEO_VC_MEDIA_URL=%s\n" "<VC ホストの private.jwk の d>" "wss://vc.thirdlf03.com/v1/signaling" "https://media.thirdlf03.com:4443" >> /etc/iubeo/env; systemctl restart iubeo'
     ```
 
+  検索の Brave Search API キー（`IUBEO_BRAVE_API_KEY`）も同じ要領で `/etc/iubeo/env` に足せます。
+  未設定なら `/api/v1/search/page` は検索せず Yahoo! JAPAN の検索結果へ 302 で飛ばすので、キーが無くても壊れません
+  （テンプレートには入れていない。キーは Terraform の変数に通さず手で入れる）。
+
   反映できたかは、セッション中に `GET /api/v1/voice/token` が `available: true` を返すことで確かめます
   （未設定なら 200 で `available: false`。[voice-chat.md](../../../docs/voice-chat.md)）。

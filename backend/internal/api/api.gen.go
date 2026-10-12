@@ -1281,6 +1281,15 @@ type Unauthorized = Error
 // Unavailable defines model for Unavailable.
 type Unavailable = Error
 
+// GetSearchPageParams defines parameters for GetSearchPage.
+type GetSearchPageParams struct {
+	// Q 検索語(先頭と末尾の空白を除き、200 文字まで使う)
+	Q string `form:"q" json:"q"`
+
+	// T WISP トークン(WISP を設定しているサーバーでは必須)
+	T *string `form:"t,omitempty" json:"t,omitempty"`
+}
+
 // GetVoiceToken200JSONResponseBody defines parameters for GetVoiceToken.
 type GetVoiceToken200JSONResponseBody struct {
 	union json.RawMessage
@@ -2002,6 +2011,9 @@ type ServerInterface interface {
 	// GetMe 自分の ID と、参加中のセッション
 	// (GET /api/v1/players/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetSearchPage ゲーム内ブラウザ向けの検索結果ページを返す
+	// (GET /api/v1/search/page)
+	GetSearchPage(w http.ResponseWriter, r *http.Request, params GetSearchPageParams)
 	// GetSession セッションのスナップショット(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId})
 	GetSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
@@ -2092,6 +2104,52 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSearchPage operation middleware
+func (siw *ServerInterfaceWrapper) GetSearchPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSearchPageParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSearchPage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2333,6 +2391,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/search/page", wrapper.GetSearchPage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/tutorial/presence", wrapper.TouchTutorialPresence)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/voice/token", wrapper.GetVoiceToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)

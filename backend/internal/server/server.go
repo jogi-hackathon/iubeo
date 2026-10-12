@@ -8,6 +8,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
+	"github.com/jogi-hackathon/iubeo/backend/internal/search"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 	"github.com/jogi-hackathon/iubeo/backend/internal/tutorial"
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
@@ -25,6 +26,8 @@ type Server struct {
 	voice             *voice.Issuer
 	voiceSignalingURL string
 	voiceMediaURL     string
+	searcher          search.Client
+	searchLimiter     *search.Limiter
 }
 
 var _ api.ServerInterface = (*Server)(nil)
@@ -36,6 +39,7 @@ func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaki
 		matchmaker:       matchmaker,
 		tutorialPresence: tutorial.NewPresence(time.Now, tutorial.StaleAfter),
 		allowedOrigins:   allowedOrigins,
+		searchLimiter:    search.NewLimiter(searchLimitPerWindow, searchWindow, time.Now),
 	}
 }
 

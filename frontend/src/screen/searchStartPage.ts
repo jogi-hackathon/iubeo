@@ -1,6 +1,10 @@
-import {SEARCH_PAGE_URL} from "./browserChrome";
+import {searchPageUrl} from "./browserChrome";
+import {currentSearchToken} from "./wispUrl";
 
 export const MAX_URL_BYTES = 8192;
+
+const escapeAttr = (value: string): string =>
+  value.replace(/[&"'<>]/g, (char) => `&#${char.charCodeAt(0)};`);
 
 export type WispState = "none" | "unreachable" | "ok";
 
@@ -18,8 +22,16 @@ const PRODUCTION_NETWORK_NOTE: Record<WispState, string> = {
     '<p class="warn">The search proxy did not answer: results may not load. Wait a moment and try again.</p>',
 };
 
-export const searchStartPage = (wisp: WispState, dev = true): string => {
+export const searchStartPage = (
+  wisp: WispState,
+  dev = true,
+  action = searchPageUrl(),
+  token = currentSearchToken(),
+): string => {
   const network = (dev ? NETWORK_NOTE : PRODUCTION_NETWORK_NOTE)[wisp];
+  const tokenInput = token
+    ? `<input type="hidden" name="t" value="${escapeAttr(token)}">`
+    : "";
 
   return `<!doctype html><html><head><meta charset=utf-8><title>Search</title><style>
 body{margin:0;padding:34px 40px;background:#fafaf7;color:#1d1d1f;font:16px/1.6 sans-serif}
@@ -32,8 +44,9 @@ button{padding:10px 20px;font:inherit;border:0;border-radius:999px;background:#1
 code{background:#eeeee9;padding:1px 6px;border-radius:4px;font-size:14px}
 </style></head><body>
 <h1>Search</h1>
-<form action="${SEARCH_PAGE_URL}" method="get">
+<form action="${escapeAttr(action)}" method="get">
 <input name="q" placeholder="Type a search and press Enter" autocomplete="off" autofocus>
+${tokenInput}
 <button type="submit">Search</button>
 </form>
 ${network}
