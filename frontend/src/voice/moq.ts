@@ -5,6 +5,8 @@ const SAMPLE_RATE = 48000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type Watch = {sub?: Moq.Track.Subscriber};
+
 export type MoqVoiceOptions = {
   url: string;
   token: string;
@@ -23,7 +25,7 @@ export class MoqVoice {
   private origin?: Moq.Origin.Producer;
   private track?: Moq.Track.Producer;
   private encoder?: AudioEncoder;
-  private readonly subs = new Set<string>();
+  private readonly subs = new Map<string, Watch>();
   private acc = new Float32Array(0);
   private tsUs = 0;
   private frameSamples = FRAME_SAMPLES;
@@ -131,36 +133,60 @@ export class MoqVoice {
     }
   }
 
+  /** 接続が閉じたら解決する（start の前は解決しない） */
+  get closed(): Promise<unknown> {
+    return this.conn?.closed ?? new Promise(() => {});
+  }
+
   handlePeerJoined(peer: string): void {
     void this.watchPeer(peer);
   }
 
   handlePeerLeft(peer: string): void {
+    const watch = this.subs.get(peer);
     this.subs.delete(peer);
+    watch?.sub?.close();
   }
 
+  // 相手が roster に居る間は購読を保つ。購読が終わったら（相手の再接続など）張り直す
   private async watchPeer(peer: string): Promise<void> {
     if (this.subs.has(peer) || !this.origin) {
       return;
     }
-    this.subs.add(peer);
+    const watch: Watch = {};
+    this.subs.set(peer, watch);
     const req = this.origin.request(
       this.Moq.Path.from("vc-bench", this.opts.room, peer),
       {announced: true},
     );
-    for (let i = 0; i < 100; i++) {
-      const broadcast = req.active.peek();
-      if (broadcast) {
+    const since = performance.now();
+    let warned = false;
+    try {
+      while (this.subs.get(peer) === watch) {
+        const broadcast = req.active.peek();
+        if (!broadcast) {
+          if (!warned && performance.now() - since > 10_000) {
+            warned = true;
+            this.opts.onError?.(`moq: no broadcast for ${peer}`);
+          }
+          await sleep(100);
+          continue;
+        }
         const sub = broadcast
           .track("audio")
           .subscribe({maxAge: this.Moq.Time.Milli(150)});
-        void this.pumpDatagrams(peer, sub);
-        void this.pumpGroups(peer, sub);
-        return;
+        watch.sub = sub;
+        await Promise.all([
+          this.pumpDatagrams(peer, sub),
+          this.pumpGroups(peer, sub),
+        ]);
+        sub.close();
+        watch.sub = undefined;
+        await sleep(500);
       }
-      await sleep(100);
+    } finally {
+      req.close();
     }
-    this.opts.onError?.(`moq: no broadcast for ${peer}`);
   }
 
   private async pumpDatagrams(
@@ -209,6 +235,9 @@ export class MoqVoice {
       this.encoder?.close();
     } catch {
       /* already closed */
+    }
+    for (const watch of this.subs.values()) {
+      watch.sub?.close();
     }
     this.subs.clear();
     this.origin = undefined;

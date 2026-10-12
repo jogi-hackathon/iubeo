@@ -37,6 +37,12 @@ const IDLE: VoiceState = {
   micReady: false,
 };
 
+const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
+// 続けてこれだけ失敗したら諦めて unavailable にする
+const MAX_FAILURES = 8;
+// これより長く繋がっていたら、失敗の回数を数え直す
+const STABLE_MS = 30_000;
+
 const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
   const res = await fetch("/api/v1/voice/token", {credentials: "same-origin"});
   if (!res.ok) {
@@ -56,10 +62,11 @@ export const createVoiceEngine = () => {
   let audio: VoiceAudio | null = null;
   let signaling: Signaling | null = null;
   let moq: MoqVoice | null = null;
-  let ptt = false;
   let muted = false;
   let micStarting: Promise<void> | null = null;
   let generation = 0;
+  let failures = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   const roster = new Set<string>();
   const decoders = new Map<string, AudioDecoder>();
@@ -76,7 +83,15 @@ export const createVoiceEngine = () => {
     }
   };
 
-  const transmitting = () => ptt && !muted;
+  // 常時送信。マイクが取れていて、ミュートされていないときだけ送る
+  const transmitting = () => state.micReady && !muted;
+
+  const closeDecoder = (peer: string) => {
+    try {
+      decoders.get(peer)?.close();
+    } catch {}
+    decoders.delete(peer);
+  };
 
   const playOpus = (peer: string, opus: Uint8Array) => {
     if (!audio) {
@@ -84,7 +99,7 @@ export const createVoiceEngine = () => {
     }
     let dec = decoders.get(peer);
     if (!dec) {
-      dec = new AudioDecoder({
+      const created = new AudioDecoder({
         output: (data) => {
           const frames = data.numberOfFrames;
           const pcm = new Float32Array(frames);
@@ -92,9 +107,19 @@ export const createVoiceEngine = () => {
           data.close();
           audio?.feed(peer, pcm);
         },
-        error: () => {},
+        // エラーで閉じたデコーダは使えないので捨て、次のフレームで作り直す
+        error: () => {
+          if (decoders.get(peer) === created) {
+            decoders.delete(peer);
+          }
+        },
       });
-      dec.configure({codec: "opus", sampleRate: 48000, numberOfChannels: 1});
+      created.configure({
+        codec: "opus",
+        sampleRate: 48000,
+        numberOfChannels: 1,
+      });
+      dec = created;
       decoders.set(peer, dec);
     }
     try {
@@ -105,7 +130,9 @@ export const createVoiceEngine = () => {
           data: opus,
         }),
       );
-    } catch {}
+    } catch {
+      closeDecoder(peer);
+    }
   };
 
   const ensureMic = (): void => {
@@ -114,65 +141,84 @@ export const createVoiceEngine = () => {
     }
     micStarting = audio
       .startMic((pcm) => moq?.publishPcm(pcm, transmitting()))
-      .then(() => set({micReady: true, transmitting: transmitting()}))
+      .then(() => set({micReady: true, transmitting: !muted}))
       .catch((e: unknown) => {
         console.warn("[voice] mic unavailable", e);
         micStarting = null;
-        ptt = false;
         set({micReady: false, transmitting: false});
       });
   };
 
-  const stop = () => {
-    generation += 1;
+  // signaling と MoQ だけを畳む。再接続のあいだもマイクと AudioContext は残す
+  const dropLink = () => {
     signaling?.close();
     moq?.close();
-    for (const d of decoders.values()) {
-      try {
-        d.close();
-      } catch {}
-    }
-    decoders.clear();
-    roster.clear();
-    scratch.clear();
-    audio?.close();
     signaling = null;
     moq = null;
+    for (const peer of decoders.keys()) {
+      closeDecoder(peer);
+    }
+    for (const peer of roster) {
+      audio?.removePeer(peer);
+    }
+    roster.clear();
+  };
+
+  const stop = () => {
+    generation += 1;
+    clearTimeout(retryTimer);
+    dropLink();
+    scratch.clear();
+    audio?.close();
     audio = null;
     micStarting = null;
-    ptt = false;
+    failures = 0;
     sessionId = null;
     myPlayerId = null;
     set({...IDLE, muted});
   };
 
-  const start = async (session: string, playerId: string): Promise<void> => {
-    if (
-      sessionId === session &&
-      state.status !== "idle" &&
-      state.status !== "unavailable"
-    ) {
+  const giveUp = (detail: string) => {
+    stop();
+    set({status: "unavailable", detail});
+  };
+
+  // 切れたら、トークンを取り直して繋ぎ直す（トークンの期限切れで切られた場合も含む）
+  const reconnect = (why: string) => {
+    dropLink();
+    generation += 1;
+    const mine = generation;
+    failures += 1;
+    if (failures > MAX_FAILURES) {
+      giveUp(why);
       return;
     }
-    stop();
-    sessionId = session;
-    myPlayerId = playerId;
-    const mine = generation;
-    muted = state.muted;
-    set({status: "connecting", detail: undefined, transmitting: false});
+    const delay =
+      RECONNECT_DELAYS_MS[Math.min(failures, RECONNECT_DELAYS_MS.length) - 1]!;
+    console.warn(`[voice] ${why}; reconnecting in ${delay}ms`);
+    set({status: "connecting", detail: why});
+    retryTimer = setTimeout(() => void connect(mine), delay);
+  };
 
+  const connect = async (mine: number): Promise<void> => {
+    const playerId = myPlayerId;
+    if (!playerId) {
+      return;
+    }
     try {
       const token = await fetchVoiceToken();
       if (mine !== generation) {
         return;
       }
       if (token === null) {
-        set({status: "unavailable", detail: "この環境ではVCを使わない"});
+        giveUp("この環境ではVCを使わない");
         return;
       }
-      audio = createVoiceAudio();
-      moq = new MoqVoice();
-      await moq.start({
+      audio ??= createVoiceAudio();
+      ensureMic();
+      const link = new MoqVoice();
+      moq = link;
+      await link.start({
         url: token.mediaUrl,
         token: token.token,
         room: token.room,
@@ -184,50 +230,79 @@ export const createVoiceEngine = () => {
         return;
       }
 
-      signaling = new Signaling(
+      const sig = new Signaling(
         `${token.signalingUrl}?token=${encodeURIComponent(token.token)}`,
       );
-      signaling.onMsg = (m) => {
-        const engineMoq = moq;
+      signaling = sig;
+      sig.onMsg = (m) => {
         switch (m.type) {
           case "peers":
             for (const p of m.peers) {
               if (p.id !== myPlayerId) {
                 roster.add(p.id);
-                engineMoq?.handlePeerJoined(p.id);
+                link.handlePeerJoined(p.id);
               }
             }
             break;
           case "peer-joined":
             if (m.id !== myPlayerId) {
               roster.add(m.id);
-              engineMoq?.handlePeerJoined(m.id);
+              link.handlePeerJoined(m.id);
             }
             break;
           case "peer-left":
             roster.delete(m.id);
-            engineMoq?.handlePeerLeft(m.id);
+            link.handlePeerLeft(m.id);
             audio?.removePeer(m.id);
-            decoders.get(m.id)?.close();
-            decoders.delete(m.id);
+            closeDecoder(m.id);
             break;
           default:
             break;
         }
       };
-      await signaling.ready;
+      await sig.ready;
       if (mine !== generation) {
         return;
       }
-      set({status: "ready"});
-    } catch (e) {
-      console.warn("[voice] start failed", e);
-      stop();
-      set({
-        status: "unavailable",
-        detail: e instanceof Error ? e.message : String(e),
+      const readyAt = performance.now();
+      set({status: "ready", detail: undefined});
+      void Promise.race([
+        sig.closed.then(() => "signaling closed"),
+        link.closed.then(() => "media closed"),
+      ]).then((why) => {
+        if (mine === generation) {
+          if (performance.now() - readyAt > STABLE_MS) {
+            failures = 0;
+          }
+          reconnect(why);
+        }
       });
+    } catch (e) {
+      if (mine !== generation) {
+        return;
+      }
+      reconnect(e instanceof Error ? e.message : String(e));
     }
+  };
+
+  const start = async (session: string, playerId: string): Promise<void> => {
+    if (
+      sessionId === session &&
+      state.status !== "idle" &&
+      state.status !== "unavailable"
+    ) {
+      return;
+    }
+    stop();
+    if (typeof WebTransport === "undefined") {
+      set({status: "unavailable", detail: "WebTransport が使えないブラウザ"});
+      return;
+    }
+    sessionId = session;
+    myPlayerId = playerId;
+    muted = state.muted;
+    set({status: "connecting", detail: undefined, transmitting: false});
+    await connect(generation);
   };
 
   const vectorOf = (v: Vector3) => ({x: v.x, y: v.y, z: v.z});
@@ -243,17 +318,11 @@ export const createVoiceEngine = () => {
     start,
     stop,
 
+    // ブラウザは最初の操作があるまで AudioContext を止めるので、クリックのたびに起こす。
+    // マイクの取得に失敗していた場合も、ここで取り直す
     unlock: (): void => {
+      ensureMic();
       void audio?.resume();
-    },
-
-    setPTT: (on: boolean): void => {
-      ptt = on;
-      if (on) {
-        ensureMic();
-        void audio?.resume();
-      }
-      set({transmitting: transmitting()});
     },
 
     toggleMute: (): void => {

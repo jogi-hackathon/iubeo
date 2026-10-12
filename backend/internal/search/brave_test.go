@@ -58,6 +58,50 @@ func TestBraveSearchReturnsErrorOnBadJSON(t *testing.T) {
 	}
 }
 
+func TestBraveSearchDropsBlockedHosts(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"web":{"results":[
+			{"title":"npm","url":"https://www.npmjs.com/package/react","description":"x"},
+			{"title":"indeed jp","url":"https://jp.indeed.com/jobs","description":"x"},
+			{"title":"Go","url":"https://go.dev/","description":"x"}
+		]}}`))
+	}))
+	defer srv.Close()
+
+	got, err := NewBrave("key1", srv.URL).Search(context.Background(), "q")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Result{{Title: "Go", URL: "https://go.dev/", Description: "x"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("results = %+v, want %+v", got, want)
+	}
+}
+
+func TestIsBlockedURL(t *testing.T) {
+	for _, raw := range []string{
+		"https://npmjs.com/",
+		"https://www.npmjs.com/package/react",
+		"https://JP.Indeed.com/jobs",
+		"https://medium.com:443/@x",
+		"https://www.g2.com/",
+	} {
+		if !isBlockedURL(raw) {
+			t.Errorf("isBlockedURL(%q) = false, want true", raw)
+		}
+	}
+	for _, raw := range []string{
+		"https://premedium.com/",
+		"https://npmjs.com.example.org/",
+		"https://go.dev/",
+		"https://developer.mozilla.org/",
+	} {
+		if isBlockedURL(raw) {
+			t.Errorf("isBlockedURL(%q) = true, want false", raw)
+		}
+	}
+}
+
 func TestPlainText(t *testing.T) {
 	if got := plainText(` <strong>A</strong>&nbsp;&quot;B&quot; <b>x</b> `); got != "A \"B\" x" {
 		t.Fatalf("plainText = %q", got)

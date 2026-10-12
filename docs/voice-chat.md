@@ -26,21 +26,27 @@ browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2 / Clou
 - バックエンド: `GET /api/v1/voice/token`（`backend/internal/server/voice.go`）。
   セッションに居ない人は 403。JWT の発行は `backend/internal/voice`
 - フロント: `frontend/src/voice/`
-  - `store.ts` … 接続の管理（トークン取得 → signaling → MoQ）。状態は `useVoiceState`
-  - `signaling.ts` … roster と ping
+  - `store.ts` … 接続の管理（トークン取得 → signaling → MoQ）。状態は `useVoiceState`。
+    signaling か MoQ のどちらかが閉じたら、トークンを取り直して繋ぎ直す（1s → 2s → 5s → 10s。
+    続けて 8 回失敗したら `unavailable`）。再接続のあいだもマイクと AudioContext は残す
+  - `signaling.ts` … roster と ping。VC サーバーは**クライアントから 60 秒何も届かないと WS を閉じ**、
+    roster から外す。roster に居ないと moq-relay の 60 秒ごとの revalidate（`/v1/moq/auth`）で
+    音声も切られるので、20 秒ごとに `ping` を送る
   - `moq.ts` … `@moq/net` で `vc-bench/<room>/<id>` の `audio` トラックを publish / subscribe。
     Opus の 1 フレームを QUIC datagram で送る
-  - `audio.ts` … マイク（AudioWorklet で 20ms ずつ）と、相手ごとの `PannerNode`（距離減衰）
+  - `audio.ts` … マイク（AudioWorklet で 20ms ずつ）と、相手ごとの `PannerNode`（距離減衰。
+    `inverse`、`refDistance 5`、`rolloffFactor 1`。10m で 1/2、20m で 1/4）。相手の声は 2 倍にして、
+    最後にリミッター（`DynamicsCompressor`）を通す。再生は 60ms 遅らせて並べ、datagram の揺れを吸収する
   - `VoiceChat.tsx` … サンドボックスのセッション中だけマウント。毎フレーム、カメラを聞き手にして、
     roster に居る人の声をその位置に置く
 - 状態はゲームのスキーマ（`docs/backend/state-schema.md`）には含めない。サーバーは声を知らない
 
 ## 操作（HUD を足さない）
 
-- **V を押している間だけ**マイクを送る（push-to-talk）。マイクは最初に押したときに取得する
+- 常時送信。セッションに入ったらマイクを取得して、ずっと送る（push-to-talk は無い）
 - **M** でミュートを切り替える
 - 状態は照準（Reticle）の細い輪だけで示す。緑=送信中、赤=ミュート、灰=待機。セッション開始直後だけ
-  「V で通話 / M でミュート」を数秒出す
+  「M でミュート」を数秒出す
 - PC（ゲーム内ブラウザ）を使っている間は、キーを PC に渡すため何もしない
 
 ## 環境変数（ゲームの backend）
@@ -94,8 +100,8 @@ WebTransport（HTTP/3）を使うので **Chrome / Edge のみ**。Firefox・Saf
 ## いまの制約・あとで直すところ
 
 - 相手ごとの発話インジケータは無い（照準の輪だけ）。必要ならプレイヤーの頭の上に付ける
-- トークンの TTL は 30 分。セッションが終わっても、発行済みトークンは期限まで有効
-  （接続中の MoQ は切れない）
-- マイクは最初の push-to-talk まで取得しない。セッションを抜けたら止める
+- トークンの TTL は 30 分。セッションが終わっても、発行済みトークンは期限まで有効。
+  期限で接続が切られても、クライアントがトークンを取り直して繋ぎ直す
+- マイクはセッションに入った時点で取得する（ブラウザが拒否した場合は、次の操作でも取り直す）。セッションを抜けたら止める
 - 音声の符号化は WebCodecs の Opus（モノラル 48kbps、20ms フレーム、`latencyMode: realtime`）。`MoqVoice` の `bitrate` / `frameDurationMs` / `complexity` で調整できる。`@moq/net` は 0.4.1 に固定（`vc` の bench と同じ）
 - Opus の in-band FEC（`useinbandfec`）はエンコードはできるが、**WebCodecs の `AudioDecoder` に損失フレームを復元する API が無い**ので、いまは使っていない（MoQ の datagram は非信頼なので、損失対策は別途: 同一フレームの二重送信、重要な区間を group 側に載せる、など）
