@@ -1,4 +1,8 @@
 const SAMPLE_RATE = 48000;
+// 相手の声の再生音量。2 倍 (約 +6dB)。割れないよう最後にリミッターを通す
+const PEER_GAIN = 2;
+// datagram の到着の揺れを吸収するため、再生をこれだけ遅らせて並べる
+const JITTER_LEAD_S = 0.08;
 
 const CAPTURE_WORKLET = `
 class Capture extends AudioWorkletProcessor {
@@ -58,6 +62,13 @@ export type VoiceAudio = {
 export const createVoiceAudio = (): VoiceAudio => {
   const ctx = new AudioContext({sampleRate: SAMPLE_RATE});
   const peers = new Map<string, PeerAudio>();
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.15;
+  limiter.connect(ctx.destination);
   let micStream: MediaStream | undefined;
   let micNode: AudioWorkletNode | undefined;
   let workletReady: Promise<void> | undefined;
@@ -71,14 +82,15 @@ export const createVoiceAudio = (): VoiceAudio => {
     let p = peers.get(peer);
     if (!p) {
       const gain = ctx.createGain();
+      gain.gain.value = PEER_GAIN;
       const panner = ctx.createPanner();
       panner.panningModel = "HRTF";
       panner.distanceModel = "inverse";
-      panner.refDistance = 3;
+      panner.refDistance = 5;
       panner.maxDistance = 40;
-      panner.rolloffFactor = 1.4;
+      panner.rolloffFactor = 1;
       gain.connect(panner);
-      panner.connect(ctx.destination);
+      panner.connect(limiter);
       p = {gain, panner, nextAt: 0};
       peers.set(peer, p);
     }
@@ -136,8 +148,8 @@ export const createVoiceAudio = (): VoiceAudio => {
       source.buffer = buf;
       source.connect(p.gain);
       const now = ctx.currentTime;
-      if (p.nextAt < now + 0.02 || p.nextAt > now + 0.5) {
-        p.nextAt = now + 0.03;
+      if (p.nextAt < now + 0.01 || p.nextAt > now + 0.5) {
+        p.nextAt = now + JITTER_LEAD_S;
       }
       source.start(p.nextAt);
       p.nextAt += pcm.length / SAMPLE_RATE;
