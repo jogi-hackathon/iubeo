@@ -16,7 +16,7 @@
 
 ## 決定
 
-![iubeo インフラ構成](../assets/arch.png)
+![IUBEO インフラ構成](../assets/arch.png)
 
 以下を採用する。
 
