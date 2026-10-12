@@ -16,11 +16,13 @@ export const RAGDOLL_DAMPING = 0.995;
 export const RAGDOLL_FRICTION = 0.6;
 export const RAGDOLL_JOINT_RADIUS = 0.06;
 export const RAGDOLL_HEAD_RADIUS = 0.11;
-export const RAGDOLL_HEAD_KNOCKBACK = 3;
-export const RAGDOLL_HEAD_SIDEWAYS = 1.5;
+export const RAGDOLL_HEAD_KNOCKBACK = 12;
+export const RAGDOLL_HEAD_SIDEWAYS = 6;
+export const RAGDOLL_SHOULDER_PUSH = 0.3;
 export const RAGDOLL_SLEEP_SPEED = 0.05;
 export const RAGDOLL_SLEEP_SECONDS = 0.5;
 export const RAGDOLL_HIP_STIFFNESS = 0.05;
+export const RAGDOLL_NECK_STIFFNESS = 0.05;
 export const RAGDOLL_NEAR_MARGIN = 1;
 export const RAGDOLL_LIMB_GAP = 0.14;
 export const RAGDOLL_TORSO_RADIUS = 0.14;
@@ -32,8 +34,8 @@ const LINKS: readonly Link[] = [
   ...BONES.filter(([a, b]) => a !== NECK && b !== NECK),
   [J.head, J.lShoulder],
   [J.head, J.rShoulder],
-  [J.head, J.lHip],
-  [J.head, J.rHip],
+  [J.head, J.lHip, RAGDOLL_NECK_STIFFNESS],
+  [J.head, J.rHip, RAGDOLL_NECK_STIFFNESS],
   [J.lShoulder, J.rHip],
   [J.rShoulder, J.lHip],
   [J.lHip, J.lAnkle],
@@ -119,7 +121,12 @@ export const startRagdoll = (
     r.pos[i * 3] = wx;
     r.pos[i * 3 + 1] = wy;
     r.pos[i * 3 + 2] = wz;
-    const push = i === J.head ? 1 : 0;
+    const push =
+      i === J.head
+        ? 1
+        : i === J.lShoulder || i === J.rShoulder
+          ? RAGDOLL_SHOULDER_PUSH
+          : 0;
     r.prev[i * 3] = wx - (velocity.x + pushX * push) * PHYSICS_STEP;
     r.prev[i * 3 + 1] = wy - velocity.y * PHYSICS_STEP;
     r.prev[i * 3 + 2] = wz - (velocity.z + pushZ * push) * PHYSICS_STEP;
