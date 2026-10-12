@@ -121,7 +121,7 @@ export const SAMPLE_SLIP: SlipContent = {
   number: "3-TASK31",
   phase: 3,
   items: [
-    {kind: taskLabels.web_search, detail: "三葉虫"},
+    {kind: taskLabels.web_search, detail: "React Three Fiber"},
     {kind: taskLabels.read_edit, detail: "橙のファイル"},
     {kind: taskLabels.write, detail: null},
   ],

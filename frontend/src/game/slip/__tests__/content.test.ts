@@ -35,14 +35,14 @@ describe("slipContent", () => {
     const {items} = slipContent(
       phase,
       [
-        task({type: "web_search", topic: "三葉虫"}),
+        task({type: "web_search", topic: "React Three Fiber"}),
         task({type: "read_edit", targetFileId: "file-7"}),
         task({type: "image_generation"}),
       ],
       new Map([["file-7", "#1d6fe0"]]),
     );
     expect(items.map((item) => item.detail)).toEqual([
-      "三葉虫",
+      "React Three Fiber",
       "青のファイル",
       null,
     ]);
