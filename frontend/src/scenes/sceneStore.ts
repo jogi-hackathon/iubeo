@@ -6,6 +6,7 @@ import {
 } from "../core/cover/cover";
 import {coverStore} from "../core/cover/coverStore";
 import {DEBUG_REQUESTED} from "../core/debug/flags";
+import {disarmPipelineWatch} from "../core/debug/pipelineWatch";
 import {lockPlayerControl} from "../core/playerControl";
 import {warmupShaders} from "../core/ShaderWarmup";
 import {bindNavigator} from "../flow/store";
@@ -58,7 +59,11 @@ export const sceneTransitionManager = createSceneTransitionManager({
 
 styled.bind(sceneTransitionManager);
 
-sceneTransitionManager.onPrepare(({to}) => resetSceneReady(to));
+sceneTransitionManager.onPrepare(({to}) => {
+  resetSceneReady(to);
+  // 新しいシーンは覆いの下で描かれ、準備ができてからウォームアップし直す。それまでに作られるパイプラインは登録漏れではない
+  disarmPipelineWatch();
+});
 
 applySpawn(localPlayer, spawnOf(initial));
 

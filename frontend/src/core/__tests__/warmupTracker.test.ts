@@ -5,6 +5,7 @@ import {
   createWarmupTracker,
   sceneSignature,
   WARMUP_MAX_MS,
+  WARMUP_MIN_FRAMES,
   WARMUP_STABLE_MS,
 } from "../warmupTracker";
 
@@ -34,31 +35,45 @@ describe("sceneSignature", () => {
   });
 });
 
+/** 最低フレーム数のぶんを先に描いた状態のトラッカー(時間の条件だけを見るテスト用) */
+const trackerAfterMinFrames = (signature = "a", held = false) => {
+  const t = createWarmupTracker(0);
+  for (let i = 0; i < WARMUP_MIN_FRAMES; i++) {
+    expect(t.update(signature, 0, held)).toBe(false);
+  }
+  return t;
+};
+
 describe("createWarmupTracker", () => {
   it("構成が WARMUP_STABLE_MS 変わらなければ終わる", () => {
-    const t = createWarmupTracker(0);
-    expect(t.update("a", 0)).toBe(false);
+    const t = trackerAfterMinFrames();
     expect(t.update("a", WARMUP_STABLE_MS - 1)).toBe(false);
     expect(t.update("a", WARMUP_STABLE_MS)).toBe(true);
   });
 
-  it("構成が変わると待ち直す", () => {
+  it("時間が経っていても WARMUP_MIN_FRAMES 回は描く(タブが隠れてフレームが進まなかったとき)", () => {
     const t = createWarmupTracker(0);
-    t.update("a", 0);
+    for (let i = 0; i < WARMUP_MIN_FRAMES; i++) {
+      expect(t.update("a", WARMUP_MAX_MS * 2)).toBe(false);
+    }
+    expect(t.update("a", WARMUP_MAX_MS * 2)).toBe(true);
+  });
+
+  it("構成が変わると待ち直す", () => {
+    const t = trackerAfterMinFrames();
     expect(t.update("b", WARMUP_STABLE_MS)).toBe(false);
     expect(t.update("b", WARMUP_STABLE_MS * 2)).toBe(true);
   });
 
   it("held の間は終わらず、外れてから WARMUP_STABLE_MS 待つ", () => {
-    const t = createWarmupTracker(0);
-    t.update("a", 0, true);
+    const t = trackerAfterMinFrames("a", true);
     expect(t.update("a", WARMUP_STABLE_MS * 2, true)).toBe(false);
     expect(t.update("a", WARMUP_STABLE_MS * 3 - 1)).toBe(false);
     expect(t.update("a", WARMUP_STABLE_MS * 3)).toBe(true);
   });
 
   it("held のままでも WARMUP_MAX_MS で打ち切る", () => {
-    const t = createWarmupTracker(0);
+    const t = trackerAfterMinFrames("a", true);
     expect(t.update("a", WARMUP_MAX_MS - 1, true)).toBe(false);
     expect(t.update("a", WARMUP_MAX_MS, true)).toBe(true);
   });

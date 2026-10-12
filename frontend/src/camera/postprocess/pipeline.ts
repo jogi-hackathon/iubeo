@@ -27,6 +27,7 @@ import {
 } from "three/tsl";
 import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 
+import {disarmPipelineWatch} from "../../core/debug/pipelineWatch";
 import {proxyView} from "../../transition/dive/proxyView";
 import {createAimOutline} from "./nodes/aimOutline";
 import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
@@ -177,6 +178,10 @@ export const createPostProcessPipeline = (
       const next = structureKey(s);
       if (next === key) {
         return;
+      }
+      if (key !== "") {
+        // 構成の変更で全マテリアルのパイプラインが作り直されるので、ウォームアップ後の警告は次のウォームアップまで止める
+        disarmPipelineWatch();
       }
       key = next;
       pipeline.outputNode = build(s);
