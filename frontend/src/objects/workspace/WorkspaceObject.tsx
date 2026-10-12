@@ -1,13 +1,15 @@
-import {useEffect, useMemo} from "react";
+import {useEffect, useMemo, useRef} from "react";
 import {
   BoxGeometry,
   type BufferGeometry,
+  type Group,
   CylinderGeometry,
   MeshStandardMaterial,
 } from "three";
 import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
 
 import {aoModeUserData} from "../../bake/aoMode";
+import {useSfxEmitter} from "../../core/audio/sfx/useSfxEmitter";
 import {BVHCollider} from "../../core/bvh";
 import {useControlLockWhileWorking} from "../controlLock";
 import {useLayoutSlot} from "../layoutContext";
@@ -65,6 +67,8 @@ export function WorkspaceObject({object}: {object: GameObject}) {
   useControlLockWhileWorking(object);
   const {visible} = useObjectState();
   const {memo = true} = useLayoutSlot().item;
+  const root = useRef<Group>(null);
+  const sfx = useSfxEmitter(["writing"], root);
   const geometries = useMemo(() => DESK_PARTS.map(partGeometry), []);
   useEffect(
     () => () => {
@@ -75,7 +79,7 @@ export function WorkspaceObject({object}: {object: GameObject}) {
     [geometries],
   );
   return (
-    <group userData={aoModeUserData("realtime")}>
+    <group ref={root} userData={aoModeUserData("realtime")}>
       <BVHCollider enabled={visible}>
         {DESK_BODY.map((part, i) => (
           <Part key={i} part={part} geometry={geometries[i]!} />
@@ -88,7 +92,11 @@ export function WorkspaceObject({object}: {object: GameObject}) {
           geometry={geometries[DESK_BODY.length + i]!}
         />
       ))}
-      <WorkspaceFile working={object.users.length > 0} />
+      <WorkspaceFile
+        working={object.users.length > 0}
+        onWritingStart={(cue) => sfx.play("writing", cue)}
+        onWritingInterrupt={() => sfx.stop("writing")}
+      />
       {memo && <WorkspaceMemo workspaceId={object.id} />}
     </group>
   );

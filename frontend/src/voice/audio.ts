@@ -1,3 +1,6 @@
+import type {AudioManager, MicHandle} from "../core/audio/audioManager";
+import type {Vec3} from "../core/audio/sfx/types";
+
 const SAMPLE_RATE = 48000;
 const PEER_GAIN_2X = 2;
 const PLAYBACK_JITTER_BUFFER_S = 0.06;
@@ -9,6 +12,10 @@ class Capture extends AudioWorkletProcessor {
     const chunk = (options.processorOptions && options.processorOptions.chunk) || 960;
     this.buf = new Float32Array(chunk);
     this.len = 0;
+    this.stopped = false;
+    this.port.onmessage = () => {
+      this.stopped = true;
+    };
   }
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
@@ -25,7 +32,7 @@ class Capture extends AudioWorkletProcessor {
         }
       }
     }
-    return true;
+    return !this.stopped;
   }
 }
 registerProcessor("iubeo-capture", Capture);
@@ -36,8 +43,6 @@ const workletUrl = (): string =>
     new Blob([CAPTURE_WORKLET], {type: "application/javascript"}),
   );
 
-export type Vec3 = {x: number; y: number; z: number};
-
 type PeerAudio = {
   gain: GainNode;
   panner: PannerNode;
@@ -46,35 +51,37 @@ type PeerAudio = {
 
 export type VoiceAudio = {
   context: AudioContext;
-  readonly state: AudioContextState;
-  resume(): Promise<void>;
   startMic(onPcm: (pcm: Float32Array) => void): Promise<void>;
   hasMic(): boolean;
   feed(peer: string, pcm: Float32Array): void;
   removePeer(peer: string): void;
   setPeerPosition(peer: string, pos: Vec3): void;
-  setListener(pos: Vec3, forward: Vec3, up: Vec3): void;
   close(): void;
 };
 
-export const createVoiceAudio = (): VoiceAudio => {
-  const ctx = new AudioContext({sampleRate: SAMPLE_RATE});
-  const peers = new Map<string, PeerAudio>();
-  const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -6;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.003;
-  limiter.release.value = 0.15;
-  limiter.connect(ctx.destination);
-  let micStream: MediaStream | undefined;
-  let micNode: AudioWorkletNode | undefined;
-  let workletReady: Promise<void> | undefined;
+const workletLoads = new WeakMap<AudioContext, Promise<void>>();
 
-  const loadWorklet = (): Promise<void> => {
-    workletReady ??= ctx.audioWorklet.addModule(workletUrl());
-    return workletReady;
-  };
+const loadWorklet = (ctx: AudioContext): Promise<void> => {
+  let loaded = workletLoads.get(ctx);
+  if (!loaded) {
+    loaded = ctx.audioWorklet.addModule(workletUrl());
+    loaded.catch(() => workletLoads.delete(ctx));
+    workletLoads.set(ctx, loaded);
+  }
+  return loaded;
+};
+
+export type VoiceAudioHost = Pick<
+  AudioManager,
+  "context" | "voiceBus" | "acquireMic"
+>;
+
+export const createVoiceAudio = (host: VoiceAudioHost): VoiceAudio => {
+  const ctx = host.context();
+  const peers = new Map<string, PeerAudio>();
+  let micHandle: MicHandle | undefined;
+  let micNode: AudioWorkletNode | undefined;
+  let closed = false;
 
   const ensurePeer = (peer: string): PeerAudio => {
     let p = peers.get(peer);
@@ -88,7 +95,7 @@ export const createVoiceAudio = (): VoiceAudio => {
       panner.maxDistance = 40;
       panner.rolloffFactor = 1;
       gain.connect(panner);
-      panner.connect(limiter);
+      panner.connect(host.voiceBus());
       p = {gain, panner, nextAt: 0};
       peers.set(peer, p);
     }
@@ -98,36 +105,25 @@ export const createVoiceAudio = (): VoiceAudio => {
   const audio: VoiceAudio = {
     context: ctx,
 
-    get state(): AudioContextState {
-      return ctx.state;
-    },
-
-    async resume(): Promise<void> {
-      if (ctx.state === "suspended") {
-        await ctx.resume().catch(() => {});
-      }
-    },
-
     async startMic(onPcm: (pcm: Float32Array) => void): Promise<void> {
       if (micNode) {
         return;
       }
-      await loadWorklet();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
-      micStream = stream;
-      const source = ctx.createMediaStreamSource(stream);
+      await loadWorklet(ctx);
+      if (closed) {
+        throw new Error("voice audio closed");
+      }
+      const handle = await host.acquireMic();
+      if (closed) {
+        handle.release();
+        throw new Error("voice audio closed");
+      }
       const node = new AudioWorkletNode(ctx, "iubeo-capture", {
         processorOptions: {chunk: 960},
       });
       node.port.onmessage = (e: MessageEvent) => onPcm(e.data as Float32Array);
-      source.connect(node);
+      handle.node.connect(node);
+      micHandle = handle;
       micNode = node;
     },
 
@@ -172,28 +168,21 @@ export const createVoiceAudio = (): VoiceAudio => {
       p.panner.positionZ.value = pos.z;
     },
 
-    setListener(pos: Vec3, forward: Vec3, up: Vec3): void {
-      const l = ctx.listener;
-      l.positionX.value = pos.x;
-      l.positionY.value = pos.y;
-      l.positionZ.value = pos.z;
-      l.forwardX.value = forward.x;
-      l.forwardY.value = forward.y;
-      l.forwardZ.value = forward.z;
-      l.upX.value = up.x;
-      l.upY.value = up.y;
-      l.upZ.value = up.z;
-    },
-
     close(): void {
-      try {
-        micNode?.port.close();
-      } catch {}
-      micStream?.getTracks().forEach((t) => t.stop());
-      for (const peer of peers.keys()) {
+      closed = true;
+      if (micNode) {
+        try {
+          micHandle?.node.disconnect(micNode);
+          micNode.port.postMessage("stop");
+          micNode.port.close();
+        } catch {}
+      }
+      micHandle?.release();
+      micHandle = undefined;
+      micNode = undefined;
+      for (const peer of Array.from(peers.keys())) {
         audio.removePeer(peer);
       }
-      void ctx.close().catch(() => {});
     },
   };
 

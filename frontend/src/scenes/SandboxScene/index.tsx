@@ -12,6 +12,7 @@ import {RemotePlayers} from "../../player";
 import {Chair, Slab, useGridFloorMaterial, Wall} from "../../props";
 import {VoiceChat} from "../../voice";
 import {WhiteWorld} from "../environment/WhiteWorld";
+import {WindowAmbience} from "../environment/WindowAmbience";
 import {
   FrostedPartition,
   useFrostedPartitionMaterial,
@@ -56,6 +57,7 @@ function SandboxZone({
       <FrostedPartition material={partitionMaterial} />
       <Slab {...ZONE_ROOF} blocksCamera />
       <Chair position={ZONE_CHAIR.position} yaw={ZONE_CHAIR.yaw} />
+      <WindowAmbience position={ZONE_WINDOW_BLOCKER.position} />
     </group>
   );
 }

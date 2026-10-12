@@ -24,6 +24,12 @@ const defaultSchedule: Schedule = (fn, ms) => {
 const SIZE: Size = {width: 300, height: 150};
 
 export const MATCHMAKING_LAYOUT = {
+  voice: {
+    x: SIZE.width - 92 - 6 - 96,
+    y: SIZE.height - 33,
+    width: 96,
+    height: 23,
+  },
   button: {x: SIZE.width - 92, y: SIZE.height - 33, width: 80, height: 23},
   marquee: {x: 12, y: SIZE.height - 62, width: SIZE.width - 24, height: 16},
 } as const satisfies Record<string, Rect>;
@@ -102,7 +108,7 @@ export const createMatchmakingApp = ({
   title: "接続",
   icon: "terminal",
   size: SIZE,
-  open: (): AppView => {
+  open: (context): AppView => {
     const listeners = new Set<() => void>();
     const notify = () => {
       for (const l of Array.from(listeners)) {
@@ -144,7 +150,11 @@ export const createMatchmakingApp = ({
         }
       },
     });
-    const controls = createControlSet([button]);
+    const voice = createButton({
+      rect: MATCHMAKING_LAYOUT.voice,
+      onClick: () => context.launch("settings", {tab: "sound"}),
+    });
+    const controls = createControlSet([button, voice]);
 
     sync();
     const offFlow = flow.subscribe(() => {
@@ -194,6 +204,7 @@ export const createMatchmakingApp = ({
         }
         const label =
           phase === "connecting" || phase === "waiting" ? "取り下げ" : "待機";
+        paintButton(ctx, voice, "VC の設定…");
         paintButton(ctx, button, label, {isDefault: true});
       },
       pointer: (event) => {

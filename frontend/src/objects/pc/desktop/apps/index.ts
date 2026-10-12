@@ -1,14 +1,13 @@
 import type {DesktopApp} from "../kernel/app";
 import {createMatchmakingApp, type MatchmakingPort} from "./matchmaking";
-import {createSettingsApp, type MouseSettingsPort} from "./settings";
+import {createSettingsApp, type SettingsPorts} from "./settings";
 
 export const createDesktopApps = ({
   flow,
-  mouse,
+  ...settings
 }: {
   flow: MatchmakingPort;
-  mouse: MouseSettingsPort;
-}): readonly DesktopApp[] => [
+} & SettingsPorts): readonly DesktopApp[] => [
   createMatchmakingApp({flow}),
-  createSettingsApp({mouse}),
+  createSettingsApp(settings),
 ];

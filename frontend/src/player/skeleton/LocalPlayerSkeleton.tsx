@@ -6,9 +6,11 @@ import {HandheldTerminal} from "../../game/slip/HandheldTerminal";
 import {orderSlip, useOrderSlip} from "../../game/slip/store";
 import {heldSlipWorld} from "../../game/slip/zoom";
 import {HeldItem, useItemState} from "../../items";
+import {LIGHTER_KIND} from "../../items/lighter";
 import {useWorkingAtWorkspace} from "../../objects/workspace/useWorkingAtWorkspace";
 import {useTransitionActive} from "../../scenes/transitionActive";
 import {localPlayer} from "../local";
+import {useLighterSound} from "../useLighterSound";
 import {PlayerSkeleton} from "./PlayerSkeleton";
 
 export function LocalPlayerSkeleton() {
@@ -19,6 +21,8 @@ export function LocalPlayerSkeleton() {
   const {held: item} = useItemState();
   const held = useWorkingAtWorkspace(useMyPlayerId()) ? null : item;
   const {playing: slip} = useOrderSlip();
+  useLighterSound(localPlayer, !dead, !slip && held?.kind === LIGHTER_KIND);
+  // 依頼の伝票を再生している間は、持ち物の代わりにハンディーターミナルを手に出す
   const handItem = slip ? (
     <HandheldTerminal
       key={slip.startedAt}

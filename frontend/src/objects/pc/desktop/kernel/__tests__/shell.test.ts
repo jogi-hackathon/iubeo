@@ -1,6 +1,12 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {AppPointerEvent, AppView, DesktopApp} from "../app";
+import type {
+  AppContext,
+  AppPointerEvent,
+  AppView,
+  DesktopApp,
+  LaunchOptions,
+} from "../app";
 import {
   clientRect,
   closeButtonRect,
@@ -23,26 +29,43 @@ const fakeApp = (id: string) => {
   const events: AppPointerEvent[] = [];
   const dispose = vi.fn();
   const cancel = vi.fn();
+  const opened: (LaunchOptions | undefined)[] = [];
+  const revealed: LaunchOptions[] = [];
+  let context: AppContext | null = null;
   let notify: (() => void) | null = null;
   const app: DesktopApp = {
     id,
     title: id,
     icon: "settings",
     size: {width: 200, height: 120},
-    open: (): AppView => ({
-      paint: () => {},
-      pointer: (e) => events.push(e),
-      subscribe: (l) => {
-        notify = l;
-        return () => {
-          notify = null;
-        };
-      },
-      cancel,
-      dispose,
-    }),
+    open: (ctx, options): AppView => {
+      context = ctx;
+      opened.push(options);
+      return {
+        paint: () => {},
+        reveal: (o) => revealed.push(o),
+        pointer: (e) => events.push(e),
+        subscribe: (l) => {
+          notify = l;
+          return () => {
+            notify = null;
+          };
+        },
+        cancel,
+        dispose,
+      };
+    },
   };
-  return {app, events, dispose, cancel, change: () => notify?.()};
+  return {
+    app,
+    events,
+    dispose,
+    cancel,
+    opened,
+    revealed,
+    context: () => context!,
+    change: () => notify?.(),
+  };
 };
 
 const make = () => {
@@ -109,6 +132,22 @@ describe("窓", () => {
     const {windows, focused} = shell.getState();
     expect(windows.map((w) => w.app.id)).toEqual(["b", "a"]);
     expect(focused).toBe(windows[1]!.id);
+  });
+
+  it("launch の options は開くときに渡し、開いていれば手前へ出して reveal へ渡す", () => {
+    const {shell, a} = make();
+    shell.launch("a", {tab: "x"});
+    expect(a.opened).toEqual([{tab: "x"}]);
+    shell.launch("a", {tab: "y"});
+    expect(a.opened).toHaveLength(1);
+    expect(a.revealed).toEqual([{tab: "y"}]);
+  });
+
+  it("窓の中から context.launch で別の窓を開ける", () => {
+    const {shell, a} = make();
+    shell.launch("a");
+    a.context().launch("b", {tab: "z"});
+    expect(shell.getState().windows.map((w) => w.app.id)).toEqual(["a", "b"]);
   });
 
   it("開いた窓は作業領域の中に収まる", () => {
