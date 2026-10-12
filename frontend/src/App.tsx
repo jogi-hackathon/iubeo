@@ -12,6 +12,8 @@ import {OrderSlipDirector} from "./game/slip/OrderSlipDirector";
 import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
+import {PresentOverlay} from "./present/PresentOverlay";
+import {PresentPanel} from "./present/PresentPanel";
 import {scenes} from "./scenes";
 import {readinessOf} from "./scenes/readiness";
 import {ReportSceneReady} from "./scenes/ReportSceneReady";
@@ -31,6 +33,12 @@ registerDevTab({
   label: "PostFX",
   order: 20,
   Component: PostProcessPanel,
+});
+registerDevTab({
+  id: "present",
+  label: "Present",
+  order: 25,
+  Component: PresentPanel,
 });
 if (import.meta.env.DEV) {
   void import("./dev/DevTools");
@@ -68,6 +76,7 @@ export function App() {
       <Reticle />
       <OverviewCursor />
       <DevPanelManager />
+      <PresentOverlay />
     </>
   );
 }

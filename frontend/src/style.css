@@ -69,3 +69,306 @@ body,
   background: #111;
   color: #f88;
 }
+
+/* プレゼン冒頭の演出(src/present)。黒い世界に白い文字 */
+.present {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  cursor: none;
+  user-select: none;
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
+.present-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.6s ease;
+}
+
+.present-chat {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(820px, 92vw);
+  margin: 0 auto;
+  padding: 0 0 6vh;
+  font-size: clamp(15px, 1.35vw, 21px);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.present-chat[data-shown="true"] {
+  opacity: 1;
+}
+
+/* 立場が入れかわる瞬間に色が抜け、IUBEO の白い世界に近づく */
+.present-chat[data-drained="true"] {
+  filter: grayscale(1);
+}
+
+.present-chat-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  mask-image: linear-gradient(transparent, #000 30%);
+}
+
+/* 新しいメッセージは高さを広げながら現れ、古いものを上へ押し上げる */
+.present-glitch-slice {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.present-msg {
+  display: grid;
+  animation: present-msg-in 0.35s ease-out both;
+}
+
+.present-msg[data-fast="true"] {
+  animation-duration: 0.12s;
+}
+
+.present-msg-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes present-msg-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+.present-slot {
+  width: fit-content;
+  max-width: 72%;
+  padding: 6px 0;
+}
+
+.present-slot[data-side="right"] {
+  margin-left: auto;
+}
+
+.present-slot[data-side="right"] .present-sender {
+  text-align: right;
+}
+
+.present-sender {
+  margin: 8px 4px 4px;
+  font-size: 0.7em;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+.present-sender[data-from="ai"] {
+  color: #a5b4fc;
+  opacity: 1;
+}
+
+.present-bubble {
+  padding: 0.55em 0.95em;
+  border-radius: 1em;
+  line-height: 1.5;
+}
+
+.present-bubble[data-from="human"] {
+  background: #2563eb;
+}
+
+.present-bubble[data-from="ai"] {
+  border: 1px solid rgb(255 255 255 / 0.35);
+}
+
+.present-typing {
+  display: flex;
+  gap: 0.3em;
+  padding-block: 0.85em;
+}
+
+.present-typing span {
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: #fff;
+  animation: present-dot 1.1s ease-in-out infinite;
+}
+
+.present-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.present-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes present-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-0.2em);
+  }
+}
+
+.present-attach {
+  margin-top: 0.6em;
+  animation: present-msg-in 0.35s ease-out both;
+}
+
+.present-search {
+  width: 18em;
+  max-width: 100%;
+  padding: 0.7em 0.9em;
+  border-radius: 0.6em;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.present-search-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+  color: #7dd3fc;
+  font-size: 0.85em;
+}
+
+.present-favicon {
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  background: conic-gradient(#f43f5e, #f59e0b, #22c55e, #3b82f6, #f43f5e);
+}
+
+.present-search-line {
+  height: 0.4em;
+  margin-top: 0.4em;
+  border-radius: 0.2em;
+  background: rgb(255 255 255 / 0.25);
+}
+
+.present-image {
+  width: 11em;
+  height: 7em;
+  border-radius: 0.6em;
+}
+
+.present-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.8em;
+  border-radius: 0.6em;
+  background: rgb(255 255 255 / 0.08);
+  font:
+    0.85em ui-monospace,
+    Menlo,
+    monospace;
+}
+
+.present-file-icon {
+  width: 1em;
+  height: 1.25em;
+  border-radius: 0.15em;
+  background: #f97316;
+}
+
+.present-input {
+  min-height: 1.5em;
+  margin-top: 16px;
+  padding: 0.75em 1em;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 0.9em;
+  line-height: 1.5;
+}
+
+.present-placeholder {
+  opacity: 0.4;
+}
+
+.present-placeholder .present-caret {
+  margin: 0 0.08em 0 0;
+}
+
+.present-caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 1em;
+  margin-left: 0.08em;
+  vertical-align: -0.12em;
+  background: #fff;
+  animation: present-blink 1s steps(1) infinite;
+}
+
+@keyframes present-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.present-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 1.2s ease,
+    transform 2.4s ease;
+}
+
+.present-logo[data-shown="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.present-logo img {
+  width: min(50vw, 720px);
+}
+
+.present-logo p {
+  margin: 0;
+  font-size: clamp(14px, 1.6vw, 26px);
+  letter-spacing: 0.2em;
+}
+
+.present-step {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  font:
+    11px ui-monospace,
+    Menlo,
+    monospace;
+  opacity: 0.25;
+}
+
+.present-blur,
+.present-lid {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  pointer-events: none;
+}
+
+.present-lid {
+  background: #000;
+}
