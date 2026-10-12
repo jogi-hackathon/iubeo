@@ -48,6 +48,7 @@ pnpm engine:link -- --from <path>
 | `pnpm deploy` | 型チェック後に `cf deploy`(フロントの Worker) |
 | `pnpm bake:ao` | AO のベイク(下記) |
 | `pnpm shot:pc --out=<path>` | PC の 3D モデルを 3 視点で撮る(`pc.html`。下記) |
+| `pnpm shot:slip --out=<path>` | 依頼の伝票を印刷するハンディーターミナルを段ごとに撮る(`slipshot.html`。下記) |
 
 コミット前に `pnpm typecheck && pnpm lint && pnpm test` が通ること。
 
@@ -129,6 +130,34 @@ pnpm shot:pc --out=/tmp/pc-after.png
 
 - 実 GPU の WebGPU が使える Chrome が要る（`pnpm bake:ao` と同じ）。ページは `pc.html`（dev 専用。build には入らない）
 - 撮影しているのは `src/objects/pc/page.tsx`。視点や背景を変えたいときはここを直す
+
+### 依頼の伝票(ハンディーターミナル)
+
+依頼が届いたときの一連の動き(端末を手に取る → 伝票が印刷される → 千切って見る → 伝票が自分のワークスペースへ飛んでメモ置きに残る)を `src/game/slip/` に置く(タスクが届いたことへの反応なので、`game/` の下)。
+
+- フェーズが始まって自分のタスクがあると、`OrderSlipDirector`(App に常駐)が伝票を届け、自動で再生する。再生中はプレイヤーの操作を預かり(移動も視線も止める)、視線を手元へ向けて、終わると戻す。接続し直しで同じフェーズを受け取っても二度は出さない
+- PC の画面やワークスペースなど、他の操作に預けている間に届いたら、空いてから始める。再生中にもう 1 枚届いたら続けて出す。脱落したら捨てる
+- 伝票には、そのフェーズで自分に割り当てられたタスクを全部載せる(最大 4 件)。読み込みと編集の対象ファイルは id ではなく山の紙の色(「青のファイル」)で示す。画面の上に HUD は出さず(フェーズの残り時間・インターミッション・結果も含めて)、自分のタスクは伝票とメモ置きだけで知らせる
+- 見終えた伝票は自分のワークスペース(`owner` が自分の `workspace`。無ければ唯一の workspace)の机の左奥にあるメモ置き(クリップ)へ飛び(部屋のワークスペースにはメモ置きを置かない。レイアウトの `workspaceItem({memo: false})`)、そこに残る。次のフェーズの伝票が来たら差し替わる。手が空いているとメモ置きが破線で示され(伝票のフェーズが過ぎたか、自分のタスクを全部終えていれば示さない)、クリックで伝票の正面へ寄って読み返せる(クリックか Esc で戻る)。セッションを離れると消える
+- dev パネル(Game タブ)の「deliver slip」で、見本の伝票を届けて試せる
+
+- `terminal.ts`: 端末の部品(白い塗りに黒い縁取り。手持ちのライターと同じ流儀)と、段ごとの長さ・姿勢(`terminalPose`)。持ち上げ 0.45 秒 → 受信 0.45 秒 → 印刷 1.8 秒(24 行をコマ送り) → 送り出し → 千切る 0.35 秒 → 見る 2.7 秒 → 飛ぶ 0.9 秒(端末は前半 0.4 秒でしまう)
+- `strip.ts`: 紙の帯。スロットから出た長さと手前への巻きで形を決め、先端が紙の上端になるよう uv を書く
+- `screen.ts`: 端末の画面。Claude Code 風の暗い端末(✻ のスピナー、`⏺ Print(order-slip)` と `⎿` の結果、`>` のプロンプト)で、段ごとに書き換える
+- `content.ts`: 伝票の中身(`slipContent(phase, tasks, fileColors)`。番号・フェーズ・タスクごとの種類とお題や対象ファイルの色(「青のファイル」。id は出さない)・制限時間)と、58mm × 120mm の紙への描画
+- `zoom.ts`: 千切った伝票を見る段で、カメラを伝票の正面へ寄せる(頭とお尻の 0.35 秒で寄って離れ、2 秒は寄ったまま読める)。手元の伝票の世界座標は `HandheldTerminal` が毎フレーム書く
+- `store.ts`: 再生の状態(再生中・待ち・飛んでいる伝票)と、フェーズから自分の伝票を作る `slipForPhase`、自分のワークスペースを選ぶ `myWorkspaceId`
+- `memos.ts`: ワークスペースごとに残っている伝票
+- `slipPaper.ts`: 紙の帯のジオメトリと伝票のテクスチャ(手元の端末と机のメモ置きで共有)
+- `OrderSlipDirector.tsx`: 届ける・操作を預かる・視線を向ける進行役
+- `HandheldTerminal.tsx`: 手に持つ座標系に置くコンポーネント(`LocalPlayerSkeleton` が再生中だけ手に出す)。飛ぶ段に入ると伝票の世界座標を `onLaunch` で渡して手元の伝票を隠し、そこから先は `objects/workspace/WorkspaceMemo.tsx` が机の座標系で飛ばして置く
+
+```sh
+pnpm shot:slip --out=/tmp/slip.png      # 6 コマ × (一人称・寄り)を 1 枚に
+pnpm dev                                 # http://localhost:5173/slipshot.html?live で繰り返し再生
+```
+
+ページは `slipshot.html`(dev 専用。build には入らない)、撮っているのは `src/game/slip/shot/page.tsx`。
 
 ### 本番の WISP（トークンで保護）
 
@@ -252,7 +281,7 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 | `core/` | Canvas・レンダラー・入力・`bvh/`(コライダー登録)・`cover/`(白いオーバーレイ)・`debug/`・観戦 |
 | `dev/` | 開発時のみのデバッグパネル(本番に入らない) |
 | `flow/` | ゲームの流れ(プレイヤー ID の発行 → マッチング → sandbox → room) |
-| `game/` | フェーズ・タスク・結果の状態と HUD、脱落後の観戦 |
+| `game/` | フェーズ・タスク・結果の状態、脱落後の観戦、依頼の伝票(`slip/`) |
 | `items/` | 手に持つアイテム(ファイル・ライター) |
 | `judge/` | 検索の判定(Workers AI の Clef)の要求と応答。Worker(`worker/judge.ts`)からも使う |
 | `net/` | HTTP と WebSocket の接続、位置のバイナリ形式、OpenAPI から生成した型(`schema.gen.ts`) |
