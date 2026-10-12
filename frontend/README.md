@@ -58,7 +58,7 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 
 ## PC（Web 検索の画面）
 
-机の上の PC の画面は、Firefox のエンジン（Gecko）を WebAssembly にしたものが動く。HUD は使わず、お題は机のメモに、状態は画面そのものに出す。参考: iubeo-lab の `browser-in-browser`（同じ仕組みの実験。画面の接続部を移植した）。
+試合（sandbox）の机の上の PC の画面は、Firefox のエンジン（Gecko）を WebAssembly にしたものが動く（部屋の PC は下の「部屋の PC(デスクトップ)」）。HUD は使わず、お題は机のメモに、状態は画面そのものに出す。参考: iubeo-lab の `browser-in-browser`（同じ仕組みの実験。画面の接続部を移植した）。
 
 ```sh
 # 1. エンジンを取り込む（約 34MB。engine-local/ に置き、リポジトリには入れない）
@@ -94,6 +94,16 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 - エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。
 
 - 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
+
+### 部屋の PC(デスクトップ)
+
+部屋の PC だけは Web 検索ではなく、Windows 2000 風のデスクトップが動く(レイアウトの `program: "desktop"`)。アイコンをダブルクリックしてアプリ(マッチング・設定)を開く。
+
+- 使っている間は pointer lock を保ったまま、マウスの移動量で画面の中のカーソルを動かす(ディレクトリの俯瞰ビューと同じ)。画面が視界の 9 割を占めるまで寄る
+- 離れるのは、右クリック・Esc・スタートメニューの「シャットダウン」。右クリックとシャットダウンなら、一人称に戻ってもクリックし直さなくてよい(Esc は pointer lock が外れるのでクリックし直す)
+- 開いた窓などは、部屋を出入りしてもそのまま残る
+- 部屋の PC に近づいたときも、試合の PC で使う検索のエンジンを先に取っておく
+- 見た目は 3D を通さずに `http://localhost:5173/desktop.html`(dev 専用。build には入らない)で触って確かめられる。2 倍に拡大して出し、本物のマウスで操作する
 
 ### PC の 3D モデルを撮る
 
@@ -240,7 +250,7 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 | `tutorial/` | room のチュートリアルの手順と進み具合 |
 | `voice/` | ボイスチャット([docs/voice-chat.md](../docs/voice-chat.md)) |
 
-`objects/pc/` は、PC 本体(モデル・CRT・使っている状態・撮影ページの `page.tsx`)を直下に置き、`display/` に画面の約束(`ScreenSource`)・解像度・キー入力、`search/` に Web 検索(お題・判定・成果物と、`browser/` に Gecko・WISP の接続先)を置く。
+`objects/pc/` は、PC 本体(モデル・CRT・使っている状態・撮影ページの `page.tsx`)を直下に置き、`display/` に画面の約束(`ScreenSource`)・解像度・キー入力、`search/` に Web 検索(お題・判定・成果物と、`browser/` に Gecko・WISP の接続先)、`desktop/` に部屋の PC の 2000 風デスクトップ(`kernel/` が状態と入力の解釈、`paint/` と `theme/` が見た目、`apps/` がアプリ)を置く。どちらを動かすかはレイアウトの `program` で選ぶ(`programs.ts`)。
 
 `worker/` は Cloudflare の Worker(`frontend.ts`・`backend.ts`・`wisp.ts`・`judge.ts`。`wispToken.ts` は WISP のトークンの検証)、`scripts/` は開発用のスクリプトと Vite のプラグイン。
 

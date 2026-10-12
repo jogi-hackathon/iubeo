@@ -1,4 +1,4 @@
-import {directoryItem, type SceneLayout} from "../../objects/layout";
+import {directoryItem, pcItem, type SceneLayout} from "../../objects/layout";
 import {ON_DESK as PC_ON_DESK} from "../../objects/pc/dimensions";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
@@ -116,7 +116,12 @@ export const ROOM_LAYOUT: SceneLayout = {
   }),
   workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
-  pc: {id: "pc-1", position: PC_POSITION, yaw: PC_YAW, look: "plain"},
+  pc: pcItem({
+    id: "pc-1",
+    position: PC_POSITION,
+    yaw: PC_YAW,
+    program: "desktop",
+  }),
 };
 
 export const MATCHMAKING_BUTTON_POSITION: Vec3 = [

@@ -1,7 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
 
 import {itemManager} from "../../../items/itemStore";
-import {useLayoutSlot} from "../../layoutContext";
 import {objectManager} from "../../objectStore";
 import type {PcProgram, PcProgramProps} from "../program";
 import {pcSession} from "../session";
@@ -17,11 +16,9 @@ const JUDGE_SETTLE_MS = 1200;
 
 /**
  * Web 検索の PC。Gecko を画面に出し、開いたページがお題に合うかを Clef に見てもらう。
- * 合えば検索を成果物として渡し、合図のあと PC を畳む。
- * お題のメモは PC の横に置く(部屋の PC は look: "plain" で置かない)
+ * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題のメモは PC の横に置く
  */
 function SearchProgram({object, screen, using, mine}: PcProgramProps) {
-  const {item} = useLayoutSlot();
   const keyboard = useMemo(() => engineKeyboard(), []);
 
   const judge = useJudge();
@@ -163,7 +160,7 @@ function SearchProgram({object, screen, using, mine}: PcProgramProps) {
     };
   }, [using, screen, keyboard]);
 
-  return item.look === "plain" ? null : <PcTaskMemo clickable={using} />;
+  return <PcTaskMemo clickable={using} />;
 }
 
 export const searchProgram: PcProgram = {

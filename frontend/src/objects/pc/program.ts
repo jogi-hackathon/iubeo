@@ -20,12 +20,14 @@ export type PcProgramProps = {
  * 画面に何を出して入力をどう解釈するかはここに任せる
  *
  * - pointer: マウスの扱い(session.ts の PcPointerMode)
+ * - view: 使っている間のカメラの寄り方。fill は画面が視界に占める割合(無ければ決まった距離まで寄る)
  * - screen: 画面のソース。PcObject が一度だけ呼んで持ち続ける
  * - prewarm: プレイヤーが PC に近づいている間、毎フレーム呼ぶ(重い読み込みを先に始めるため。何度呼ばれてもよいこと)
  * - Runner: PcObject の配下(PC の座標系)に置くコンポーネント。判定や鍵盤などのフックを持ち、PC に付く小物(お題のメモなど)を描いてよい
  */
 export type PcProgram = {
   pointer: PcPointerMode;
+  view?: {fill: number};
   screen: () => ScreenSource;
   prewarm?: () => void;
   Runner: ComponentType<PcProgramProps>;
