@@ -11,11 +11,13 @@ import {
   CylinderGeometry,
   Euler,
   FrontSide,
-  type Group,
+  Group,
   Matrix4,
+  Mesh,
   MeshStandardMaterial,
   type PerspectiveCamera,
   Quaternion,
+  type Texture,
   Vector3,
   type Vector3Tuple,
 } from "three";
@@ -29,6 +31,7 @@ import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {consumeLookDelta, usePointerLocked} from "../../core/input";
 import {usePlayerControlLocked} from "../../core/playerControl";
+import {registerShaderSwatch} from "../../core/shaderSwatches";
 import {useSpectatePhase} from "../../core/spectate";
 import {MAX_DELTA} from "../../core/time";
 import {useGameState} from "../../game/gameStore";
@@ -92,6 +95,32 @@ const STEM_GEOMETRY = new CylinderGeometry(
   MEMO_STAND.stemHeight,
   8,
 );
+
+/** 置かれた伝票の表と裏のマテリアル。表の絵は伝票ごとに違うので、そのたびに作る */
+const createSlipMaterials = (front: Texture) => ({
+  frontMaterial: new MeshStandardMaterial({
+    map: front,
+    alphaTest: 0.5,
+    side: FrontSide,
+    roughness: 0.9,
+  }),
+  backMaterial: new MeshStandardMaterial({
+    map: slipBackTexture(),
+    alphaTest: 0.5,
+    side: BackSide,
+    roughness: 0.9,
+  }),
+});
+
+// 伝票が飛んでくるまで紙はマウントされないので、見本をウォームアップに描かせる(クリップは常に出ているので要らない)。
+// 表は絵が違うだけでシェーダーは同じなので、見本では裏の絵を使い回す
+registerShaderSwatch("workspaceMemo", () => {
+  const {frontMaterial, backMaterial} = createSlipMaterials(slipBackTexture());
+  const strip = createStripGeometry();
+  const group = new Group();
+  group.add(new Mesh(strip, frontMaterial), new Mesh(strip, backMaterial));
+  return group;
+});
 
 /** 伝票の根元(帯の原点)の置き場(台の座標系)。クリップの下から紙の長さぶん下がったところ。巻きで上端が少し前へ出る */
 const SLIP_ROOT: Vector3Tuple = [
@@ -290,22 +319,7 @@ export function WorkspaceMemo({workspaceId}: Props) {
     const strip = createStripGeometry();
     shapeStrip(strip, {length: SLIP_LENGTH, curl: PAPER_CURL.rest});
     const front = createSlipTexture(content);
-    return {
-      strip,
-      front,
-      frontMaterial: new MeshStandardMaterial({
-        map: front,
-        alphaTest: 0.5,
-        side: FrontSide,
-        roughness: 0.9,
-      }),
-      backMaterial: new MeshStandardMaterial({
-        map: slipBackTexture(),
-        alphaTest: 0.5,
-        side: BackSide,
-        roughness: 0.9,
-      }),
-    };
+    return {strip, front, ...createSlipMaterials(front)};
   }, [content]);
 
   useEffect(

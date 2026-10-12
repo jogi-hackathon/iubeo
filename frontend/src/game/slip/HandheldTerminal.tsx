@@ -7,17 +7,19 @@ import {
   CylinderGeometry,
   DoubleSide,
   FrontSide,
-  type Group,
+  Group,
   type Matrix4,
-  type Mesh,
+  Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
   Quaternion,
+  type Texture,
   Vector3,
 } from "three";
 import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
+import {registerShaderSwatch} from "../../core/shaderSwatches";
 import type {SlipContent} from "./content";
 import {paintScreen, SCREEN_CANVAS, screenKey} from "./screen";
 import {
@@ -128,6 +130,36 @@ function Part({part, fill, outline}: Built) {
 
 const SCREEN_PLANE = new PlaneGeometry(1, 1);
 
+/** 画面と伝票のマテリアル。画面の絵と伝票の表は再生ごとに違うので、そのたびに作る */
+const createMaterials = (screen: Texture, front: Texture) => ({
+  screenMaterial: basic({map: screen}),
+  frontMaterial: basic({map: front, alphaTest: 0.5, side: FrontSide}),
+  backMaterial: basic({map: slipBackTexture(), alphaTest: 0.5, side: BackSide}),
+  stubMaterial: basic({color: FILL_COLOR, side: DoubleSide}),
+});
+
+// 依頼が届くまでマウントされないので、端末の部品と画面・伝票の見本をウォームアップに描かせる。
+// 画面と伝票の表は絵が違うだけでシェーダーは同じなので、見本では裏の絵を使い回す
+registerShaderSwatch("handheldTerminal", () => {
+  const group = new Group();
+  for (const {part, fill, outline} of buildParts()) {
+    group.add(new Mesh(fill, LOOKS[part.look]));
+    if (outline) {
+      group.add(new Mesh(outline, OUTLINE));
+    }
+  }
+  const back = slipBackTexture();
+  const m = createMaterials(back, back);
+  const strip = createStripGeometry();
+  group.add(
+    new Mesh(SCREEN_PLANE, m.screenMaterial),
+    new Mesh(strip, m.frontMaterial),
+    new Mesh(strip, m.backMaterial),
+    new Mesh(strip, m.stubMaterial),
+  );
+  return group;
+});
+
 const slotPosition = new Vector3();
 const slotQuaternion = new Quaternion();
 const lookPosition = new Vector3();
@@ -170,14 +202,10 @@ export function HandheldTerminal({
   const res = useMemo(() => {
     const screen = canvasTexture(SCREEN_CANVAS.width, SCREEN_CANVAS.height);
     const front = createSlipTexture(content);
-    const back = slipBackTexture();
     return {
       screen,
       front,
-      screenMaterial: basic({map: screen.texture}),
-      frontMaterial: basic({map: front, alphaTest: 0.5, side: FrontSide}),
-      backMaterial: basic({map: back, alphaTest: 0.5, side: BackSide}),
-      stubMaterial: basic({color: FILL_COLOR, side: DoubleSide}),
+      ...createMaterials(screen.texture, front),
       strip: createStripGeometry(),
       stubStrip: createStripGeometry(),
     };
