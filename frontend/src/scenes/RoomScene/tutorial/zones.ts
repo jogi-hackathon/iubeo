@@ -1,5 +1,5 @@
-import type {TutorialZone} from "../../tutorial";
-import {CHAIR_POSITION, WORKSPACE_POSITION} from "./layout";
+import {CHAIR_POSITION, WORKSPACE_POSITION} from "../layout";
+import type {TutorialZone} from "./steps";
 
 const CHAIR_RADIUS = 0.85;
 const PC_FRONT_HALF_WIDTH = 0.6;

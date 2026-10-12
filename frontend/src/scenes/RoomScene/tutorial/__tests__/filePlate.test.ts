@@ -3,13 +3,13 @@ import {describe, expect, it} from "vitest";
 import {
   buildMountain,
   DIRECTORY_MOUNTAIN_SEED,
-} from "../../../objects/directory/mountain";
-import {DIRECTORY_POSITION, ROOM_INNER_Z_SOUTH} from "../layout";
+} from "../../../../objects/directory/mountain";
+import {DIRECTORY_POSITION, ROOM_INNER_Z_SOUTH} from "../../layout";
 import {
   frontMostCandidate,
   TUTORIAL_FILE_CANDIDATE,
   tutorialFileWorldPosition,
-} from "../tutorialFilePlate";
+} from "../filePlate";
 
 describe("tutorialFilePlate", () => {
   it("frontMostCandidate は z が最大(手前側)の候補を選び、空なら undefined", () => {

@@ -1,6 +1,5 @@
 import {describe, expect, it} from "vitest";
 
-import {TUTORIAL_STEPS} from "../../../tutorial";
 import {
   calmLook,
   COMPLETED_LOOK,
@@ -9,7 +8,8 @@ import {
   reveals,
   toggleInitialFor,
   TUTORIAL_OBJECT_KEYS,
-} from "../tutorialLook";
+} from "../look";
+import {TUTORIAL_STEPS} from "../steps";
 
 describe("lookFor", () => {
   it("すべてのステップに見え方がある(未定義の id は HIDDEN にならない)", () => {

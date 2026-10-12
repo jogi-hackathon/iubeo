@@ -17,8 +17,8 @@ import {
   WINDOW_PLUG,
 } from "./layout";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
-import {TutorialDirector} from "./TutorialDirector";
-import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorialLook";
+import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorial/look";
+import {TutorialDirector} from "./tutorial/TutorialDirector";
 import {WindowPlug} from "./WindowPlug";
 
 function RoomProps() {

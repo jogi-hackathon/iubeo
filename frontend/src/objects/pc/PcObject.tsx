@@ -13,7 +13,6 @@ import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {createVirtualCursor} from "../../core/input/virtualCursor";
 import {getEyePosition, localPlayer} from "../../player";
-import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
@@ -23,6 +22,7 @@ import {type PcCursor, useNativePointer} from "./display/useNativePointer";
 import {useVirtualPointer} from "./display/useVirtualPointer";
 import {pcInteraction} from "./interaction";
 import {createLogoTexture} from "./logoScreen";
+import {usePcLogo} from "./pcLogo";
 import {PcModel} from "./PcModel";
 import {
   getPortalMaterial,

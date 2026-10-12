@@ -250,7 +250,7 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 | `props/` | `BVHCollider` で包む基本プロップ |
 | `scenes/` | シーン定義と環境、シーンの切り替えと準備完了 |
 | `transition/` | シーン切り替えの演出(`dive/`) |
-| `tutorial/` | room のチュートリアルの手順と進み具合 |
+| `tutorial/` | チュートリアルの進行の仕組み・終えたかの保存・在席の通知(どのシーンにも依存しない。部屋の手順と見せ方は `scenes/RoomScene/tutorial/`) |
 | `voice/` | ボイスチャット([docs/voice-chat.md](../docs/voice-chat.md)) |
 
 `objects/pc/` は、PC 本体(モデル・CRT・使っている状態・撮影ページの `page.tsx`)を直下に置き、`display/` に画面の約束(`ScreenSource`)・解像度・キー入力、`search/` に Web 検索(お題・判定・成果物と、`browser/` に Gecko・WISP の接続先)、`desktop/` に部屋の PC の 2000 風デスクトップ(`kernel/` が状態と入力の解釈、`paint/` と `theme/` が見た目、`apps/` がアプリ)を置く。どちらを動かすかはレイアウトの `program` で選ぶ(`programs.ts`)。

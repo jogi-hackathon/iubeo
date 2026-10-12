@@ -1,10 +1,7 @@
-import type {ToggleInitial} from "../../core/toggles";
-import {featureKey} from "../../objects/layout";
-import type {
-  TutorialEvent,
-  TutorialFlowState,
-  TutorialStepId,
-} from "../../tutorial";
+import type {ToggleInitial} from "../../../core/toggles";
+import {featureKey} from "../../../objects/layout";
+import type {TutorialFlowState} from "../../../tutorial";
+import type {TutorialEvent, TutorialStepId} from "./steps";
 
 export const TUTORIAL_OBJECT_KEYS = [
   "workspace",

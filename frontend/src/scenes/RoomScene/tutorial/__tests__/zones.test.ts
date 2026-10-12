@@ -4,8 +4,8 @@ import {
   CHAIR_POSITION,
   ROOM_SPAWN_POSITION,
   WORKSPACE_POSITION,
-} from "../layout";
-import {zonesAt} from "../tutorialZones";
+} from "../../layout";
+import {zonesAt} from "../zones";
 
 describe("zonesAt", () => {
   it("スポーン地点はどのゾーンにも入らない", () => {

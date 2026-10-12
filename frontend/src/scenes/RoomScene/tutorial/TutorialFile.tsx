@@ -1,25 +1,22 @@
 import {useLayoutEffect, useRef} from "react";
 import type {Group} from "three";
 
-import {aoModeUserData} from "../../bake/aoMode";
+import {aoModeUserData} from "../../../bake/aoMode";
 import {
   addPowerOutline,
   GUIDE_OUTLINE,
-} from "../../camera/postprocess/powerOutlineSelection";
+} from "../../../camera/postprocess/powerOutlineSelection";
 import {
   FILE_PLATE_LIFT,
   FilePlateMesh,
-} from "../../objects/directory/DirectoryOverview";
+} from "../../../objects/directory/DirectoryOverview";
 import {
   OBJECT_ID_KEY,
   registerClientTarget,
   registerTarget,
-} from "../../objects/interaction";
-import {useIsAimed} from "../../objects/interaction/aimStore";
-import {
-  TUTORIAL_FILE_CANDIDATE,
-  tutorialFileWorldPosition,
-} from "./tutorialFilePlate";
+} from "../../../objects/interaction";
+import {useIsAimed} from "../../../objects/interaction/aimStore";
+import {TUTORIAL_FILE_CANDIDATE, tutorialFileWorldPosition} from "./filePlate";
 
 export const TUTORIAL_FILE_ID = "room.tutorial-file";
 export const TUTORIAL_FILE_COLOR = "#2a9d5c";

@@ -198,7 +198,7 @@ useInteraction(object, pcInteraction); // マウントで登録、アンマウ�
 | D | `LocalAuthority`(room・test)、自分の ID と要求の送り先をオーソリティから引く | 済 |
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
 | F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
-| - | room のチュートリアル(`tutorial/`、`scenes/RoomScene/TutorialDirector.tsx`) | 済 |
+| - | room のチュートリアル(進行の仕組みは `tutorial/`、部屋の手順・見せ方・進行役は `scenes/RoomScene/tutorial/`) | 済 |
 | - | room の PC を Windows 2000 風のデスクトップに(`objects/pc/desktop/`。マッチング・設定のアプリ)。仮のマッチングボタンは撤去 | 済 |
 
 残り:

@@ -1,5 +1,5 @@
-import type {FileStatus} from "../items";
-import type {TutorialStep} from "./tutorialManager";
+import type {FileStatus} from "../../../items";
+import type {TutorialStep} from "../../../tutorial";
 
 export type TutorialZone = "chair" | "pcFront";
 

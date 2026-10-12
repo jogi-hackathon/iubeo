@@ -2,9 +2,9 @@ import {
   buildMountain,
   type Candidate,
   DIRECTORY_MOUNTAIN_SEED,
-} from "../../objects/directory/mountain";
-import type {Vec3} from "../../props/types";
-import {DIRECTORY_POSITION} from "./layout";
+} from "../../../objects/directory/mountain";
+import type {Vec3} from "../../../props/types";
+import {DIRECTORY_POSITION} from "../layout";
 
 export const frontMostCandidate = (
   candidates: readonly Candidate[],
