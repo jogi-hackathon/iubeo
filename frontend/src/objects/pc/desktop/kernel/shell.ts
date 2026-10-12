@@ -147,7 +147,7 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     }
     const id = nextId++;
     const size = windowSizeFor(app.size);
-    const view = app.open();
+    const view = app.open({close: () => close(id)});
     const off = view.subscribe?.(bump);
     if (off) {
       unsubscribes.set(id, off);

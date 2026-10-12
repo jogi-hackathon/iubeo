@@ -123,9 +123,3 @@ export const ROOM_LAYOUT: SceneLayout = {
     program: "desktop",
   }),
 };
-
-export const MATCHMAKING_BUTTON_POSITION: Vec3 = [
-  WORKSPACE_POSITION[0] + 0.62,
-  DESK_HEIGHT,
-  WORKSPACE_POSITION[2] + 0.3,
-];

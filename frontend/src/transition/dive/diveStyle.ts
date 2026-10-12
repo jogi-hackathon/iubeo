@@ -19,7 +19,7 @@ import {sandboxSpawnOf} from "../../scenes/SandboxScene/layout";
 import {whenSceneReady} from "../../scenes/sceneReady";
 import {setDiveStyle} from "../../scenes/sceneStore";
 import type {DiveTransitionStyle} from "../../scenes/styledTransition";
-import {anchorFrame, coverDistance, poseAt} from "./divePath";
+import {anchorFrame, coverDistance, entryDistance, poseAt} from "./divePath";
 import {
   createDiveMachine,
   type DiveMachine,
@@ -49,6 +49,8 @@ type DiveSession = {
   fromPosition: Vector3;
   fromQuaternion: Quaternion;
   viewPose: Pose;
+  /** 飛び込み始める距離(divePath の entryDistance) */
+  entry: number;
   restoreNear: number | null;
   ready: boolean;
   portalResolved: boolean;
@@ -169,10 +171,11 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
   mesh.updateWorldMatrix(true, false);
   const screen = mesh.matrixWorld.clone();
   const anchor = anchorOf(to);
-  const view: Pose = {position: new Vector3(), quaternion: new Quaternion()};
-  poseAt(screen, ENTRY_DISTANCE, view);
-
   const dCover = coverDistance(cam.fov, cam.aspect);
+  const entry = entryDistance(screen, cam.position, ENTRY_DISTANCE, dCover);
+  const view: Pose = {position: new Vector3(), quaternion: new Quaternion()};
+  poseAt(screen, entry, view);
+
   let restoreNear: number | null = null;
   if (dCover < NEAR_MARGIN * cam.near) {
     restoreNear = cam.near;
@@ -180,7 +183,7 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
     cam.updateProjectionMatrix();
   }
 
-  const machine = createDiveMachine({dCover, L: ANCHOR_LENGTH});
+  const machine = createDiveMachine({dCover, L: ANCHOR_LENGTH, dStart: entry});
   machine.start({
     flyDistance: cam.position.distanceTo(view.position),
     flyAngleDeg: (cam.quaternion.angleTo(view.quaternion) * 180) / Math.PI,
@@ -204,6 +207,7 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
     fromPosition: cam.position.clone(),
     fromQuaternion: cam.quaternion.clone(),
     viewPose: view,
+    entry,
     restoreNear,
     ready: false,
     portalResolved: false,
@@ -242,7 +246,7 @@ export const tickDive = (dt: number): void => {
 
   const vcam = proxyView.vcam;
   if (f.phase === "fly") {
-    poseAt(s.anchor, ENTRY_DISTANCE, pose);
+    poseAt(s.anchor, s.entry, pose);
     vcam.position.copy(pose.position);
     vcam.quaternion.copy(pose.quaternion);
     cam.position.lerpVectors(s.fromPosition, s.viewPose.position, f.flyT);

@@ -1,16 +1,20 @@
 import {useEffect} from "react";
 
+import {mouseSettingsStore} from "../../../core/input/mouseSettings";
+import {gameFlow} from "../../../flow";
 import type {PcProgram, PcProgramProps} from "../program";
 import {searchProgram} from "../search/SearchProgram";
 import {pcSession} from "../session";
-import {DESKTOP_APPS} from "./apps";
+import {createDesktopApps} from "./apps";
 import {DesktopScreen} from "./DesktopScreen";
 
 let screen: DesktopScreen | null = null;
 
 /** デスクトップは 1 つだけ作り、部屋を出入りしても開いた窓などはそのまま残す */
 export const desktopScreen = (): DesktopScreen => {
-  screen ??= new DesktopScreen(DESKTOP_APPS);
+  screen ??= new DesktopScreen(
+    createDesktopApps({flow: gameFlow, mouse: mouseSettingsStore}),
+  );
   return screen;
 };
 

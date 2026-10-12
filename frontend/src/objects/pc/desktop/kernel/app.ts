@@ -17,6 +17,12 @@ export interface AppView {
   dispose?(): void;
 }
 
+/** アプリがシェルへ頼めること */
+export type AppContext = {
+  /** 自分の窓を閉じる */
+  close(): void;
+};
+
 export type IconName = "matchmaking" | "settings";
 
 /** デスクトップに置くアプリ。同じアプリの窓は 1 つだけ開く */
@@ -26,5 +32,5 @@ export type DesktopApp = {
   icon: IconName;
   /** 窓の中身の大きさ(枠とタイトルバーを除く) */
   size: Size;
-  open(): AppView;
+  open(context: AppContext): AppView;
 };

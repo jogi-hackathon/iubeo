@@ -25,7 +25,7 @@
 | ゲームの状態 | サーバーから届くフェーズ・タスク・結果と、サーバー時計のずれ。`game/gameStore.ts`。HUD と観戦が読む(→ §4) |
 | HUD | 画面の上に重ねる DOM の表示(フェーズ・残り時間・自分のタスクなど)。`game/Hud.tsx`。Canvas の中の物ではなく、判定もしない |
 | 観戦 | 脱落した後に `FlyCamera` でゲームを眺める状態。デバッグ用の `freeCamera`(F8)とは別。物には触れられない(`core/spectate.ts`)(→ §4) |
-| 操作対象(client target) | オーソリティが管理しない、シーンが自分で置く操作対象(room の仮のマッチングボタンなど)。狙いとクリックだけを `objects/interaction/clientTargets.ts` に登録する |
+| 操作対象(client target) | オーソリティが管理しない、シーンが自分で置く操作対象(room のチュートリアルのファイルなど)。狙いとクリックだけを `objects/interaction/clientTargets.ts` に登録する |
 | 準備完了(readiness) | シーンが描かれてよい状態になったこと。`authority`(オーソリティが物を置き終えた、または最初の snapshot を受け取った)か `mount`(マウントされた)かを、シーンごとに表で決める(→ §4) |
 | 白いオーバーレイ | シーンを切り替える間と起動の間、画面を白で覆う幕。中央に細い進捗バーを出す(→ §4) |
 | ベイク AO | 事前に焼いておく、建物の陰影の画像(`public/ao/`)。置いた物の数・位置が焼いたときと違うとずれる |
@@ -106,7 +106,7 @@ room(LocalAuthority)にいる
 
 ゲームの流れ(`flow/gameFlow.ts`)は、シーンもオーソリティも知らない純粋な状態機械で、状態は `idle` → `issuing` → `queued` → `matched` → `entering` → `inSession`(失敗は `error`)。HTTP・シーンの移動・待ちは引数で受け取る。
 
-- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の机の上に置いた仮のボタン(`scenes/RoomScene/MatchmakingButton.tsx`。チュートリアルを終えた後だけ出す。チュートリアルの終わりに自動でマッチングを始める形に置き換える予定の TODO つき)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ。仮のボタンはオーソリティが管理するオブジェクトにはせず、シーンが置く操作対象(`objects/interaction/clientTargets.ts`)として狙いとクリックだけを登録する。
+- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の PC のデスクトップの「マッチング」アプリ(`objects/pc/desktop/apps/matchmaking.ts`)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ(アプリは探している間のキャンセルもする)。アプリは `gameFlow` を直接 import せず、デスクトップを作るとき(`DesktopProgram.tsx`)に渡される。PC を使っている最中に成立したら、そのまま画面へ飛び込む(ダイブはカメラが画面の正面に寄っていれば、下がらずにその距離から始める)。
 - 待機中の扱い(サーバー側の事実に合わせる):
   - サーバーは 10 秒見ないと待機列から外すので、1 秒ごとに GET する。GET が 404(`not_queued`)なら入り直す。
   - 入るとき 409(`in_session`)なら、既にセッションに居る。`GET /players/me` の `sessionId` で成立として進む。
@@ -198,11 +198,12 @@ useInteraction(object, pcInteraction); // マウントで登録、アンマウ�
 | D | `LocalAuthority`(room・test)、自分の ID と要求の送り先をオーソリティから引く | 済 |
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
 | F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
-| - | room のチュートリアル(`tutorial/`、`scenes/RoomScene/TutorialDirector.tsx`)。終えるとマッチングのボタンが出る | 済 |
+| - | room のチュートリアル(`tutorial/`、`scenes/RoomScene/TutorialDirector.tsx`) | 済 |
+| - | room の PC を Windows 2000 風のデスクトップに(`objects/pc/desktop/`。マッチング・設定のアプリ)。仮のマッチングボタンは撤去 | 済 |
 
 残り:
 
-- マッチングのきっかけは、チュートリアルを終えた後に出る room の仮のボタン(チュートリアルの終わりに自動でマッチングを始める形に置き換えるのは未実装。`MatchmakingButton.tsx` の TODO)。シングルプレイの動線は設けない(人数がそろわなければ CPU で埋まる。state-schema §6.1)。
+- マッチングのきっかけは、room の PC のデスクトップの「マッチング」アプリ。シングルプレイの動線は設けない(人数がそろわなければ CPU で埋まる。state-schema §6.1)。
 - 勝敗画面は作らない(結果は console と HUD の 1 行だけ)。
 - フェーズの数値・バランスの調整は未着手(issue #84 の対象外)。
 

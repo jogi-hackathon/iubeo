@@ -5,7 +5,7 @@ import {createToggleStore, useIsVisible} from "../../core/toggles";
 import {TogglesProvider} from "../../core/TogglesProvider";
 import {ManagedObjects} from "../../objects";
 import {Chair, useGridFloorMaterial, Wall} from "../../props";
-import {tutorialStore, useTutorial} from "../../tutorial";
+import {tutorialStore} from "../../tutorial";
 import {WhiteWorld} from "../environment/WhiteWorld";
 import {ROOM_INITIAL} from "./initial";
 import {
@@ -16,7 +16,6 @@ import {
   ROOM_WALLS,
   WINDOW_PLUG,
 } from "./layout";
-import {MatchmakingButton} from "./MatchmakingButton";
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {TutorialDirector} from "./TutorialDirector";
 import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorialLook";
@@ -25,7 +24,6 @@ import {WindowPlug} from "./WindowPlug";
 function RoomProps() {
   const chairVisible = useIsVisible(CHAIR_KEY);
   const windowVisible = useIsVisible(WINDOW_KEY);
-  const {completed} = useTutorial();
   const floorMaterial = useGridFloorMaterial(ROOM_FLOOR_TILE);
   return (
     <>
@@ -52,7 +50,6 @@ function RoomProps() {
         collidable={false}
         ao="realtime"
       />
-      {completed && <MatchmakingButton />}
     </>
   );
 }

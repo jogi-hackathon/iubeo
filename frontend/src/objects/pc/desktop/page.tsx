@@ -1,13 +1,57 @@
+import {mouseSettingsStore} from "../../../core/input/mouseSettings";
+import type {GameFlowState} from "../../../flow";
 import {NO_MODIFIERS} from "../display/types";
-import {DESKTOP_APPS} from "./apps";
+import {createDesktopApps} from "./apps";
+import type {MatchmakingPort} from "./apps/matchmaking";
 import {DesktopScreen} from "./DesktopScreen";
 import {SCREEN} from "./kernel/layout";
 
 // dev 専用(desktop.html)。PC の 3D を通さずに、デスクトップを平面のまま本物のマウスで触る。
-// 2 倍に拡大して並べ、カーソルはデスクトップが自分で描くので、本物のカーソルは隠す
+// 2 倍に拡大して並べ、カーソルはデスクトップが自分で描くので、本物のカーソルは隠す。
+// マッチングはサーバーへつながず、下のボタンで状態を切り替える偽物を使う
 const SCALE = 2;
 
-const screen = new DesktopScreen(DESKTOP_APPS);
+const createFakeFlow = () => {
+  let state: GameFlowState = {status: "idle"};
+  const listeners = new Set<() => void>();
+  let timer: number | undefined;
+  const set = (next: GameFlowState) => {
+    window.clearTimeout(timer);
+    state = next;
+    for (const l of Array.from(listeners)) {
+      l();
+    }
+  };
+  const flow: MatchmakingPort & {set: (next: GameFlowState) => void} = {
+    getState: () => state,
+    subscribe: (l) => {
+      listeners.add(l);
+      return () => {
+        listeners.delete(l);
+      };
+    },
+    startMatchmaking: () => {
+      set({status: "issuing"});
+      timer = window.setTimeout(
+        () =>
+          set({
+            status: "queued",
+            playerId: "dev",
+            queuedAt: new Date().toISOString(),
+          }),
+        800,
+      );
+    },
+    cancelMatchmaking: () => set({status: "idle"}),
+    set,
+  };
+  return flow;
+};
+
+const flow = createFakeFlow();
+const screen = new DesktopScreen(
+  createDesktopApps({flow, mouse: mouseSettingsStore}),
+);
 const surface = screen.surface;
 surface.style.cssText = [
   `width:${SCREEN.width * SCALE}px`,
@@ -23,6 +67,26 @@ if (!root) {
 }
 document.body.style.cssText = "margin:0;padding:24px;background:#202020";
 root.appendChild(surface);
+const panel = document.createElement("div");
+panel.style.cssText = "margin-top:12px;display:flex;gap:8px;flex-wrap:wrap";
+const STATES: Array<[string, GameFlowState]> = [
+  ["待機", {status: "idle"}],
+  ["接続中", {status: "issuing"}],
+  [
+    "探している",
+    {status: "queued", playerId: "dev", queuedAt: new Date().toISOString()},
+  ],
+  ["成立", {status: "matched", playerId: "dev", sessionId: "s"}],
+  ["エラー", {status: "error", message: "502 Bad Gateway"}],
+  ["解散の通知", {status: "idle", notice: "dissolved"}],
+];
+for (const [label, next] of STATES) {
+  const button = document.createElement("button");
+  button.textContent = `マッチング: ${label}`;
+  button.addEventListener("click", () => flow.set(next));
+  panel.appendChild(button);
+}
+root.appendChild(panel);
 const log = document.createElement("pre");
 log.style.cssText = "color:#ccc;font:12px monospace";
 root.appendChild(log);
