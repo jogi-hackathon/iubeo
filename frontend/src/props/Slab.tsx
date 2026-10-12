@@ -12,6 +12,7 @@ interface SlabProps {
   color?: string;
   material?: Material;
   ao?: AOMode;
+  blocksCamera?: boolean;
 }
 
 export function Slab({
@@ -20,6 +21,7 @@ export function Slab({
   color = PROP_COLOR,
   material,
   ao,
+  blocksCamera,
 }: SlabProps) {
   const geometry = useMemo(
     () => buildSlabGeometry(polygon, offset),
@@ -28,7 +30,7 @@ export function Slab({
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <BVHCollider>
+    <BVHCollider blocksCamera={blocksCamera}>
       <mesh
         geometry={geometry}
         userData={aoModeUserData(ao)}

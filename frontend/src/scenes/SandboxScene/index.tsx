@@ -42,18 +42,19 @@ function SandboxZone({
 }) {
   return (
     <group rotation={[0, seatYaw(index + 1), 0]}>
-      <Slab {...ZONE_FLOOR} material={floorMaterial} />
+      <Slab {...ZONE_FLOOR} material={floorMaterial} blocksCamera />
       {ZONE_WALLS.map((wall, i) => (
-        <Wall key={i} position={wall.position} size={wall.size} />
+        <Wall key={i} position={wall.position} size={wall.size} blocksCamera />
       ))}
       <Wall
         position={ZONE_WINDOW_BLOCKER.position}
         size={ZONE_WINDOW_BLOCKER.size}
         visible={false}
         ao="realtime"
+        blocksCamera
       />
       <FrostedPartition material={partitionMaterial} />
-      <Slab {...ZONE_ROOF} />
+      <Slab {...ZONE_ROOF} blocksCamera />
       <Chair position={ZONE_CHAIR.position} yaw={ZONE_CHAIR.yaw} />
     </group>
   );
