@@ -186,10 +186,6 @@ const text = (
   ctx.textAlign = "left";
 };
 
-/**
- * 設定の窓(マウス・画面・サウンド)。窓の中で変えた値は下書きに持ち、「適用」か「OK」で保存して反映する。
- * 「キャンセル」と × は下書きを捨てる
- */
 export const createSettingsApp = (
   {mouse, graphics, audio, devices, micMeter}: SettingsPorts,
   frames: FrameSchedule = defaultFrames,

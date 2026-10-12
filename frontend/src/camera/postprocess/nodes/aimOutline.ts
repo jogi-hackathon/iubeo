@@ -17,18 +17,9 @@ import type {Node} from "three/webgpu";
 import type {SelectionMask} from "./selectionMask";
 
 const OUTLINE_COLOR = "#1a1a1a";
-/**
- * アウトラインの太さ(CSS ピクセル。見えている部分をこの距離だけ外へ広げた輪が線になる)。
- * 描画バッファのピクセルにすると高 DPR の画面で細くなりすぎ、内部解像度のマスクのテクセルより細い線は途切れる
- */
 const OUTLINE_THICKNESS = 1;
-/**
- * マスクは内部解像度なので、画面の解像度でバイリニアに読むと縁が 1/renderScale ピクセルかけてなだらかに変わる。
- * 0.5 の前後だけを拾って縁を締める(線の幅は解像度によらず、縁は 1 ピクセル弱のアンチエイリアスになる)
- */
 const EDGE_LOW = 0.3;
 const EDGE_HIGH = 0.7;
-/** 広げる方向(8 方向、長さ 1) */
 const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
   [-1, 0],
@@ -40,11 +31,6 @@ const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
   [-Math.SQRT1_2, -Math.SQRT1_2],
 ];
 
-/**
- * 狙ったオブジェクトの外周(細い線)。選択は selectionMask の R(見えている部分)と B(全体のシルエット)を読む。
- * 見えている部分を 8 方向に OUTLINE_THICKNESS だけ広げ、シルエットの内側を除いた輪を線にする。
- * 画面の解像度(FSR1 の後)で重ねる前提で、screenSize は画面の大きさ
- */
 export const createAimOutline = (selection: SelectionMask) => {
   const {visible} = selection;
   const thickness = uniform(OUTLINE_THICKNESS);
@@ -76,7 +62,6 @@ export const createAimOutline = (selection: SelectionMask) => {
         mix(color.rgb, outlineColor, clamp(edge, 0, 1).mul(weight)),
         color.a,
       ),
-    /** 描画バッファの CSS ピクセルに対する比(renderer.getPixelRatio) */
     setPixelRatio: (pixelRatio: number): void => {
       thickness.value = OUTLINE_THICKNESS * pixelRatio;
     },

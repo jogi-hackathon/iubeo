@@ -65,9 +65,6 @@ const diskOffsets = (count: number): Array<readonly [number, number]> =>
 
 const noiseVec2 = (q: Node<"vec2">): Node<"vec2"> => mx_noise_vec3(q).xy;
 
-/**
- * @param uAxis ガラスの面の水平方向の軸(mesh のローカル座標の単位ベクトル)。面内座標の横軸
- */
 export const createFrostedGlassMaterial = (
   uAxis: Vec3,
   params: FrostedGlassParams = FROSTED_GLASS,

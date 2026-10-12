@@ -1,5 +1,4 @@
 /**
- * エンジン(wasm)が落ちたことを、エンジンの標準エラー出力の行から見分ける。
  * 実例: "Pthread 0x... sent an error! ...: Uncaught RuntimeError: table index is out of bounds"
  */
 const CRASH_LINE_PATTERN = /RuntimeError|sent an error!|Aborted\(/;

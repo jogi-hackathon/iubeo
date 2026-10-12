@@ -25,23 +25,16 @@ import {
 } from "../powerOutlineSelection";
 import type {SelectionMask} from "./selectionMask";
 
-/** 縁取りの幅(CSS ピクセル。描画バッファのピクセルにすると DPR で太さが変わる) */
 const POWER_OUTLINE_WIDTH = 7;
 const POWER_WOBBLE_PX = 0;
-/** 広げるパスのテクセル数。パスの解像度を DPR に合わせて変え、POWER_OUTLINE_WIDTH の幅になるようにする */
 const DILATE_TEXELS = 5;
 const dilateResolutionScale = (pixelRatio: number): number =>
   Math.min(1, DILATE_TEXELS / (POWER_OUTLINE_WIDTH * pixelRatio));
 const DASH_PERIODS_PER_SCREEN_HEIGHT = 45;
 const DASH_SPEED = 1.5;
-/** 内部解像度・半解像度のマスクを画面の解像度でバイリニアに読んだ値の、0.5 の前後だけを拾って縁を締める */
 const EDGE_LOW = 0.3;
 const EDGE_HIGH = 0.7;
 
-/**
- * 力の縁取り(選択物の外側に太い破線)。選択は selectionMask の G(見えている部分)と A(全体のシルエット)を読む。
- * 画面の解像度(FSR1 の後)で重ねる前提
- */
 export const createPowerOutline = (selection: SelectionMask) => {
   const {visible} = selection;
   const powerWobble = vec2(
@@ -58,8 +51,6 @@ export const createPowerOutline = (selection: SelectionMask) => {
     visible
       .sample(screenUV.add(powerWobble).add(vec2(dx, dy).div(screenSize)))
       .level(float(0)).g;
-  // 円形に全方向を読むと 1 ピクセル 144 回のサンプルになり FPS が半分に落ちたので、横→縦の 2 パスの最大値で広げる(縁の角は四角くなる)。
-  // 広げる側は低い解像度で足りる(シーンの内部解像度にはよらない)。パスの中の screenSize はそのパスの大きさになる
   const dilateAlong = (
     sampleAt: (offset: number) => Node<"float">,
   ): Node<"vec4"> =>
@@ -132,7 +123,6 @@ export const createPowerOutline = (selection: SelectionMask) => {
         ),
         color.a,
       ),
-    /** 描画バッファの CSS ピクセルに対する比(renderer.getPixelRatio) */
     setPixelRatio: (pixelRatio: number): void => {
       const scale = dilateResolutionScale(pixelRatio);
       coverX.setResolutionScale(scale);

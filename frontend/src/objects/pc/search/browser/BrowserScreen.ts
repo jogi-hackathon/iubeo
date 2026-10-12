@@ -46,10 +46,6 @@ const PAGE_SELECTION = `(() => {
   return String(getSelection() || "");
 })()`;
 
-/**
- * ページで文字を入れる位置(エンジンの表示の座標)を JSON で返す。入力欄なら、カーソルの前の文字の幅を
- * 測って足す。contenteditable などは選択範囲の位置を使う。文字を入れる場所が無ければ空文字
- */
 const PAGE_CARET = `(() => {
   const el = document.activeElement;
   const out = (x, y, height) => JSON.stringify({x, y, height});
@@ -279,7 +275,6 @@ export class BrowserScreen implements ScreenSource {
     }
     const r = TOOLBAR_LAYOUT.address;
     ctx.font = ADDRESS_FONT;
-    // 変換中は、変換している文字の頭に合わせる(候補の窓が文字に合わせて動かないように)
     const at =
       this.composition === null
         ? this.address.caret
@@ -549,7 +544,6 @@ export class BrowserScreen implements ScreenSource {
     if (this.addressFocused) {
       return;
     }
-    // スクロールやページの読み込みで入力欄が動くので、ときどき読み直す
     this.refreshPageCaret();
     const href = await this.engine.evalContent("location.href");
     if (!href) {
@@ -604,10 +598,6 @@ export class BrowserScreen implements ScreenSource {
     this.drawNotice(ctx);
   }
 
-  /**
-   * ページで変換中の文字を、入力欄のカーソルの位置に重ねて描く。エンジンには確定してから送るので、
-   * それまでの文字はこちらで見せる
-   */
   private drawPageComposition(ctx: CanvasRenderingContext2D): void {
     const text = this.composition;
     const caret = this.pageCaret;
@@ -624,7 +614,6 @@ export class BrowserScreen implements ScreenSource {
     ctx.textBaseline = "top";
     const width = ctx.measureText(text).width;
     ctx.fillStyle = COLORS.field;
-    // エンジンが描いているカーソルも隠れるよう、少し左から塗る
     ctx.fillRect(caret.x - 3, caret.y - 2, width + 5, size + 4);
     ctx.fillStyle = COLORS.ink;
     ctx.fillText(text, caret.x, caret.y);
@@ -700,7 +689,6 @@ export class BrowserScreen implements ScreenSource {
     );
   }
 
-  /** 入力中の文字・選択・カーソル。カーソルが欄の外に出ないよう、横にずらして描く */
   private drawAddressEdit(
     ctx: CanvasRenderingContext2D,
     maxWidth: number,
@@ -709,7 +697,6 @@ export class BrowserScreen implements ScreenSource {
     const r = TOOLBAR_LAYOUT.address;
     const {start, end} = addressSelection(this.address);
     const typed = Array.from(this.address.text);
-    // 変換中は、選択の範囲を変換中の文字に置き換えて見せる(確定するまで本当の中身は変えない)
     const composing =
       this.composition === null ? [] : Array.from(this.composition);
     const chars =

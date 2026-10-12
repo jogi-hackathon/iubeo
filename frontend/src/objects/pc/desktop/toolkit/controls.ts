@@ -281,7 +281,6 @@ const hits = (c: Control, x: number, y: number): boolean => {
   return contains(c.rect, x, y) || (popup != null && contains(popup, x, y));
 };
 
-/** 部品をまとめ、窓の中身への入力を、押した部品へ届ける */
 export const createControlSet = (
   source: readonly Control[] | (() => readonly Control[]),
 ) => {

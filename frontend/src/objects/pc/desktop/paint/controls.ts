@@ -121,7 +121,6 @@ export const paintLevelMeter = (
   }
 };
 
-/** 見出し付きの彫った枠(グループボックス) */
 export const paintGroup = (
   ctx: CanvasRenderingContext2D,
   r: Rect,
@@ -246,10 +245,6 @@ export const paintDropdownList = <T>(
   });
 };
 
-/**
- * 幅に収まるように折り返す。日本語は 1 文字ずつ、英数字の続き(単語や URL)はまとめて送る。
- * 1 語だけで幅を超えるときは、その語も文字で切る
- */
 export const wrapText = (
   ctx: CanvasRenderingContext2D,
   text: string,

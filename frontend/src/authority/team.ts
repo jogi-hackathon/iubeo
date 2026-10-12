@@ -4,7 +4,6 @@ import type {Team} from "../net/types";
 
 export const INITIAL_TEAM: Team = {bypassPermission: false, fireStarted: false};
 
-/** 値は変わるまで同じ参照(useSyncExternalStore 用) */
 export type TeamStore = {
   get: () => Team;
   set: (team: Team) => void;

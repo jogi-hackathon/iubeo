@@ -46,7 +46,6 @@ const backendWorker = defineWorker({
   env: {
     IUBEO_SIGNING_KEY: bindings.secret(),
     IUBEO_WISP_KEY: bindings.secret(),
-    // Worker の env はコンテナへ自動で渡らないので、VC の 3 つは worker/backend.ts の voiceEnv が載せる
     IUBEO_VC_PRIVATE_KEY: bindings.secret(),
     IUBEO_VC_SIGNALING_URL: bindings.text(
       "wss://vc.thirdlf03.com/v1/signaling",

@@ -83,8 +83,6 @@ const UNIT_GEOMETRIES: Record<
   prism: new CylinderGeometry(1, 1, 1, 3),
 };
 
-// 手に持つまでマウントされないので、塗りと縁取り(BackSide)の見本をウォームアップに描かせる。
-// ファイルの色ごとの縁取りは OUTLINE_MATERIAL と同じシェーダー・設定(色は uniform)なので、見本は 1 つで足りる。炎は lighterFlame が登録する
 registerShaderSwatch("heldItem", () => {
   const group = new Group();
   group.add(

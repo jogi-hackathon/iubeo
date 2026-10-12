@@ -22,7 +22,6 @@ type Options = {
   lock?: () => () => void;
 };
 
-// 状態は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
 export const createOverviewStore = ({
   lock = lockPlayerControl,
 }: Options = {}) => {

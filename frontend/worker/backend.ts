@@ -144,7 +144,6 @@ async function proxyToEc2(request: Request): Promise<Response> {
   return fetch(forwarded);
 }
 
-/** 共有の Durable Object 名を env のバインディングで持たせると、cf が script_name 付きの binding を出力し、自己参照でも deploy に失敗する */
 interface LoopbackExports {
   Backend: DurableObjectNamespace<Backend>;
 }

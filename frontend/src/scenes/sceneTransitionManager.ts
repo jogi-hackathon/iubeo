@@ -36,7 +36,6 @@ export const createSceneTransitionManager = ({
   finishTransition = noFinish,
   canStart = always,
 }: SceneTransitionManagerOptions) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: TransitionState = {status: "idle"};
   const listeners = new Set<() => void>();
   const handlers: {

@@ -5,11 +5,9 @@ import type {PlayerId} from "../../player/types";
 import type {SlipContent} from "./content";
 
 export type MemosState = {
-  /** ワークスペースの id → そこのメモ置きに残っている伝票(最新の 1 枚) */
   byWorkspace: Readonly<Record<string, SlipContent>>;
 };
 
-/** 机のメモ置きに残っている伝票。フェーズごとに差し替わり、セッションを離れると消える */
 export const createMemosStore = () => {
   let state: MemosState = {byWorkspace: {}};
   const listeners = new Set<() => void>();
@@ -48,10 +46,6 @@ export const useMemoAt = (workspaceId: string): SlipContent | null =>
     () => memos.getState().byWorkspace[workspaceId] ?? null,
   );
 
-/**
- * メモ置きの伝票のタスクが終わっているか。伝票のフェーズが過ぎた、または同じフェーズで自分のタスクが全部達成済みなら true。
- * フェーズが分からない(セッション外・dev)ときは終わっていない扱い
- */
 export const isMemoDone = (
   memo: SlipContent,
   phase: GamePhase | null,

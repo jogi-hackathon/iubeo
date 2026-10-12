@@ -39,7 +39,6 @@ function RoomProps() {
         <Wall key={i} position={wall.position} size={wall.size} />
       ))}
       <WindowPlug visible={!windowVisible} />
-      {/* 窓の空洞は見た目のまま、通れないようにする(飛び出して落ちないため)。当たり判定だけで、ベイクもしない */}
       <Wall
         position={WINDOW_PLUG.position}
         size={WINDOW_PLUG.size}
@@ -53,14 +52,6 @@ function RoomProps() {
   );
 }
 
-/**
- * 立方体の空洞の1人用部屋(チュートリアル+ニュートラル時に入室)。
- * トグルのストアはこのシーンが持つ(マウントで作り、TogglesProvider で配下に配る)。シーンを出れば捨てられるので、再入室すれば初期状態に戻る。
- * 初期状態は、ディレクトリの俯瞰ビューだけ機能 OFF(チュートリアルが後から ON にする。ファイルを持っているときの「入れる」は、これと関係なく動く)、他は全部表示・全部機能 ON。
- * Canvas の外からは getActiveToggles / useActiveToggles で参照できる。
- * 出し入れするイスとオブジェクトは、ベイクすると隠したあとも影が壁・床に残るので、AO は realtime にしてベイクしない(壁・床・天井だけをベイクする)。
- * 左の壁の窓は、専用のジオメトリができるまで何もはめない空洞(非表示にすると壁板でふさぐ)。窓の前で外を見続けると、空にスタッフクレジットが流れる(./credits)
- */
 export function RoomScene() {
   const [toggles] = useState(() =>
     createToggleStore(

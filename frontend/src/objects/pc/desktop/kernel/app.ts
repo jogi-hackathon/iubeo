@@ -12,17 +12,14 @@ export interface AppView {
   pointer?(event: AppPointerEvent): void;
   subscribe?(listener: () => void): () => void;
   reveal?(options: LaunchOptions): void;
-  /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたとき) */
   cancel?(): void;
   dispose?(): void;
 }
 
 export type LaunchOptions = {tab?: string};
 
-/** アプリがシェルへ頼めること */
 export type AppContext = {
   launch(appId: string, options?: LaunchOptions): void;
-  /** 自分の窓を閉じる */
   close(): void;
 };
 

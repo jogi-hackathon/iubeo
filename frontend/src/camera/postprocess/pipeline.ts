@@ -54,13 +54,11 @@ const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
   none: NoToneMapping,
 };
 
-/** BloomNode の既定と同じ。内部解像度に対する比率 */
 const BLOOM_RESOLUTION_SCALE = 0.5;
 
 export interface PostProcessPipeline {
   render(): void;
   apply(settings: PostProcessSettings): void;
-  /** シーン(と AO・ブルーム)を描く内部解像度の、画面に対する比率(0〜1。core/graphics の getRenderScale) */
   setRenderScale(scale: number): void;
   dispose(): void;
 }
@@ -112,7 +110,6 @@ export const createPostProcessPipeline = (
     cameraPlanes,
   );
   const grain = createGrain();
-  // 2 つの縁取りの選択を 1 回のマスクで描き、隠れは pre-pass の深度と比べる(シーンの再描画なし)
   const selection = createSelectionMask(
     scene,
     camera,
@@ -195,8 +192,6 @@ export const createPostProcessPipeline = (
       full = node;
     }
 
-    // 輪郭線と縁取りは引き伸ばしの後に画面の解像度で重ねる。内部解像度で描くと線が 1/renderScale 倍に太り、
-    // FSR1 の補間で滲む。読むマスク・深度・法線は内部解像度のまま、線の幅を画面のピクセルで決める
     if (s.contour.enabled) {
       full = contour.composite(full, sceneWeight);
     }
@@ -230,7 +225,6 @@ export const createPostProcessPipeline = (
       const planes = camera as {near?: number; far?: number};
       cameraPlanes.near.value = planes.near ?? cameraPlanes.near.value;
       cameraPlanes.far.value = planes.far ?? cameraPlanes.far.value;
-      // 縁取りの幅は CSS ピクセルで決めるので、Canvas の DPR(画質設定・ウィンドウの移動で変わる)に合わせる
       const nextPixelRatio = renderer.getPixelRatio();
       if (nextPixelRatio !== pixelRatio) {
         pixelRatio = nextPixelRatio;
@@ -247,7 +241,6 @@ export const createPostProcessPipeline = (
       bloomNode.threshold.value = s.bloom.threshold;
       pixelSize.value = s.pixelate.pixelSize;
       vignetteIntensity.value = s.vignette.intensity;
-      // smoothstep の edge0 == edge1 を避ける
       vignetteSmoothness.value = Math.max(
         s.vignette.smoothness,
         VIGNETTE_MIN_SMOOTHNESS,
@@ -262,7 +255,6 @@ export const createPostProcessPipeline = (
         return;
       }
       if (key !== "") {
-        // 構成の変更で全マテリアルのパイプラインが作り直されるので、ウォームアップ後の警告は次のウォームアップまで止める
         disarmPipelineWatch();
       }
       key = next;

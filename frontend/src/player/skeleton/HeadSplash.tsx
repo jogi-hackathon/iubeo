@@ -88,7 +88,6 @@ const createSplash = () => {
   return {sprite, origin, direction, elapsed, floorY};
 };
 
-// 死ぬまでマウントされないので、見本をウォームアップに描かせる。elapsed が負のままなので粒の大きさは 0
 registerShaderSwatch("headSplash", () => createSplash().sprite);
 
 export const floorBelow = (body: Ragdoll): number =>

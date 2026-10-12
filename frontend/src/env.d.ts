@@ -1,6 +1,5 @@
 interface ImportMetaEnv {
   readonly VITE_ENABLE_DEBUG?: string;
-  /** webgl にすると WebGL2 バックエンドを強制する。非対応なので起動エラー画面になる */
   readonly VITE_RENDERER?: "webgpu" | "webgl";
   readonly VITE_WISP_URL?: string;
   readonly VITE_ENGINE_BASE_URL?: string;

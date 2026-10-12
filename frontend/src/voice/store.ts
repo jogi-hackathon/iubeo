@@ -51,7 +51,6 @@ const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
 };
 
 export const createVoiceEngine = () => {
-  // state は変更のたびに新しいオブジェクトにする（useSyncExternalStore の参照同一性のため）
   let state: VoiceState = IDLE;
   const listeners = new Set<() => void>();
 
@@ -341,7 +340,6 @@ export const createVoiceEngine = () => {
     stop,
 
     // ブラウザは最初の操作があるまで AudioContext を止めるので、クリックのたびに起こす。
-    // マイクの取得に失敗していた場合も、ここで取り直す
     unlock: (): void => {
       ensureMic();
       audioManager.unlock();

@@ -5,7 +5,6 @@ import {SCREEN_CANVAS} from "./display/resolution";
 
 const BAR_BLOCKS = 20;
 
-/** ロゴの SVG(6000×4000)のうち、線が描かれている範囲 */
 export const LOGO_INK = {x: 150, y: 1150, width: 5700, height: 1700};
 const LOGO_WIDTH = 280;
 

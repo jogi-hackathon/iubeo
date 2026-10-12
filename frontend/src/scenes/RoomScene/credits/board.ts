@@ -14,14 +14,12 @@ import {LOGO_INK} from "../../../objects/pc/bootScreen";
 import type {CreditLine} from "./content";
 import {BOARD_WIDTH, type CreditLayout} from "./roll";
 
-/** 板の解像度(px/m)。窓越しの距離で文字がつぶれない程度 */
 const PX_PER_M = 192;
 const INK = "#1a1a1a";
 const SUB_INK = "#6a6a6a";
 const FONT_FAMILY = `ui-monospace, Menlo, "Hiragino Sans", monospace`;
 const LOGO_WIDTH_M = 3;
 
-/** 行の種類ごとの文字の大きさ(m)と色 */
 const TEXT_STYLE: Record<
   "heading" | "item",
   {size: number; color: string; weight: string}
@@ -30,7 +28,6 @@ const TEXT_STYLE: Record<
   item: {size: 0.24, color: INK, weight: "normal"},
 };
 
-/** 空に浮かべる板のマテリアル。霧で白く霞まないようにし、明るさは描いた色のまま出す */
 export const createBoardMaterial = (map: CanvasTexture): Material => {
   const m = new MeshBasicMaterial({
     map,
@@ -43,7 +40,6 @@ export const createBoardMaterial = (map: CanvasTexture): Material => {
   return m;
 };
 
-// クレジットは流れ出すまでマウントされないので、見本をウォームアップに描かせる
 registerShaderSwatch(
   "skyCredits",
   () =>
@@ -54,7 +50,6 @@ registerShaderSwatch(
 );
 
 const tintedLogo = (image: HTMLImageElement): HTMLCanvasElement => {
-  // ロゴの SVG は白い線(PC の黒い起動画面用)なので、白い空に合わせて墨色に塗り替える
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(LOGO_WIDTH_M * PX_PER_M);
   canvas.height = Math.round((canvas.width * LOGO_INK.height) / LOGO_INK.width);
@@ -78,7 +73,6 @@ const tintedLogo = (image: HTMLImageElement): HTMLCanvasElement => {
   return canvas;
 };
 
-/** クレジット全体を 1 枚に描いた板。ロゴは読み込めたら描き足す */
 export class CreditBoard {
   readonly texture: CanvasTexture;
   private readonly canvas: HTMLCanvasElement;
@@ -94,7 +88,6 @@ export class CreditBoard {
     this.paint();
     const image = new Image();
     image.src = logoUrl;
-    // dispose 後に描き足しても、テクスチャは次に使われたときに送り直されるだけなので止めない(StrictMode は一度 dispose してから使い直す)
     void image.decode().then(() => {
       this.logo = tintedLogo(image);
       this.paint();

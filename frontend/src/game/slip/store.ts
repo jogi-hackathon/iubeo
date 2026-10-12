@@ -9,44 +9,31 @@ import type {PlayerId} from "../../player/types";
 import {type SlipContent, slipContent} from "./content";
 import {memos, type MemosStore} from "./memos";
 
-/** 再生中の伝票。startedAt は performance.now() 基準(ms) */
 export type OrderSlipPlayback = {
   content: SlipContent;
   startedAt: number;
 };
 
-/** 手を離れてワークスペースへ飛んでいる伝票 */
 export type OrderSlipFlight = {
   content: SlipContent;
-  /** 飛び始めの伝票の世界座標(行列の要素。手元の帯の根元が原点) */
   from: readonly number[];
   startedAt: number;
-  /** 飛んでいく先のワークスペースの id */
   workspaceId: string;
 };
 
 export type OrderSlipState = {
   playing: OrderSlipPlayback | null;
-  /** 他の操作(PC・ワークスペースなど)に預けている間に届いた分。空いたら始める */
   pending: SlipContent | null;
   flight: OrderSlipFlight | null;
-  /** 伝票の飛んでいく先(自分のワークスペース)。無ければ飛ばさずに消える */
   target: string | null;
 };
 
 export type OrderSlipStoreOptions = {
   now?: () => number;
-  /** 他の誰かが操作を預かっているか。預かられていれば待つ */
   isBusy?: () => boolean;
   memos?: Pick<MemosStore, "place">;
 };
 
-/**
- * 依頼(伝票)の再生の状態。届いたら deliver に渡す。
- * 操作が空いていればすぐ始め、空いていなければ(PC の画面やワークスペースの作業中)終わるまで待つ。
- * 再生中にもう 1 枚届いたら、終わってから続けて出す(最後の 1 枚だけ残す)。
- * 見終えた伝票は launch で手を離れ、終える(finish)ときに飛ぶ先のメモ置きへ残す
- */
 export const createOrderSlipStore = ({
   now = () => performance.now(),
   isBusy = isPlayerControlLocked,
@@ -134,7 +121,6 @@ export const createOrderSlipStore = ({
       }
       start(state.pending);
     },
-    /** 再生も待ちも捨てる(セッションを離れたとき・脱落したとき)。飛ぶ先は保つ */
     reset: (): void => {
       if (state.playing || state.pending || state.flight) {
         set({...state, playing: null, pending: null, flight: null});
@@ -151,11 +137,6 @@ export const orderSlip = createOrderSlipStore();
 export const useOrderSlip = (): OrderSlipState =>
   useSyncExternalStore(orderSlip.subscribe, orderSlip.getState);
 
-/**
- * フェーズが始まったときに自分へ届く伝票。自分のタスクが無い、まだ始まっていない、同じフェーズを出した後なら null。
- * delivered は出し終えたフェーズ番号(接続し直しで同じフェーズを受け取っても、二度は出さない)。
- * fileColors はファイル id → 山の紙の色(対象ファイルを色で示す)
- */
 export const slipForPhase = (
   phase: GamePhase | null,
   myPlayerId: PlayerId | null,
@@ -174,7 +155,6 @@ export const slipForPhase = (
   return mine.length === 0 ? null : slipContent(phase, mine, fileColors);
 };
 
-/** 伝票の飛んでいく先: 自分が owner のワークスペース。owner が無い場でワークスペースが 1 つだけなら、それ */
 export const myWorkspaceId = (
   objects: readonly GameObject[],
   myPlayerId: PlayerId | null,

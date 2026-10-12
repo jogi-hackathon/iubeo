@@ -69,7 +69,6 @@
     "import/no-cycle": "warn",
 
     "react/rules-of-hooks": "error",
-    // React Compiler 系の診断は、effect 内で three.js のオブジェクトを mutate する R3F の書き方で誤検知する
     "react/immutability": "off",
     "react/purity": "off",
     "react/globals": "off",

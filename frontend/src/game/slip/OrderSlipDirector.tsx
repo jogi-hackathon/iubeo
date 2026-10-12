@@ -21,15 +21,12 @@ import {myWorkspaceId, orderSlip, slipForPhase, useOrderSlip} from "./store";
 import {STAGE_MS, stageStart, STOW_MS, TERMINAL_SEQUENCE_MS} from "./terminal";
 import {heldSlipWorld, slipZoomBlend, slipZoomPose} from "./zoom";
 
-/** 再生中に視線を向ける手元の角度(下向き)。端末と千切った伝票が視界に収まる */
 export const SLIP_VIEW_PITCH = -0.25;
-/** 視線を手元へ向ける(戻す)のにかける時間 */
 export const SLIP_VIEW_BLEND_MS = 400;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const easeInOut = (t: number) => t * t * (3 - 2 * t);
 
-/** 再生の経過時間から、視線をどれだけ手元へ向けているか(0..1)。始めに向け、端末をしまうのに合わせて戻す */
 export const slipViewBlend = (elapsedMs: number): number => {
   const inBlend = clamp01(elapsedMs / SLIP_VIEW_BLEND_MS);
   const outStart = stageStart("fly") + STOW_MS - SLIP_VIEW_BLEND_MS;
@@ -49,16 +46,6 @@ const SLIP_CUE = {
   tearSeconds: STAGE_MS.tear / 1000,
 };
 
-/**
- * 依頼の伝票の進行役。
- * - フェーズが始まって自分のタスクがあれば、伝票を届ける(store)。接続し直しで同じフェーズを受けても二度は出さない
- * - 再生中はプレイヤーの操作を預かり(移動も視線も止める)、視線を手元へ向ける。終わったら戻す
- * - 千切った伝票を見ている間は、カメラを伝票の正面へ寄せて拡大する(zoom.ts)
- * - 他の操作(PC・ワークスペース)に預けている間に届いた分は、空いてから始める
- * - 見終えた伝票は自分のワークスペースへ飛ばし、メモ置きに残す(WorkspaceMemo)
- * - 脱落したら、再生も待ちも捨てる
- */
-
 export function OrderSlipDirector() {
   const game = useGameState();
   const myPlayerId = useMyPlayerId();
@@ -68,7 +55,6 @@ export function OrderSlipDirector() {
   const {objects} = useObjectsState();
   const delivered = useRef(new Set<number>());
   const printed = useRef<number | null>(null);
-  // 伝票を作る時点のファイルの色を引くためだけに使う(物が動くたびに届け直しを考えない)
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
 

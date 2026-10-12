@@ -1,7 +1,6 @@
 import type {Item, ItemEvents, ItemMessage, ItemState} from "./types";
 
 export const createItemManager = () => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ItemState = {held: null};
   const listeners = new Set<() => void>();
   const handlers: {[K in keyof ItemEvents]: Set<(e: ItemEvents[K]) => void>} = {

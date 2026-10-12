@@ -9,7 +9,6 @@ import {CORRUPT_SECONDS, directoryCorruption} from "./corruption";
 import {createFireMaterial, fireParamsFor, IGNITE_SECONDS} from "./fire";
 import {mountainReach, type MountainSizeName} from "./mountain";
 
-// 火がつくまでマウントされないので、見本をウォームアップに描かせる。シェーダーは山の大きさ(粒の数)によらず同じ
 registerShaderSwatch("directoryFire", () => {
   const params = fireParamsFor("small");
   const sprite = new Sprite(createFireMaterial(params).material);

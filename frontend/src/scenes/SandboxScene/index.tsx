@@ -92,10 +92,6 @@ export function SandboxScene() {
   );
 }
 
-/**
- * StrictMode の開発時は、マウント直後に effect の後始末がいったん走って、また設定が走る。
- * その間に知らせると流れが idle に戻ってしまうので、後始末では 1 tick 待って、設定が走り直したら取り消す
- */
 const useLeaveSessionOnUnmount = () => {
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

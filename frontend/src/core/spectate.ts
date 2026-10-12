@@ -30,9 +30,6 @@ export const isSpectating = (): boolean => phase === "spectating";
 
 export const isEliminated = (): boolean => phase !== "alive";
 
-/**
- * 生きていなければ何もしないので、何度呼んでも 1 回だけ効く(StrictMode の二重実行でも演出が延びない)
- */
 export const beginElimination = (): void => {
   if (phase !== "alive") {
     return;

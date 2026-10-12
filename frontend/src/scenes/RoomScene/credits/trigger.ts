@@ -7,10 +7,8 @@ import {
   WINDOW_SIZE,
 } from "../layout";
 
-/** 窓を見続けてクレジットが流れ出すまで(秒) */
 export const GAZE_SECONDS = 20;
 
-/** 窓の前とみなす範囲。壁(室内側の面)からの奥行きと、窓の中心からの横幅 */
 const ZONE_DEPTH = 1.5;
 const ZONE_HALF_WIDTH = 1.2;
 
@@ -25,10 +23,6 @@ export const inWindowZone = (x: number, z: number): boolean =>
   x <= WINDOW_X + ZONE_DEPTH &&
   Math.abs(z - WINDOW_CENTER_Z) <= ZONE_HALF_WIDTH;
 
-/**
- * 目(origin)から向き(direction)へ伸ばした視線が、窓の空洞(左の壁の室内側の面)を通るか。
- * 窓の空洞には見えない当たり判定がはまっていてレイキャストでは毎回それに当たるので、面との交点を直に解く
- */
 export const gazesAtWindow = (origin: Vector3, direction: Vector3): boolean => {
   if (direction.x >= 0) {
     return false;

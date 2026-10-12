@@ -35,7 +35,6 @@ import {
 import {credits, useCreditsPhase} from "./store";
 import {GAZE_SECONDS, gazesAtWindow, inWindowZone, stepGaze} from "./trigger";
 
-/** 寄り始めのうち、窓のほうへ向き直るのに使う割合。向き直ってから窓をくぐる */
 const TURN_SHARE = 0.4;
 
 const euler = new Euler(0, 0, 0, "YXZ");
@@ -95,9 +94,6 @@ const useLeaveOnUnlock = (): void => {
   }, [locked]);
 };
 
-/**
- * 流している間だけマウントする(入るたびに寄るところから始め直す)。
- */
 function CreditsShow() {
   const layout = useMemo(() => layoutCredits(CREDIT_LINES), []);
   const board = useMemo(() => new CreditBoard(layout), [layout]);
@@ -114,8 +110,6 @@ function CreditsShow() {
   const sequence = useRef(INITIAL_SEQUENCE);
   const duration = rollSeconds(layout);
 
-  // reset(シーンの遷移など)で打ち切られたら、その場でカメラを一人称の目へ戻す。
-  // 遷移(ダイブ)は始まるときのカメラを出発点にするので、次のフレームを待たずに戻しておく
   const camera = useThree((s) => s.camera);
   useEffect(
     () =>
@@ -143,7 +137,6 @@ function CreditsShow() {
     if (phase === "idle") {
       return;
     }
-    // 預かっている間の視点入力は捨てる(戻ったときに溜まった分で視点が飛ばないように)
     consumeLookDelta();
     const {next, events} = stepSequence(
       sequence.current,

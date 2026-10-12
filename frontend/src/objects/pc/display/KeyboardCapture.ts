@@ -3,7 +3,6 @@ import {type ScreenKeyEvent, type ScreenSource, SYNTHETIC_KEY} from "./types";
 
 /**
  * リスナーは window のキャプチャ段階に置く。エンジンは mousedown で canvas.focus() を呼ぶので、要素に付けると画面内のクリックでキーを失う。
- * keyup は自分が keydown を受けたキーだけ消費する。使い始める前から押していた移動キーの keyup を奪うと、移動が押しっぱなしになる。
  * 隠し <textarea> をフォーカスしておく。IME の composition には本物の編集可能な要素が要る。
  * `compositionend` で確定した文字列ごと `insertText()` に渡す（「候補から『日本語』が確定した」は
  * キーイベントの列では表せない）。
@@ -295,10 +294,6 @@ const charCodeOf = (event: KeyboardEvent): number => {
   return 0;
 };
 
-/**
- * IME が受け取るキー。変換を始めるキー(keyCode 229・Process)と、かな・英数などの切り替えキー。
- * 止めたり画面へ送ったりせず、そのまま OS の IME に任せる
- */
 const IME_KEYS = new Set([
   "Process",
   "KanaMode",
@@ -336,6 +331,5 @@ const isBrowserShortcut = (event: KeyboardEvent): boolean => {
   ) {
     return true;
   }
-  // ⌘L / Ctrl+L は画面の中のブラウザのアドレス欄に使うので、ここには入れない
   return withCommand && ["r", "t", "n", "w"].includes(key.toLowerCase());
 };

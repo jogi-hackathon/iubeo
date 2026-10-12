@@ -17,7 +17,6 @@ export const createObjectManager = ({
   getHeldItem,
   getAuthority,
 }: ObjectManagerOptions) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ObjectManagerState = {objects: []};
   const listeners = new Set<() => void>();
   const handlers: {

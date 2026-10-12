@@ -4,7 +4,6 @@ import type {Collider} from "../core/bvh";
 import {CAPSULE_RADIUS} from "./constants";
 import {resolveCollisions} from "./physics";
 
-// 紙は衝突の登録がないので、CPU はこの円の外へ押し出す。sandbox の紙の山(large、シード directory-1、中心は原点)で実測 3.98m
 export const PAPER_RING_RADIUS = 4;
 
 const pushOutOfPaperRing = (position: Vector3): void => {

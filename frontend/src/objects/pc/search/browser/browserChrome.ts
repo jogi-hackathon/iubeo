@@ -98,13 +98,11 @@ export const displayUrl = (url: string): string =>
 export const addressDraftFor = (url: string): string =>
   url.startsWith("data:") ? "" : url;
 
-/** アドレス欄の中身。位置は文字(コードポイント)の数で数え、caret と anchor の間が選択範囲 */
 type AddressSnapshot = {text: string; caret: number; anchor: number};
 
 export type AddressEdit = AddressSnapshot & {
   undo: readonly AddressSnapshot[];
   redo: readonly AddressSnapshot[];
-  /** 直前の操作が文字の入力か。続けて打った文字は、元に戻すときにまとめて消す */
   typing: boolean;
 };
 

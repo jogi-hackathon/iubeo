@@ -8,10 +8,6 @@ import {lockPlayerControl} from "../../core/playerControl";
 
 export type PcPhase = "idle" | "active" | "leaving";
 
-/**
- * native: pointer lock を解き、離れ終わったら取り直す。
- * virtual: lock を解かないので取り直さない(Esc で外れたら、一人称に戻ってからクリックで取り直す)
- */
 export type PcPointerMode = "native" | "virtual";
 
 export type PcSessionState = {
@@ -41,7 +37,6 @@ export const createPcSession = ({
   exitPointerLock = exitDocumentPointerLock,
   resumePointerLock: resume = resumePointerLock,
 }: Options = {}) => {
-  // 変えるたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state = IDLE;
   let releases: Array<() => void> = [];
   const listeners = new Set<() => void>();

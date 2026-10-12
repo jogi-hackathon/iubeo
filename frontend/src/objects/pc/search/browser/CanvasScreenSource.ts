@@ -226,7 +226,6 @@ const noticeLines = (status: ScreenStatus, detail: string): string[] => {
   }
 };
 
-/** DOM のイベントは修飾キーを altKey などの名前で受け取る。そのまま広げると、エンジンに届かない */
 const modifierInit = (modifiers: ScreenModifiers): EventModifierInit => ({
   altKey: modifiers.alt,
   ctrlKey: modifiers.ctrl,

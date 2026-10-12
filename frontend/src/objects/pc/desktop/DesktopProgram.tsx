@@ -12,7 +12,6 @@ import {DesktopScreen} from "./DesktopScreen";
 
 let screen: DesktopScreen | null = null;
 
-// 部屋を出入りしても開いた窓などを残すため、デスクトップは 1 つだけ作る
 export const desktopScreen = (): DesktopScreen => {
   screen ??= new DesktopScreen(
     createDesktopApps({
