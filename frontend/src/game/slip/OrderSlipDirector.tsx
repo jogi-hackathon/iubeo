@@ -3,6 +3,7 @@ import {useEffect, useRef} from "react";
 import {Euler, type PerspectiveCamera, Quaternion, Vector3} from "three";
 
 import {useMyPlayerId} from "../../authority/useMyPlayerId";
+import {sfxEngine} from "../../core/audio/sfx/engine";
 import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {consumeLookDelta} from "../../core/input";
@@ -59,6 +60,7 @@ export function OrderSlipDirector() {
   const {playing} = useOrderSlip();
   const {objects} = useObjectsState();
   const delivered = useRef(new Set<number>());
+  const printed = useRef<number | null>(null);
   // 伝票を作る時点のファイルの色を引くためだけに使う(物が動くたびに届け直しを考えない)
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
@@ -104,10 +106,18 @@ export function OrderSlipDirector() {
 
   useFrame(({camera}) => {
     if (!playing) {
+      printed.current = null;
       return;
     }
     consumeLookDelta();
     const elapsed = performance.now() - playing.startedAt;
+    if (
+      elapsed >= stageStart("print") &&
+      printed.current !== playing.startedAt
+    ) {
+      printed.current = playing.startedAt;
+      sfxEngine.them("slip");
+    }
     if (elapsed >= TERMINAL_SEQUENCE_MS) {
       orderSlip.finish();
       return;

@@ -20,6 +20,7 @@ import {
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorial/look";
 import {TutorialDirector} from "./tutorial/TutorialDirector";
+import {WindowAmbience} from "./WindowAmbience";
 import {WindowPlug} from "./WindowPlug";
 
 function RoomProps() {
@@ -46,6 +47,7 @@ function RoomProps() {
         ao="realtime"
       />
       <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
+      {windowVisible && <WindowAmbience />}
       <WindowCredits windowVisible={windowVisible} />
     </>
   );

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
 
+import {sfxEngine} from "../../../core/audio/sfx/engine";
 import {itemManager} from "../../../items/itemStore";
 import {objectManager} from "../../objectStore";
 import {useImeCaret} from "../display/useImeCaret";
@@ -140,6 +141,13 @@ function SearchProgram({
     }
     const timer = window.setTimeout(() => pcSession.leave(), CONFIRM_MS);
     return () => window.clearTimeout(timer);
+  }, [using, judge]);
+
+  useEffect(() => {
+    if (!using || judge.status !== "done") {
+      return;
+    }
+    sfxEngine.them(judge.result.verdict === "match" ? "clefOk" : "clefNo");
   }, [using, judge]);
 
   useEffect(() => {

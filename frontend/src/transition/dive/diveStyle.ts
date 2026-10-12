@@ -9,6 +9,7 @@ import {
 import {authorityRegistry} from "../../authority/registry";
 import {cameraGlitch} from "../../camera/postprocess";
 import {getPostProcessSettings} from "../../camera/postprocess/settings";
+import {sfxEngine} from "../../core/audio/sfx/engine";
 import {resumePointerLock} from "../../core/input/pointerLock";
 import {warmupShaders} from "../../core/ShaderWarmup";
 import {getPcScreen, setPortalScreen} from "../../objects/pc/pcScreenRegistry";
@@ -168,6 +169,7 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
   if (!cam || !mesh) {
     throw new Error("ダイブの画面が見つかりません");
   }
+  sfxEngine.them("dive");
   mesh.updateWorldMatrix(true, false);
   const screen = mesh.matrixWorld.clone();
   const anchor = anchorOf(to);

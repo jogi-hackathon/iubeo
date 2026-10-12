@@ -34,6 +34,7 @@ import {
 import {pcPower, usePcPower} from "./power";
 import type {PcProgram} from "./program";
 import {programOf} from "./programs";
+import {engineKeyboard} from "./search/browser/engineScreen";
 import {type PcPhase, pcSession, usePcSession} from "./session";
 
 const VIEW_SECONDS = 0.5;
@@ -65,7 +66,7 @@ export function PcObject({object}: {object: GameObject}) {
 
   const power = usePcPower();
   const root = useRef<Group>(null);
-  const sfx = useSfxEmitter(["pcFan"], root);
+  const sfx = useSfxEmitter(["pcFan", "key"], root);
   const {visible} = useObjectState();
   useEffect(() => {
     if (power !== "off" && visible) {
@@ -92,6 +93,16 @@ export function PcObject({object}: {object: GameObject}) {
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
   const mine = session.objectId === object.id;
+  useEffect(() => {
+    if (!using) {
+      return;
+    }
+    const keyboard = engineKeyboard();
+    keyboard.onKey = () => sfx.play("key");
+    return () => {
+      keyboard.onKey = undefined;
+    };
+  }, [using, sfx]);
   const showing =
     powered &&
     (program.alwaysOn === true || (mine && session.phase !== "idle"));
