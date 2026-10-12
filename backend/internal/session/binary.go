@@ -10,14 +10,11 @@ import (
 
 // 位置のメッセージ(transform / transforms)のバイナリ形式(docs/backend/state-schema.md §7.5)。
 // WebSocket の URL に enc=bin を付けた接続だけが使う(フロントは常に付ける。frontend/src/net/binary.ts と同じ形式)。
-// 量のほとんどは 20Hz の位置なので、ここだけをバイナリにし、頻度の低いメッセージは JSON のまま。
-// すべてリトルエンディアン。小数は float32(画面に出る位置・向きには十分な精度)。
+// すべてリトルエンディアン。小数は float32。
 //
 //	transform  (クライアント → サーバー, 25B): type=1 u8 | seq u32 | x y z f32 | yaw f32 | pitch f32
 //	transforms (サーバー → クライアント, 10+25n B): type=2 u8 | serverTime f64(Unix ミリ秒) | n u8 |
 //	           n × (seat u8 | seq u32 | x y z f32 | yaw f32 | pitch f32)
-//
-// プレイヤーは playerId(26 文字)ではなく席(seat)で表す。席と playerId の対応は snapshot(JSON)で配っている
 const (
 	binTransform  byte = 1
 	binTransforms byte = 2

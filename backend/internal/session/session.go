@@ -85,9 +85,6 @@ func (s *Session) Detach(c *Conn) {
 	_ = s.send(disconnectReq{conn: c})
 }
 
-// ReceiveJSON はプレイヤーから届いた JSON をセッションに渡す。
-// 種類(type)だけを先に読み、その型に 1 回だけデコードする。api.ClientMessage の union を経由すると、
-// 中身を 3 回パースすることになるため(受信は 20Hz × 人数分あるので、ここを軽くする)
 func (s *Session) ReceiveJSON(playerID string, data []byte) error {
 	var head struct {
 		Type string `json:"type"`
@@ -109,7 +106,6 @@ func (s *Session) ReceiveJSON(playerID string, data []byte) error {
 		}
 		return s.send(ClientInteract{PlayerID: playerID, Msg: m})
 	}
-	// api.ClientMessage.ValueByDiscriminator と同じ文言(クライアントに返すエラーの内容を変えないため)
 	return errors.New("unknown discriminator value: " + head.Type)
 }
 

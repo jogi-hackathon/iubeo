@@ -28,7 +28,6 @@ type Brave struct {
 	client   *http.Client
 }
 
-// NewBrave は Brave Search API の クライアントを作る。endpoint が空なら本番の URL を使う。
 func NewBrave(key, endpoint string) *Brave {
 	if endpoint == "" {
 		endpoint = defaultBraveEndpoint
@@ -93,7 +92,6 @@ func (b *Brave) Search(ctx context.Context, query string) ([]Result, error) {
 	return results, nil
 }
 
-// plainText は Brave の <strong> などのタグを外し、実体参照を戻す。
 func plainText(s string) string {
 	return strings.TrimSpace(html.UnescapeString(tagPattern.ReplaceAllString(s, "")))
 }

@@ -94,7 +94,6 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		Tasks:      tasks,
 	}
 	st.resetCPUAgents(now)
-	// お題は他の抽選(タスクの種類・CPU の性格)の後に引く。先に引くと、同じ seed の結果が変わってしまうため
 	st.assignTopics(r)
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
