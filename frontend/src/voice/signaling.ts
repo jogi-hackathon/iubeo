@@ -12,8 +12,6 @@ export type VcClientMsg =
   | {type: "signal"; to: string; data: unknown}
   | {type: "ping"; t: number};
 
-// VC サーバーはクライアントから 60 秒何も届かないと WS を閉じ、roster から外す。
-// roster に居ないと moq-relay の revalidate で音声も切られるので、それより短い間隔で ping を送る
 const PING_INTERVAL_MS = 20_000;
 
 const parse = (raw: string): VcServerMsg | undefined => {
@@ -33,7 +31,6 @@ const parse = (raw: string): VcServerMsg | undefined => {
 export class Signaling {
   readonly ws: WebSocket;
   readonly ready: Promise<void>;
-  /** WS が閉じたら解決する */
   readonly closed: Promise<void>;
   onMsg: (m: VcServerMsg) => void = () => {};
   private pingTimer?: ReturnType<typeof setInterval>;

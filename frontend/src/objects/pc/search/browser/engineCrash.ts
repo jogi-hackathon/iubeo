@@ -7,14 +7,9 @@ const CRASH_LINE_PATTERN = /RuntimeError|sent an error!|Aborted\(/;
 export const isEngineCrashLine = (line: string): boolean =>
   CRASH_LINE_PATTERN.test(line);
 
-/** 再起動後に読み直せるページか（スタートページの data: URL や about: は対象外） */
 export const isResumablePage = (url: string): boolean =>
   /^https?:\/\//.test(url);
 
-/**
- * 再起動が暴走しないように、一定時間内の再起動回数を数える。
- * 上限を超えたら false を返す（呼び出し側はエラー表示で止める）。
- */
 export const CRASH_RESTART_LIMIT = 3;
 export const CRASH_RESTART_WINDOW_MS = 60_000;
 

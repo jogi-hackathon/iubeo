@@ -190,7 +190,6 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
-      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
       const resume = wispState === "ok" ? this.resumeUrl : null;
       await engine.load(
         resume ??
@@ -279,10 +278,6 @@ export class GeckoSource extends CanvasScreenSource {
     });
   }
 
-  /**
-   * エンジンが落ちた（wasm の RuntimeError など）ときに、作り直す。
-   * 同じ失敗が続く場合は、回数の上限を超えた時点で止めてエラーを出す（無限に再起動しない）。
-   */
   private restartAfterCrash(): void {
     const budget = takeRestartBudget(this.restartHistory, performance.now());
     this.restartHistory = budget.history;
@@ -294,7 +289,6 @@ export class GeckoSource extends CanvasScreenSource {
       );
       return;
     }
-    // 直前にも落ちていれば、そのページが原因の可能性が高い。読み直さずスタートページへ戻す
     if (budget.history.length > 1) {
       this.resumeUrl = null;
     }
@@ -302,7 +296,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.rebootWithWisp();
   }
 
-  /** 今開いているページを覚えておく（エンジンが落ちたとき、同じページを読み直すため） */
   rememberPage(url: string): void {
     if (isResumablePage(url)) {
       this.resumeUrl = url;
