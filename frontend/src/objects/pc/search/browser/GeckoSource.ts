@@ -12,7 +12,11 @@ import {
   releasePrewarmedWasm,
   resolveEngine,
 } from "./engine";
-import {isEngineCrashLine, takeRestartBudget} from "./engineCrash";
+import {
+  isEngineCrashLine,
+  isResumablePage,
+  takeRestartBudget,
+} from "./engineCrash";
 import type {GeckoConstructor, GeckoInstance} from "./geckoTypes";
 import {
   pageToDataUrl,
@@ -55,6 +59,7 @@ export class GeckoSource extends CanvasScreenSource {
   private wispWatcher?: WispWatcher;
   private bootGeneration = 0;
   private restartHistory: number[] = [];
+  private resumeUrl: string | null = null;
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
   private wispExpiresAt?: string;
@@ -194,15 +199,18 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
+      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
+      const resume = wispState === "ok" ? this.resumeUrl : null;
       await engine.load(
-        pageToDataUrl(
-          searchStartPage(
-            wispState,
-            import.meta.env.DEV,
-            searchPageUrl(),
-            searchTokenFrom(this.wispUrl),
+        resume ??
+          pageToDataUrl(
+            searchStartPage(
+              wispState,
+              import.meta.env.DEV,
+              searchPageUrl(),
+              searchTokenFrom(this.wispUrl),
+            ),
           ),
-        ),
       );
       if (stale()) {
         return;
@@ -295,8 +303,19 @@ export class GeckoSource extends CanvasScreenSource {
       );
       return;
     }
+    // 直前にも落ちていれば、そのページが原因の可能性が高い。読み直さずスタートページへ戻す
+    if (budget.history.length > 1) {
+      this.resumeUrl = null;
+    }
     console.warn("[gecko] エンジンが停止したので再起動します");
     this.rebootWithWisp();
+  }
+
+  /** 今開いているページを覚えておく（エンジンが落ちたとき、同じページを読み直すため） */
+  rememberPage(url: string): void {
+    if (isResumablePage(url)) {
+      this.resumeUrl = url;
+    }
   }
 
   private cancelBoot(): void {

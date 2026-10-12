@@ -4,6 +4,7 @@ import {
   CRASH_RESTART_LIMIT,
   CRASH_RESTART_WINDOW_MS,
   isEngineCrashLine,
+  isResumablePage,
   takeRestartBudget,
 } from "../engineCrash";
 
@@ -45,5 +46,18 @@ describe("takeRestartBudget", () => {
     const later = takeRestartBudget(history, CRASH_RESTART_WINDOW_MS + 10);
     expect(later.allowed).toBe(true);
     expect(later.history).toEqual([CRASH_RESTART_WINDOW_MS + 10]);
+  });
+});
+
+describe("isResumablePage", () => {
+  it("http(s) のページは読み直せる", () => {
+    expect(isResumablePage("https://go.dev/")).toBe(true);
+    expect(isResumablePage("http://example.com/a?b=c")).toBe(true);
+  });
+
+  it("スタートページ(data:)や about: は読み直さない", () => {
+    expect(isResumablePage("data:text/html;base64,PGh0bWw+")).toBe(false);
+    expect(isResumablePage("about:blank")).toBe(false);
+    expect(isResumablePage("")).toBe(false);
   });
 });
