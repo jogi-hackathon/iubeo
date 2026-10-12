@@ -44,9 +44,6 @@ export function App() {
   useBootCover(initialScene, warmedUp);
   const readiness = useMemo(() => readinessOf(sceneName), [sceneName]);
 
-  // 「いま遊んでいる最中」をサーバーに知らせる。これが届いている間だけ WISP のトークンが発行される。
-  // チュートリアル完了(completed)では止めない: 完了からマッチングを始めるまでの間も PC を使うため。
-  // シーンに依存させないのは、サンドボックスにも PC があり、そちらでも実サイトに出たいから。
   useEffect(() => startTutorialPresenceHeartbeat(), []);
 
   return (

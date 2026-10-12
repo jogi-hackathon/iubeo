@@ -13,12 +13,18 @@ export const wispOverrideFrom = (
   return envUrl?.trim() || undefined;
 };
 
+export type ResolvedWisp = {
+  url: string;
+  expiresAt?: string;
+};
+
 export const resolveWispUrl = async (
   override: string | undefined,
   fetchFn: typeof fetch = fetch,
-): Promise<string | undefined> => {
+): Promise<ResolvedWisp | undefined> => {
   if (override !== undefined) {
-    return override.trim() || undefined;
+    const url = override.trim();
+    return url ? {url} : undefined;
   }
   const tokenInit: RequestInit = {credentials: "same-origin"};
   try {
@@ -28,10 +34,18 @@ export const resolveWispUrl = async (
     if (!response?.ok) {
       return undefined;
     }
-    const body = (await response.json()) as {url?: unknown};
-    return typeof body.url === "string" && body.url !== ""
-      ? body.url
-      : undefined;
+    const body = (await response.json()) as {
+      url?: unknown;
+      expiresAt?: unknown;
+    };
+    if (typeof body.url !== "string" || body.url === "") {
+      return undefined;
+    }
+    return {
+      url: body.url,
+      expiresAt:
+        typeof body.expiresAt === "string" ? body.expiresAt : undefined,
+    };
   } catch {
     return undefined;
   }
@@ -63,39 +77,40 @@ export const replaceWispToken = (target: string, fresh: string): string => {
   return target.endsWith("/") && !fresh.endsWith("/") ? `${fresh}/` : fresh;
 };
 
-// 起動時に WISP を取れなかったときの再試行間隔。マッチングに入る・セッションが始まるなど、
-// あとから発行対象になることがあるので、諦めずに追い続ける。
 export const WISP_RETRY_MS = 15_000;
 
-// トークンの期限(5 分)より前に取り直す間隔。
-export const WISP_REFRESH_MS = 4 * 60 * 1000;
+export const WISP_REFRESH_MARGIN_MS = 60_000;
+
+export const refreshDelayMs = (
+  expiresAt: string | undefined,
+  now = Date.now(),
+): number | undefined => {
+  if (!expiresAt) {
+    return undefined;
+  }
+  const expiry = Date.parse(expiresAt);
+  if (Number.isNaN(expiry)) {
+    return undefined;
+  }
+  return Math.max(0, expiry - WISP_REFRESH_MARGIN_MS - now);
+};
 
 export interface WispWatcher {
   stop(): void;
 }
 
 export interface WispWatchOptions {
-  /** 起動時に解決できた URL。取れていないときは、短い間隔で再試行する */
-  current?: string;
+  expiresAt?: string;
   onUrl: (url: string) => void;
   fetchFn?: typeof fetch;
   retryMs?: number;
-  refreshMs?: number;
 }
 
-/**
- * WISP の URL を追い続け、取れたものを onUrl に渡す(取れないままだと onUrl は呼ばれない)。
- *
- * resolveWispUrl は「発行対象外(403)」も「未設定(503)」も undefined にする。つまり 1 回の失敗を
- * 「WISP は無い」と決めつけると、あとから発行対象になっても画面が復帰できない。取れるまで
- * 短い間隔で叩き直し、取れたらトークンの期限が切れる前に取り直す。
- */
 export const watchWispUrl = ({
-  current,
+  expiresAt,
   onUrl,
   fetchFn = fetch,
   retryMs = WISP_RETRY_MS,
-  refreshMs = WISP_REFRESH_MS,
 }: WispWatchOptions): WispWatcher => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
@@ -110,19 +125,19 @@ export const watchWispUrl = ({
     if (stopped) {
       return;
     }
-    const url = await resolveWispUrl(undefined, fetchFn);
+    const resolved = await resolveWispUrl(undefined, fetchFn);
     if (stopped) {
       return;
     }
-    if (!url) {
+    if (!resolved) {
       schedule(retryMs);
       return;
     }
-    onUrl(url);
-    schedule(refreshMs);
+    onUrl(resolved.url);
+    schedule(refreshDelayMs(resolved.expiresAt) ?? retryMs);
   };
 
-  schedule(current ? refreshMs : retryMs);
+  schedule(refreshDelayMs(expiresAt) ?? retryMs);
 
   return {
     stop: (): void => {

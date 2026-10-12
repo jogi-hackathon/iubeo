@@ -5,10 +5,8 @@ import (
 	"time"
 )
 
-// StaleAfter is how long after the last heartbeat a player is no longer treated as in tutorial.
 const StaleAfter = 2 * time.Minute
 
-// Presence records client-reported tutorial activity (tutorial state lives in the browser).
 type Presence struct {
 	now        func() time.Time
 	staleAfter time.Duration
@@ -33,7 +31,6 @@ func (p *Presence) Touch(playerID string) {
 	defer p.mu.Unlock()
 	now := p.now()
 	p.lastSeen[playerID] = now
-	// 離脱したプレイヤーを溜めない。heartbeat が届かなくなった分は、ここで捨てる
 	for id, seen := range p.lastSeen {
 		if now.Sub(seen) > p.staleAfter {
 			delete(p.lastSeen, id)

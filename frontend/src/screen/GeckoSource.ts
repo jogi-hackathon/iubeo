@@ -53,6 +53,7 @@ export class GeckoSource extends CanvasScreenSource {
   private rebooting = false;
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
+  private wispExpiresAt?: string;
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
@@ -117,7 +118,9 @@ export class GeckoSource extends CanvasScreenSource {
       `エンジンを起動中… 0 秒（${sizeMb} の wasm を読み込んでいます）`,
     );
 
-    this.wispUrl = await resolveWispUrl(this.wispOverride, fetch);
+    const wisp = await resolveWispUrl(this.wispOverride, fetch);
+    this.wispUrl = wisp?.url;
+    this.wispExpiresAt = wisp?.expiresAt;
     const usesToken = this.wispOverride === undefined && !!this.wispUrl;
     const wispCheck = this.wispUrl
       ? checkWisp(
@@ -126,7 +129,6 @@ export class GeckoSource extends CanvasScreenSource {
         )
       : Promise.resolve(false);
     if (this.wispOverride === undefined) {
-      // 直結の指定が無い = トークンで繋ぐ構成。取れなかったときも追い続ける
       this.watchWisp();
     }
 
@@ -190,17 +192,13 @@ export class GeckoSource extends CanvasScreenSource {
     }
   }
 
-  /**
-   * WISP の URL を追い続ける。boot で取れていなくても、あとから発行対象になれば拾う。
-   * boot で取れているときは、トークンの期限が切れる前に取り直す。
-   */
   private watchWisp(): void {
     this.stopWispWatch();
     if (this.wispUrl) {
       setFreshWispUrl(this.wispUrl);
     }
     this.wispWatcher = watchWispUrl({
-      current: this.wispUrl,
+      expiresAt: this.wispExpiresAt,
       onUrl: (url) => {
         this.applyWispUrl(url);
       },
@@ -212,11 +210,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.wispWatcher = undefined;
   }
 
-  /**
-   * 新しい WISP の URL を受け取る。起動時に取れていなかったときは、エンジンを作り直す。
-   * エンジンは接続先を Module.wispUrl として起動時に固定するので、WISP 無しで作った物には
-   * あとから差し替えられない(作り直すまで、その画面はオフラインのまま)。
-   */
   private applyWispUrl(url: string): void {
     const gained = this.wispUrl === undefined;
     this.wispUrl = url;

@@ -9,7 +9,6 @@ const json = (status: number, body: unknown): Response =>
   });
 
 describe("touchTutorialPresence", () => {
-  // アプリを開いた直後は Cookie がまだ無い。ここで 401 を捨てると、WISP の対象にならないまま
   it("Cookie が無ければ、プレイヤーを作ってから送り直す", async () => {
     let issued = false;
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {

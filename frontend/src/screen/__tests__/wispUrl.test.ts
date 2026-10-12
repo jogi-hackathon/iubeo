@@ -6,6 +6,7 @@ import {
   replaceWispToken,
   resolveWispUrl,
   setFreshWispUrl,
+  WISP_REFRESH_MARGIN_MS,
   WISP_TOKEN_PATH,
   watchWispUrl,
   wispOverrideFrom,
@@ -40,9 +41,9 @@ describe("wispOverrideFrom", () => {
 describe("resolveWispUrl", () => {
   it("直結の指定があれば、トークンの API は呼ばない", async () => {
     const fetchFn = vi.fn();
-    expect(await resolveWispUrl("ws://127.0.0.1:5001/", fetchFn)).toBe(
-      "ws://127.0.0.1:5001/",
-    );
+    expect(await resolveWispUrl("ws://127.0.0.1:5001/", fetchFn)).toEqual({
+      url: "ws://127.0.0.1:5001/",
+    });
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
@@ -54,10 +55,9 @@ describe("resolveWispUrl", () => {
 
   it("指定が無ければ、トークン付きの URL を発行してもらう（同じオリジンの Cookie 付き）", async () => {
     const url = "wss://example.test/wisp/?token=abc.def";
-    const fetchFn = vi.fn(async () =>
-      jsonResponse(200, {url, expiresAt: "2026-10-09T00:00:00Z"}),
-    );
-    expect(await resolveWispUrl(undefined, fetchFn)).toBe(url);
+    const expiresAt = "2026-10-09T00:00:00Z";
+    const fetchFn = vi.fn(async () => jsonResponse(200, {url, expiresAt}));
+    expect(await resolveWispUrl(undefined, fetchFn)).toEqual({url, expiresAt});
     expect(fetchFn).toHaveBeenCalledWith(WISP_TOKEN_PATH, {
       credentials: "same-origin",
     });
@@ -75,7 +75,10 @@ describe("resolveWispUrl", () => {
         ? jsonResponse(200, {url, expiresAt: "2026-10-09T00:00:00Z"})
         : jsonResponse(401, {code: "unauthorized"});
     });
-    expect(await resolveWispUrl(undefined, fetchFn)).toBe(url);
+    expect(await resolveWispUrl(undefined, fetchFn)).toEqual({
+      url,
+      expiresAt: "2026-10-09T00:00:00Z",
+    });
     expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 
@@ -117,14 +120,20 @@ describe("watchWispUrl", () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(403, {code: "not_eligible"}))
-      .mockResolvedValue(jsonResponse(200, {url}));
+      .mockImplementation(async () =>
+        jsonResponse(200, {
+          url,
+          expiresAt: new Date(
+            Date.now() + 5000 + WISP_REFRESH_MARGIN_MS,
+          ).toISOString(),
+        }),
+      );
     const onUrl = vi.fn();
 
     const watcher = watchWispUrl({
       onUrl,
       fetchFn,
       retryMs: 1000,
-      refreshMs: 5000,
     });
 
     await vi.advanceTimersByTimeAsync(1000);
@@ -134,7 +143,6 @@ describe("watchWispUrl", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(onUrl).toHaveBeenCalledWith(url);
 
-    // 取れたあとは、トークンの期限が切れる前に取り直す
     await vi.advanceTimersByTimeAsync(5000);
     expect(fetchFn).toHaveBeenCalledTimes(3);
     watcher.stop();
@@ -142,17 +150,24 @@ describe("watchWispUrl", () => {
 
   it("起動時に取れていれば、再試行ではなく更新の間隔で叩く", async () => {
     vi.useFakeTimers();
-    const fetchFn = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(200, {url: "wss://wisp.test/?token=b"}));
+    const expiresAt = new Date(
+      Date.now() + 5000 + WISP_REFRESH_MARGIN_MS,
+    ).toISOString();
+    const fetchFn = vi.fn(async () =>
+      jsonResponse(200, {
+        url: "wss://wisp.test/?token=b",
+        expiresAt: new Date(
+          Date.now() + 5000 + WISP_REFRESH_MARGIN_MS,
+        ).toISOString(),
+      }),
+    );
     const onUrl = vi.fn();
 
     const watcher = watchWispUrl({
-      current: "wss://wisp.test/?token=a",
+      expiresAt,
       onUrl,
       fetchFn,
       retryMs: 1000,
-      refreshMs: 5000,
     });
 
     await vi.advanceTimersByTimeAsync(1000);
@@ -172,7 +187,6 @@ describe("watchWispUrl", () => {
       onUrl,
       fetchFn,
       retryMs: 1000,
-      refreshMs: 1000,
     });
     watcher.stop();
 

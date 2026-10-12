@@ -194,10 +194,7 @@ func TestEnrolledReportsQueuedAndMatched(t *testing.T) {
 	}
 }
 
-// Enrolled は WISP の発行可否を判定するのに使う。待機列の延命や CPU の補充までしてしまうと、
-// トークンの問い合わせが試合を始めてしまう。
 func TestEnrolledDoesNotAdvanceMatchmaking(t *testing.T) {
-	// 補充の時刻を過ぎても、Enrolled は待機列を進めない(StaleAfter 以内なので、まだ待機中)
 	m, s, c := newFixtureWithFill(3, 5*time.Second)
 	mustJoin(t, m, "p1")
 
@@ -211,7 +208,6 @@ func TestEnrolledDoesNotAdvanceMatchmaking(t *testing.T) {
 		t.Fatalf("created = %v, want Enrolled to leave the queue alone", s.created)
 	}
 
-	// ポーリング(Get)は今までどおり補充する
 	if st, err := m.Get("p1"); err != nil || st.SessionID != "sess-1" {
 		t.Fatalf("Get(p1) = %+v, %v; want matched", st, err)
 	}
@@ -221,7 +217,6 @@ func TestEnrolledDoesNotKeepTheQueueEntryAlive(t *testing.T) {
 	m, _, c := newFixture(2)
 	mustJoin(t, m, "p1")
 
-	// StaleAfter 以内に何度も呼んでも延命にはならない(Get と違って lastSeen を更新しない)
 	for range 3 {
 		c.advance(StaleAfter / 2)
 		m.Enrolled("p1")
