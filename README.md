@@ -1,37 +1,100 @@
 # iubeo
 
-## デプロイ
+> 現実のAIと人間、概念的な立場が逆転している世界
+> 人は道具であり、リソースである。
 
-- フロント(React + Vite の SPA): Cloudflare Workers Static Assets。`cf` でデプロイする。設定は `frontend/cloudflare.config.ts`
-- バックエンド(Go): 2 か所に置き、Cloudflare KV の `target` で切り替える
-  - 本番相当: AWS EC2 + Elastic IP(`ap-northeast-1`)。インフラは `infra/aws/terraform/` の Terraform で管理し、必要なときだけ起動する
-  - 開発用・フォールバック: Cloudflare Containers(`iubeo-backend` の Worker)
-- WISP(PC の画面が実サイトへ出るプロキシ): バックエンドと同じく EC2 と Cloudflare Containers(`iubeo-wisp` の Worker)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/iubeo_logo_dark.svg">
+    <img src="docs/assets/iubeo_logo.svg" alt="iubeo" width="420">
+  </picture>
+</p>
 
-判断の理由と制約は [ADR-0005](docs/adr/ADR-0005-deployment-architecture.md)、CI/CD は [.github/workflows/README.md](.github/workflows/README.md)、AWS 側の手順は [infra/aws/terraform/README.md](infra/aws/terraform/README.md) を参照する。
+## 技術スタック
 
-### フロント(Cloudflare)
+### アプリ
 
-main への push で `deploy-cloudflare.yml` がデプロイする。手元から行うとき:
+- フロント (Web)
+  - [React](https://react.dev/) (UI)
+    - [Three.js](https://threejs.org/) + [@react-three/fiber](https://r3f.docs.pmnd.rs/) (3D・WebGPU レンダラー)
+  - [thirdlf03/firefox-wasm](https://github.com/thirdlf03/firefox-wasm) (ゲーム内 PC の Web 検索エンジン)
+  - [@mercuryworkshop/wisp-js](https://github.com/MercuryWorkshop/wisp-protocol) (WISP プロキシクライアント)
+- バックエンド (サーバー)
+  - [Go](https://go.dev/) (セッション管理・マッチメイキング)
+    - [coder/websocket](https://github.com/coder/websocket) (リアルタイム通信)
+    - [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) (OpenAPI スキーマ定義・コード生成)
+
+### インフラ
+
+- [Cloudflare Workers](https://workers.cloudflare.com/) (フロント配信: Static Assets)
+- [AWS EC2](https://aws.amazon.com/ec2/) + Elastic IP (本番バックエンド)
+  - [Cloudflare Containers](https://developers.cloudflare.com/) (開発用・フォールバック・WISP)
+- [Terraform](https://www.terraform.io/) (インフラ管理)
+
+![iubeo インフラ構成](docs/assets/arch.png)
+
+### 開発環境
+
+- [devenv](https://devenv.sh/) + [Nix](https://nixos.org/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Vite](https://vite.dev/) + [pnpm](https://pnpm.io/)
+- [air](https://github.com/air-verse/air) (Go ホットリロード)
+
+## 環境構築
+
+ブラウザは Google Chrome 推奨。WebGPU を使用する。
+
+- フロント: `5173`（http://localhost:5173/?debug）
+- バックエンド: `8080`
+- WISP: `5001`
+
+以下のいずれかの方法で環境を用意する。
+
+### devenv
 
 ```sh
-cd frontend
-pnpm install
-pnpm cf:dry-run   # 型検査とデプロイ内容の検証(アップロードなし)
-IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=<エンジンの配信元> pnpm deploy   # Cloudflare へデプロイ(認証が必要)
+curl -fsSL https://install.determinate.systems/nix | sh -s -- install   # Nix
+nix profile install nixpkgs#devenv                                      # devenv
+direnv allow                                                            # リポジトリのルートで（.envrc）
+devenv up
 ```
 
-`IUBEO_WISP_ENABLED=1` を付けないと `/wisp` が 503 に、`VITE_ENGINE_BASE_URL` を付けないと PC の画面が「NO ENGINE」になる(CI はどちらも渡している)。
+一回、ディレクトリから抜けて再度入ると環境構築完了。`devenv up` で起動する（初回は Nix のビルドに時間がかかる）。
 
-バックエンド・WISP の Worker を含む手順と順序は [frontend/README.md](frontend/README.md) の「本番の WISP」節を参照する。
-
-### バックエンド(AWS)
+### Docker Compose
 
 ```sh
-cd infra/aws/terraform
-cp terraform.tfvars.example terraform.tfvars   # 値を埋める
-terraform init
-terraform apply
+docker compose up
 ```
 
-コンテナイメージは `deploy-backend.yml` / `deploy-wisp.yml`(CI)が ECR へ push する。反映の流れは [infra/aws/terraform/README.md](infra/aws/terraform/README.md) に従う。
+Go と Node.js はコンテナ側で用意される（`compose.yaml`）。止めるときは `docker compose down` を実行する。
+
+### 手動
+
+Go 1.27 と Node.js 24、pnpm 11（`corepack enable`）を用意し、2つのターミナルでそれぞれ実行する。
+
+```sh
+# ターミナル 1
+cd backend && go mod download
+IUBEO_SIGNING_KEY='iubeo-dev-only-signing-key-do-not-use-in-prod' IUBEO_ALLOWED_ORIGINS='http://localhost:5173' go run ./cmd/server
+
+# ターミナル 2
+cd frontend && pnpm install && pnpm dev
+```
+
+設定項目は `backend/internal/config` にあり、開発用の既定値は `devenv.nix`・`compose.yaml`・`frontend/.env.development` に置かれている。
+
+## Gecko エンジンのセットアップ
+
+Gecko エンジン（約 34MB）を [thirdlf03/firefox-wasm](https://github.com/thirdlf03/firefox-wasm) の Releases から取り込む。取り込まなくても起動するが、PC の画面は「NO ENGINE」になる。
+
+```sh
+cd frontend && pnpm engine:setup
+```
+
+## ドキュメント
+
+- フロント（開発・デバッグ・規約）: [frontend/README.md](frontend/README.md)
+- バックエンドの状態設計: [docs/backend/state-schema.md](docs/backend/state-schema.md)
+- ボイスチャット: [docs/voice-chat.md](docs/voice-chat.md)
+- 設計判断（ADR）: [docs/adr/](docs/adr/)

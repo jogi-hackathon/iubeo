@@ -81,7 +81,7 @@ export class GeckoSource extends CanvasScreenSource {
     if (!resolved) {
       this.setStatus(
         "unavailable",
-        "engine-local/ にエンジンがありません。pnpm engine:link を実行してください",
+        "engine-local/ にエンジンがありません。pnpm engine:setup を実行してください",
       );
       return;
     }
