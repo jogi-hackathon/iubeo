@@ -14,6 +14,7 @@ import {overview} from "../objects/directory/overview";
 import {setAimedObjectId} from "../objects/interaction/aimStore";
 import {pcSession} from "../objects/pc/session";
 import {localPlayer} from "../player/local";
+import {credits} from "./RoomScene/credits/store";
 import {createSceneManager} from "./sceneManager";
 import {resetSceneReady, whenSceneReady} from "./sceneReady";
 import {createSceneTransitionManager} from "./sceneTransitionManager";
@@ -69,6 +70,8 @@ applySpawn(localPlayer, spawnOf(initial));
 
 sceneTransitionManager.onLeave(() => overview.reset());
 sceneTransitionManager.onLeave(() => pcSession.reset());
+// 窓の外のクレジットを流している途中でも、遷移(マッチング成立など)はプレイヤー自身の視点から始める
+sceneTransitionManager.onLeave(() => credits.reset());
 
 sceneTransitionManager.onEnter(({to}) => applySpawn(localPlayer, spawnOf(to)));
 
