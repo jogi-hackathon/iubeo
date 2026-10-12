@@ -13,6 +13,7 @@
     "bake:ao": "node scripts/bake-ao.ts",
     "shot:pc": "node scripts/pc-shot.ts",
     "shot:file": "node scripts/file-shot.ts",
+    "shot:slip": "node scripts/slip-shot.ts",
     "engine:setup": "node scripts/setup-engine.mjs",
     "engine:link": "node scripts/link-engine.mjs",
     "wisp": "node scripts/wispServer.ts",
