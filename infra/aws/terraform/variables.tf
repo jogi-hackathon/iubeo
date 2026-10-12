@@ -101,7 +101,7 @@ variable "tags" {
 }
 
 variable "auto_stop_hours" {
-  description = "Hours after /start before the instance is stopped automatically. This is the safety net that stops the $0.67/day leak."
+  description = "Hours after /start before the instance is stopped automatically. This is the safety net that stops the $0.67/day leak. 0 (or a negative value) disables the auto-stop, leaving the instance running until /ec2stop."
   type        = number
   default     = 3
 }
