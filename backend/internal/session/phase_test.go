@@ -177,6 +177,36 @@ func TestPhaseIsDeterministicForSeed(t *testing.T) {
 	}
 }
 
+func TestPhaseDrawsAreStableForSeed(t *testing.T) {
+	st := NewMultiplayerState("sess-1", []string{"p1", "p2"}, []string{"cpu-1", "cpu-2"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, 4)
+	st.startPhase(1, t0)
+
+	wantTasks := []TaskState{
+		{ID: "task-1-1", Type: api.WebSearch, Assignee: "p1", Topic: "three.js"},
+		{ID: "task-1-2", Type: api.WebSearch, Assignee: "p2", Topic: "WISP protocol"},
+		{ID: "task-1-3", Type: api.Write, Assignee: "cpu-1"},
+		{ID: "task-1-4", Type: api.ReadEdit, Assignee: "cpu-2", TargetFileID: "e07a1b48-3d95-4c2e-9f86-2b5d7a0c8e06"},
+	}
+	if !reflect.DeepEqual(st.Phase.Tasks, wantTasks) {
+		t.Errorf("tasks = %+v, want %+v", st.Phase.Tasks, wantTasks)
+	}
+	type draws struct {
+		Until  time.Duration
+		Doomed bool
+		Play   time.Duration
+	}
+	wantCPU := map[string]draws{
+		"cpu-1": {729949797 * time.Nanosecond, false, 1637010105 * time.Nanosecond},
+		"cpu-2": {1439205176 * time.Nanosecond, false, 3371175153 * time.Nanosecond},
+	}
+	for id, want := range wantCPU {
+		a := st.CPUAgents[id]
+		if got := (draws{a.Until.Sub(t0), a.Doomed, a.Play.Sub(t0)}); got != want {
+			t.Errorf("%s draws = %+v, want %+v", id, got, want)
+		}
+	}
+}
+
 func wantTaskCompleted(t *testing.T, out []Output, taskID string, at time.Time) {
 	t.Helper()
 	for _, b := range outputsOf[Broadcast](out) {
