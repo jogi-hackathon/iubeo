@@ -91,7 +91,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。
 
-- 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
+- 検索は、バックエンドの `GET /api/v1/search/page?q=…&t=…` に送る。バックエンドが Brave Search API（鍵は `IUBEO_BRAVE_API_KEY`）で引いて、自前の HTML の結果ページを返す。`t` は WISP のトークン（エンジンはクッキーを送れないため）。結果ページのリンクは、WISP 経由で実サイトを開く。Google は、データセンターの IP から来ると reCAPTCHA を出すため使わない（アドレス欄に Yahoo! JAPAN などの URL を打てば、そのまま WISP 経由で開ける）。
 
 ### PC の 3D モデルを撮る
 

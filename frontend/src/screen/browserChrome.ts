@@ -1,3 +1,5 @@
+import {currentSearchToken} from "./wispUrl";
+
 export const SCREEN_CANVAS = {width: 960, height: 720} as const;
 
 export const TOOLBAR_HEIGHT = 56;
@@ -27,12 +29,24 @@ export const hitToolbar = (x: number, y: number): ToolbarPart | null => {
   return null;
 };
 
-export const SEARCH_PAGE_URL = "https://www.google.com/search";
+export const SEARCH_PAGE_PATH = "/api/v1/search/page";
 
-export const searchUrlFor = (query: string): string =>
-  `${SEARCH_PAGE_URL}?q=${encodeURIComponent(query)}`;
+export const currentOrigin = (): string => globalThis.location?.origin ?? "";
+
+export const searchPageUrl = (origin = currentOrigin()): string =>
+  `${origin}${SEARCH_PAGE_PATH}`;
+
+export const searchUrlFor = (
+  query: string,
+  origin = currentOrigin(),
+  token = currentSearchToken(),
+): string => {
+  const tokenParam = token ? `&t=${encodeURIComponent(token)}` : "";
+  return `${searchPageUrl(origin)}?q=${encodeURIComponent(query)}${tokenParam}`;
+};
 
 const SEARCH_RESULTS_PAGES: ReadonlyArray<(url: URL) => boolean> = [
+  (url) => url.pathname === SEARCH_PAGE_PATH,
   (url) =>
     /(^|\.)google\.[a-z.]+$/.test(url.hostname) &&
     url.pathname.startsWith("/search"),
@@ -46,6 +60,8 @@ const SEARCH_RESULTS_PAGES: ReadonlyArray<(url: URL) => boolean> = [
   (url) =>
     /(^|\.)ecosia\.org$/.test(url.hostname) &&
     url.pathname.startsWith("/search"),
+  (url) =>
+    url.hostname === "search.yahoo.co.jp" && url.pathname.endsWith("/search"),
 ];
 
 export const isSearchResultsUrl = (url: string): boolean => {
@@ -57,7 +73,11 @@ export const isSearchResultsUrl = (url: string): boolean => {
   }
 };
 
-export const normalizeAddress = (input: string): string | null => {
+export const normalizeAddress = (
+  input: string,
+  origin = currentOrigin(),
+  token = currentSearchToken(),
+): string | null => {
   const value = input.trim();
   if (!value) {
     return null;
@@ -70,7 +90,7 @@ export const normalizeAddress = (input: string): string | null => {
   if (!/\s/.test(value) && looksLikeHost) {
     return `https://${value}`;
   }
-  return searchUrlFor(value);
+  return searchUrlFor(value, origin, token);
 };
 
 export const displayUrl = (url: string): string =>

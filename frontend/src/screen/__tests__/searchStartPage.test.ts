@@ -10,10 +10,30 @@ import {
 } from "../searchStartPage";
 
 describe("searchStartPage", () => {
-  it("検索語を入れて Google の検索へ送る入力欄を持つ", () => {
-    const html = searchStartPage("ok");
-    expect(html).toContain('action="https://www.google.com/search"');
+  it("検索語を入れて、自分の検索ページへ送る入力欄を持つ", () => {
+    const html = searchStartPage(
+      "ok",
+      true,
+      "https://iubeo.example/api/v1/search/page",
+      "",
+    );
+    expect(html).toContain('action="https://iubeo.example/api/v1/search/page"');
     expect(html).toContain('name="q"');
+    expect(html).not.toContain('name="t"');
+  });
+
+  it("トークンがあれば、隠し欄で検索ページへ渡す（属性は escape する）", () => {
+    const html = searchStartPage(
+      "ok",
+      true,
+      "https://iubeo.example/api/v1/search/page",
+      'a"b',
+    );
+    expect(html).toContain('<input type="hidden" name="t" value="a&#34;b">');
+  });
+
+  it("既定の検索先は、現在のオリジンの検索ページ（ブラウザ外では相対）", () => {
+    expect(searchStartPage("ok")).toContain('action="/api/v1/search/page"');
   });
 
   it("エンジンの最小 GRE は CJK フォントを持たないので、ASCII だけで書く", () => {
