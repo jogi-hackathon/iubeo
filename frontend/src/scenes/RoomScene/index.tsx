@@ -7,6 +7,7 @@ import {ManagedObjects} from "../../objects";
 import {Chair, useGridFloorMaterial, Wall} from "../../props";
 import {tutorialStore} from "../../tutorial";
 import {WhiteWorld} from "../environment/WhiteWorld";
+import {WindowAmbience} from "../environment/WindowAmbience";
 import {WindowCredits} from "./credits/WindowCredits";
 import {ROOM_INITIAL} from "./initial";
 import {
@@ -20,7 +21,6 @@ import {
 import {CHAIR_KEY, WINDOW_KEY} from "./props";
 import {COMPLETED_LOOK, HIDDEN_LOOK, toggleInitialFor} from "./tutorial/look";
 import {TutorialDirector} from "./tutorial/TutorialDirector";
-import {WindowAmbience} from "./WindowAmbience";
 import {WindowPlug} from "./WindowPlug";
 
 function RoomProps() {
@@ -47,7 +47,7 @@ function RoomProps() {
         ao="realtime"
       />
       <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
-      {windowVisible && <WindowAmbience />}
+      {windowVisible && <WindowAmbience position={WINDOW_PLUG.position} />}
       <WindowCredits windowVisible={windowVisible} />
     </>
   );
