@@ -55,6 +55,7 @@ type DiveSession = {
   restoreNear: number | null;
   ready: boolean;
   portalResolved: boolean;
+  sounded: boolean;
   resolvePortal: () => void;
   resolveFinish: () => void;
   finished: Promise<void>;
@@ -169,7 +170,6 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
   if (!cam || !mesh) {
     throw new Error("ダイブの画面が見つかりません");
   }
-  sfxEngine.them("dive");
   mesh.updateWorldMatrix(true, false);
   const screen = mesh.matrixWorld.clone();
   const anchor = anchorOf(to);
@@ -213,6 +213,7 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
     restoreNear,
     ready: false,
     portalResolved: false,
+    sounded: false,
     resolvePortal,
     resolveFinish,
     finished,
@@ -237,6 +238,10 @@ export const tickDive = (dt: number): void => {
     returnDuration:
       s.machine.phase === "switch" ? returnDurationFor(s) : undefined,
   });
+  if (f.phase === "dive" && !s.sounded) {
+    s.sounded = true;
+    sfxEngine.them("dive");
+  }
   proxyView.blend.value = f.blend;
   portalCrt.on.value = f.on;
   portalCrt.boot.value = f.boot;
