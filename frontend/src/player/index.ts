@@ -1,6 +1,11 @@
 export {EYE_HEIGHT} from "./constants";
 export {localPlayer} from "./local";
-export {applyLook} from "./look";
+export {
+  applyLook,
+  LOOK_SENSITIVITY,
+  setLookSensitivityScale,
+  useLookSensitivityScale,
+} from "./look";
 export {PlayerController} from "./PlayerController";
 export {
   createPlayerManager,

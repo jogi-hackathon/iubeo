@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
+import {LookSensitivityPanel} from "./camera/LookSensitivityPanel";
 import {PostProcess, PostProcessPanel} from "./camera/postprocess";
 import {useBootCover} from "./core/cover/useBootCover";
 import {registerDevTab} from "./core/debug/devPanel";
@@ -25,6 +26,12 @@ registerDevTab({
   label: "Scene",
   order: 10,
   Component: SceneDebugPanel,
+});
+registerDevTab({
+  id: "look",
+  label: "Look",
+  order: 15,
+  Component: LookSensitivityPanel,
 });
 registerDevTab({
   id: "postfx",
