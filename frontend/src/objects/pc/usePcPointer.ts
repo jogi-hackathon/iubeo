@@ -7,7 +7,6 @@ import type {
   ScreenModifiers,
   ScreenSource,
 } from "../../screen/types";
-import {taskStore} from "./task";
 
 export type PcCursor = {x: number; y: number};
 
@@ -15,7 +14,6 @@ type Options = {
   enabled: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
-  memoRef: {readonly current: Mesh | null};
   cursor: PcCursor;
 };
 
@@ -23,7 +21,6 @@ export function usePcPointer({
   enabled,
   screen,
   screenRef,
-  memoRef,
   cursor,
 }: Options): void {
   const gl = useThree((s) => s.gl);
@@ -82,11 +79,6 @@ export function usePcPointer({
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (hitOf(event, memoRef.current)) {
-        event.preventDefault();
-        taskStore.draw();
-        return;
-      }
       const pick = screenPick(event);
       if (!pick) {
         return;
@@ -194,7 +186,7 @@ export function usePcPointer({
       canvas.removeEventListener("contextmenu", onContextMenu);
       canvas.style.cursor = "";
     };
-  }, [enabled, gl, camera, screen, screenRef, memoRef, cursor]);
+  }, [enabled, gl, camera, screen, screenRef, cursor]);
 }
 
 const cursorCss = (kind: CursorKind): string =>

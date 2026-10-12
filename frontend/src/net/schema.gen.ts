@@ -433,6 +433,8 @@ export interface components {
       assigneePlayerId: components["schemas"]["PlayerId"];
       /** @description read_edit のときだけ。対象の在庫ファイルの id */
       targetFileId: string | null;
+      /** @description web_search のときだけ。検索するお題の語。タスクごとにサーバーが決める */
+      topic?: string | null;
       status: components["schemas"]["TaskStatus"];
       /**
        * Format: date-time

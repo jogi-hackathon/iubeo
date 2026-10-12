@@ -622,6 +622,10 @@ components:
           description: read_edit のときだけ。対象の在庫ファイルの id
           type: string
           nullable: true
+        topic:
+          description: web_search のときだけ。検索するお題の語。タスクごとにサーバーが決める
+          type: string
+          nullable: true
         status:
           $ref: "#/components/schemas/TaskStatus"
         completedAt:
