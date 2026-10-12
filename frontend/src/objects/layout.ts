@@ -7,6 +7,7 @@ export type LayoutItem = {
   yaw?: number;
   look?: string;
   program?: string;
+  memo?: boolean;
 };
 
 export type DirectoryLook = "small" | "large";
@@ -30,6 +31,16 @@ export type PcLayoutItem = {
 };
 
 export const pcItem = (item: PcLayoutItem): LayoutItem => item;
+
+export type WorkspaceLayoutItem = {
+  id: string;
+  position: Vec3;
+  yaw?: number;
+  /** 依頼の伝票を残すメモ立てを置くか(既定は置く。伝票の届かない部屋では置かない) */
+  memo?: boolean;
+};
+
+export const workspaceItem = (item: WorkspaceLayoutItem): LayoutItem => item;
 
 export type SceneLayout = Readonly<Record<string, LayoutItem>>;
 

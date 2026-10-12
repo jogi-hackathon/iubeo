@@ -1,8 +1,12 @@
 import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
+import logoUrl from "../../assets/brand/iubeo_logo.svg";
 import {SCREEN_CANVAS} from "./display/resolution";
 
 const BAR_BLOCKS = 20;
+
+const LOGO_INK = {x: 150, y: 1150, width: 5700, height: 1700};
+const LOGO_WIDTH = 280;
 
 /** 起動画面の時間割(ms)。黒いまま管が点く → ロゴが浮かぶ → 読み込みの棒が埋まる → 少し待って消える */
 const LOGO_IN = {from: 1000, to: 2000};
@@ -57,8 +61,6 @@ export const bootFrame = (elapsed: number): BootFrame => {
   };
 };
 
-const MONO = "ui-monospace, Menlo, monospace";
-
 /**
  * 電源を入れたときの起動画面(PcObject が起動中だけ映す)。黒地に IUBEO のロゴと読み込みの棒
  */
@@ -68,6 +70,7 @@ export class BootScreen {
   readonly height = SCREEN_CANVAS.height;
   private readonly ctx: CanvasRenderingContext2D | null;
   private painted = "";
+  private logo: HTMLImageElement | null = null;
 
   constructor() {
     const canvas = document.createElement("canvas");
@@ -77,6 +80,11 @@ export class BootScreen {
     this.texture = new CanvasTexture(canvas);
     this.texture.colorSpace = SRGBColorSpace;
     this.paint(0);
+    const image = new Image();
+    image.src = logoUrl;
+    void image.decode().then(() => {
+      this.logo = image;
+    });
   }
 
   paint(elapsed: number): void {
@@ -87,7 +95,8 @@ export class BootScreen {
     const {width, height} = this;
     const frame = bootFrame(elapsed);
     // 見た目が変わったときだけ描いて送る(棒が止まっている間などは何もしない)
-    const key = `${frame.logo.toFixed(2)} ${frame.bar.toFixed(2)} ${frame.blocks}`;
+    const logo = this.logo;
+    const key = `${frame.logo.toFixed(2)} ${frame.bar.toFixed(2)} ${frame.blocks} ${logo !== null}`;
     if (key === this.painted) {
       return;
     }
@@ -96,13 +105,21 @@ export class BootScreen {
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);
 
-    // TODO: 仮のモックアップ。IUBEO のロゴができたら、文字の描画をやめて SVG を読み込んで描く形に置き換える
-    ctx.globalAlpha = frame.logo;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `bold 84px ${MONO}`;
-    ctx.fillText("IUBEO", width / 2, height / 2 - 20);
+    if (logo) {
+      const logoHeight = (LOGO_WIDTH * LOGO_INK.height) / LOGO_INK.width;
+      ctx.globalAlpha = frame.logo;
+      ctx.drawImage(
+        logo,
+        LOGO_INK.x,
+        LOGO_INK.y,
+        LOGO_INK.width,
+        LOGO_INK.height,
+        (width - LOGO_WIDTH) / 2,
+        height / 2 - 20 - logoHeight / 2,
+        LOGO_WIDTH,
+        logoHeight,
+      );
+    }
 
     ctx.globalAlpha = frame.bar;
     const bar = {

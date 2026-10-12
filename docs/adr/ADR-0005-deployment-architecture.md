@@ -16,6 +16,8 @@
 
 ## 決定
 
+![IUBEO インフラ構成](../assets/arch.png)
+
 以下を採用する。
 
 1. **フロントは Cloudflare Workers Static Assets で配信し、`cf` でデプロイする**

@@ -7,6 +7,7 @@ import {
   subscribePostProcessSettings,
 } from "../../camera/postprocess/settings";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {gameStore, remainingMs} from "../../game/gameStore";
 import {playerManager} from "../../player/playerStore";
 import {getSkybox, SKY_HORIZON} from "./skybox";
 
@@ -33,7 +34,9 @@ export function WhiteWorld() {
   }, [scene]);
 
   useFrame(({gl, camera}) => {
-    getSkybox().update(gl as unknown as WebGPURenderer, camera);
+    const skybox = getSkybox();
+    skybox.setCountdown(remainingMs(gameStore.getState(), Date.now()));
+    skybox.update(gl as unknown as WebGPURenderer, camera);
   }, FRAME_PRIORITY.sea);
 
   return (
