@@ -8,6 +8,7 @@ const PIXELS = {width: 512, height: 358} as const;
 
 const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
 
+/** PC の左に置くお題のメモ(PC の座標系に置く) */
 export function PcTaskMemo({topic = null}: {topic?: string | null}) {
   return (
     <group
@@ -46,6 +47,7 @@ export function TaskMemo({topic}: {topic: string | null}) {
   );
 }
 
+/** メモの表面を描く。お題の語は、幅に収まる最大のサイズまで大きくする。お題が無いときは語を書かない */
 export const paintMemo = (
   canvas: HTMLCanvasElement,
   topic: string | null,
@@ -68,9 +70,10 @@ export const paintMemo = (
   ctx.font = `600 34px ${JA_FONT}`;
   ctx.fillText("お題", 40, 56);
 
-  const word = topic ?? "なし";
-  ctx.font = `bold ${fitFontSize(ctx, word, width - 80)}px ${JA_FONT}`;
-  ctx.fillText(word, 40, height / 2 + 6, width - 80);
+  if (topic) {
+    ctx.font = `bold ${fitFontSize(ctx, topic, width - 80)}px ${JA_FONT}`;
+    ctx.fillText(topic, 40, height / 2 + 6, width - 80);
+  }
 
   ctx.fillStyle = "#6e6e73";
   ctx.font = `20px ${JA_FONT}`;

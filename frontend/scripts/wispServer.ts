@@ -33,7 +33,7 @@ export const startWispServer = (
 
   const server = createServer((_req, res) => {
     res.writeHead(200, {"Content-Type": "text/plain"});
-    res.end("wisp server (iubeo)");
+    res.end("wisp server (IUBEO)");
   });
   server.on("upgrade", (req, socket, head) => {
     if (!isAllowedOrigin(req.headers.origin)) {

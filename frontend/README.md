@@ -1,4 +1,4 @@
-# iubeo frontend
+# IUBEO frontend
 
 React 19 + React Three Fiber + Three.js(WebGPU)+ three-mesh-bvh。Vite で開発・ビルドする。
 
@@ -19,10 +19,14 @@ PC の画面（Web 検索）を使うには、別途 Gecko エンジンの取り
 入れなくても起動はするが、PC の画面は「NO ENGINE」のままになる。
 
 ```sh
-# ビルド済みリリースを取ってリンクする（最新のタグは releases ページで確認。
-# 自分でビルドした dist や firefox-wasm のリポジトリも渡せる）
-curl -LO https://github.com/thirdlf03/firefox-wasm/releases/download/v0.0.9/gecko.js-v0.0.9.tar.gz
-pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
+# GitHub Releases から最新版を取得（推奨）
+pnpm engine:setup
+
+# 版を固定する例
+pnpm engine:setup -- --tag v0.0.9
+
+# 自分でビルドした dist や tar.gz を渡す場合
+pnpm engine:link -- --from <path>
 ```
 
 詳しくは下の「PC（Web 検索の画面）」節。
@@ -30,7 +34,8 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 | コマンド | 用途 |
 | --------------------------------- | ---------------------------------------- |
 | `pnpm dev` | 開発サーバー(5173 固定) |
-| `pnpm engine:link` | PC の画面の Gecko エンジンを取り込む(初回だけ) |
+| `pnpm engine:setup` | GitHub から Gecko エンジンを取得して取り込む(初回・更新) |
+| `pnpm engine:link` | 手元の dist / tar.gz からエンジンを取り込む |
 | `pnpm build` | 型チェック後にビルド(出力は `.cloudflare/output/`) |
 | `pnpm preview` | ビルド結果の確認 |
 | `pnpm typecheck` | `tsc --noEmit`(本体・Node 側・Worker の3系統) |
@@ -62,7 +67,8 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 
 ```sh
 # 1. エンジンを取り込む（約 34MB。engine-local/ に置き、リポジトリには入れない）
-pnpm engine:link -- --from <gecko.js/dist | firefox-wasm のリポジトリ | gecko.js-v*.tar.gz>
+pnpm engine:setup
+# 手元ビルド: pnpm engine:link -- --from <gecko.js/dist | firefox-wasm のリポジトリ | gecko.js-v*.tar.gz>
 
 # 2. 開発サーバーを起動する。WISP プロキシ（127.0.0.1:5001）も一緒に立つ
 pnpm dev     # http://localhost:5173/?debug（debug シーン）
@@ -85,7 +91,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
   33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
   （`src/objects/pc/search/browser/engine.ts` の `prefetchEngineWasm`）
 
-- エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
+- エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:setup` を実行する）。
 
 - `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
 

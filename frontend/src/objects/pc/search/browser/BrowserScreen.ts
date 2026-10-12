@@ -281,6 +281,7 @@ export class BrowserScreen implements ScreenSource {
   }
 
   private startNavigation(target: string): void {
+    this.engine.rememberPage(target);
     this.engine.navigate(target);
     this.pendingUrl = target;
     this.navigatedFrom = this.lastHref;
@@ -332,6 +333,7 @@ export class BrowserScreen implements ScreenSource {
       return;
     }
     this.lastHref = href;
+    this.engine.rememberPage(href);
     if (this.pendingUrl !== null) {
       const arrived =
         href === this.pendingUrl ||
