@@ -122,10 +122,12 @@ describe("sfxEngine", () => {
     expect(panner.distanceModel).toBe("inverse");
     expect(panner.refDistance).toBe(5);
     expect(panner.maxDistance).toBe(40);
+    const trim = t.gains[2]!;
     expect(input!.connect).toHaveBeenCalledWith(panner);
     expect(panner.connect).toHaveBeenCalledWith(output);
     expect(output!.connect).toHaveBeenCalledWith(t.gameBus);
-    expect(t.make("pcFan")).toHaveBeenCalledWith(input);
+    expect(trim.connect).toHaveBeenCalledWith(input);
+    expect(t.make("pcFan")).toHaveBeenCalledWith(trim);
     expect(panner.positionX.setValueAtTime).toHaveBeenCalledWith(1, 1.5);
     expect(panner.positionZ.setValueAtTime).toHaveBeenCalledWith(3, 1.5);
   });
@@ -181,10 +183,36 @@ describe("sfxEngine", () => {
     t.engine.them("shatter");
     t.engine.them("shatter");
     expect(t.make("shatter")).toHaveBeenCalledTimes(1);
-    expect(t.make("shatter")).toHaveBeenCalledWith(t.gameBus);
+    expect(t.make("shatter")).toHaveBeenCalledWith(t.gains[0]);
+    expect(t.gains[0]!.connect).toHaveBeenCalledWith(t.gameBus);
     expect(t.voices.shatter.play).toHaveBeenCalledTimes(2);
     expect(t.voices.shatter.play).toHaveBeenCalledWith(10, undefined);
     expect(t.ctx.createPanner).not.toHaveBeenCalled();
+  });
+
+  it("setTrim は emitter と them の Gain に反映され、dispose 後は外れる", () => {
+    const t = make();
+    const e = t.engine.emitter(["pcFan"]);
+    t.engine.them("pcFan");
+    const emitterTrim = t.gains[2]!;
+    const themTrim = t.gains[3]!;
+    t.engine.setTrim("pcFan", -20);
+    expect(t.engine.trim("pcFan")).toBe(-20);
+    expect(emitterTrim.gain.value).toBeCloseTo(0.1);
+    expect(themTrim.gain.value).toBeCloseTo(0.1);
+    e.dispose();
+    vi.advanceTimersByTime(50);
+    t.engine.setTrim("pcFan", 0);
+    expect(emitterTrim.gain.value).toBeCloseTo(0.1);
+    expect(themTrim.gain.value).toBe(1);
+  });
+
+  it("stopThem は them の voice を止め、無ければ何もしない", () => {
+    const t = make();
+    t.engine.stopThem("pcFan");
+    t.engine.them("pcFan");
+    t.engine.stopThem("pcFan");
+    expect(t.voices.pcFan.stop).toHaveBeenCalledWith(10);
   });
 
   it("now は Tone の now を返す", () => {
