@@ -26,7 +26,7 @@ import {
   usePortalScreenId,
 } from "./pcScreenRegistry";
 import {type PcPhase, pcSession, usePcSession} from "./session";
-import {taskStore, useTask} from "./task";
+import {useTopicOf} from "./task";
 import {type PcCursor, usePcPointer} from "./usePcPointer";
 
 const VIEW_SECONDS = 0.5;
@@ -89,17 +89,16 @@ export function PcObject({object}: {object: GameObject}) {
   const showing = session.objectId === object.id && session.phase !== "idle";
 
   const screenRef = useRef<Mesh>(null);
-  const memoRef = useRef<Mesh>(null);
   const portalId = usePortalScreenId();
   useEffect(() => {
     const mesh = screenRef.current;
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
   const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
-  usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
+  usePcPointer({enabled: using, screen, screenRef, cursor});
 
   const judge = useJudge();
-  const task = useTask();
+  const topic = useTopicOf(object.owner ?? null);
   const mine = session.objectId === object.id;
   const currentUrl = useRef("");
   const judged = useRef<string | null>(null);
@@ -117,28 +116,27 @@ export function PcObject({object}: {object: GameObject}) {
     (url: string) => {
       window.clearTimeout(settle.current);
       settle.current = undefined;
-      if (!url || url.startsWith("data:") || judged.current === url) {
+      if (!topic || !url || url.startsWith("data:") || judged.current === url) {
         return;
       }
       judged.current = url;
       void (async () => {
-        const currentTask = taskStore.getTask();
         const page = await screen.readPage?.();
         if (!page) {
           if (judged.current === url) {
             judged.current = null;
           }
           judgeStore.fail(
-            currentTask,
+            topic,
             url,
             "今のページを読めません（エンジンが起動していない）",
           );
           return;
         }
-        await judgeStore.run({task: currentTask, page});
+        await judgeStore.run({task: topic, page});
       })();
     },
-    [screen],
+    [screen, topic],
   );
 
   const scheduleJudgement = useCallback(
@@ -170,7 +168,7 @@ export function PcObject({object}: {object: GameObject}) {
     }
     judged.current = null;
     scheduleJudgement(currentUrl.current);
-  }, [task, using, scheduleJudgement]);
+  }, [topic, using, scheduleJudgement]);
 
   useEffect(() => {
     if (!mine) {
@@ -319,7 +317,7 @@ export function PcObject({object}: {object: GameObject}) {
             : crt.material
       }
       screenRef={screenRef}
-      memoRef={memoRef}
+      topic={topic}
       showMemo={item.look !== "plain"}
     />
   );

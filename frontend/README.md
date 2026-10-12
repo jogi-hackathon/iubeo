@@ -87,8 +87,6 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
 
-- `?task=<語>` でお題を固定できる（確認用）。
-
 - `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
 
 - エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。

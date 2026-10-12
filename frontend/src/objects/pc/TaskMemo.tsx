@@ -1,21 +1,13 @@
-import {type Ref, useEffect, useLayoutEffect, useMemo} from "react";
-import {CanvasTexture, type Mesh, SRGBColorSpace} from "three/webgpu";
+import {useEffect, useLayoutEffect, useMemo} from "react";
+import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
 import {MEMO} from "./dimensions";
-import {type TaskStore, taskStore, useTask} from "./task";
 
 const PIXELS = {width: 512, height: 358} as const;
 
 const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
 
-export function TaskMemo({
-  ref,
-  store = taskStore,
-}: {
-  ref?: Ref<Mesh>;
-  store?: TaskStore;
-}) {
-  const task = useTask(store);
+export function TaskMemo({topic}: {topic: string | null}) {
   const {canvas, texture} = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = PIXELS.width;
@@ -26,23 +18,26 @@ export function TaskMemo({
     return {canvas, texture};
   }, []);
 
+  useLayoutEffect(() => {
+    paintMemo(canvas, topic);
+    texture.needsUpdate = true;
+  }, [canvas, texture, topic]);
+
   useEffect(() => () => texture.dispose(), [texture]);
 
-  useLayoutEffect(() => {
-    paintMemo(canvas, task);
-    texture.needsUpdate = true;
-  }, [canvas, texture, task]);
-
   return (
-    <mesh ref={ref} position={[0, MEMO.height / 2, 0]}>
+    <mesh position={[0, MEMO.height / 2, 0]}>
       <planeGeometry args={[MEMO.width, MEMO.height]} />
       <meshStandardMaterial map={texture} roughness={0.9} />
     </mesh>
   );
 }
 
-/** メモの表面を描く。お題の語は、幅に収まる最大のサイズまで大きくする */
-export const paintMemo = (canvas: HTMLCanvasElement, task: string): void => {
+/** メモの表面を描く。お題の語は、幅に収まる最大のサイズまで大きくする。お題が無いときは「なし」 */
+export const paintMemo = (
+  canvas: HTMLCanvasElement,
+  topic: string | null,
+): void => {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
@@ -61,17 +56,13 @@ export const paintMemo = (canvas: HTMLCanvasElement, task: string): void => {
   ctx.font = `600 34px ${JA_FONT}`;
   ctx.fillText("お題", 40, 56);
 
-  ctx.font = `bold ${fitFontSize(ctx, task, width - 80)}px ${JA_FONT}`;
-  ctx.fillText(task, 40, height / 2 + 6, width - 80);
+  const word = topic ?? "なし";
+  ctx.font = `bold ${fitFontSize(ctx, word, width - 80)}px ${JA_FONT}`;
+  ctx.fillText(word, 40, height / 2 + 6, width - 80);
 
   ctx.fillStyle = "#6e6e73";
   ctx.font = `20px ${JA_FONT}`;
-  ctx.fillText(
-    "クリックで引き直す ・ Esc で離れる",
-    40,
-    height - 40,
-    width - 80,
-  );
+  ctx.fillText("Esc で離れる", 40, height - 40, width - 80);
 };
 
 const fitFontSize = (
