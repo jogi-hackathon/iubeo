@@ -94,8 +94,6 @@ export const createPowerOutline = (selection: SelectionMask) => {
     return edge;
   })();
 
-  // 縁に沿った長さはポストプロセスでは取れないので、画面の斜め縞で代用する(縁が縞と平行な 45° の所は破線に見えない)
-  // 画面の高さを基準にして、解像度や DPR が違っても見た目の細かさと速さをそろえる
   const aspect = screenSize.x.div(screenSize.y);
   const dashPhase = fract(
     screenUV.x
@@ -113,12 +111,15 @@ export const createPowerOutline = (selection: SelectionMask) => {
   const dash = mix(float(1), dashOn, powerOutlineDash);
 
   return {
-    composite: (color: Node<"vec4">): Node<"vec4"> =>
+    composite: (
+      color: Node<"vec4">,
+      weight: Node<"float"> = float(1),
+    ): Node<"vec4"> =>
       vec4(
         mix(
           color.rgb,
           powerOutlineColor,
-          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade),
+          clamp(powerEdge, 0, 1).mul(dash).mul(powerOutlineFade).mul(weight),
         ),
         color.a,
       ),

@@ -26,21 +26,15 @@ import {type Node, SpriteNodeMaterial} from "three/webgpu";
 import {CORRUPTION_RED_DARK, CORRUPTION_RED_LIGHT} from "./corruption";
 import {MOUNTAIN_SIZES, type MountainSizeName} from "./mountain";
 
-/** 山の大きさごとの、炎の粒の置き方 */
 export type FireParams = {
-  /** 粒の数 */
   count: number;
-  /** 粒が出る山の表面の、底面と上面の半径(m)と、上面の高さ(m)。山の形(mountain.ts)より少し内側・低めにする */
   radiusBottom: number;
   radiusTop: number;
   height: number;
-  /** 粒の大きさ(高さ、m)の範囲 */
   sizeMin: number;
   sizeMax: number;
-  /** 粒が寿命の間に昇る高さ(m)の範囲 */
   riseMin: number;
   riseMax: number;
-  /** 位置と大きさを揃えるグリッドの 1 辺(m) */
   grid: number;
 };
 
@@ -50,7 +44,6 @@ const RISE_RATIO = [0.11, 0.26] as const;
 const GRID_RATIO = 0.016;
 const COUNTS: Record<MountainSizeName, number> = {large: 420, small: 160};
 
-/** 山の大きさから、炎の粒の置き方を決める */
 export const fireParamsFor = (size: MountainSizeName): FireParams => {
   const m = MOUNTAIN_SIZES[size];
   const height = m.heightMin;
@@ -67,7 +60,6 @@ export const fireParamsFor = (size: MountainSizeName): FireParams => {
   };
 };
 
-/** 火がついてから、すべての粒が燃えるまで(秒) */
 export const IGNITE_SECONDS = 2;
 const LIFE_MIN = 0.9;
 const LIFE_MAX = 1.7;
@@ -79,7 +71,6 @@ const FIRE_RIM = color("#3a0a10");
 
 export type FireMaterial = {
   material: SpriteNodeMaterial;
-  /** 火のつき具合(0〜1)。燃える粒の割合 */
   ignition: {value: number};
 };
 
@@ -88,7 +79,6 @@ const snapFloat = (v: Node<"float">, g: number): Node<"float"> =>
 const snapVec3 = (v: Node<"vec3">, g: number): Node<"vec3"> =>
   floor(v.div(g).add(0.5)).mul(g);
 
-/** 炎の粒のマテリアルを作る(山の大きさごと)。使い終わったら material.dispose() */
 export const createFireMaterial = (params: FireParams): FireMaterial => {
   const ignition = uniform(0);
   const id = instanceIndex.toFloat();
@@ -136,7 +126,6 @@ export const createFireMaterial = (params: FireParams): FireMaterial => {
     mix(CORRUPTION_RED_LIGHT, CORRUPTION_RED_DARK, clamp(level, 0, 1)),
     inner,
   );
-  // SpriteNodeMaterial は既定で transparent なので、GTAO の pre-pass にも入らない(setSkipGTAO は要らない)
 
   return {material, ignition};
 };

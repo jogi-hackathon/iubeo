@@ -67,14 +67,37 @@ export interface paths {
     };
     /**
      * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
-     * @description WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人(= ルームに入った人)だけに、
-     *     期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
-     *     合言葉(X-Iubeo-Wisp-Pass)は廃止した。チュートリアルを入れたら「セッション中・マッチング中・
-     *     チュートリアル中」だけに絞る(TODO)。
+     * @description WISP は誰でも使えると、オープンプロキシになる。セッション参加中・マッチング待機/成立後・
+     *     アプリを開いて遊んでいる間(クライアントが `POST /api/v1/tutorial/presence` で heartbeat している間)の
+     *     プレイヤーにだけ、期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを
+     *     検証してから流す。合言葉(X-Iubeo-Wisp-Pass)は廃止した。
      */
     get: operations["getWispToken"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/tutorial/presence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 遊んでいる最中であることをサーバーに知らせる
+     * @description アプリを開いて遊んでいる間、クライアントが定期的にこのエンドポイントを叩く。チュートリアルの
+     *     進行状態はクライアント(localStorage)側にあり、サーバーは直接は知らないので、
+     *     「PC を使う場面に居るか」の判定(WISP トークンの発行対象か)にこれを使う。
+     *     最後の heartbeat から一定時間経過すると、WISP トークン発行の対象外になる。
+     */
+    post: operations["touchTutorialPresence"];
     delete?: never;
     options?: never;
     head?: never;
@@ -120,26 +143,6 @@ export interface paths {
     post: operations["joinMatchmaking"];
     /** 待機をやめる */
     delete: operations["leaveMatchmaking"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/sessions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * シングルモードのセッションを作る
-     * @description マルチプレイのセッションは自動マッチングでのみ作られる。
-     */
-    post: operations["createSession"];
-    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -219,7 +222,7 @@ export interface components {
       message: string;
     };
     /** @enum {string} */
-    SessionMode: "single" | "multiplayer";
+    SessionMode: "multiplayer";
     /** @enum {string} */
     SessionStatus: "waiting" | "playing" | "intermission" | "finished";
     /** @enum {string} */
@@ -291,6 +294,11 @@ export interface components {
       expiresAt: string;
     };
     VoiceToken: {
+      /**
+       * @description VC が使える
+       * @enum {boolean}
+       */
+      available: true;
       /** @description VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う */
       token: string;
       /**
@@ -314,6 +322,19 @@ export interface components {
        */
       expiresAt: string;
     };
+    /** @description このサーバーでは VC を使えない(設定が無い) */
+    VoiceUnavailable: {
+      /**
+       * @description VC が使えない
+       * @enum {boolean}
+       */
+      available: false;
+      /**
+       * @description 使えない理由
+       * @example voice chat is not configured
+       */
+      reason?: string;
+    };
     MatchmakingStatus: {
       /** @enum {string} */
       status: "queued" | "matched";
@@ -321,10 +342,6 @@ export interface components {
       queuedAt: string;
       /** @description status が matched のときだけ */
       sessionId?: string;
-    };
-    CreateSessionRequest: {
-      /** @enum {string} */
-      mode: "single";
     };
     /** @description 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個 */
     Item: {
@@ -820,6 +837,25 @@ export interface operations {
       503: components["responses"]["Unavailable"];
     };
   };
+  touchTutorialPresence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 記録した */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
   getVoiceToken: {
     parameters: {
       query?: never;
@@ -829,18 +865,23 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description 接続情報 */
+      /**
+       * @description 接続情報。VC を設定していないサーバーでは `available: false` だけを返す。
+       *     「このサーバーでは使えない」はクライアントの異常ではないので、200 で返す
+       *     (4xx/5xx にすると、ブラウザが毎回コンソールにエラーを出す)
+       */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["VoiceToken"];
+          "application/json":
+            | components["schemas"]["VoiceToken"]
+            | components["schemas"]["VoiceUnavailable"];
         };
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
-      503: components["responses"]["Unavailable"];
     };
   };
   getMatchmaking: {
@@ -914,32 +955,6 @@ export interface operations {
           "application/json": components["schemas"]["Error"];
         };
       };
-    };
-  };
-  createSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateSessionRequest"];
-      };
-    };
-    responses: {
-      /** @description 作ったセッション */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SessionSnapshot"];
-        };
-      };
-      401: components["responses"]["Unauthorized"];
-      409: components["responses"]["Conflict"];
     };
   };
   getSession: {

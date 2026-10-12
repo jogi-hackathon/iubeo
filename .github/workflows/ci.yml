@@ -54,6 +54,11 @@ jobs:
           go build ./...
           go vet ./...
           go test ./...
+      - name: lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.14.0
+          working-directory: backend
 
   frontend:
     needs: changes

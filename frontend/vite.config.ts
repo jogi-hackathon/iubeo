@@ -7,8 +7,6 @@ import {judgeDevPlugin} from "./scripts/judgeDev.ts";
 import {serveEnginePlugin} from "./scripts/serveEnginePlugin.ts";
 import {DEFAULT_WISP_PORT, wispDevPlugin} from "./scripts/wispServer.ts";
 
-// バックエンド(backend/。既定 :8080)。開発時は /api と /healthz を転送し、ブラウザから見て同じオリジンにする
-// (プレイヤーは HttpOnly Cookie で識別するため。ADR-0003)。IUBEO_BACKEND_URL で変えられる
 const backend = process.env.IUBEO_BACKEND_URL ?? "http://localhost:8080";
 
 const wispPort = Number(process.env.WISP_PORT ?? DEFAULT_WISP_PORT);
@@ -19,11 +17,8 @@ const crossOriginIsolation = {
   "Cross-Origin-Embedder-Policy": "require-corp",
 };
 
-// bake.html(AO ベイクページ)は dev 専用のツールなので build の入力には含めない(既定の index.html だけ)
 export default defineConfig(({command, isPreview}) => ({
   resolve: {
-    // three の本体(three.module.js)と WebGPU 版(three.webgpu.js)を両方バンドルしないよう、"three" は WebGPU 版に寄せる
-    // (three/webgpu は core を再輸出するので、"three" の import はそのまま同じクラスを使う)
     alias: [{find: /^three$/, replacement: "three/webgpu"}],
   },
   plugins: [

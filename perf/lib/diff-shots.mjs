@@ -1,5 +1,3 @@
-// 2 枚のスクリーンショットをブラウザ内で比べる(ピクセルの最大差と、差のあるピクセル数)
-// 使い方: node perf/lib/diff-shots.mjs <A.png> <B.png>
 import {readFileSync} from "node:fs";
 import {CHROME_PATH, importFromFrontend} from "./paths.mjs";
 

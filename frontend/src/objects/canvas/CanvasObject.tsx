@@ -12,9 +12,6 @@ import {
   placementProps,
 } from "./easel";
 
-// マテリアルは種類ごとに 1 つを共有する(ベイク対象だけで使うので、aoMap を貼っても対象外の mesh には影響しない)。
-// ジオメトリは部品ごとに持つ(ベイク AO の uv1 はジオメトリに付くので、共有できない)
-// IUBEO は色のない真っ白な世界なので、部品の種類は分けつつ、色はどれも真っ白にする
 const WHITE = "#ffffff";
 const MATERIALS: Record<EaselLook, MeshStandardMaterial> = {
   wood: new MeshStandardMaterial({color: WHITE}),

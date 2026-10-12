@@ -9,9 +9,6 @@ import type {
 } from "../../screen/types";
 import {taskStore} from "./task";
 
-/**
- * ガラスの上のポインタ位置（UV）。ボタンを離した位置が画面の外へ出たとき、直前にいた位置を使うために覚える
- */
 export type PcCursor = {x: number; y: number};
 
 type Options = {
@@ -22,14 +19,6 @@ type Options = {
   cursor: PcCursor;
 };
 
-/**
- * マウスで PC の画面を操作する。R3F の合成イベントではなく canvas に直接 DOM リスナーを付ける
- * （メッシュの外へ出ても持続するポインタキャプチャ、`passive: false` の wheel を使うため）。
- *
- * - 画面の上ではエンジンへ転送する（座標は canvas 画素）。レイキャストの uv は曲面ジオメトリの上の値
- *   なので、そのまま canvas の位置に対応する
- * - お題のメモをクリックすると、別のお題を引く
- */
 export function usePcPointer({
   enabled,
   screen,

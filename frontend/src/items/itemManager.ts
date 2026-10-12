@@ -1,9 +1,5 @@
 import type {Item, ItemEvents, ItemMessage, ItemState} from "./types";
 
-/**
- * 手に持つアイテムの写し。状態の正はサーバーで、ここはサーバーの通知(apply)を反映するだけ。
- * アイテムに「使う」操作はなく、働きはオブジェクトへのインタラクトの条件(手持ち)になること
- */
 export const createItemManager = () => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ItemState = {held: null};

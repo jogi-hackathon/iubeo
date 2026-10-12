@@ -1,5 +1,3 @@
-// ?debug の統計パネル(ドローコール・三角形数・GPU 時間)を読む。テストシーン(dev)の描画負荷の確認用
-// 使い方: node perf/lib/read-stats.mjs --url "http://localhost:5173/?debug" --wait 4
 import {CHROME_PATH, importFromFrontend} from "./paths.mjs";
 import {parseArgs} from "./util.mjs";
 

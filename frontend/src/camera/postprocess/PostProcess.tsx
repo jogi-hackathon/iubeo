@@ -1,10 +1,11 @@
 import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect, useRef} from "react";
-import {Vector3} from "three";
-import type {Renderer} from "three/webgpu";
+import {type PerspectiveCamera, Vector3} from "three";
+import type {Renderer, WebGPURenderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {getRenderScale, graphicsStore} from "../../core/graphics";
+import {proxyView} from "../../transition/dive/proxyView";
 import {updateGlitch} from "./glitchState";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
 import {updatePowerOutline} from "./powerOutlineSelection";
@@ -12,7 +13,6 @@ import {getPostProcessSettings, subscribePostProcessSettings} from "./settings";
 
 const cameraPosition = new Vector3();
 
-/** frameloop="never" + FrameLimiter の advance でも、正の priority の useFrame が描画を引き受ける。レンダラーは WebGPURenderer 固定(core/renderer.ts) */
 export function PostProcess() {
   const gl = useThree((s) => s.gl) as unknown as Renderer;
   const scene = useThree((s) => s.scene);
@@ -39,6 +39,12 @@ export function PostProcess() {
   }, [gl, scene, camera]);
 
   useFrame(() => {
+    if (proxyView.active) {
+      proxyView.render(
+        gl as unknown as WebGPURenderer,
+        camera as PerspectiveCamera,
+      );
+    }
     if (pipeline.current && getPostProcessSettings().enabled) {
       updatePowerOutline(camera.getWorldPosition(cameraPosition));
       updateGlitch();

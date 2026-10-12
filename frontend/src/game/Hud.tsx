@@ -15,11 +15,8 @@ import {
 } from "./hudText";
 import {stockColorsOf} from "./stockColors";
 
-/** 通知(解散・破棄・決着など)を出しておく時間(ms) */
 export const NOTICE_MS = 5000;
 
-// Canvas の外の DOM オーバーレイ。本番(DEV パネル無し)でも出す。
-// 開発用パネルは右端、stats は左上にあるので、重ならないよう上中央に置く
 const panelStyle: CSSProperties = {
   position: "fixed",
   top: 10,
@@ -37,7 +34,6 @@ const panelStyle: CSSProperties = {
   zIndex: 9999,
 };
 
-/** ms ごとに今の時刻を返す(残り時間と待ち時間の表示用) */
 const useNow = (ms: number): number => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -47,7 +43,6 @@ const useNow = (ms: number): number => {
   return now;
 };
 
-/** value が変わったら ms の間だけ覚えておく(通知を数秒出して消す用) */
 const useTransient = (value: string | null, ms: number): string | null => {
   const [shown, setShown] = useState<string | null>(null);
   useEffect(() => {
@@ -61,12 +56,6 @@ const useTransient = (value: string | null, ms: number): string | null => {
   return shown;
 };
 
-/**
- * ゲームの HUD(DOM のオーバーレイ。Canvas の外)。
- * マッチングと待機の状態、フェーズ番号と残り時間、自分のタスク一覧(達成でチェック)、intermission、
- * 決着の結果、切れた理由(数秒だけ 1 行)を出す。読み込みと編集のタスクには、対象ファイルの色を付ける
- * (山の紙の色と見比べて選べるように)。値はサーバーから来た物を見せるだけで、判定はしない(ADR-0003)
- */
 export function Hud() {
   const flow = useGameFlow();
   const game = useGameState();
@@ -75,7 +64,6 @@ export function Hud() {
   const now = useNow(1000);
   const {objects} = useObjectsState();
 
-  // 読み込みと編集の対象を、山の紙の色で見分けられるようにする(在庫にある間だけ分かる)
   const stockColors = useMemo(() => stockColorsOf(objects), [objects]);
 
   const notice =

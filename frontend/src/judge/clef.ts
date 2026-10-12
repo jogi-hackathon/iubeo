@@ -9,14 +9,10 @@ import type {JudgeRequest, JudgeResult, JudgeVerdict} from "./types";
 
 export {clip, MAX_PAGE_TEXT, MAX_PAGE_TITLE};
 
-/** Workers AI のモデル ID (env.AI.run の第 1 引数)。latency 重視なので 9B の flash を使う */
 export const CLEF_MODEL_ID = "@cf/cloudflare/clef-flash";
-/** リクエスト本体の model フィールド (System One API のセレクタ) */
 export const CLEF_MODEL = "clef-flash";
-/** Clef の呼び出しの上限 (ms)。速いモデルなので短くてよい */
 export const CLEF_TIMEOUT_MS = 5000;
 
-/** お題への一致度を聞く Score の目盛り (順序つき)。確率加重された値が返る */
 export const RELEVANCE_LEVELS = [
   "Unrelated: the page is about a different subject",
   "Tangential: it only mentions the task term in passing",
@@ -24,7 +20,6 @@ export const RELEVANCE_LEVELS = [
   "Authoritative: it is an official or reference page for the task term",
 ] as const;
 
-/** 最後に選ばせる 1 つ。画面の「一致 / 一部一致 / 不一致」に対応する */
 export const VERDICT_OPTIONS = {
   match: "The page fits the task: it is about the task term",
   partial:
@@ -33,10 +28,6 @@ export const VERDICT_OPTIONS = {
     "The page has nothing to do with the task term: the player searched for something else",
 } as const;
 
-/**
- * Clef に渡す state。お題と、今見ているページを 1 つの文章にまとめる。
- * Worker は受けた時点で normalizeJudgeRequest を掛けているが、ここでも全項目を切り詰める (入力の量を必ず抑える)
- */
 export const buildClefState = ({task, page}: JudgeRequest): string =>
   [
     `The player's task is to search the web for: "${clip(task, MAX_TASK)}".`,
@@ -47,7 +38,6 @@ export const buildClefState = ({task, page}: JudgeRequest): string =>
     `Text: ${clip(page.text, MAX_PAGE_TEXT)}`,
   ].join("\n");
 
-/** Clef に渡す質問。お題そのものを instructions に埋め込む (state が長くても文脈を失わない) */
 export const buildClefQuestions = (task: string) => ({
   query_on_topic: {
     type: "noul" as const,
@@ -77,17 +67,12 @@ export const buildClefQuestions = (task: string) => ({
   },
 });
 
-/** Clef (System One API) に渡す本体。env.AI.run の inputs としてそのまま渡せる */
 export const clefRequest = (input: JudgeRequest) => ({
   state: buildClefState(input),
   model: CLEF_MODEL,
   questions: buildClefQuestions(clip(input.task, MAX_TASK)),
 });
 
-/**
- * env.AI (Workers AI の binding) のうち、Clef を呼ぶのに必要な部分だけ。
- * @cloudflare/workers-types に依存しない (このファイルはブラウザ側の tsconfig でも読めるように)
- */
 export type ClefBinding = {
   run(
     model: string,
@@ -96,11 +81,6 @@ export type ClefBinding = {
   ): Promise<Record<string, unknown>>;
 };
 
-/**
- * Clef を呼べなかった理由。呼ぶ側 (Worker) が HTTP の状態に変換する。
- * - unconfigured: AI binding が無い (503。画面は簡易判定に落ちる)
- * - それ以外: 呼び出しはしたが、使える答えが返らなかった (502)
- */
 export type ClefFailure = "unconfigured" | "unreachable" | "unusable";
 
 export class ClefError extends Error {
@@ -113,10 +93,6 @@ export class ClefError extends Error {
   }
 }
 
-/**
- * Clef を呼んで、画面に出す形へ畳む。binding が無ければ ClefError("unconfigured")。
- * ブラウザからは呼ばない。フロントの Worker (worker/judge.ts) だけが使う
- */
 export const askClef = async (
   ai: ClefBinding | undefined,
   input: JudgeRequest,
@@ -140,10 +116,6 @@ export const askClef = async (
   return result;
 };
 
-/**
- * Clef の答え (`answers`) を、画面に出す形へ畳む。形が違えば null
- * (Clef は型を守るので、壊れているとしたら相手が Clef でないとき)。
- */
 export const answersToResult = (answers: unknown): JudgeResult | null => {
   if (!answers || typeof answers !== "object") {
     return null;

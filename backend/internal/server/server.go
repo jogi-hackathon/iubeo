@@ -1,23 +1,24 @@
-// Package server は api.ServerInterface を実装し、HTTP のエンドポイントをつなぐ。
 package server
 
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
+	"github.com/jogi-hackathon/iubeo/backend/internal/tutorial"
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
 	"github.com/jogi-hackathon/iubeo/backend/internal/wisp"
 )
 
-// Server は api.ServerInterface の実装。実装していないエンドポイントは 501 を返す
 type Server struct {
 	signer            *player.Signer
 	sessions          *session.Manager
 	matchmaker        *matchmaking.Matchmaker
+	tutorialPresence  *tutorial.Presence
 	allowedOrigins    []string
 	wisp              *wisp.Issuer
 	wispURL           string
@@ -28,12 +29,16 @@ type Server struct {
 
 var _ api.ServerInterface = (*Server)(nil)
 
-// New は Server を作る
 func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaking.Matchmaker, allowedOrigins []string) *Server {
-	return &Server{signer: signer, sessions: sessions, matchmaker: matchmaker, allowedOrigins: allowedOrigins}
+	return &Server{
+		signer:           signer,
+		sessions:         sessions,
+		matchmaker:       matchmaker,
+		tutorialPresence: tutorial.NewPresence(time.Now, tutorial.StaleAfter),
+		allowedOrigins:   allowedOrigins,
+	}
 }
 
-// Handler は Server の HTTP ハンドラーを返す
 func (s *Server) Handler() http.Handler {
 	return api.Handler(s)
 }
@@ -48,10 +53,6 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, api.Error{Code: code, Message: message})
 }
 
-func notImplemented(w http.ResponseWriter) {
-	writeError(w, http.StatusNotImplemented, "not_implemented", "not implemented")
-}
-
 func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, bool) {
 	id, ok := s.signer.FromRequest(r)
 	if !ok {
@@ -63,6 +64,3 @@ func (s *Server) authenticate(w http.ResponseWriter, r *http.Request) (string, b
 func (s *Server) GetHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
-
-// CreateSession(シングルモード)は未実装
-func (s *Server) CreateSession(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }

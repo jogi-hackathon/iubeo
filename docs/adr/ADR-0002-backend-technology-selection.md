@@ -11,7 +11,7 @@
 - 背景: **3人のプレイヤーの状態をサーバー権威で同期するゲームバックエンドが必要になった。あわせて、フロントエンド(TypeScript)とバックエンドで通信の型を共有する方法を決める必要があった**
   - 通信は、マッチングなどの HTTP API と、セッション中の WebSocket(座標の 20Hz 同期、インタラクトの要求、状態変化の通知)の2種類
   - HTTP API は、マッチングを皮切りに今後も増える見込み
-  - フロントエンドには、サーバーの代わりに動くダミー(`frontend/src/dev/dummyAuthority.ts`)と、それが扱う型が既にあり、実サーバーに切り替えるときに型を揃えたい
+  - フロントエンドには、サーバーの代わりに動くダミー(当時の `frontend/src/dev/dummyAuthority.ts`。今は `frontend/src/authority/local/` の `LocalAuthority`)と、それが扱う型が既にあり、実サーバーに切り替えるときに型を揃えたい
 
 ## 決定
 
@@ -29,10 +29,10 @@
     https://github.com/oapi-codegen/oapi-codegen
   - openapi-typescript(フロントエンドの TS の型を生成)
     https://github.com/openapi-ts/openapi-typescript
-  - Redocly CLI(定義の lint)
+  - Redocly CLI(定義の lint。設定は `backend/api/redocly.yaml` にあるが、CI ではまだ動かしていない)
     https://github.com/Redocly/redocly-cli
 
-WebSocket のメッセージ型も、OpenAPI の `components/schemas` に `ClientMessage` / `ServerMessage` としてまとめて定義する。メッセージ自体は JSON で送る。
+WebSocket のメッセージ型も、OpenAPI の `components/schemas` に `ClientMessage` / `ServerMessage` としてまとめて定義する。メッセージ自体は JSON で送る(のちに、量の多い位置のメッセージだけは `?enc=bin` のバイナリにした。state-schema.md §7.5)。
 WebSocket のライブラリは coder/websocket を使う(context に対応し API が小さく、`net/http` のハンドラーからそのまま使え、Origin の検証も組み込み。gorilla/websocket は API がやや古く、書き込みの並行制御を自分で行う必要があるため見送った)。
 
 理由:

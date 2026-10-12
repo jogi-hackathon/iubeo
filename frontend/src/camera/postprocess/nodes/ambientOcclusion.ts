@@ -20,14 +20,6 @@ import {isSkipGTAO} from "../skipGTAO";
 
 type MaterialLike = {transparent: boolean; skipGTAO?: unknown};
 
-/**
- * scene pass の各マテリアルの AO(getAO)に GTAO を合成するコンテキスト。
- * - material.skipGTAO が true(skipGTAO.ts)(AO モード baked の prop、プレイヤーの骨格)→ マテリアル側の AO だけ
- *   (aoMap が無ければ AO なし)
- * - マテリアル側の AO(ベイク AO の aoMap)が無い → GTAO だけ
- * - それ以外(AO モード both など)→ 暗い方。three の builtinAOContext は掛け算するが、両者は同じ遮蔽の見積もりなので、
- *   掛けると両方が効く場所(接地・壁の根元)だけ二重に暗くなる
- */
 const gtaoContext = (gtao: Node<"float">) =>
   context({
     getAO: (
@@ -58,9 +50,6 @@ export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
   const prePassNormal = prePass.getTextureNode();
   const prePassDepth = prePass.getTextureNode("depth");
   const aoPass = ao(prePassDepth, prePassNormal, camera);
-  // GTAO の生の出力はディザ状のノイズが残るので、深度・法線を見ながらぼかす。
-  // DenoiseNode は TempNode なので、scene のマテリアル内で毎フラグメント評価されないよう rtt で一度テクスチャに落とす。
-  // 使うのは r だけなので RedFormat。解像度は apply で GTAO と揃える
   const denoiseNode = denoise(
     aoPass.getTextureNode(),
     prePassDepth,

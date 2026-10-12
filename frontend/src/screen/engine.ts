@@ -20,24 +20,15 @@ export type ResolvedEngine = {
   version?: string;
 };
 
-/**
- * エンジンの配信元（末尾の / を除く）。空なら同じオリジンの /engine/（開発時の既定）。
- * 本番は R2 の公開 URL を入れる（例: https://pub-xxxx.r2.dev）。マニフェストの中のパス（/engine/...）の前に付ける
- */
 export const ENGINE_BASE_URL = (
   import.meta.env.VITE_ENGINE_BASE_URL ?? ""
 ).replace(/\/+$/, "");
 
-/** マニフェストの中のパス（/engine/...）を、配信元を含めた URL にする */
 export const engineUrl = (
   path: string,
   base: string = ENGINE_BASE_URL,
 ): string => (/^https?:\/\//.test(path) ? path : `${base}${path}`);
 
-/**
- * 読みに行くマニフェストの候補。`?engine=<dir>` があればそのバージョン（<base>/engine/<dir>/）を
- * 先に見る。無ければ既定（<base>/engine/manifest.json）。
- */
 export const engineManifestUrls = (
   search: string,
   base: string = ENGINE_BASE_URL,
@@ -51,29 +42,12 @@ export const engineManifestUrls = (
   ].filter(Boolean);
 };
 
-/**
- * 非圧縮の .wasm が同じ場所にあればそちらを使う。非圧縮ならブラウザが application/wasm で
- * 配信するので instantiateStreaming（ダウンロードと並行してコンパイル）が効き、zstd の展開も省ける
- */
-const preferUncompressed = async (
+const resolveWasm = (
   wasm: NonNullable<EngineManifest["wasm"]>,
-): Promise<{url: string; compressed: boolean}> => {
-  const url = engineUrl(wasm.url ?? "");
-  if (!wasm.compressed || !url.endsWith(".zst")) {
-    return {url, compressed: !!wasm.compressed};
-  }
-  const raw = url.slice(0, -".zst".length);
-  try {
-    const response = await fetch(raw, {method: "HEAD"});
-    if (
-      response.ok &&
-      (response.headers.get("content-type") ?? "").includes("wasm")
-    ) {
-      return {url: raw, compressed: false};
-    }
-  } catch {}
-  return {url, compressed: true};
-};
+): {url: string; compressed: boolean} => ({
+  url: engineUrl(wasm.url ?? ""),
+  compressed: !!wasm.compressed,
+});
 
 export const resolveEngine = async (
   search: string,
@@ -88,7 +62,7 @@ export const resolveEngine = async (
       if (manifest.wasm?.url) {
         return {
           entry: engineUrl(manifest.entry ?? ENTRY_FALLBACK),
-          wasm: await preferUncompressed(manifest.wasm),
+          wasm: resolveWasm(manifest.wasm),
           version: manifest.version,
         };
       }
@@ -111,10 +85,6 @@ export const resolveEngine = async (
 
 let prewarmed = false;
 
-/**
- * 先に取っておいた wasm。`blobUrl` をエンジンに渡すと、そのぶんのダウンロードを待たずに済む。
- * 取り中は `promise` を待つので、クリックと先取りで二重に落とすことはない
- */
 type WasmPrefetch = {url: string; blobUrl: string};
 let wasmPrefetch: {url: string; promise: Promise<WasmPrefetch | null>} | null =
   null;
@@ -143,7 +113,6 @@ export const prefetchEngineWasm = (
       const blob = await response.blob();
       return {url, blobUrl: URL.createObjectURL(blob)};
     } catch {
-      // 取れなくても普通に動く（クリック時にエンジンが自分で取りに行く）
       return null;
     }
   })();
@@ -151,10 +120,6 @@ export const prefetchEngineWasm = (
   return promise;
 };
 
-/**
- * 先に取っておいた（または取り中の）wasm の blob URL。無ければ undefined（呼び側はマニフェストの URL を使う）。
- * 取り中なら取れるまで待つ（クリックのときに二重に落とさないため）
- */
 export const prewarmedWasmUrl = async (
   url: string,
 ): Promise<string | undefined> => {
@@ -165,7 +130,6 @@ export const prewarmedWasmUrl = async (
   return loaded?.blobUrl;
 };
 
-/** 使い終わった先取りを解放する（33MB の blob を抱えたままにしない） */
 export const releasePrewarmedWasm = (): void => {
   const current = wasmPrefetch;
   wasmPrefetch = null;
@@ -176,10 +140,6 @@ export const releasePrewarmedWasm = (): void => {
   });
 };
 
-/**
- * エンジンの JS(埋め込み gecko.data を含む 13MB 級)を先に import しておく。クリック時の待ちが減る。
- * あわせて wasm も取りに行く(blob にして、クリックのときにエンジンへ渡す)。ページで 1 回だけやる
- */
 export const prewarmEngine = (search: string): void => {
   if (prewarmed) {
     return;
@@ -193,7 +153,6 @@ export const prewarmEngine = (search: string): void => {
     try {
       await importEngine(resolved.entry);
     } catch {}
-    // クリック時の一番重い待ち（4G で 68 秒）を、起動の裏で済ませておく
     await prefetchEngineWasm(resolved.wasm.url);
   })();
 };

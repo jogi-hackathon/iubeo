@@ -82,8 +82,11 @@ export const createContour = (
   })();
 
   return {
-    composite: (color: Node<"vec4">): Node<"vec4"> =>
-      vec4(mix(color.rgb, lineColor, edge), color.a),
+    composite: (
+      color: Node<"vec4">,
+      weight: Node<"float"> = float(1),
+    ): Node<"vec4"> =>
+      vec4(mix(color.rgb, lineColor, edge.mul(weight)), color.a),
     apply: (s: PostProcessSettings["contour"]): void => {
       strength.value = s.strength;
       depthThreshold.value = s.depthThreshold;

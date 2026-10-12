@@ -19,7 +19,6 @@ const PLAYER_SIZE = 1 + 4 + 5 * 4;
 
 type TransformsMessage = ServerMessageOf<"transforms">;
 
-/** transform を 25 バイトにする */
 export const encodeTransform = (m: TransformMessage): ArrayBuffer => {
   const buf = new ArrayBuffer(TRANSFORM_SIZE);
   const v = new DataView(buf);
@@ -33,10 +32,6 @@ export const encodeTransform = (m: TransformMessage): ArrayBuffer => {
   return buf;
 };
 
-/**
- * バイナリの transforms を、JSON と同じ形のメッセージに直す。席が分からないプレイヤー(snapshot の前など)は除く。
- * 形が合わなければ null
- */
 export const decodeTransforms = (
   buf: ArrayBuffer,
   playerOfSeat: ReadonlyMap<number, string>,

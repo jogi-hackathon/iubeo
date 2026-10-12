@@ -2,7 +2,6 @@ package session
 
 import "sync"
 
-// Store はセッションの保存先。今はメモリだけだが、後から差し替えられるように切り出す(ADR-0004)
 type Store interface {
 	Add(s *Session)
 	Get(id string) (*Session, bool)
@@ -10,7 +9,6 @@ type Store interface {
 	ByPlayer(playerID string) (*Session, bool)
 }
 
-// MemoryStore はメモリに持つ Store
 type MemoryStore struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session
@@ -19,7 +17,6 @@ type MemoryStore struct {
 
 var _ Store = (*MemoryStore)(nil)
 
-// NewMemoryStore は空の MemoryStore を作る
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{sessions: map[string]*Session{}, players: map[string]string{}}
 }

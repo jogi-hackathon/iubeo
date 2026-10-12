@@ -15,12 +15,10 @@ export type Tuple9 = [
 ];
 export type Tuple6 = [number, number, number, number, number, number];
 
-/** チャート内の1三角形。p / n は 3 頂点分の位置・法線(xyz 連続)、uv は 3 頂点分の (u,v) */
 export type ChartTri = {p: Tuple9; n: Tuple9; uv: Tuple6};
 
 export type ChartSize = {width: number; height: number};
 
-/** チャート内の点クエリの結果。p* = 位置、n* = 正規化済み法線、c* = ヒットした三角形の重心 */
 export type ChartHit = {
   px: number;
   py: number;
@@ -33,11 +31,8 @@ export type ChartHit = {
   cz: number;
 };
 
-/** uv 空間の n x n 格子に三角形をバケット分けした索引 */
 export type ChartIndex = {n: number; cells: ChartTri[][]};
 
-// 頂点の chart 属性でグループ化した三角形リストを返す。groups は index 範囲を分けているので
-// 1三角形の3頂点は必ず同じチャートに属する(assignCharts が保証する)。
 export const buildChartTriangles = (geometry: BufferGeometry): ChartTri[][] => {
   const pos = geometry.attributes.position;
   const nor = geometry.attributes.normal;
@@ -101,7 +96,6 @@ export const buildChartTriangles = (geometry: BufferGeometry): ChartTri[][] => {
   return tris;
 };
 
-// チャートの物理サイズ(m)。三角形ごとのヤコビアン |dP/du|, |dP/dv| を uv 面積で重み付き平均する
 export const chartPhysicalSize = (tris: ChartTri[]): ChartSize => {
   let areaSum = 0;
   let duSum = 0;
@@ -206,8 +200,6 @@ const interpolateHit = (
   };
 };
 
-// チャートの三角形を uv 空間の格子(だいたい1三角形/セル)にバケット分けして、点クエリを高速化する
-// (書類の束や壁のような、面ごとの三角形数が多いチャートで線形探索を避けるため)
 export const buildChartIndex = (tris: ChartTri[]): ChartIndex => {
   const n = Math.max(1, Math.ceil(Math.sqrt(tris.length)));
   const cells: ChartTri[][] = Array.from({length: n * n}, () => []);
@@ -248,7 +240,6 @@ export const queryChart = (
   return null;
 };
 
-// 面の縁ちょうどで自己交差・埋まりが起きないよう、チャート内側(三角形の重心方向)へわずかに寄せる
 export const insetPosition = (hit: ChartHit): [number, number, number] => {
   const dx = hit.cx - hit.px;
   const dy = hit.cy - hit.py;

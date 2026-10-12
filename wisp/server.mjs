@@ -1,9 +1,3 @@
-// WISP サーバー（コンテナの中で動く）。wisp-js をそのまま使う。
-// Cloudflare ではトークンの検証を手前の Worker が済ませてから流すので、ここでは何も検証しない。
-// EC2 のように検証役が手前に居ない環境では IUBEO_WISP_REQUIRE_TOKEN=1 を付け、
-// ?token= を IUBEO_WISP_KEY でここで検証する（オープンプロキシにしない）。
-// 検証が要求されているのに鍵が無いときは、安全側に倒して全て拒否する。
-// ローカル・私設の宛先への接続は wisp-js の既定で拒否される（オープンプロキシの踏み台にしない）。
 import http from "node:http";
 import {server as wisp} from "@mercuryworkshop/wisp-js/server";
 import {tokenFromUrl, verifyWispToken} from "./token.mjs";

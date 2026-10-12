@@ -8,7 +8,6 @@ import {
   VIGNETTE_MIN_SMOOTHNESS,
 } from "./settings";
 
-/** dev パネルの PostFX タブ。設定 store を直接書き換える */
 export function PostProcessPanel() {
   const s = usePostProcessSettings();
   const set = updatePostProcessSettings;

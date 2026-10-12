@@ -13,23 +13,22 @@ export type VoiceStatus = "idle" | "connecting" | "ready" | "unavailable";
 
 export type VoiceState = {
   status: VoiceStatus;
-  /** 使えないときの理由（コンソールと、必要なら画面に出す） */
   detail?: string;
-  /** push-to-talk を押していて、実際に送っている */
   transmitting: boolean;
-  /** ミュート（押しても送らない） */
   muted: boolean;
-  /** マイクの取得が済んでいる */
   micReady: boolean;
 };
 
 type VoiceToken = {
+  available: true;
   token: string;
   room: string;
   signalingUrl: string;
   mediaUrl: string;
   expiresAt: string;
 };
+
+type VoiceUnavailable = {available: false; reason?: string};
 
 const IDLE: VoiceState = {
   status: "idle",
@@ -38,12 +37,13 @@ const IDLE: VoiceState = {
   micReady: false,
 };
 
-const fetchVoiceToken = async (): Promise<VoiceToken> => {
+const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
   const res = await fetch("/api/v1/voice/token", {credentials: "same-origin"});
   if (!res.ok) {
     throw new Error(`voice token: HTTP ${res.status}`);
   }
-  return (await res.json()) as VoiceToken;
+  const body = (await res.json()) as VoiceToken | VoiceUnavailable;
+  return body.available ? body : null;
 };
 
 export const createVoiceEngine = () => {
@@ -92,9 +92,7 @@ export const createVoiceEngine = () => {
           data.close();
           audio?.feed(peer, pcm);
         },
-        error: () => {
-          /* 壊れたフレームは捨てる */
-        },
+        error: () => {},
       });
       dec.configure({codec: "opus", sampleRate: 48000, numberOfChannels: 1});
       decoders.set(peer, dec);
@@ -107,9 +105,7 @@ export const createVoiceEngine = () => {
           data: opus,
         }),
       );
-    } catch {
-      /* 閉じた */
-    }
+    } catch {}
   };
 
   const ensureMic = (): void => {
@@ -134,9 +130,7 @@ export const createVoiceEngine = () => {
     for (const d of decoders.values()) {
       try {
         d.close();
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
     decoders.clear();
     roster.clear();
@@ -172,8 +166,11 @@ export const createVoiceEngine = () => {
       if (mine !== generation) {
         return;
       }
+      if (token === null) {
+        set({status: "unavailable", detail: "この環境ではVCを使わない"});
+        return;
+      }
       audio = createVoiceAudio();
-      // 実際に音を出すのはユーザー操作の後。ここでは作るだけ
       moq = new MoqVoice();
       await moq.start({
         url: token.mediaUrl,
@@ -246,7 +243,6 @@ export const createVoiceEngine = () => {
     start,
     stop,
 
-    /** クリックやキー入力の中で呼ぶ。自動再生の制限を解く */
     unlock: (): void => {
       void audio?.resume();
     },
@@ -265,7 +261,6 @@ export const createVoiceEngine = () => {
       set({muted, transmitting: transmitting()});
     },
 
-    /** 毎フレーム呼ぶ。カメラを聞き手にして、roster に居る人の声をその位置へ置く */
     updateFrame: (camera: Camera, now: number): void => {
       if (!audio || !myPlayerId) {
         return;
@@ -293,7 +288,6 @@ export const createVoiceEngine = () => {
 
 export type VoiceEngine = ReturnType<typeof createVoiceEngine>;
 
-/** アプリ全体で 1 つの VC */
 export const voiceEngine = createVoiceEngine();
 
 export const useVoiceState = (): VoiceState =>

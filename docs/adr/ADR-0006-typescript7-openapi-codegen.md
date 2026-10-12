@@ -1,7 +1,7 @@
 # ADR-0006: TypeScript 7 のもとで openapi-typescript を動かす
 
 - 日付: 2026-10-07
-- ステータス: Proposed
+- ステータス: Accepted
 - 関連: [ADR-0002](ADR-0002-backend-technology-selection.md) / [backend/api/openapi.yaml](../../backend/api/openapi.yaml)
 
 ## 背景
@@ -14,7 +14,7 @@
   - TypeScript 7.0.2 の npm パッケージは `tsc` の実行ファイルを包むだけで、JS API を持たない(`require("typescript").factory` が `undefined`)
   - `typescript` に 7.0.2 を入れたまま openapi-typescript を足すと、peer の typescript が 7.0.2 に解決され、生成に失敗する
   - バックエンドは oapi-codegen を `go.mod` の `tool` ディレクティブで管理し、推移的な依存まで go.sum で固定している。フロントエンドの生成器も同じように lockfile で固定したい
-  - 型の生成は openapi.yaml を変えたときだけ行い、生成物はコミットする。ビルドや CI では生成しない
+  - 型の生成は openapi.yaml を変えたときだけ行い、生成物はコミットする。ビルドでは生成しない(CI は `pnpm gen:api` をやり直し、コミット済みの生成物と差が無いことだけを確かめる)
 
 ## 決定
 
@@ -31,7 +31,7 @@
 - `typescript`(5.9.3)は、openapi-typescript の peer を満たすためだけに置く
 - 型検査とビルドの `tsc` は TypeScript 7 で動く。pnpm は同じ名前のコマンド(`tsc`)がぶつかると、パッケージ名が同じ(どちらも中身は `typescript`)ならバージョンの高い方を選ぶため(pnpm 11 の `bins/linker` の `compareCommandsInConflict`)
   https://github.com/pnpm/pnpm/blob/main/pnpm11/bins/linker/src/index.ts
-- `pnpm gen:api` で `src/net/schema.gen.ts` に書き出し、コミットする
+- `pnpm gen:api` で `src/net/schema.gen.ts` に書き出し(oxfmt で整形する)、コミットする
 
 理由:
 

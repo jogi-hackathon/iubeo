@@ -57,9 +57,16 @@ export const createAimOutline = (selection: SelectionMask) => {
   })();
 
   return {
-    composite: (color: Node<"vec4">): Node<"vec4"> =>
+    composite: (
+      color: Node<"vec4">,
+      weight: Node<"float"> = float(1),
+    ): Node<"vec4"> =>
       vec4(
-        mix(color.rgb, outlineColor, clamp(edge.mul(OUTLINE_STRENGTH), 0, 1)),
+        mix(
+          color.rgb,
+          outlineColor,
+          clamp(edge.mul(OUTLINE_STRENGTH), 0, 1).mul(weight),
+        ),
         color.a,
       ),
     dispose: (): void => {},

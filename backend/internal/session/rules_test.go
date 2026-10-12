@@ -40,7 +40,7 @@ func TestInitialState(t *testing.T) {
 	st := newState("p1", "p2", "p3")
 	snap := st.Snapshot(t0)
 
-	if snap.Status != api.SessionStatusWaiting || snap.Mode != api.SessionModeMultiplayer || snap.Seq != 0 || snap.SchemaVersion != api.N2 {
+	if snap.Status != api.SessionStatusWaiting || snap.Mode != api.Multiplayer || snap.Seq != 0 || snap.SchemaVersion != api.N2 {
 		t.Errorf("snapshot header = %+v", snap)
 	}
 	if snap.Game.Phase != nil || snap.Game.Result != nil {

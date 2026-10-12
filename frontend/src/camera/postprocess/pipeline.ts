@@ -15,6 +15,8 @@ import {vignette} from "three/addons/tsl/display/CRT.js";
 import {fsr1} from "three/addons/tsl/display/FSR1Node.js";
 import {
   float,
+  Fn,
+  If,
   mix,
   pass,
   renderOutput,
@@ -27,6 +29,7 @@ import {
 import {type Node, type Renderer, RenderPipeline} from "three/webgpu";
 
 import {disarmPipelineWatch} from "../../core/debug/pipelineWatch";
+import {proxyView} from "../../transition/dive/proxyView";
 import {createAimOutline} from "./nodes/aimOutline";
 import {createAmbientOcclusion} from "./nodes/ambientOcclusion";
 import {createContour} from "./nodes/contour";
@@ -56,7 +59,6 @@ const BLOOM_RESOLUTION_SCALE = 0.5;
 
 export interface PostProcessPipeline {
   render(): void;
-  /** 設定を反映する。数値は uniform の更新のみ、構成が変わるとき(effect の on/off など)だけ outputNode を組み直す */
   apply(settings: PostProcessSettings): void;
   /** シーン(と AO・ブルーム)を描く内部解像度の、画面に対する比率(0〜1。core/graphics の getRenderScale) */
   setRenderScale(scale: number): void;
@@ -79,16 +81,6 @@ const structureKey = (s: PostProcessSettings): string =>
 
 type Disposable = {dispose(): void};
 
-/**
- * 内部解像度(setRenderScale)で:
- * AO の pre-pass(法線・深度)→ GTAO → scene pass(AO は間接光だけに掛かる。ベイク AO との分担は gtaoContext)→ Bloom 加算
- * → アウトライン(狙ったオブジェクトの外周。他の物に隠れた部分は出さない)→ トーンマップ → 1 枚に落とす
- * 画面の解像度で:
- * → FSR1(EASU+RCAS)で引き伸ばす → ピクセレート → ビネット → 出力変換(sRGB。最後に 1 回だけ)。
- * 色を決める処理は全部内部解像度で済ませ、画面の解像度で動くのは引き伸ばし以降の軽いパスだけにする。
- * outputColorTransform=false にして出力変換を自前で行う(Renderer の toneMapping / outputColorSpace は R3F が
- * ACES / sRGB に上書きしているが、RenderPipeline 内では使わない)
- */
 export const createPostProcessPipeline = (
   renderer: Renderer,
   scene: Scene,
@@ -130,6 +122,21 @@ export const createPostProcessPipeline = (
   const aimOutline = createAimOutline(selection);
   const powerOutline = createPowerOutline(selection);
 
+  const sampleScene = (uv: Node<"vec2">): Node<"vec4"> =>
+    Fn(() => {
+      const result = sceneColor.sample(uv).level(float(0)).toVar();
+      If(proxyView.blend.greaterThan(0), () => {
+        result.assign(
+          mix(
+            result,
+            proxyView.textureNode.sample(uv).level(float(0)),
+            proxyView.blend,
+          ),
+        );
+      });
+      return result;
+    })();
+
   let lowRes: ReturnType<typeof rtt> | null = null;
   let upscaled: Disposable | null = null;
   let pixelated: ReturnType<typeof rtt> | null = null;
@@ -158,8 +165,6 @@ export const createPostProcessPipeline = (
       if (p.contextNode === contextNode) {
         continue;
       }
-      // needsUpdate で version が上がり、PassNode がキャッシュしているコンテキストも作り直される。
-      // コンテキストが変わると scene の全マテリアルが再コンパイルされるので、変わったときだけ行う
       p.contextNode = contextNode;
       p.needsUpdate = true;
     }
@@ -172,14 +177,17 @@ export const createPostProcessPipeline = (
       );
     }
 
-    const base = glitch.scene(sceneColor);
-    let color: Node<"vec4"> = s.bloom.enabled ? base.add(bloomNode) : base;
+    const sceneWeight = proxyView.blend.oneMinus();
+    const base = glitch.scene(sampleScene);
+    let color: Node<"vec4"> = s.bloom.enabled
+      ? base.add(bloomNode.mul(sceneWeight))
+      : base;
 
     if (s.contour.enabled) {
-      color = contour.composite(color);
+      color = contour.composite(color, sceneWeight);
     }
-    color = powerOutline.composite(color);
-    color = aimOutline.composite(color);
+    color = powerOutline.composite(color, sceneWeight);
+    color = aimOutline.composite(color, sceneWeight);
 
     const mapped =
       s.toneMapping === "none"

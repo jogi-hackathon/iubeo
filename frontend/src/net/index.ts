@@ -25,7 +25,6 @@ export {
 export type {
   ApiErrorBody,
   ClientMessage,
-  CreateSessionRequest,
   GamePhase,
   GameResult,
   GameTask,

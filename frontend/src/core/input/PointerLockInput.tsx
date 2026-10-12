@@ -3,7 +3,6 @@ import {useEffect} from "react";
 
 import {connectPointerLock, usePointerLocked} from "./pointerLock";
 
-/** Canvas に 1 つ置く。クリックで pointer lock し、ロック中は raycaster を画面中央に固定する */
 export function PointerLockInput() {
   const gl = useThree((s) => s.gl);
   const get = useThree((s) => s.get);

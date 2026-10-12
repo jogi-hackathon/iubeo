@@ -1,8 +1,8 @@
 # ADR-0001: フロントエンドのライブラリ選定
 
 - 日付: 2026-09-29
-- ステータス: Proposed | Accepted | Deprecated | Superseded by ADR-XXXX
-- 関連: \<関連する ADR / Issue / PR へのリンク>
+- ステータス: Accepted
+- 関連: [ADR-0002](ADR-0002-backend-technology-selection.md) / [frontend/README.md](../../frontend/README.md)
 
 ## 背景
 

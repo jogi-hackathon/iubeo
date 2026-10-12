@@ -12,37 +12,23 @@ export type TransitionEvents = {
 
 export type SceneTransitionContext = {from: SceneName; to: SceneName};
 
-/** 遷移の段階ごとのフック。onLeave -> (演出) -> onPrepare + commit -> onEnter の順に呼ばれる */
 export type TransitionHook = (ctx: SceneTransitionContext) => void;
 
 export type SceneTransitionManagerOptions = {
   sceneManager: SceneManager;
-  /** 遷移演出(覆う)。resolve するまで transitioning のまま待つ */
   runTransition?: (ctx: SceneTransitionContext) => Promise<void>;
-  /** commit のあと、to の準備ができるまで待つ。resolve するまで finishTransition を呼ばない */
   waitReady?: (scene: SceneName) => Promise<void>;
-  /** 準備ができたあとに演出を終える(覆いを外す)。transitionEnd の前に呼ぶ */
-  finishTransition?: (ctx: SceneTransitionContext) => void;
-  /** 今、遷移を始めてよいか(起動の覆いの間など、始めてはいけないときは false)。false なら goTo は何もしない */
+  finishTransition?: (ctx: SceneTransitionContext) => void | Promise<void>;
   canStart?: () => boolean;
 };
 
 const noTransition = (): Promise<void> => Promise.resolve();
 const noWait = (): Promise<void> => Promise.resolve();
-const noFinish = (): void => {};
+const noFinish = (): void | Promise<void> => {};
 const always = (): boolean => true;
 
 type Phase = "leave" | "prepare" | "enter";
 
-/**
- * シーン切り替えの流れ(遷移の状態・演出・フック・イベント)。切り替えの結果は SceneManager に commit する。
- *
- * goTo の順序: transitionStart -> onLeave(from) -> runTransition -> onPrepare(to) と commit(to) -> onEnter(to)
- *   -> waitReady(to) -> finishTransition -> transitionEnd。
- * onPrepare と commit は同じ同期区間で続けて呼ぶ(React の再描画が 1 回にまとまり、新しいシーンに前のシーンのオブジェクトが
- * 一瞬出たり、ベイク AO の不一致が起きたりしない)。onPrepare は「新しいシーンが描かれる前」の準備(準備済みの印を外すなど)をする場所。オブジェクトは、新しいシーンのオーソリティがマウントで置く。
- * waitReady は commit の後で待つ(新しいシーンのマウントは commit の後に起きるため)。準備が終わるまで演出は終わらない
- */
 export const createSceneTransitionManager = ({
   sceneManager,
   runTransition = noTransition,
@@ -156,7 +142,7 @@ export const createSceneTransitionManager = ({
         console.error(e);
       }
       try {
-        finishTransition(ctx);
+        await finishTransition(ctx);
       } catch (e) {
         console.error(e);
       }

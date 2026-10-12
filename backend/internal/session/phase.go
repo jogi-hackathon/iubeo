@@ -9,40 +9,29 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// PhaseRules はフェーズと決着の決まり(state-schema.md §5.2、ADR-0006)
 type PhaseRules struct {
-	// Count はフェーズの数
-	Count int
-	// Duration はフェーズの長さ(開始から締切まで)
-	Duration time.Duration
-	// Intermission はフェーズの間の長さ
+	Count        int
+	Duration     time.Duration
 	Intermission time.Duration
-	// Bypass は、最後のフェーズを生き残って bypassPermission を立ててから、火がつかなくても victory にするまでの長さ
-	Bypass time.Duration
-	// Fire は、火をつけてから victory にするまでの長さ(燃える演出の時間)
-	Fire time.Duration
+	Bypass       time.Duration
+	Fire         time.Duration
 }
 
-// PhaseState はフェーズの内部状態。Number が 0 なら、まだフェーズが無い
 type PhaseState struct {
 	Number     int
 	Status     api.PhaseStatus
 	StartedAt  time.Time
 	DeadlineAt time.Time
-	// EndedAt はフェーズが終わった時刻(締切、または全員が完了した時刻)。ここから intermission を数える
-	EndedAt time.Time
-	Tasks   []TaskState
+	EndedAt    time.Time
+	Tasks      []TaskState
 }
 
-// TaskState はタスクの内部状態
 type TaskState struct {
-	ID       string
-	Type     api.TaskType
-	Assignee string
-	// TargetFileID は read_edit のときだけ。対象の在庫ファイルの id
+	ID           string
+	Type         api.TaskType
+	Assignee     string
 	TargetFileID string
-	// CompletedAt はサーバーが完了を受け付けた時刻。ゼロなら未完了
-	CompletedAt time.Time
+	CompletedAt  time.Time
 }
 
 var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.WebSearch, api.ImageGeneration}
@@ -103,8 +92,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		DeadlineAt: now.Add(st.Phases.Duration),
 		Tasks:      tasks,
 	}
-	// CPU の段取りを引き直す(区画のスポーンに立ち、個体差を作る)
-	st.resetCpuAgents()
+	st.resetCPUAgents(now)
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
@@ -272,7 +260,7 @@ func (st *State) completeTask(playerID, fileID string, status api.FileStatus, no
 	return nil
 }
 
-func (st State) apiPhase() api.Phase {
+func (st *State) apiPhase() api.Phase {
 	ph := api.Phase{
 		Number:     st.Phase.Number,
 		Status:     st.Phase.Status,

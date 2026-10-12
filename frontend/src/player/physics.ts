@@ -14,7 +14,6 @@ import {
 } from "./constants";
 import type {MoveInput, PlayerState} from "./types";
 
-/** yaw(Y 軸回転)が 0 のとき -Z 方向が前。水平面の速度を out に書く */
 export const walkVelocity = (
   input: MoveInput,
   yaw: number,
@@ -78,7 +77,6 @@ const warnMissingBvh = (mesh: Collider["mesh"]): void => {
   );
 };
 
-/** カプセルをコライダー群から押し出す。戻り値は position に加えた補正量(delta に書く) */
 export const resolveCollisions = (
   position: Vector3,
   colliders: readonly Collider[],
@@ -139,7 +137,6 @@ export const resolveCollisions = (
   return out.subVectors(segment.start, before);
 };
 
-/** 1 フレーム分の移動・重力・衝突を state に反映する(小ステップに分割して積分) */
 export const stepPlayer = (
   state: PlayerState,
   input: MoveInput,

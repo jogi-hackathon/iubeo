@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
@@ -17,6 +17,8 @@ import {readinessOf} from "./scenes/readiness";
 import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
+import {DiveDirector, WarmupProbe} from "./transition/dive/DiveDirector";
+import {startTutorialPresenceHeartbeat} from "./tutorial";
 
 registerDevTab({
   id: "scene",
@@ -41,6 +43,9 @@ export function App() {
   const [initialScene] = useState(sceneName);
   useBootCover(initialScene, warmedUp);
   const readiness = useMemo(() => readinessOf(sceneName), [sceneName]);
+
+  useEffect(() => startTutorialPresenceHeartbeat(), []);
+
   return (
     <>
       <GameCanvas>
@@ -54,6 +59,8 @@ export function App() {
         <LocalPlayerSkeleton />
         <FirstPersonCamera />
         <FlyCamera />
+        <DiveDirector />
+        <WarmupProbe />
         <PostProcess />
         <ShaderWarmup />
       </GameCanvas>

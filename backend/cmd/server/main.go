@@ -1,4 +1,3 @@
-// Command server は IUBEO のゲームバックエンドを起動する。
 package main
 
 import (
@@ -34,7 +33,7 @@ func main() {
 	srv := server.New(
 		player.NewSigner(cfg.SigningKey),
 		sessions,
-		matchmaking.New(cfg.MatchSize, sessions, time.Now, matchmaking.Options{FillAfter: cfg.CpuFillAfter}),
+		matchmaking.New(cfg.MatchSize, sessions, time.Now, matchmaking.Options{FillAfter: cfg.CPUFillAfter}),
 		cfg.AllowedOrigins,
 	)
 	if cfg.WispKey != nil {

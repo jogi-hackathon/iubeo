@@ -1,7 +1,7 @@
 # ADR-0003: バックエンドの状態モデルとフロントとの通信の約束
 
 - 日付: 2026-10-03
-- ステータス: Proposed
+- ステータス: Accepted
 - 関連: [ADR-0002](ADR-0002-backend-technology-selection.md) / [ADR-0004](ADR-0004-backend-session-runtime.md) / [docs/backend/state-schema.md](../backend/state-schema.md) / [backend/api/openapi.yaml](../../backend/api/openapi.yaml)
 
 ## 背景
@@ -12,7 +12,7 @@
   - フロントでは、同じファイルが「ディレクトリの在庫(`objects[].data.stock`)」「手持ちアイテム(`items` の held)」「成果物の数(`outputs`)」と、いる場所によって別の構造に入る
   - サーバーには、死亡・切断時のファイル返却、フェーズごとのリセット、タスク達成の判定など、ファイルの所在を横断して扱う処理がある
   - アカウント(ログイン)は設けない
-  - デプロイ先は未確定(フロントエンドは Cloudflare Workers、バックエンドは AWS ECS の予定)
+  - デプロイ先は未確定だった(その後 [ADR-0005](ADR-0005-deployment-architecture.md) で決めた)
 
 ## 決定
 
@@ -47,7 +47,7 @@
 
 前提と制約:
 
-- Cookie での識別は、ブラウザから見てフロントとバックエンドが同じオリジン、少なくとも同じサイトであることを前提にする。開発時は Vite の proxy で同じオリジンにする。本番の構成(Worker で中継するか、サブドメインで分けて CORS を設定するか)は、デプロイ先が決まってから決める
+- Cookie での識別は、ブラウザから見てフロントとバックエンドが同じオリジン、少なくとも同じサイトであることを前提にする。開発時は Vite の proxy で同じオリジンにする。本番は、フロントの Worker が `/api/*` をバックエンドへ中継して同じオリジンにした([ADR-0005](ADR-0005-deployment-architecture.md))
 
 ## 検討した選択肢
 

@@ -1,5 +1,3 @@
-// バンドルの計測: 生・gzip・brotli のサイズと、ソースのパッケージごとの内訳(sourcemap から集計)
-// 使い方: node perf/lib/bundle-report.mjs [assetsDir]
 import {brotliCompressSync, constants, gzipSync} from "node:zlib";
 import {readdirSync, readFileSync, statSync} from "node:fs";
 import {createRequire} from "node:module";
@@ -22,14 +20,12 @@ const sizes = (buf) => ({
   }).length,
 });
 
-/** ソースのパスを内訳の単位(パッケージ名 or src 配下のフォルダ)に直す */
 const bucketOf = (source) => {
   if (!source) return "(none)";
   const nm = source.lastIndexOf("node_modules/");
   if (nm >= 0) {
     const rest = source.slice(nm + "node_modules/".length).split("/");
     const pkg = rest[0].startsWith("@") ? `${rest[0]}/${rest[1]}` : rest[0];
-    // PERF_DEEP=1 のとき three は src 配下のフォルダまで分ける(どの機能が重いかを見る)
     if (process.env.PERF_DEEP && pkg === "three") {
       const i = rest.indexOf("src");
       const sub = i >= 0 ? rest.slice(i + 1, i + 3).join("/") : rest.slice(-3).join("/");
@@ -48,14 +44,13 @@ for (const f of files) {
   report.files[f] = {bytes: statSync(join(dir, f)).size, ...sizes(buf)};
 }
 
-// JS の内訳: 生成コードの各行を、そのセグメントのソースに割り当てる(近似)
 const jsFile = files.find((f) => f.endsWith(".js") && !f.endsWith(".map"));
 if (jsFile) {
   const code = readFileSync(join(dir, jsFile), "utf8");
   const lines = code.split("\n");
   const mapPath = join(dir, `${jsFile}.map`);
   const map = new TraceMap(readFileSync(mapPath, "utf8"));
-  const segs = new Map(); // line -> [{col, source}]
+  const segs = new Map();
   eachMapping(map, (m) => {
     if (m.source == null) return;
     if (!segs.has(m.generatedLine)) segs.set(m.generatedLine, []);

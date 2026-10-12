@@ -1,7 +1,5 @@
-/** インタラクトできる距離(m)。目の位置から測る */
 export const INTERACT_DISTANCE = 2.5;
 
-/** 視線の最初の当たり。objectId は、当たった物が属するオブジェクト(壁などコライダーだけの物は null) */
 export type AimHit = {objectId: string | null; distance: number};
 
 type AimOptions = {
@@ -9,10 +7,6 @@ type AimOptions = {
   isTargetable: (objectId: string) => boolean;
 };
 
-/**
- * 視線の最初の当たりから、狙っているオブジェクトの id を決める。
- * 最初の当たりがオブジェクトでなければ(壁などに遮られていれば)狙わない
- */
 export const resolveAim = (
   firstHit: AimHit | null,
   {maxDistance = INTERACT_DISTANCE, isTargetable}: AimOptions,

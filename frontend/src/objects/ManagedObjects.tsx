@@ -9,6 +9,7 @@ import {
 import {useIsEnabled, useIsHighlighted, useIsVisible} from "../core/toggles";
 import {useIsObjectDisabled} from "./disabledObjects";
 import {DummyObject} from "./DummyObject";
+import {useIsAimed} from "./interaction/aimStore";
 import {OBJECT_ID_KEY, registerTarget} from "./interaction/targets";
 import {kindRenderers} from "./kinds";
 import {type SceneLayout, matchLayout} from "./layout";
@@ -41,6 +42,8 @@ function ObjectRoot({
     },
     [id, enabled],
   );
+  // 照準が合っている間は破線を止めて、黒の実線にする
+  const aimed = useIsAimed(id);
   useEffect(() => {
     const root = group.current;
     if (!highlighted || !visible || !root) {
@@ -49,8 +52,9 @@ function ObjectRoot({
     return addPowerOutline(root, {
       ignoreDistance: true,
       ...GUIDE_OUTLINE,
+      dashed: !aimed,
     });
-  }, [highlighted, visible]);
+  }, [highlighted, visible, aimed]);
   const state = useMemo(() => ({visible, enabled}), [visible, enabled]);
   const Renderer = kindRenderers[object.kind] ?? DummyObject;
   return (
@@ -71,14 +75,8 @@ function ObjectRoot({
 }
 
 const warnedIds = new Set<string>();
+const UNMATCHED_WARN_DELAY_MS = 300;
 
-/**
- * objectManager のオブジェクトを、シーンのレイアウトに従って描画する。レイアウトの項目と id が一致した物だけ描く
- * (一致しない物は描かない。開発時は id ごとに一度だけ警告する)
- * kind ごとに描画コンポーネントを振り分ける(kinds.ts)。
- * 動的に増減するので、ダミーの箱はコライダーにせずベイクAOの対象外(realtime)にする
- * 項目名ごとに、core/toggles で表示・非表示と機能の ON・OFF を切り替えられる(非表示でも mesh は外さない。非表示は見た目・当たり判定・インタラクトを、機能 OFF はインタラクトだけを無効にする)。
- */
 export function ManagedObjects({
   layout,
   ao,
@@ -92,15 +90,18 @@ export function ManagedObjects({
     [layout, objects],
   );
   useEffect(() => {
-    if (!import.meta.env.DEV) {
+    if (!import.meta.env.DEV || unmatched.length === 0) {
       return;
     }
-    for (const o of unmatched) {
-      if (!warnedIds.has(o.id)) {
-        warnedIds.add(o.id);
-        console.warn(`レイアウトに無いオブジェクトは描かない: ${o.id}`);
+    const timer = setTimeout(() => {
+      for (const o of unmatched) {
+        if (!warnedIds.has(o.id)) {
+          warnedIds.add(o.id);
+          console.warn(`レイアウトに無いオブジェクトは描かない: ${o.id}`);
+        }
       }
-    }
+    }, UNMATCHED_WARN_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [unmatched]);
   return (
     <>

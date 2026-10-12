@@ -1,7 +1,3 @@
-/**
- * VC のシグナリング（vc の docs/protocol.md §2）。
- * MoQ では roster（誰が居るか）と ping だけを使い、signal の中身は使わない。
- */
 export type VcPeer = {id: string};
 
 export type VcServerMsg =
@@ -26,13 +22,10 @@ const parse = (raw: string): VcServerMsg | undefined => {
     ) {
       return v as VcServerMsg;
     }
-  } catch {
-    /* ignore */
-  }
+  } catch {}
   return undefined;
 };
 
-/** シグナリングの WebSocket。開いたら resolve する ready を持つ */
 export class Signaling {
   readonly ws: WebSocket;
   readonly ready: Promise<void>;

@@ -27,18 +27,6 @@ describe("createApiClient", () => {
     });
   });
 
-  it("本文を JSON で送る", async () => {
-    const fetch = vi.fn(async () => json(201, {}));
-    const api = createApiClient({fetch, baseUrl: "http://x"});
-    await api.createSession({mode: "single"});
-    expect(fetch).toHaveBeenCalledWith("http://x/api/v1/sessions", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({mode: "single"}),
-    });
-  });
-
   it("204 は undefined を返す", async () => {
     const api = createApiClient({
       fetch: async () => new Response(null, {status: 204}),

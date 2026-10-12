@@ -507,8 +507,6 @@ func TestVictoryOverWebSocket(t *testing.T) {
 	waitGone(t, h, sessionID, players[0])
 }
 
-// TestBinaryTransformsOverWebSocket は enc=bin の接続で、位置をバイナリでやり取りする(session/binary.go)。
-// それ以外のメッセージ(snapshot など)は JSON のまま
 func TestBinaryTransformsOverWebSocket(t *testing.T) {
 	h := newTestServerSize(t, 1)
 	srv := httptest.NewServer(h)
@@ -526,7 +524,6 @@ func TestBinaryTransformsOverWebSocket(t *testing.T) {
 	seat := snap.Players[0].Seat
 	readType[api.SessionStartedMessage](t, ws, "session.started")
 
-	// transform(25B): type=1 | seq u32 | x y z | yaw | pitch(f32)
 	msg := make([]byte, 25)
 	msg[0] = 1
 	binary.LittleEndian.PutUint32(msg[1:], 9)
@@ -544,7 +541,6 @@ func TestBinaryTransformsOverWebSocket(t *testing.T) {
 		if typ != websocket.MessageBinary {
 			continue
 		}
-		// transforms: type=2 | serverTime f64 | n u8 | n × (seat u8 | seq u32 | f32 × 5)
 		if len(data) != 10+25 || data[0] != 2 || data[9] != 1 {
 			t.Fatalf("transforms の形が違う: % x", data)
 		}

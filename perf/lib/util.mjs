@@ -1,4 +1,3 @@
-// 計測の共通の小物: 引数の解析・統計
 export const parseArgs = (argv, defaults) => {
   const out = {...defaults};
   for (let i = 0; i < argv.length; i++) {
@@ -14,7 +13,6 @@ export const parseArgs = (argv, defaults) => {
   return out;
 };
 
-/** 昇順に並んだ配列の百分位(最近傍) */
 export const percentile = (sorted, p) => {
   if (sorted.length === 0) return NaN;
   const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);

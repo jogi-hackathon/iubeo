@@ -32,7 +32,6 @@ func (s *Server) participantSession(w http.ResponseWriter, r *http.Request, sess
 	return sess, playerID, true
 }
 
-// GetSession はセッションのスナップショットを返す(参加者のみ)
 func (s *Server) GetSession(w http.ResponseWriter, r *http.Request, sessionID api.SessionId) {
 	sess, _, ok := s.participantSession(w, r, sessionID)
 	if !ok {
@@ -46,7 +45,6 @@ func (s *Server) GetSession(w http.ResponseWriter, r *http.Request, sessionID ap
 	writeJSON(w, http.StatusOK, snap)
 }
 
-// ConnectSession は WebSocket に切り替え、セッションにつなぐ(参加者のみ。Origin を検証する)
 func (s *Server) ConnectSession(w http.ResponseWriter, r *http.Request, sessionID api.SessionId) {
 	sess, playerID, ok := s.participantSession(w, r, sessionID)
 	if !ok {
@@ -65,7 +63,6 @@ func (s *Server) ConnectSession(w http.ResponseWriter, r *http.Request, sessionI
 	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
 	defer cancel()
 	conn := session.NewConn(playerID, ws)
-	// enc=bin の接続は、位置のメッセージをバイナリでやり取りする(session/binary.go。state-schema.md §7.5)
 	conn.Binary = r.URL.Query().Get("enc") == "bin"
 	go conn.WriteLoop(ctx)
 	go func() {

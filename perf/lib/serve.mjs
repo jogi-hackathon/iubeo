@@ -1,9 +1,3 @@
-// ビルド出力(静的アセット)を配る最小のサーバー。Cloudflare Workers Static Assets の配信をまねる:
-//   - 存在しないパスは index.html を 200 で返す(not_found_handling = single-page-application)
-//   - テキスト系は Accept-Encoding に合わせて brotli / gzip で返す
-//   - 既定の Cache-Control は "public, max-age=0, must-revalidate" と ETag(If-None-Match なら 304)
-//   - 出力先に _headers があれば、そのルールで上書きする(パスの末尾 * だけ対応)。_headers 自体は配らない
-// PERF_NO_CACHE=1 なら、従来どおり no-store で返す(冷えた状態だけを測るとき)
 import {createHash} from "node:crypto";
 import {createServer} from "node:http";
 import {readFile, stat} from "node:fs/promises";
@@ -22,7 +16,6 @@ const TYPES = {
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
 const DEFAULT_CACHE_CONTROL = "public, max-age=0, must-revalidate";
 
-// 圧縮結果はキャッシュする(毎回 brotli q11 をかけるとサーバー側の時間が計測に混ざるため)
 const compressedCache = new Map();
 const compressed = (key, body, encoding) => {
   const k = `${key}|${encoding}`;
@@ -37,7 +30,6 @@ const compressed = (key, body, encoding) => {
   return compressedCache.get(k);
 };
 
-/** _headers を読む。[{prefix, exact, headers}] */
 const loadHeaderRules = async (root) => {
   let text;
   try {
@@ -63,13 +55,38 @@ const loadHeaderRules = async (root) => {
   return rules;
 };
 
-/** root 配下を配るサーバーを起動し、{url, close} を返す */
-export const serveDir = async (root, port = 0) => {
+export const serveDir = async (root, port = 0, {engineDir = process.env.PERF_ENGINE_DIR} = {}) => {
   const rules = await loadHeaderRules(root);
   const noCache = process.env.PERF_NO_CACHE === "1";
   return new Promise((resolve) => {
     const server = createServer(async (req, res) => {
       const pathname = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      if (engineDir && pathname.startsWith("/engine/")) {
+        const file = normalize(join(engineDir, pathname.slice("/engine/".length)));
+        try {
+          if (!file.startsWith(engineDir)) throw new Error("outside engine dir");
+          const raw = await readFile(file);
+          const headers = {
+            "content-type": TYPES[extname(file)] ?? "application/octet-stream",
+            "cache-control": "public, max-age=3600",
+            "cross-origin-resource-policy": "cross-origin",
+          };
+          let body = raw;
+          if (process.env.PERF_ENGINE_COMPRESS === "1" && COMPRESSIBLE.has(extname(file))) {
+            const accept = String(req.headers["accept-encoding"] ?? "");
+            const enc = accept.includes("br") ? "br" : accept.includes("gzip") ? "gzip" : null;
+            if (enc) {
+              body = compressed(file, raw, enc);
+              headers["content-encoding"] = enc;
+            }
+          }
+          res.writeHead(200, headers);
+          res.end(req.method === "HEAD" ? undefined : body);
+        } catch {
+          res.writeHead(404).end();
+        }
+        return;
+      }
       let file = normalize(join(root, pathname));
       if (!file.startsWith(root) || pathname === "/_headers") {
         file = join(root, "index.html");

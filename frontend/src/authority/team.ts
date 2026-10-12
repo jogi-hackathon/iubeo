@@ -2,7 +2,6 @@ import {useSyncExternalStore} from "react";
 
 import type {Team} from "../net/types";
 
-/** 勝利フラグの最初の値(どちらも立っていない) */
 export const INITIAL_TEAM: Team = {bypassPermission: false, fireStarted: false};
 
 /**
@@ -11,9 +10,7 @@ export const INITIAL_TEAM: Team = {bypassPermission: false, fireStarted: false};
  */
 export type TeamStore = {
   get: () => Team;
-  /** 書き換える。値が同じなら何もしない(参照も変えず、通知もしない) */
   set: (team: Team) => void;
-  /** 最初の値に戻す(オーソリティを外すとき) */
   reset: () => void;
   subscribe: (listener: () => void) => () => void;
 };
@@ -46,9 +43,7 @@ export const createTeamStore = (): TeamStore => {
   };
 };
 
-/** アプリ全体で 1 つの勝利フラグ */
 export const teamStore = createTeamStore();
 
-/** 今の勝利フラグ(変わると描き直す) */
 export const useTeamState = (): Team =>
   useSyncExternalStore(teamStore.subscribe, teamStore.get);
