@@ -43,7 +43,11 @@ describe("overviewHeight", () => {
       1 + overviewHeight("large"),
     );
     const small = computeOverviewPose([3, 1, -3], 0, "small");
-    expect(small.position).toEqual([3, 1 + overviewHeight("small"), -3]);
+    expect(small.position).toEqual([
+      3,
+      1 + overviewHeight("small"),
+      -3 + mountainReach("small") / 2,
+    ]);
   });
 });
 

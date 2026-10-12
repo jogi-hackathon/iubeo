@@ -1,3 +1,7 @@
+# 起動後、自動で停止するまでの時間(時間単位)。0 以下にすると自動停止を無効にする
+# (つけっぱなし運用)。既定は 3
+# auto_stop_hours = 3
+
 # Replace placeholders before provisioning. This file is safe to commit; do not put credentials here.
 aws_region    = "ap-northeast-1"
 project_name  = "iubeo"

@@ -42,3 +42,29 @@ export const coverDistance = (
 
 export const portalTransform = (anchor: Matrix4, screen: Matrix4): Matrix4 =>
   new Matrix4().copy(anchor).multiply(new Matrix4().copy(screen).invert());
+
+const ENTRY_LATERAL_SLOP = 0.05;
+const scratchInverse = new Matrix4();
+const scratchCamera = new Vector3();
+
+/**
+ * 飛び込み始める距離。カメラがもう画面の正面で normal より近くにいれば(PC を使っている最中など)、
+ * いったん下がらずにその距離から飛び込む。画面を覆う距離(cover)より手前には寄せない
+ */
+export const entryDistance = (
+  screen: Matrix4,
+  camera: Vector3,
+  normal: number,
+  cover: number,
+): number => {
+  const local = scratchCamera
+    .copy(camera)
+    .applyMatrix4(scratchInverse.copy(screen).invert());
+  const inFront =
+    Math.abs(local.x) <= ENTRY_LATERAL_SLOP &&
+    Math.abs(local.y) <= ENTRY_LATERAL_SLOP;
+  if (!inFront || local.z >= normal || local.z <= cover) {
+    return normal;
+  }
+  return local.z;
+};

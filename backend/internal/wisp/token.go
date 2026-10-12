@@ -48,6 +48,11 @@ func (i *Issuer) Issue(playerID string) (string, time.Time, error) {
 }
 
 func (i *Issuer) Verify(token string) (string, bool) {
+	return i.VerifyWithGrace(token, 0)
+}
+
+// VerifyWithGrace は署名が正しく、期限が grace 以内に切れたトークンを受け付ける。
+func (i *Issuer) VerifyWithGrace(token string, grace time.Duration) (string, bool) {
 	payload, sig, ok := strings.Cut(token, ".")
 	if !ok {
 		return "", false
@@ -64,7 +69,7 @@ func (i *Issuer) Verify(token string) (string, bool) {
 	if err := json.Unmarshal(body, &c); err != nil || c.Sub == "" {
 		return "", false
 	}
-	if i.now().Unix() >= c.Exp {
+	if !i.now().Before(time.Unix(c.Exp, 0).Add(grace)) {
 		return "", false
 	}
 	return c.Sub, true

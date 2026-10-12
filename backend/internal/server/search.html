@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Query}}{{.Query}} - {{end}}Search</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
+<style>
+  body { margin: 0; padding: 34px 40px; background: #fafaf7; color: #1d1d1f; font: 16px/1.6 "Noto Sans JP", sans-serif; }
+  form { display: flex; gap: 10px; margin: 0 0 24px; }
+  input[name="q"] { flex: 1; min-width: 0; padding: 10px 18px; border: 1px solid #d6d6cf; border-radius: 999px; background: #fff; font: inherit; color: inherit; }
+  button { padding: 10px 22px; border: 0; border-radius: 999px; background: #1d1d1f; color: #fafaf7; font: inherit; font-weight: 700; cursor: pointer; }
+  .message { margin: 8px 0; color: #5b5b57; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  li { margin: 0 0 20px; max-width: 760px; }
+  .title { font-size: 19px; font-weight: 700; color: #1a0dab; text-decoration: none; }
+  .title:hover { text-decoration: underline; }
+  .url { font-size: 13px; color: #5f6b5f; overflow-wrap: anywhere; }
+  .desc { margin: 4px 0 0; color: #3c3c3a; }
+</style>
+</head>
+<body>
+{{if .Form}}
+<form action="/api/v1/search/page" method="get">
+  <input name="q" value="{{.Query}}" aria-label="Search query" autocomplete="off">
+  {{if .Token}}<input type="hidden" name="t" value="{{.Token}}">{{end}}
+  <button type="submit">Search</button>
+</form>
+{{end}}
+{{if .Message}}
+<p class="message">{{.Message}}</p>
+{{if .Fallback}}<p class="message"><a href="{{.Fallback}}">Open this search on Brave Search</a></p>{{end}}
+{{else if .Results}}
+<ol>
+{{range .Results}}
+<li>
+<a class="title" href="{{.URL}}">{{.Title}}</a>
+<div class="url">{{displayURL .URL}}</div>
+<p class="desc">{{.Description}}</p>
+</li>
+{{end}}
+</ol>
+{{else}}
+<p class="message">No results for {{.Query}}</p>
+{{end}}
+</body>
+</html>

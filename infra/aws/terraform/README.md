@@ -15,7 +15,7 @@ ALB・ECS・NAT・ACM は使いません。
 | イメージ | ECR(backend / wisp。tag は immutable、30 世代を残す lifecycle) | `main.tf`、`ecr-lifecycle.tf` |
 | デプロイ | GitHub OIDC のロール、デプロイ対象タグの SSM パラメータ(backend / wisp) | `ci.tf` |
 | 起動・停止 | Lambda（Discord の interactions 受付、EC2 の起動・停止、Cloudflare KV の `target` の切り替え）、Function URL | `lambda.tf`、`lambda/index.mjs` |
-| 自動停止 | EventBridge Scheduler（既定 3 時間後に 1 回だけ停止） | `lambda.tf` |
+| 自動停止 | EventBridge Scheduler（既定 3 時間後に 1 回だけ停止。`auto_stop_hours = 0` で無効化） | `lambda.tf` |
 
 起動時の設定は `templates/user_data.sh.tftpl` が行います。署名鍵と WISP 用の鍵は**初回起動時にインスタンス上で生成**し、
 `/etc/iubeo/env`・`/etc/iubeo/wisp-env` に置きます。Secrets Manager は使わないので、鍵は state に入りません。
@@ -38,6 +38,17 @@ ALB・ECS・NAT・ACM は使いません。
 
 Cloudflare の Worker（`iubeo-backend` / `iubeo-wisp`）は、KV の `target` が `ec2` のときだけ EC2 へ流し、それ以外は Cloudflare のコンテナへ流します。
 切り替えは Lambda が行います。起動したら `/healthz` が返るのを待って `target` を `ec2` にし、停止するときは先に `target` を消してから EC2 を止めます。
+
+## つけっぱなしにする
+
+`auto_stop_hours = 0` にすると、`/ec2start` は起動と `target` の切り替えだけを行い、自動停止の予約を作りません。
+停止は明示的に `/ec2stop`（または `{"action": "stop"}` の直接 invoke）を実行するまで来ません。
+
+- `AUTO_STOP_HOURS` が `0` 以下（または数値でない）なら予約を作らず、Discord には「自動停止は無効」と投稿します
+- 予約の作り直しはしないので、無効化する前に作られた予約が残っていれば消します（`/ec2start` のたびに消してから作る）
+- **コンソールから起動した場合は Lambda を通らないため、Cloudflare KV の `target` が `ec2` に切り替わりません**。
+  コンソール起動で EC2 にトラフィックを流したいときは、KV の `target` を手で `ec2` に設定してください
+- 24/7 で動かすと `t4g.small` は月 20 ドル前後になります（既定の自動停止はこのコストの安全網）
 
 ## デプロイの流れ
 
@@ -73,7 +84,7 @@ Discord の interactions エンドポイントには `control_function_url` を�
 ## 注意
 
 - セッションはバックエンドのメモリ上にしか無いので、インスタンスを停止・再起動すると**全セッションが消えます**。
-  自動停止（既定 3 時間後）もこの対象です。
+  自動停止（既定 3 時間後）もこの対象です。`auto_stop_hours = 0` にすると自動停止は無効になります（「つけっぱなしにする」を参照）。
 
 - EIP は停止しても解放されず、アドレスも変わりません。フロントの向き先（オリジン）を書き換える必要はありません。
 
@@ -92,6 +103,10 @@ Discord の interactions エンドポイントには `control_function_url` を�
       --targets Key=instanceids,Values=$(terraform output -raw backend_instance_id) \
       --parameters commands='printf "IUBEO_VC_PRIVATE_KEY=%s\nIUBEO_VC_SIGNALING_URL=%s\nIUBEO_VC_MEDIA_URL=%s\n" "<VC ホストの private.jwk の d>" "wss://vc.thirdlf03.com/v1/signaling" "https://media.thirdlf03.com:4443" >> /etc/iubeo/env; systemctl restart iubeo'
     ```
+
+  検索の Brave Search API キー（`IUBEO_BRAVE_API_KEY`）も同じ要領で `/etc/iubeo/env` に足せます。
+  未設定なら `/api/v1/search/page` は検索せず Yahoo! JAPAN の検索結果へ 302 で飛ばすので、キーが無くても壊れません
+  （テンプレートには入れていない。キーは Terraform の変数に通さず手で入れる）。
 
   反映できたかは、セッション中に `GET /api/v1/voice/token` が `available: true` を返すことで確かめます
   （未設定なら 200 で `available: false`。[voice-chat.md](../../../docs/voice-chat.md)）。

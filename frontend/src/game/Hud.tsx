@@ -7,7 +7,6 @@ import {useObjectsState} from "../objects";
 import {useGameState} from "./gameStore";
 import {
   type HudLine,
-  matchingLine,
   noticeLabels,
   phaseLine,
   resultLine,
@@ -74,10 +73,6 @@ export function Hud() {
   );
 
   const lines: HudLine[] = [];
-  const matching = matchingLine(flow, game, now);
-  if (matching !== null) {
-    lines.push({text: matching});
-  }
   const phase = phaseLine(game, now);
   if (phase !== null) {
     lines.push({text: phase});
@@ -108,22 +103,19 @@ export function Hud() {
   }
 
   if (lines.length === 0) {
-    return <EliminationFlash />;
+    return null;
   }
   return (
-    <>
-      <div style={panelStyle}>
-        {lines.map((line, i) => (
-          <div key={i} style={lineStyle}>
-            {line.color !== undefined && (
-              <span style={{...swatchStyle, background: line.color}} />
-            )}
-            <span>{line.text}</span>
-          </div>
-        ))}
-      </div>
-      <EliminationFlash />
-    </>
+    <div style={panelStyle}>
+      {lines.map((line, i) => (
+        <div key={i} style={lineStyle}>
+          {line.color !== undefined && (
+            <span style={{...swatchStyle, background: line.color}} />
+          )}
+          <span>{line.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -142,12 +134,3 @@ const swatchStyle: CSSProperties = {
   borderRadius: 2,
   flex: "none",
 };
-
-/** 脱落した瞬間に出す簡単な演出(演出が終わると観戦へ移る。core/spectate) */
-function EliminationFlash() {
-  const spectate = useSpectatePhase();
-  if (spectate !== "eliminating") {
-    return null;
-  }
-  return <div className="elimination-flash">脱落</div>;
-}

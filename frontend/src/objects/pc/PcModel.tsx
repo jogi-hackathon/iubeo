@@ -4,10 +4,9 @@ import type {InstancedMesh, Mesh, MeshBasicNodeMaterial} from "three/webgpu";
 import {Matrix4} from "three/webgpu";
 
 import {aoModeUserData} from "../../bake/aoMode";
-import {HINGE, LAPTOP, LID, MEMO, SCREEN, TRACKPAD} from "./dimensions";
+import {HINGE, LAPTOP, LID, SCREEN, TRACKPAD} from "./dimensions";
 import {KEY_CAP_GROUPS, KEYBOARD, type KeyCapGroup} from "./keyboard";
 import {createKeyCapGeometry} from "./keyCapGeometry";
-import {TaskMemo} from "./TaskMemo";
 
 const SHELL = "#f3f3f3";
 const SHELL_DARK = "#dddddd";
@@ -31,23 +30,14 @@ type Vec3 = [number, number, number];
 export function PcModel({
   screen,
   screenRef,
-  memoRef,
-  showMemo = true,
 }: {
   screen: MeshBasicNodeMaterial;
   screenRef?: Ref<Mesh>;
-  memoRef?: Ref<Mesh>;
-  showMemo?: boolean;
 }) {
   return (
     <group userData={aoModeUserData("realtime")}>
       <Base />
       <Lid screen={screen} screenRef={screenRef} />
-      {showMemo && (
-        <group position={[MEMO.x, 0, MEMO.z]} rotation={[MEMO.tilt, 0, 0]}>
-          <TaskMemo ref={memoRef} />
-        </group>
-      )}
     </group>
   );
 }

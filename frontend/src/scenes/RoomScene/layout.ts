@@ -1,4 +1,4 @@
-import {directoryItem, type SceneLayout} from "../../objects/layout";
+import {directoryItem, pcItem, type SceneLayout} from "../../objects/layout";
 import {ON_DESK as PC_ON_DESK} from "../../objects/pc/dimensions";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
@@ -87,12 +87,7 @@ export const WINDOW_PLUG: WallSpec = {
   size: [WALL_THICKNESS, WINDOW_SIZE, WINDOW_SIZE],
 };
 
-const DIRECTORY_SINK = 0.5;
-export const DIRECTORY_POSITION: Vec3 = [
-  0,
-  0,
-  ROOM_INNER_Z_NORTH - DIRECTORY_SINK,
-];
+export const DIRECTORY_POSITION: Vec3 = [0, 0, ROOM_INNER_Z_NORTH];
 export const WORKSPACE_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z];
 export const CANVAS_POSITION: Vec3 = [2.1, 0, -3.2];
 export const ROOM_SPAWN_POSITION: Vec3 = [0, 0.05, 0];
@@ -116,11 +111,10 @@ export const ROOM_LAYOUT: SceneLayout = {
   }),
   workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
-  pc: {id: "pc-1", position: PC_POSITION, yaw: PC_YAW, look: "plain"},
+  pc: pcItem({
+    id: "pc-1",
+    position: PC_POSITION,
+    yaw: PC_YAW,
+    program: "desktop",
+  }),
 };
-
-export const MATCHMAKING_BUTTON_POSITION: Vec3 = [
-  WORKSPACE_POSITION[0] + 0.62,
-  DESK_HEIGHT,
-  WORKSPACE_POSITION[2] + 0.3,
-];

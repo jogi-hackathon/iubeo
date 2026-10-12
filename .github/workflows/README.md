@@ -72,6 +72,7 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 | `IUBEO_SIGNING_KEY` | プレイヤーの Cookie の署名 |
 | `IUBEO_WISP_KEY` | WISP のトークンの署名 |
 | `IUBEO_VC_PRIVATE_KEY` | VC の JWT の署名（値は VC ホストの `private.jwk` の `d`。[voice-chat.md](../../docs/voice-chat.md)） |
+| `IUBEO_BRAVE_API_KEY` | ゲーム内の検索（`/api/v1/search/page`）の Brave Search API キー。未設定なら Yahoo! JAPAN の検索結果へ 302 で飛ばす |
 
 `iubeo-wisp`:
 

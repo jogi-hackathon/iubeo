@@ -6,6 +6,7 @@ import {
   mountainHeightMax,
   mountainReach,
   mountainViewHeight,
+  mountainViewOffset,
 } from "./mountain";
 
 export const CAMERA_FOV = 75;
@@ -28,10 +29,17 @@ export const computeOverviewPose = (
   center: Vec3,
   playerYaw: number,
   size: MountainSizeName = "large",
-): OverviewPose => ({
-  position: [center[0], center[1] + overviewHeight(size), center[2]],
-  yaw: playerYaw,
-});
+): OverviewPose => {
+  const offset = mountainViewOffset(size);
+  return {
+    position: [
+      center[0] + offset.x,
+      center[1] + overviewHeight(size),
+      center[2] + offset.z,
+    ],
+    yaw: playerYaw,
+  };
+};
 
 const euler = new Euler(0, 0, 0, "YXZ");
 

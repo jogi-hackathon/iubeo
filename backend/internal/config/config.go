@@ -28,6 +28,7 @@ type Config struct {
 	VCSeed               []byte
 	VCSignalingURL       string
 	VCMediaURL           string
+	BraveAPIKey          string
 }
 
 func Load(getenv func(string) string) (Config, error) {
@@ -139,6 +140,8 @@ func Load(getenv func(string) string) (Config, error) {
 			cfg.VCMediaURL = getenv("IUBEO_VC_MEDIA_URL")
 		}
 	}
+
+	cfg.BraveAPIKey = getenv("IUBEO_BRAVE_API_KEY")
 
 	return cfg, errors.Join(errs...)
 }

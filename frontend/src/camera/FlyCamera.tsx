@@ -2,14 +2,17 @@ import {useFrame} from "@react-three/fiber";
 import {useRef} from "react";
 import {Euler, Vector3} from "three";
 
+import {listColliders} from "../core/bvh";
 import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
+import {mouseSettingsStore} from "../core/input/mouseSettings";
 import {isPlayerControlLocked} from "../core/playerControl";
 import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
 import {applyLook, type Look} from "../player";
 import {FLY_SPEED} from "./constants";
+import {cameraBlockers, moveFlyCamera} from "./flyBounds";
 
 const euler = new Euler(0, 0, 0, "YXZ");
 const dir = new Vector3();
@@ -40,7 +43,7 @@ export function FlyCamera() {
       look.current.pitch = euler.x;
     }
     const {dx, dy} = consumeLookDelta();
-    applyLook(look.current, dx, dy);
+    applyLook(look.current, dx, dy, mouseSettingsStore.getState().sensitivity);
     camera.quaternion.setFromEuler(
       euler.set(look.current.pitch, look.current.yaw, 0),
     );
@@ -60,10 +63,12 @@ export function FlyCamera() {
     if (move.lengthSq() === 0) {
       return;
     }
-    camera.position.addScaledVector(
-      move.normalize(),
-      FLY_SPEED * Math.min(delta, MAX_DELTA),
-    );
+    move.normalize().multiplyScalar(FLY_SPEED * Math.min(delta, MAX_DELTA));
+    if (freeCamera) {
+      camera.position.add(move);
+    } else {
+      moveFlyCamera(camera.position, move, cameraBlockers(listColliders()));
+    }
   }, FRAME_PRIORITY.camera);
 
   return null;
