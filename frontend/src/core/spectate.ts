@@ -31,7 +31,6 @@ export const isSpectating = (): boolean => phase === "spectating";
 export const isEliminated = (): boolean => phase !== "alive";
 
 /**
- * 脱落の演出を始め、ELIMINATION_MS 後に観戦へ移る。
  * 生きていなければ何もしないので、何度呼んでも 1 回だけ効く(StrictMode の二重実行でも演出が延びない)
  */
 export const beginElimination = (): void => {

@@ -72,8 +72,6 @@ export class RayKernel {
 
     // storage buffer は BVH 側が 4 本使うので、自前は 2 本(入力 1 + 出力 1)に interleave して
     // デフォルト上限(maxStorageBuffersPerShaderStage = 8)に収める。
-    // 入力 data(vec4 の並び): 先頭 dirs.length 個がサンプル方向、以降が点ごとに
-    // [発射位置(BIAS 込み), 回転込みの接線, 回転込みの従接線, 法線] の 4 個ずつ
     const nDirs = dirs.length;
     this.data = new Float32Array((nDirs + capacity * POINT_VEC4) * 4);
     dirs.forEach((d, i) => {
@@ -94,10 +92,9 @@ export class RayKernel {
     const resultNode = storage(this.result, "uint", capacity * results);
     this.countUniform = uniform(0, "uint");
 
-    // round は JS の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。
-    // raycastFirstHit の side は sign(-dot(dir, geometricNormal)): +1 が表面、-1 が裏面
+    // round は CPU 側の Math.round(半分は切り上げ)に合わせて floor(x + 0.5)。WGSL の round() は偶数丸め。
+    // raycastFirstHit の side は +1 が表面、-1 が裏面
     const kernelFn = wgslTagFn /* wgsl */ `
-      // fn
       fn castRays(
         workgroupSize: vec3u,
         workgroupId: vec3u,

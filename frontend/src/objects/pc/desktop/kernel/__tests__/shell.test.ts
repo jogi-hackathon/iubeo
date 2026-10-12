@@ -127,7 +127,6 @@ describe("窓", () => {
     shell.launch("b");
     const back = shell.getState().windows[0]!;
     const front = shell.getState().windows[1]!;
-    // 後ろの窓だけにかかる所(左上の枠の内側)
     const p = {x: Math.min(back.rect.x, front.rect.x) + 6, y: back.rect.y + 30};
     expect(p.x).toBeLessThan(front.rect.x);
     click(p);

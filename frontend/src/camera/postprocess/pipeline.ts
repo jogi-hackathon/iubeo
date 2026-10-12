@@ -81,8 +81,7 @@ export const createPostProcessPipeline = (
 
   const scenePass = pass(scene, camera);
   const sceneColor = scenePass.getTextureNode("output");
-  // 使うグラフに含めたときだけ更新される。effect の on/off をまたいで使い回す。
-  // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
+  // BloomNode.setup は再ビルドのたびに NodeMaterial を積み増す(dispose で解放)ので、build ごとに作らず使い回す
   const bloomNode = bloom(sceneColor);
   const glitch = createGlitch();
   const aimOutline = createAimOutline(scene, camera);

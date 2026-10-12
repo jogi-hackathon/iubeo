@@ -6,23 +6,12 @@ import {
 } from "../../core/input/pointerLock";
 import {lockPlayerControl} from "../../core/playerControl";
 
-/**
- * PC を使っている状態（クライアントだけが持つ。サーバーには送らない）。
- *
- * - idle: 一人称。PC は消えている（電源が入っていない）
- * - active: PC を使っている。プレイヤーを預かり、カメラは画面の前、マウスと鍵盤は画面へ向く
- * - leaving: 一人称へ戻る補間の途中。終わるまでプレイヤーは預かったままにする
- *
- * マウスの扱いは使い始めるときに選ぶ（中で動くものが決める）
- *
- * - native: pointer lock を解き、本物のマウスで画面を狙う。離れ終わったら lock を取り直す
- * - virtual: pointer lock を保ったまま、移動量で仮想カーソルを動かす（俯瞰ビューと同じ）。
- *   lock は解かないので取り直さない（右クリックで離れれば lock は残る。Esc で外れたときは、一人称に戻ってからクリックで取り直す）
- *
- * 状態は変えるたびに新しいオブジェクトにする（useSyncExternalStore の参照同一性のため）
- */
 export type PcPhase = "idle" | "active" | "leaving";
 
+/**
+ * native: pointer lock を解き、離れ終わったら取り直す。
+ * virtual: lock を解かないので取り直さない(Esc で外れたら、一人称に戻ってからクリックで取り直す)
+ */
 export type PcPointerMode = "native" | "virtual";
 
 export type PcSessionState = {
@@ -52,6 +41,7 @@ export const createPcSession = ({
   exitPointerLock = exitDocumentPointerLock,
   resumePointerLock: resume = resumePointerLock,
 }: Options = {}) => {
+  // 変えるたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state = IDLE;
   let releases: Array<() => void> = [];
   const listeners = new Set<() => void>();

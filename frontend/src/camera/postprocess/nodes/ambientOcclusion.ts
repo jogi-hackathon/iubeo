@@ -40,7 +40,6 @@ const gtaoContext = (gtao: Node<"float">) =>
   });
 
 export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
-  // AO 用の pre-pass(法線・深度)。透明物は AO の入力に含めない。
   // テクスチャの型は PassNode.setup が Renderer の出力バッファ型(HalfFloat)で上書きするので、法線は詰めずにそのまま書く。
   // GTAO は深度を textureGather で読むため、Renderer の MSAA(antialias)を引き継がないよう samples: 0 にする
   // (マルチサンプルの深度テクスチャだと WGSL のコンパイルに失敗する)

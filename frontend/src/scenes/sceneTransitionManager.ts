@@ -36,7 +36,6 @@ export const createSceneTransitionManager = ({
   finishTransition = noFinish,
   canStart = always,
 }: SceneTransitionManagerOptions) => {
-  // 遷移中も App は from のシーンを描画し続け(SceneManager が commit するまで current は from のまま)、idle になる前に to へ切り替わる
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: TransitionState = {status: "idle"};
   const listeners = new Set<() => void>();

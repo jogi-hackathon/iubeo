@@ -4,15 +4,12 @@ import {SCREEN_CANVAS} from "./display/resolution";
 
 const BAR_BLOCKS = 20;
 
-/** 起動画面の時間割(ms)。黒いまま管が点く → ロゴが浮かぶ → 読み込みの棒が埋まる → 少し待って消える */
 const LOGO_IN = {from: 1000, to: 2000};
 const BAR_SHOW = 2600;
 const BAR_FILL = {from: 3000, to: 7400};
 const FADE_OUT = {from: 8200, to: 9000};
-/** 電源を入れてからデスクトップに切り替わるまで */
 export const BOOT_MS = 9400;
 
-/** 読み込みの棒の埋まり方。一定の速さではなく、ところどころで止まる */
 const FILL_KEYS: readonly (readonly [number, number])[] = [
   [0, 0],
   [0.2, 0.3],
@@ -37,15 +34,11 @@ const fillAt = (t: number): number => {
 };
 
 export type BootFrame = {
-  /** ロゴの濃さ(0〜1) */
   logo: number;
-  /** 読み込みの棒の濃さ(0〜1) */
   bar: number;
-  /** 棒で埋まっているマスの数 */
   blocks: number;
 };
 
-/** 電源を入れてから elapsed ms のときの起動画面 */
 export const bootFrame = (elapsed: number): BootFrame => {
   const out = 1 - ramp(elapsed, FADE_OUT.from, FADE_OUT.to);
   return {
@@ -59,9 +52,6 @@ export const bootFrame = (elapsed: number): BootFrame => {
 
 const MONO = "ui-monospace, Menlo, monospace";
 
-/**
- * 電源を入れたときの起動画面(PcObject が起動中だけ映す)。黒地に IUBEO のロゴと読み込みの棒
- */
 export class BootScreen {
   readonly texture: CanvasTexture;
   readonly width = SCREEN_CANVAS.width;
@@ -86,7 +76,6 @@ export class BootScreen {
     }
     const {width, height} = this;
     const frame = bootFrame(elapsed);
-    // 見た目が変わったときだけ描いて送る(棒が止まっている間などは何もしない)
     const key = `${frame.logo.toFixed(2)} ${frame.bar.toFixed(2)} ${frame.blocks}`;
     if (key === this.painted) {
       return;
@@ -96,11 +85,11 @@ export class BootScreen {
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);
 
-    // TODO: 仮のモックアップ。IUBEO のロゴができたら、文字の描画をやめて SVG を読み込んで描く形に置き換える
     ctx.globalAlpha = frame.logo;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#ffffff";
+    // TODO: 仮のモックアップ。IUBEO のロゴができたら SVG を読み込んで描く形に置き換える
     ctx.font = `bold 84px ${MONO}`;
     ctx.fillText("IUBEO", width / 2, height / 2 - 20);
 

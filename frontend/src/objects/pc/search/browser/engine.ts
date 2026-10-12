@@ -90,12 +90,10 @@ let wasmPrefetch: {url: string; promise: Promise<WasmPrefetch | null>} | null =
   null;
 
 /**
- * wasm を先に取っておく（すでに取っている・取っている最中なら、その約束を返す）。
- *
  * 33MB の wasm はブラウザの HTTP キャッシュに入らない（巨大なリソースは入れない決まりで、
  * 2 回目も丸ごと落ちてくる。実測: 912KB のファイルは 2 回目が 46ms で返るが、33MB は 2 回目も 94 秒）。
  * そのため「先に取っておく」にはバイト列を自分で持っておく必要があり、blob URL にして渡す。
- * 展開（zstd → 150MB）とコンパイルはクリック時にやる（そこまで抱え込むとメモリを圧迫するため）
+ * 展開(zstd → 150MB)とコンパイルまで抱えるとメモリを圧迫するので、それはクリック時にやる
  */
 export const prefetchEngineWasm = (
   url: string,
@@ -158,8 +156,8 @@ export const prewarmEngine = (search: string): void => {
 };
 
 /**
- * public/ 配下の素の URL として動的 import する。Vite に束ねさせないため @vite-ignore。
- * エンジンの中の wisp-js は評価時の WebSocket を持ち続けるので、その前に WISP のトークンの差し替えを仕込む
+ * エンジンの中の wisp-js は評価時の WebSocket を持ち続けるので、その前に WISP のトークンの差し替えを仕込む。
+ * エンジンは素の配信物なので、Vite に束ねさせない(@vite-ignore)
  */
 export const importEngine = (entry: string): Promise<GeckoModule> => {
   installWispTokenRewrite();

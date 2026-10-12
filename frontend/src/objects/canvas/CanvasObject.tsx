@@ -28,18 +28,6 @@ function Part({part, geometry}: {part: EaselPart; geometry: BoxGeometry}) {
   );
 }
 
-/**
- * キャンバス: イーゼルに立てかけた絵の面のモック(Image Generation のタスクで使う場所)。寸法と部品の配置は easel.ts。
- * 作業中(users に誰かいる)の間だけ、紙(CanvasPaper。木枠の前面に沿わせた板)に、拡散モデルがノイズから絵を起こしていく演出が出る。それ以外は真っ白。
- *
- * - AO はベイクだけ(baked。GTAO は掛けない)。キャンバスは動かず、形は固定なので、シーンと一緒に焼ける
- *   (`pnpm bake:ao`。ベイクページも同じ位置でキャンバスを置く)。位置・部品を変えたり、置くキャンバスの数が変わったら再ベイクが要る。
- *   ベイク結果と合わない間は、シーン全体のベイク AO が外れる(BakedAO)
- *   AO の出し方は、置かれたシーンが決める(既定は baked。room のように出し入れするシーンは、影が残らないよう ManagedObjects の ao で realtime にする)
- * - コライダーは持たない。部品の mesh は、コライダーにはせずベイク対象としてだけ登録する(BakeTarget)
- * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙ってもキャンバスに当たり、アウトラインは全体の外周に 1 本付く
- * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
- */
 export function CanvasObject({object}: {object: GameObject}) {
   useControlLockWhileWorking(object);
   const geometries = useMemo(
@@ -57,6 +45,7 @@ export function CanvasObject({object}: {object: GameObject}) {
 
   return (
     <group>
+      {/* 位置・部品・置く数を変えたら再ベイクが要る。合わない間はシーン全体のベイク AO が外れる */}
       <BakeTarget>
         {EASEL_PARTS.map((part, i) => (
           <Part key={i} part={part} geometry={geometries[i] as BoxGeometry} />

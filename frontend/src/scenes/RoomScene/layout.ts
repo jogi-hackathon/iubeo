@@ -40,7 +40,7 @@ export const ROOM_FLOOR: WallSpec = {
   size: [OUTER, WALL_THICKNESS, OUTER],
 };
 
-// 壁は、隣の壁・床・天井の中まで延ばして重ねる(端と端を突き合わせるだけだと、隅の継ぎ目に 1px の隙間ができて外の空が線になって見える)
+// 端を突き合わせるだけだと隅に 1px の隙間ができて空が線で見えるので、壁は隣の壁・床・天井の中まで延ばす
 export const ROOM_WALLS: readonly WallSpec[] = [
   {
     position: [0, HALF, ROOM_CENTER_Z - WALL_CENTER],

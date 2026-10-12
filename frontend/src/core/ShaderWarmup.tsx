@@ -7,7 +7,6 @@ import {addPowerOutline} from "../camera/postprocess/powerOutlineSelection";
 import {FRAME_PRIORITY} from "./frameOrder";
 import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 
-// 終了の状態はモジュールに置く。Fast Refresh でこのモジュールが再評価されたら、コンポーネント側も一緒にやり直す
 let finishing = false;
 let done = false;
 let holds = 0;

@@ -1,4 +1,3 @@
-/** Windows 2000 の「クラシック」の形を、部屋に合わせてモノクロにした配色 */
 export const COLORS = {
   desktop: "#a4a4a4",
   face: "#d0d0d0",

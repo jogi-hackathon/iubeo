@@ -125,7 +125,6 @@ const lineStyle: CSSProperties = {
   gap: 6,
 };
 
-/** 読み込みと編集の対象ファイルの色(山の紙の色と見比べる) */
 const swatchStyle: CSSProperties = {
   width: 10,
   height: 10,

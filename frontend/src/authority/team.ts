@@ -4,10 +4,7 @@ import type {Team} from "../net/types";
 
 export const INITIAL_TEAM: Team = {bypassPermission: false, fireStarted: false};
 
-/**
- * 勝利フラグ(team)の入れ物。オーソリティの通知(team.updated。サーバーは snapshot の game.team も)を apply.ts が書き、
- * 演出(ディレクトリの炎など)とデバッグパネルが読む。値は変わるまで同じ参照(useSyncExternalStore 用)
- */
+/** 値は変わるまで同じ参照(useSyncExternalStore 用) */
 export type TeamStore = {
   get: () => Team;
   set: (team: Team) => void;

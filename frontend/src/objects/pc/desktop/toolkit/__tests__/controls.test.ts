@@ -75,7 +75,6 @@ describe("createSlider", () => {
 
   it("押した所へ飛び、つかんだまま動かすと値が変わる(step に丸める)", () => {
     const {set, get} = make();
-    // 溝は x=6〜106(幅 100)。x=31 は 0.5
     press(set, "down", 31, 10);
     expect(get()).toBeCloseTo(0.5);
     press(set, "move", 83, 10);

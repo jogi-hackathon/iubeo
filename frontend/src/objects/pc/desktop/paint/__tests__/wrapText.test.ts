@@ -2,7 +2,6 @@ import {describe, expect, it} from "vitest";
 
 import {wrapText} from "../controls";
 
-// 1 文字 10px として測る
 const ctx = {
   measureText: (s: string) => ({width: [...s].length * 10}),
 } as unknown as CanvasRenderingContext2D;

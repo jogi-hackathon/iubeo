@@ -2,23 +2,11 @@ import {isEditableTarget} from "../../../core/input/useKeys";
 import {type ScreenKeyEvent, type ScreenSource, SYNTHETIC_KEY} from "./types";
 
 /**
- * 本物のキーボードを借り受け、画面ソースへ流し込む。PC を使っている間だけ engage し、
- * 離れると disengage する（それ以外のときは、プレイヤーの移動などがキーを使えるように素通しする）。
- *
- * 設計上の判断:
- *
- *  - リスナーは `window` の**キャプチャ段階**に置き、消費するキーは `stopPropagation()` する。
- *    エンジンが mousedown で `canvas.focus()` を呼ぶため、要素に付けたリスナーだと
- *    「画面の中をクリックした瞬間にキーを失う」から。window のバブリング段階にある
- *    プレイヤーの移動（core/input/useKeys）にも届かなくなる。
- *  - 隠し <textarea> をフォーカスしておく。IME の composition には本物の編集可能な要素が要る。
- *    `compositionend` で確定した文字列ごと `insertText()` に渡す（「候補から『日本語』が確定した」は
- *    キーイベントの列では表せない）。エンジンが canvas へフォーカスを移したら、textarea へ戻す。
- *  - keyup は、自分が keydown を受けたキーのものだけ消費する。PC を使い始める前から押していたキー
- *    （移動の W など）の keyup は素通しし、プレイヤーの移動側が「押しっぱなし」にならないようにする。
- *    離れるときに押されたままのキーは、画面へ keyup を送っておく。
- *  - Escape は画面から離れる合図として、`onActiveChange(false)` で呼び出し側に返す。
- *  - 編集可能な要素（デバッグパネルの入力欄など）宛のイベントは素通しする。
+ * リスナーは window のキャプチャ段階に置く。エンジンは mousedown で canvas.focus() を呼ぶので、要素に付けると画面内のクリックでキーを失う。
+ * keyup は自分が keydown を受けたキーだけ消費する。使い始める前から押していた移動キーの keyup を奪うと、移動が押しっぱなしになる。
+ * 隠し <textarea> をフォーカスしておく。IME の composition には本物の編集可能な要素が要る。
+ * `compositionend` で確定した文字列ごと `insertText()` に渡す（「候補から『日本語』が確定した」は
+ * キーイベントの列では表せない）。
  */
 export class KeyboardCapture {
   private readonly field: HTMLTextAreaElement;

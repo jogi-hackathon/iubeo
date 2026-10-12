@@ -6,9 +6,6 @@ import type {MatchmakingPort} from "./apps/matchmaking";
 import {DesktopScreen} from "./DesktopScreen";
 import {SCREEN} from "./kernel/layout";
 
-// dev 専用(desktop.html)。PC の 3D を通さずに、デスクトップを平面のまま本物のマウスで触る。
-// 2 倍に拡大して並べ、カーソルはデスクトップが自分で描くので、本物のカーソルは隠す。
-// マッチングはサーバーへつながず、下のボタンで状態を切り替える偽物を使う
 const SCALE = 2;
 
 const createFakeFlow = () => {

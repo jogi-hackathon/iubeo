@@ -6,7 +6,6 @@ export type TutorialZone = "chair";
 export type TutorialEvent =
   | {type: "zone"; zone: TutorialZone}
   | {type: "held"; file: FileStatus | null}
-  /** 部屋の PC が起動し終えた(触ると起動が始まる) */
   | {type: "pcBooted"};
 
 export type TutorialStepId =

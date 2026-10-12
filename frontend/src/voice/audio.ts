@@ -151,9 +151,7 @@ export const createVoiceAudio = (): VoiceAudio => {
       try {
         p.gain.disconnect();
         p.panner.disconnect();
-      } catch {
-        /* already disconnected */
-      }
+      } catch {}
       peers.delete(peer);
     },
 

@@ -202,14 +202,10 @@ export class MoqVoice {
   close(): void {
     try {
       this.conn?.close();
-    } catch {
-      /* already closed */
-    }
+    } catch {}
     try {
       this.encoder?.close();
-    } catch {
-      /* already closed */
-    }
+    } catch {}
     this.subs.clear();
     this.origin = undefined;
     this.track = undefined;

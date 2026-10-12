@@ -57,8 +57,6 @@ export class Signaling {
   close(): void {
     try {
       this.ws.close();
-    } catch {
-      /* already closed */
-    }
+    } catch {}
   }
 }

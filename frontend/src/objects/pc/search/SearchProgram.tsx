@@ -14,10 +14,6 @@ import {PcTaskMemo} from "./TaskMemo";
 
 const JUDGE_SETTLE_MS = 1200;
 
-/**
- * Web 検索の PC。Gecko を画面に出し、開いたページがお題に合うかを Clef に見てもらう。
- * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題(サーバーが PC の持ち主のタスクごとに決める)のメモは PC の横に置く
- */
 function SearchProgram({object, screen, using, mine}: PcProgramProps) {
   const keyboard = useMemo(() => engineKeyboard(), []);
 

@@ -45,14 +45,14 @@ const warn = (e: unknown) =>
   console.warn("[pointerLock] ロックできませんでした", e);
 
 /**
- * 生のマウス移動量(unadjustedMovement)を要求する。未対応(NotSupportedError)のときだけ引数なしで再試行する。
- * Esc 解除直後の再ロック制限(SecurityError 等)では再試行しない(制限明けに加速つきでロックされるのを防ぐ)
+ * unadjustedMovement が未対応の環境は NotSupportedError で拒否するので、そのときだけ引数なしで再試行する。
+ * Esc 直後の再ロック制限(SecurityError など)で再試行すると、制限明けに加速つきでロックされてしまう
  */
 const requestLock = (target: HTMLElement): void => {
   const result = target.requestPointerLock({unadjustedMovement: true}) as
     | Promise<void>
     | undefined;
-  // Promise を返さない実装では unadjustedMovement は無視されているので何もしない
+  // Promise を返さない実装は unadjustedMovement を無視している
   if (typeof result?.catch !== "function") {
     return;
   }

@@ -29,15 +29,6 @@ import {
 } from "./wispUrl";
 
 /**
- * Gecko（Firefox のエンジン）を WebAssembly 化したものを、このタブの中で走らせる画面ソース。
- * サーバも無く、レイテンシもゼロ。
- *
- * エンジン自身の canvas をそのままテクスチャに流し、入力は合成 DOM イベントとして投げ返す。
- * こうするとエンジンの入力パイプラインをそのまま再利用でき、コマンドプロトコルを二重に実装せずに済む。
- *
- * エンジンは毎フレームのソフトウェア合成結果を 2D コンテキストへ putImageData で書くので、
- * そこを包んで dirty を立てる（エンジンの内部実装には触れない）。
- *
  * cross-origin isolation は必須（エンジンが pthread のため SharedArrayBuffer を使う）。
  * COOP: same-origin + COEP: require-corp を vite.config.ts が付与している。
  */

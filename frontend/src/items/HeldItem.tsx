@@ -226,10 +226,6 @@ function HeldLighter() {
   );
 }
 
-/**
- * 手元に出すアイテムのメッシュ。ライターは Zippo 型のモデル(HeldLighter。蓋を開いて火を灯す)、ファイルは状態(status)ごとのモデル(fileModel)、それ以外はダミーの箱。
- * ファイルの縁の色は data.color にする(色が無ければ従来の暗い縁)
- */
 export function HeldItem({item}: {item: Item}) {
   return (
     <group name={`held-item:${item.kind}`}>

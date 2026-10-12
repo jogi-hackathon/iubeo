@@ -19,7 +19,6 @@ export type DirectoryLayoutItem = {
 
 export const directoryItem = (item: DirectoryLayoutItem): LayoutItem => item;
 
-/** PC の中で動くもの(objects/pc/programs.ts) */
 export type PcProgramName = "search" | "desktop";
 
 export type PcLayoutItem = {

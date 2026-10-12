@@ -44,8 +44,6 @@ export function PostProcessPanel() {
         </label>
       </Section>
       <Section title="AO">
-        {/* ベイク AO と GTAO の分担は prop ごとの AO モード(src/bake/aoMode.ts)。show AO only は合成後の AO。
-            baked を外すと aoMap ごと外れ、baked モードの面も GTAO に戻る */}
         <Check
           label="show AO only"
           checked={s.ao.showOnly}
