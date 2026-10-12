@@ -2,7 +2,10 @@ import {useEffect, useMemo} from "react";
 import type {MeshBasicNodeMaterial} from "three/webgpu";
 
 import {Slab} from "../../props";
-import {createFrostedGlassMaterial} from "./frostedGlass";
+import {
+  createFrostedGlassMaterial,
+  FROSTED_GLASS_RENDER_ORDER,
+} from "./frostedGlass";
 import {PARTITION_AXIS, ZONE_PARTITION} from "./layout";
 
 export const useFrostedPartitionMaterial = (): MeshBasicNodeMaterial => {
@@ -19,5 +22,12 @@ export function FrostedPartition({
 }: {
   material: MeshBasicNodeMaterial;
 }) {
-  return <Slab {...ZONE_PARTITION} material={material} ao="realtime" />;
+  return (
+    <Slab
+      {...ZONE_PARTITION}
+      material={material}
+      ao="realtime"
+      renderOrder={FROSTED_GLASS_RENDER_ORDER}
+    />
+  );
 }

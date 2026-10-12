@@ -51,6 +51,9 @@ export const FROSTED_GLASS: FrostedGlassParams = {
   gridOpacity: 0,
 };
 
+/** ガラスの mesh の renderOrder。透明物の中で最後に描く(createFrostedGlassMaterial の説明) */
+export const FROSTED_GLASS_RENDER_ORDER = 1;
+
 const DETAIL_SCALE = 2.7;
 const DETAIL_OFFSET = [5.2, 1.3] as const;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -74,6 +77,9 @@ const noiseVec2 = (q: Node<"vec2">): Node<"vec2"> => mx_noise_vec3(q).xy;
  * viewportMipTexture はこの 1 つのノードだけを作り、sample() で位置を変える(複製は同じフレームバッファを共有するので、
  * ビューポートのコピーは描画あたり 1 回)。マテリアルも複数の mesh で共有すること(マテリアルごとにコピーが走る)。
  * alpha は 1(背後の見え方は、サンプルしたビューポートの色で作る)。透明物なので、不透明物の後に描かれる。
+ * コピーは最初に描かれたガラスの時点の 1 回だけなので、ガラスの mesh には renderOrder に FROSTED_GLASS_RENDER_ORDER を付けて、
+ * ほかの透明物(火・飛沫のスプライト)をすべて描いた後に回す。深度順のままだと、遠いガラス → 粒 → 手前のガラスの順になったとき、
+ * 手前のガラスが粒を含まないコピーで粒を塗りつぶす
  *
  * @param uAxis ガラスの面の水平方向の軸(mesh のローカル座標の単位ベクトル)。面内座標の横軸
  */
