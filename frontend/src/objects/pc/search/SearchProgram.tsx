@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef} from "react";
 
 import {itemManager} from "../../../items/itemStore";
 import {objectManager} from "../../objectStore";
+import {useImeCaret} from "../display/useImeCaret";
 import type {PcProgram, PcProgramProps} from "../program";
 import {pcSession} from "../session";
 import {isSearchResultsUrl} from "./browser/browserChrome";
@@ -9,16 +10,28 @@ import {prewarmEngine} from "./browser/engine";
 import {engineKeyboard, engineScreen} from "./browser/engineScreen";
 import {createSearchDeliverable} from "./deliverable";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
-import {useTopicOf} from "./task";
+import {useSearchTaskIdOf, useTopicOf} from "./task";
 import {PcTaskMemo} from "./TaskMemo";
 
 const JUDGE_SETTLE_MS = 1200;
 
-function SearchProgram({object, screen, using, mine}: PcProgramProps) {
+/**
+ * Web 検索の PC。Gecko を画面に出し、開いたページがお題に合うかを Clef に見てもらう。
+ * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題(サーバーが PC の持ち主のタスクごとに決める)のメモは PC の横に置く
+ */
+function SearchProgram({
+  object,
+  screen,
+  using,
+  mine,
+  screenRef,
+}: PcProgramProps) {
   const keyboard = useMemo(() => engineKeyboard(), []);
+  useImeCaret({enabled: using, screen, screenRef, keyboard});
 
   const judge = useJudge();
   const topic = useTopicOf(object.owner ?? null);
+  const taskId = useSearchTaskIdOf(object.owner ?? null);
   const currentUrl = useRef("");
   const judged = useRef<string | null>(null);
   const settle = useRef<number | undefined>(undefined);
@@ -80,6 +93,14 @@ function SearchProgram({object, screen, using, mine}: PcProgramProps) {
       window.clearTimeout(settle.current);
     };
   }, [using, screen, scheduleJudgement]);
+
+  useEffect(() => {
+    if (mine && taskId) {
+      // 前のタスクで開いていたページを、新しいお題で判定し直さない
+      currentUrl.current = "";
+      screen.startTask?.(taskId);
+    }
+  }, [screen, mine, taskId]);
 
   useEffect(() => {
     if (!using || !currentUrl.current) {

@@ -74,7 +74,7 @@ IUBEO_VC_MEDIA_URL=https://media.thirdlf03.com:4443
 
 Cloudflare Containers（`target` が `ec2` でないとき。ADR-0005）では、`cf` で入れた Worker の env を
 **`worker/backend.ts` の `voiceEnv` が `container.start` の env へ載せる**。Worker の env はコンテナへ
-自動で渡らないので、`cloudflare.config.ts` に足すだけでは効かない。鍵の投入は 1 回だけ:
+自動で渡らないので、`cloudflare.config.ts` に足すだけでは反映されない。鍵は 1 回だけ投入する。
 
 ```sh
 # VC ホストの /etc/vc/keys/private.jwk の d。値は terraform.tfvars の vc_private_key と同じ

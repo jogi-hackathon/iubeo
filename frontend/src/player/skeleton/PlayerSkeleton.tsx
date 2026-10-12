@@ -21,7 +21,12 @@ import {writeHeldItemPosition} from "./held";
 import {BONES, J, JOINT_COUNT} from "./joints";
 import {applyLean} from "./lean";
 import {writePoints} from "./pose";
-import {createRagdoll, startRagdoll, stepRagdoll} from "./ragdoll";
+import {
+  createRagdoll,
+  startRagdoll,
+  stepRagdoll,
+  writeRagdollPose,
+} from "./ragdoll";
 
 const FILL_COLOR = "#ffffff";
 const OUTLINE_COLOR = "#1a1a1a";
@@ -91,6 +96,7 @@ export function PlayerSkeleton({
   const animator = useMemo(createAnimator, []);
   const points = useMemo(() => new Float32Array((JOINT_COUNT + 1) * 3), []);
   const body = useMemo(createRagdoll, []);
+  const shown = useMemo(() => new Float32Array(JOINT_COUNT * 3), []);
   const materials = useMemo(
     () => createSkeletonMaterials(FILL_COLOR, OUTLINE_COLOR),
     [],
@@ -127,7 +133,8 @@ export function PlayerSkeleton({
     const headless = hideHead || ragdoll;
     if (body.active) {
       stepRagdoll(body, dt, listColliders());
-      writePoints(points, body.pos);
+      writeRagdollPose(body, shown);
+      writePoints(points, shown);
       g.position.set(0, 0, 0);
       g.rotation.y = 0;
     } else {

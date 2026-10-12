@@ -43,6 +43,23 @@ export function PostProcessPanel() {
           </select>
         </label>
       </Section>
+      <Section title="Upscale">
+        {/* 内部解像度(graphics の resolutionScale)から画面の解像度へ。off はバイリニア(比較用) */}
+        <Check
+          label="FSR1"
+          checked={s.upscale.enabled}
+          onChange={(enabled) => set({upscale: {enabled}})}
+        />
+        <Slider
+          label="sharpness"
+          value={s.upscale.sharpness}
+          min={0}
+          max={2}
+          step={0.05}
+          disabled={!s.upscale.enabled}
+          onChange={(sharpness) => set({upscale: {sharpness}})}
+        />
+      </Section>
       <Section title="AO">
         <Check
           label="show AO only"
@@ -253,6 +270,69 @@ export function PostProcessPanel() {
           max={24}
           step={1}
           onChange={(cellSize) => set({sea: {cellSize}})}
+        />
+      </Section>
+      <Section title="Contour">
+        {/* 物の縁の細い輪郭線。pre-pass の法線・深度から。遠くは fade で薄くする */}
+        <Check
+          label="enabled"
+          checked={s.contour.enabled}
+          onChange={(enabled) => set({contour: {enabled}})}
+        />
+        <Slider
+          label="strength"
+          value={s.contour.strength}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(strength) => set({contour: {strength}})}
+        />
+        <Slider
+          label="depth thr."
+          value={s.contour.depthThreshold}
+          min={0.001}
+          max={0.1}
+          step={0.001}
+          onChange={(depthThreshold) => set({contour: {depthThreshold}})}
+        />
+        <Slider
+          label="normal thr."
+          value={s.contour.normalThreshold}
+          min={0.01}
+          max={1}
+          step={0.01}
+          onChange={(normalThreshold) => set({contour: {normalThreshold}})}
+        />
+        <Slider
+          label="fade start"
+          value={s.contour.fadeStart}
+          min={0}
+          max={50}
+          step={0.5}
+          onChange={(fadeStart) => set({contour: {fadeStart}})}
+        />
+        <Slider
+          label="fade end"
+          value={s.contour.fadeEnd}
+          min={0}
+          max={100}
+          step={0.5}
+          onChange={(fadeEnd) => set({contour: {fadeEnd}})}
+        />
+      </Section>
+      <Section title="Grain">
+        <Check
+          label="enabled"
+          checked={s.grain.enabled}
+          onChange={(enabled) => set({grain: {enabled}})}
+        />
+        <Slider
+          label="amount"
+          value={s.grain.amount}
+          min={0}
+          max={0.2}
+          step={0.005}
+          onChange={(amount) => set({grain: {amount}})}
         />
       </Section>
       <Section title="Vignette">

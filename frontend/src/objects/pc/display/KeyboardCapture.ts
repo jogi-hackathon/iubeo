@@ -37,6 +37,8 @@ export class KeyboardCapture {
       "padding:0",
       "margin:0",
       "resize:none",
+      "line-height:1",
+      "overflow:hidden",
       "pointer-events:none",
       "z-index:-1",
     ].join(";");
@@ -64,6 +66,7 @@ export class KeyboardCapture {
       this.source?.key({...down, type: "up"});
     }
     this.pressed.clear();
+    this.source?.setComposition?.(null);
     this.source = null;
     if (!this.active) {
       return;
@@ -72,7 +75,25 @@ export class KeyboardCapture {
     this.composing = false;
     this.field.blur();
     this.field.value = "";
+    this.placeCaret(null);
     this.onActiveChange?.(false);
+  }
+
+  /**
+   * 隠し <textarea> を、文字を入れる位置(ウィンドウの座標)へ動かす。IME の変換候補の窓は
+   * フォーカスしている要素の位置に出るので、こうしないとウィンドウの左上に出てしまう
+   */
+  placeCaret(caret: {x: number; y: number; height: number} | null): void {
+    const left = caret ? `${Math.round(caret.x)}px` : "0px";
+    const top = caret ? `${Math.round(caret.y)}px` : "0px";
+    const height = caret ? `${Math.max(1, Math.round(caret.height))}px` : "1px";
+    const style = this.field.style;
+    if (style.left !== left || style.top !== top || style.height !== height) {
+      style.left = left;
+      style.top = top;
+      style.height = height;
+      style.fontSize = height;
+    }
   }
 
   dispose(): void {
@@ -100,11 +121,17 @@ export class KeyboardCapture {
     on("compositionstart", () => {
       this.composing = true;
     });
+    on("compositionupdate", (event) => {
+      if (this.active) {
+        this.source?.setComposition?.(event.data ?? "");
+      }
+    });
     on("compositionend", (event) => {
       this.composing = false;
       if (!this.active || !this.source) {
         return;
       }
+      this.source.setComposition?.(null);
       event.preventDefault();
       event.stopPropagation();
       const text = event.data ?? "";
@@ -126,8 +153,30 @@ export class KeyboardCapture {
       },
       {capture: true},
     );
+    // 3D の canvas などフォーカスできない所をクリックすると、隠し欄からフォーカスが外れて IME が届かなくなる。
+    // 別の入力欄へ移ったのでなければ、すぐ取り戻す
+    const onFieldBlur = () => {
+      window.setTimeout(() => {
+        if (
+          this.active &&
+          document.activeElement !== this.field &&
+          !isEditableTarget(document.activeElement)
+        ) {
+          this.field.focus({preventScroll: true});
+        }
+      }, 0);
+    };
+    this.field.addEventListener("blur", onFieldBlur);
+    this.teardown.push(() =>
+      this.field.removeEventListener("blur", onFieldBlur),
+    );
     on("input", (event) => {
-      if (event.target === this.field) {
+      // 変換中に中身を書き換えると、IME が変換を打ち切ってしまう。空にするのは確定してから
+      if (
+        event.target === this.field &&
+        !this.composing &&
+        !(event as InputEvent).isComposing
+      ) {
         this.field.value = "";
       }
     });
@@ -146,7 +195,7 @@ export class KeyboardCapture {
     if (isBrowserShortcut(event)) {
       return;
     }
-    if (this.composing || event.isComposing) {
+    if (this.composing || event.isComposing || isImeKey(event)) {
       return;
     }
 
@@ -242,6 +291,32 @@ const charCodeOf = (event: KeyboardEvent): number => {
   return 0;
 };
 
+/**
+ * IME が受け取るキー。変換を始めるキー(keyCode 229・Process)と、かな・英数などの切り替えキー。
+ * 止めたり画面へ送ったりせず、そのまま OS の IME に任せる
+ */
+const IME_KEYS = new Set([
+  "Process",
+  "KanaMode",
+  "Eisu",
+  "Lang1",
+  "Lang2",
+  "Hankaku",
+  "Zenkaku",
+  "ZenkakuHankaku",
+  "KanjiMode",
+  "Hiragana",
+  "Katakana",
+  "HiraganaKatakana",
+  "Romaji",
+  "Alphanumeric",
+  "Convert",
+  "NonConvert",
+]);
+
+const isImeKey = (event: KeyboardEvent): boolean =>
+  event.keyCode === 229 || IME_KEYS.has(event.key);
+
 const isBrowserShortcut = (event: KeyboardEvent): boolean => {
   const key = event.key;
   const withCommand = event.ctrlKey || event.metaKey;
@@ -255,5 +330,6 @@ const isBrowserShortcut = (event: KeyboardEvent): boolean => {
   ) {
     return true;
   }
-  return withCommand && ["r", "l", "t", "n", "w"].includes(key.toLowerCase());
+  // ⌘L / Ctrl+L は画面の中のブラウザのアドレス欄に使うので、ここには入れない
+  return withCommand && ["r", "t", "n", "w"].includes(key.toLowerCase());
 };

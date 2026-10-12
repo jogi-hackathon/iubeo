@@ -24,7 +24,7 @@ go run ./cmd/loadtest -url https://api.example.com -origin https://app.example.c
 go run ./cmd/loadtest -compare x86.json,arm64.json -labels x86_64,arm64 -out compare.svg
 ```
 
-サーバーは何もしないプレイヤーをフェーズの締切(既定 45 秒)で脱落させ、全員脱落でセッションを終える。測定中に切られないよう、測る側のサーバーは `IUBEO_PHASE_DURATION` を測定時間より長く(例: `10m`)しておく。
+サーバーは何もしないプレイヤーをフェーズの締切(既定 45 秒)で脱落させ、全員脱落でセッションを終える。測定中に切られないよう、測定対象のサーバーは `IUBEO_PHASE_DURATION` を測定時間より長く(例: `10m`)しておく。
 
 主なフラグ:
 

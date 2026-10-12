@@ -13,6 +13,7 @@ import {
   createSlider,
 } from "../toolkit/controls";
 
+/** 設定のアプリが使う、マウスの設定の口(core/input/mouseSettings の store) */
 export type MouseSettingsPort = {
   getState(): Readonly<MouseSettings>;
   set(next: MouseSettings): void;
@@ -30,6 +31,9 @@ export const SETTINGS_LAYOUT = {
   ok: {x: SIZE.width - 90, y: SIZE.height - 33, width: 80, height: 23},
 } as const satisfies Record<string, Rect>;
 
+/**
+ * 設定の窓。今はマウスの感度(見回す速さとカーソルの速さ)だけ。動かしたらすぐ効かせて保存する
+ */
 export const createSettingsApp = ({
   mouse,
 }: {
@@ -77,7 +81,7 @@ export const createSettingsApp = ({
         paintGroup(ctx, group, "マウス");
         ctx.font = FONT;
         ctx.fillStyle = COLORS.text;
-        ctx.fillText("見回す速さ", group.x + 14, group.y + 26);
+        ctx.fillText("マウスの速さ", group.x + 14, group.y + 26);
         ctx.textAlign = "right";
         ctx.fillText(
           `× ${sensitivity().toFixed(1)}`,

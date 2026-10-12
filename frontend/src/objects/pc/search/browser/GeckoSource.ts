@@ -34,6 +34,15 @@ import {
 } from "./wispUrl";
 
 /**
+ * Gecko（Firefox のエンジン）を WebAssembly 化したものを、このタブの中で走らせる画面ソース。
+ * サーバも無く、レイテンシもゼロ。
+ *
+ * エンジン自身の canvas をそのままテクスチャに流し、入力は合成 DOM イベントとして投げ返す。
+ * こうするとエンジンの入力パイプラインをそのまま再利用でき、コマンドプロトコルを二重に実装せずに済む。
+ *
+ * エンジンは毎フレームのソフトウェア合成結果を 2D コンテキストへ putImageData で書くので、
+ * そこを包んで dirty を立てる（エンジンの内部実装には触れない）。
+ *
  * cross-origin isolation は必須（エンジンが pthread のため SharedArrayBuffer を使う）。
  * COOP: same-origin + COEP: require-corp を vite.config.ts が付与している。
  */
@@ -54,6 +63,7 @@ export class GeckoSource extends CanvasScreenSource {
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
   private wispExpiresAt?: string;
+  private wispState: WispState = "none";
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
@@ -190,18 +200,10 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
+      this.wispState = wispState;
+      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
       const resume = wispState === "ok" ? this.resumeUrl : null;
-      await engine.load(
-        resume ??
-          pageToDataUrl(
-            searchStartPage(
-              wispState,
-              import.meta.env.DEV,
-              searchPageUrl(),
-              searchTokenFrom(this.wispUrl),
-            ),
-          ),
-      );
+      await engine.load(resume ?? this.homeUrl());
       if (stale()) {
         return;
       }
@@ -278,6 +280,10 @@ export class GeckoSource extends CanvasScreenSource {
     });
   }
 
+  /**
+   * エンジンが落ちた（wasm の RuntimeError など）ときに、作り直す。
+   * 同じ失敗が続く場合は、回数の上限を超えた時点で止めてエラーを出す（無限に再起動しない）。
+   */
   private restartAfterCrash(): void {
     const budget = takeRestartBudget(this.restartHistory, performance.now());
     this.restartHistory = budget.history;
@@ -289,6 +295,7 @@ export class GeckoSource extends CanvasScreenSource {
       );
       return;
     }
+    // 直前にも落ちていれば、そのページが原因の可能性が高い。読み直さずスタートページへ戻す
     if (budget.history.length > 1) {
       this.resumeUrl = null;
     }
@@ -296,6 +303,7 @@ export class GeckoSource extends CanvasScreenSource {
     this.rebootWithWisp();
   }
 
+  /** 今開いているページを覚えておく（エンジンが落ちたとき、同じページを読み直すため） */
   rememberPage(url: string): void {
     if (isResumablePage(url)) {
       this.resumeUrl = url;
@@ -373,7 +381,7 @@ export class GeckoSource extends CanvasScreenSource {
     if (!this.ready) {
       return;
     }
-    this.dispatchKey(event);
+    this.dispatchKey(withAccelAsCtrl(event));
     this.markDirty();
   }
 
@@ -402,6 +410,24 @@ export class GeckoSource extends CanvasScreenSource {
       });
     }
     this.markDirty();
+  }
+
+  /** 最初の検索画面の URL */
+  homeUrl(): string {
+    return pageToDataUrl(
+      searchStartPage(
+        this.wispState,
+        import.meta.env.DEV,
+        searchPageUrl(),
+        searchTokenFrom(this.wispUrl),
+      ),
+    );
+  }
+
+  /** 最初の検索画面へ戻す。起動前なら、起動したときに開くページを検索画面にしておく */
+  goHome(): void {
+    this.resumeUrl = null;
+    this.navigate(this.homeUrl());
   }
 
   navigate(url: string): void {
@@ -465,6 +491,15 @@ const checkWisp = (url: string, timeoutMs: number): Promise<boolean> =>
     ws.onopen = () => finish(true);
     ws.onerror = () => finish(false);
   });
+
+/**
+ * エンジンは Mac ではない環境として動くので、ショートカットの修飾キーは Ctrl しか見ない。
+ * ⌘A・⌘C などを Ctrl に読み替えて、Mac でも定番のショートカットが効くようにする
+ */
+const withAccelAsCtrl = (event: ScreenKeyEvent): ScreenKeyEvent =>
+  event.modifiers.meta
+    ? {...event, modifiers: {...event.modifiers, ctrl: true, meta: false}}
+    : event;
 
 const describe = (error: unknown): string =>
   error instanceof Error ? `${error.name}: ${error.message}` : String(error);

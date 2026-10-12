@@ -5,7 +5,6 @@ import {
   floor,
   mix,
   positionWorld,
-  screenCoordinate,
   select,
   step,
   time,
@@ -16,6 +15,7 @@ import {
 import type {Node, NodeMaterial} from "three/webgpu";
 
 import {cellHash} from "../../core/cellHash";
+import {screenPixel} from "../../core/screenPixel";
 
 export const directoryCorruption = {
   progress: uniform(0),
@@ -41,8 +41,8 @@ const RED_LEVELS = 3;
 const COLLAPSED = color("#f4f2ee");
 
 const block: Node<"vec2"> = (() => {
-  const fine = floor(screenCoordinate.xy.div(FINE_BLOCK));
-  const coarse = floor(screenCoordinate.xy.div(COARSE_BLOCK));
+  const fine = floor(screenPixel.div(FINE_BLOCK));
+  const coarse = floor(screenPixel.div(COARSE_BLOCK));
   return select(
     cellHash(coarse, float(0), 1).lessThan(COARSE_RATIO),
     coarse.add(vec2(100000, 0)),

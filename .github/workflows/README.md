@@ -35,7 +35,7 @@ Settings → Rules → Rulesets の `main` に、`ci.yml` の次の各ジョブ�
 `backend/**` も `.github/workflows/deploy-cloudflare.yml` も基準から変わっていなければ、
 バックエンド Worker は再デプロイしません。frontend だけの変更でコンテナを作り直すと、
 メモリ上のセッションが消えるためです。直近の成功が無いとき、手動実行（`workflow_dispatch`）、
-判定できない push では、安全側に倒して再デプロイします。
+判定できない push では、念のため再デプロイします。
 
 `workflow_dispatch` は main 以外のブランチから実行しても、本番へのデプロイ（`deploy` ジョブ）は skip されます。
 
@@ -96,8 +96,8 @@ CI: イメージを ECR へ push（release-<git sha>）
                        そのタグを引いて iubeo-current に付け替え、再起動する
 ```
 
-なので**デプロイは「次に起動したとき」に反映**されます。すぐ反映したいときは、
-インスタンスを起動してから SSM で `iubeo-deploy` を叩いてください。
+そのため、**デプロイは「次に起動したとき」に反映**されます。すぐ反映したいときは、
+インスタンスを起動してから SSM で `iubeo-deploy` を実行してください。
 
 ```sh
 aws ssm send-command --region ap-northeast-1 \
@@ -128,7 +128,7 @@ OIDC の引き受けに失敗します。試したい場合は `infra/aws/terraf
 
 ## Worker は 3 つある
 
-**DO 管理のコンテナを持つ Worker は Worker Previews に対応していません。**
+**DO 管理のコンテナを持つ Worker は Worker Previews に対応していません**。
 プレビューを取れるように、静的アセット側を分けてあります。
 
 | Worker | 中身 | デプロイ |
@@ -149,7 +149,7 @@ cf deploy --mode wisp                      # WISP
 IUBEO_WISP_ENABLED=1 VITE_ENGINE_BASE_URL=<エンジンの配信元> cf deploy   # フロント
 ```
 
-`VITE_ENGINE_BASE_URL` が無いと、本番で PC の画面のエンジンが取れない（[frontend/README.md](../../frontend/README.md) の「エンジンの配信元」）。
+`VITE_ENGINE_BASE_URL` が無いと、本番で PC の画面のエンジンを取得できません（[frontend/README.md](../../frontend/README.md) の「エンジンの配信元」）。
 
 **バックエンド → WISP → フロントの順**にデプロイしてください。サービスバインディングは
 相手の Worker が存在しないと解決できません。

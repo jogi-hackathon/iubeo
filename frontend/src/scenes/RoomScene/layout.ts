@@ -1,4 +1,9 @@
-import {directoryItem, pcItem, type SceneLayout} from "../../objects/layout";
+import {
+  directoryItem,
+  pcItem,
+  type SceneLayout,
+  workspaceItem,
+} from "../../objects/layout";
 import {ON_DESK as PC_ON_DESK} from "../../objects/pc/dimensions";
 import {DESK_HEIGHT} from "../../objects/workspace/desk";
 import type {Vec3} from "../../props/types";
@@ -109,7 +114,11 @@ export const ROOM_LAYOUT: SceneLayout = {
     position: DIRECTORY_POSITION,
     look: "small",
   }),
-  workspace: {id: "workspace-1", position: WORKSPACE_POSITION},
+  workspace: workspaceItem({
+    id: "workspace-1",
+    position: WORKSPACE_POSITION,
+    memo: false,
+  }),
   canvas: {id: "canvas-1", position: CANVAS_POSITION, yaw: CANVAS_YAW},
   pc: pcItem({
     id: "pc-1",

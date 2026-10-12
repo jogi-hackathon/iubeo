@@ -3,13 +3,14 @@ import type {ReactNode} from "react";
 import {PCFShadowMap} from "three/webgpu";
 
 import {useAppContext} from "../boot/context";
+import {CAMERA_FOV} from "../camera/constants";
 import {DebugOverlay} from "./debug/DebugOverlay";
 import {FrameLimiter} from "./FrameLimiter";
 import {getDpr} from "./graphics";
 import {PointerLockInput} from "./input";
 import {createRenderer} from "./renderer";
 
-const CAMERA = {fov: 75, near: 0.05, far: 500};
+const CAMERA = {fov: CAMERA_FOV, near: 0.05, far: 500};
 
 /**
  * R3F は shadows=false でも PCFSoftShadowMap を設定し、WebGPURenderer がそれを「removed」と警告するので、型を明示して警告を出さない
