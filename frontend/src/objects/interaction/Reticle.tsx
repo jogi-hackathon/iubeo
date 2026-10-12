@@ -92,7 +92,7 @@ export function Reticle() {
         style={voiceRingStyle(voice.status, voice.transmitting, voice.muted)}
       />
       <div style={dotStyle(aimed === null ? SIZE : SIZE_AIMED)} />
-      {hint && <div style={HINT_STYLE}>V で通話 / M でミュート</div>}
+      {hint && <div style={HINT_STYLE}>M でミュート</div>}
     </>
   );
 }

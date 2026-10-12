@@ -62,7 +62,6 @@ export const createVoiceEngine = () => {
   let audio: VoiceAudio | null = null;
   let signaling: Signaling | null = null;
   let moq: MoqVoice | null = null;
-  let ptt = false;
   let muted = false;
   let micStarting: Promise<void> | null = null;
   let generation = 0;
@@ -84,7 +83,8 @@ export const createVoiceEngine = () => {
     }
   };
 
-  const transmitting = () => ptt && !muted;
+  // 常時送信。マイクが取れていて、ミュートされていないときだけ送る
+  const transmitting = () => state.micReady && !muted;
 
   const closeDecoder = (peer: string) => {
     try {
@@ -141,11 +141,10 @@ export const createVoiceEngine = () => {
     }
     micStarting = audio
       .startMic((pcm) => moq?.publishPcm(pcm, transmitting()))
-      .then(() => set({micReady: true, transmitting: transmitting()}))
+      .then(() => set({micReady: true, transmitting: !muted}))
       .catch((e: unknown) => {
         console.warn("[voice] mic unavailable", e);
         micStarting = null;
-        ptt = false;
         set({micReady: false, transmitting: false});
       });
   };
@@ -173,7 +172,6 @@ export const createVoiceEngine = () => {
     audio?.close();
     audio = null;
     micStarting = null;
-    ptt = false;
     failures = 0;
     sessionId = null;
     myPlayerId = null;
@@ -217,6 +215,7 @@ export const createVoiceEngine = () => {
         return;
       }
       audio ??= createVoiceAudio();
+      ensureMic();
       const link = new MoqVoice();
       moq = link;
       await link.start({
@@ -319,17 +318,11 @@ export const createVoiceEngine = () => {
     start,
     stop,
 
+    // ブラウザは最初の操作があるまで AudioContext を止めるので、クリックのたびに起こす。
+    // マイクの取得に失敗していた場合も、ここで取り直す
     unlock: (): void => {
+      ensureMic();
       void audio?.resume();
-    },
-
-    setPTT: (on: boolean): void => {
-      ptt = on;
-      if (on) {
-        ensureMic();
-        void audio?.resume();
-      }
-      set({transmitting: transmitting()});
     },
 
     toggleMute: (): void => {
