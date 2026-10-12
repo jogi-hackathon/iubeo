@@ -3,6 +3,7 @@ import type {Mesh} from "three";
 export interface Collider {
   mesh: Mesh;
   enabled: boolean;
+  blocksCamera?: boolean;
 }
 
 const colliders = new Set<Collider>();

@@ -10,6 +10,7 @@ interface WallProps {
   color?: string;
   material?: Material;
   ao?: AOMode;
+  blocksCamera?: boolean;
   visible?: boolean;
 }
 
@@ -19,10 +20,11 @@ export function Wall({
   color = PROP_COLOR,
   material,
   ao,
+  blocksCamera,
   visible = true,
 }: WallProps) {
   return (
-    <BVHCollider>
+    <BVHCollider blocksCamera={blocksCamera}>
       <mesh
         userData={aoModeUserData(ao)}
         position={position}
