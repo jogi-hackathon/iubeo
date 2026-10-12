@@ -1,8 +1,12 @@
-import {Vector3} from "three";
+import {Box3, Vector3} from "three";
 
 import type {Collider} from "../../core/bvh";
 import {GRAVITY, PHYSICS_STEP} from "../constants";
-import {resolveSphere} from "../physics";
+import {
+  prepareSphereTargets,
+  resolveSphere,
+  type SphereTarget,
+} from "../physics";
 import {BONES, J, JOINT_COUNT, NECK} from "./joints";
 import {at} from "./pose";
 
@@ -16,6 +20,7 @@ export const RAGDOLL_HEAD_SIDEWAYS = 1.5;
 export const RAGDOLL_SLEEP_SPEED = 0.05;
 export const RAGDOLL_SLEEP_SECONDS = 0.5;
 export const RAGDOLL_HIP_STIFFNESS = 0.05;
+export const RAGDOLL_NEAR_MARGIN = 1;
 
 type Link = readonly [number, number, number?];
 
@@ -115,12 +120,13 @@ const satisfyLinks = (r: Ragdoll): void => {
 
 const joint = new Vector3();
 const pushOut = new Vector3();
+const near = new Box3();
 
-const collide = (r: Ragdoll, colliders: readonly Collider[]): void => {
+const collide = (r: Ragdoll, targets: readonly SphereTarget[]): void => {
   for (let i = 0; i < JOINT_COUNT; i++) {
     joint.fromArray(r.pos, i * 3);
     const radius = i === J.head ? RAGDOLL_HEAD_RADIUS : RAGDOLL_JOINT_RADIUS;
-    resolveSphere(joint, radius, colliders, pushOut);
+    resolveSphere(joint, radius, targets, pushOut);
     if (pushOut.lengthSq() < 1e-12) {
       continue;
     }
@@ -136,7 +142,7 @@ const collide = (r: Ragdoll, colliders: readonly Collider[]): void => {
 const substep = (
   r: Ragdoll,
   h: number,
-  colliders: readonly Collider[],
+  targets: readonly SphereTarget[],
 ): number => {
   const {pos, prev} = r;
   let maxMove = 0;
@@ -148,7 +154,7 @@ const substep = (
   }
   for (let iter = 0; iter < RAGDOLL_ITERATIONS; iter++) {
     satisfyLinks(r);
-    collide(r, colliders);
+    collide(r, targets);
   }
   for (let i = 0; i < pos.length; i++) {
     maxMove = Math.max(maxMove, Math.abs(at(pos, i) - at(prev, i)));
@@ -164,10 +170,16 @@ export const stepRagdoll = (
   if (!r.active || r.sleeping || dt <= 0) {
     return;
   }
+  near.makeEmpty();
+  for (let i = 0; i < JOINT_COUNT; i++) {
+    near.expandByPoint(joint.fromArray(r.pos, i * 3));
+  }
+  near.expandByScalar(RAGDOLL_NEAR_MARGIN);
+  const targets = prepareSphereTargets(colliders, near);
   r.carry += dt;
   while (r.carry >= PHYSICS_STEP) {
     r.carry -= PHYSICS_STEP;
-    const speed = substep(r, PHYSICS_STEP, colliders);
+    const speed = substep(r, PHYSICS_STEP, targets);
     r.still = speed < RAGDOLL_SLEEP_SPEED ? r.still + PHYSICS_STEP : 0;
   }
   if (r.still >= RAGDOLL_SLEEP_SECONDS) {
