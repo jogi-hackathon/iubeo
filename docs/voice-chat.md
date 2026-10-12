@@ -36,7 +36,7 @@ browser ──GET /api/v1/voice/token──▶ ゲームの backend（EC2 / Clou
     Opus の 1 フレームを QUIC datagram で送る
   - `audio.ts` … マイク（AudioWorklet で 20ms ずつ）と、相手ごとの `PannerNode`（距離減衰。
     `inverse`、`refDistance 5`、`rolloffFactor 1`。10m で 1/2、20m で 1/4）。相手の声は 2 倍にして、
-    最後にリミッター（`DynamicsCompressor`）を通す。再生は 80ms 遅らせて並べ、datagram の揺れを吸収する
+    最後にリミッター（`DynamicsCompressor`）を通す。再生は 60ms 遅らせて並べ、datagram の揺れを吸収する
   - `VoiceChat.tsx` … サンドボックスのセッション中だけマウント。毎フレーム、カメラを聞き手にして、
     roster に居る人の声をその位置に置く
 - 状態はゲームのスキーマ（`docs/backend/state-schema.md`）には含めない。サーバーは声を知らない

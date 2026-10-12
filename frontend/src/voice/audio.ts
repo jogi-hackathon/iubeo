@@ -2,7 +2,7 @@ const SAMPLE_RATE = 48000;
 // 相手の声の再生音量。2 倍 (約 +6dB)。割れないよう最後にリミッターを通す
 const PEER_GAIN = 2;
 // datagram の到着の揺れを吸収するため、再生をこれだけ遅らせて並べる
-const JITTER_LEAD_S = 0.08;
+const JITTER_LEAD_S = 0.06;
 
 const CAPTURE_WORKLET = `
 class Capture extends AudioWorkletProcessor {
