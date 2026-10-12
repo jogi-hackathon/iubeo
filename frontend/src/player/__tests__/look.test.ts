@@ -1,10 +1,21 @@
-import {describe, expect, it} from "vitest";
+import {afterEach, describe, expect, it} from "vitest";
 
-import {applyLook, LOOK_SENSITIVITY} from "../look";
+import {applyLook, LOOK_SENSITIVITY, setLookSensitivityScale} from "../look";
 
 const look = () => ({yaw: 0, pitch: 0});
 
 describe("applyLook", () => {
+  afterEach(() => {
+    setLookSensitivityScale(1);
+  });
+
+  it("倍率を掛けると感度が比例して変わる", () => {
+    setLookSensitivityScale(2);
+    const l = applyLook(look(), 100, 50);
+    expect(l.yaw).toBeCloseTo(-100 * LOOK_SENSITIVITY * 2);
+    expect(l.pitch).toBeCloseTo(-50 * LOOK_SENSITIVITY * 2);
+  });
+
   it("感度は 1px あたり LOOK_SENSITIVITY rad", () => {
     const l = applyLook(look(), 100, 50);
     expect(l.yaw).toBeCloseTo(-100 * LOOK_SENSITIVITY);

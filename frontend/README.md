@@ -51,7 +51,8 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 `.env.development` の `VITE_ENABLE_DEBUG=true` のとき有効。
 
 - `?debug` クエリ
-- `F10`: dev パネルの開閉 / `Shift+F10`: 次のタブへ(View・Scene・PostFX、`pnpm dev` のときは Game・Flow・Tutorial も)
+- `F10`: dev パネルの開閉 / `Shift+F10`: 次のタブへ(View・Scene・Look・PostFX、`pnpm dev` のときは Game・Flow・Tutorial も)
+- Look タブの `look scale`: マウス視点の感度の倍率(1 = `LOOK_SENSITIVITY`)。一人称とフリーカメラの両方に効き、localStorage に保存される
 - `F6`: stats と grid / `F8`: フリーカメラ(プレイ中に切り替えられるよう、パネルとは別のキーにしてある)
 
 `VITE_RENDERER=webgl` にすると WebGL2 を強制し、起動エラー画面を確認できる。
