@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 
 import {BakedAO} from "./bake/BakedAO";
 import {FirstPersonCamera, FlyCamera} from "./camera";
@@ -18,6 +18,7 @@ import {ReportSceneReady} from "./scenes/ReportSceneReady";
 import {SceneDebugPanel} from "./scenes/SceneDebugPanel";
 import {useSceneState} from "./scenes/useScene";
 import {DiveDirector, WarmupProbe} from "./transition/dive/DiveDirector";
+import {startTutorialPresenceHeartbeat} from "./tutorial";
 
 registerDevTab({
   id: "scene",
@@ -42,6 +43,12 @@ export function App() {
   const [initialScene] = useState(sceneName);
   useBootCover(initialScene, warmedUp);
   const readiness = useMemo(() => readinessOf(sceneName), [sceneName]);
+
+  // 「いま遊んでいる最中」をサーバーに知らせる。これが届いている間だけ WISP のトークンが発行される。
+  // チュートリアル完了(completed)では止めない: 完了からマッチングを始めるまでの間も PC を使うため。
+  // シーンに依存させないのは、サンドボックスにも PC があり、そちらでも実サイトに出たいから。
+  useEffect(() => startTutorialPresenceHeartbeat(), []);
+
   return (
     <>
       <GameCanvas>

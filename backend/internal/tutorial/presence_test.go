@@ -28,3 +28,19 @@ func TestPresenceTouchAndActive(t *testing.T) {
 		t.Fatal("want inactive after stale window")
 	}
 }
+
+func TestPresenceDropsDepartedPlayers(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	p := NewPresence(func() time.Time { return now }, time.Minute)
+
+	p.Touch("gone")
+	now = now.Add(2 * time.Minute)
+	p.Touch("here")
+
+	if _, ok := p.lastSeen["gone"]; ok {
+		t.Fatal("want the stale entry dropped on touch")
+	}
+	if _, ok := p.lastSeen["here"]; !ok {
+		t.Fatal("want the fresh entry kept")
+	}
+}

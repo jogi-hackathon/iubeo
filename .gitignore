@@ -10,4 +10,5 @@ devenv.local.yaml
 
 backend/tmp
 
-frontend/engine-local/
+# エンジンの配信物(engine:link が作る本物のディレクトリ、または別チェックアウトへの symlink)
+frontend/engine-local

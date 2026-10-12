@@ -15,8 +15,8 @@ func (s *Server) WithWisp(issuer *wisp.Issuer, baseURL string) *Server {
 }
 
 // WISP をオープンプロキシにしないための実質の門は、ここで発行する期限つきトークンを WISP 側が
-// 共有鍵で検証すること(wisp/token.mjs)。発行はセッション中・マッチング待機/成立後・チュートリアル中
-// (クライアント heartbeat) に限る。
+// 共有鍵で検証すること(wisp/token.mjs)。発行はセッション中・マッチング待機/成立後・
+// アプリを開いて遊んでいる間(クライアント heartbeat) に限る。
 func (s *Server) GetWispToken(w http.ResponseWriter, r *http.Request) {
 	playerID, ok := s.authenticate(w, r)
 	if !ok {

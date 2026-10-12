@@ -31,7 +31,14 @@ func NewPresence(now func() time.Time, staleAfter time.Duration) *Presence {
 func (p *Presence) Touch(playerID string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.lastSeen[playerID] = p.now()
+	now := p.now()
+	p.lastSeen[playerID] = now
+	// 離脱したプレイヤーを溜めない。heartbeat が届かなくなった分は、ここで捨てる
+	for id, seen := range p.lastSeen {
+		if now.Sub(seen) > p.staleAfter {
+			delete(p.lastSeen, id)
+		}
+	}
 }
 
 func (p *Presence) Active(playerID string) bool {

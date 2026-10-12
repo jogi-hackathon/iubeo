@@ -21,6 +21,8 @@ import {
   describeWispHost,
   resolveWispUrl,
   setFreshWispUrl,
+  type WispWatcher,
+  watchWispUrl,
   wispOverrideFrom,
 } from "./wispUrl";
 
@@ -41,14 +43,14 @@ import {
 const PROGRESS_INTERVAL_MS = 1000;
 const WISP_TIMEOUT_MS = 8000;
 const WISP_COLD_START_TIMEOUT_MS = 90_000;
-const WISP_TOKEN_REFRESH_MS = 4 * 60 * 1000;
 
 export class GeckoSource extends CanvasScreenSource {
   private engine: GeckoInstance | null = null;
   private ready = false;
   private gpuMode = false;
   private progressTimer?: number;
-  private tokenTimer?: number;
+  private wispWatcher?: WispWatcher;
+  private rebooting = false;
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
 
@@ -123,8 +125,9 @@ export class GeckoSource extends CanvasScreenSource {
           usesToken ? WISP_COLD_START_TIMEOUT_MS : WISP_TIMEOUT_MS,
         )
       : Promise.resolve(false);
-    if (usesToken) {
-      this.keepWispTokenFresh();
+    if (this.wispOverride === undefined) {
+      // 直結の指定が無い = トークンで繋ぐ構成。取れなかったときも追い続ける
+      this.watchWisp();
     }
 
     try {
@@ -170,7 +173,7 @@ export class GeckoSource extends CanvasScreenSource {
     } catch (error) {
       this.engine?.destroy();
       this.engine = null;
-      this.stopTokenRefresh();
+      this.stopWispWatch();
       this.setStatus(
         "error",
         `エンジンの起動に失敗しました: ${describe(error)}`,
@@ -187,24 +190,63 @@ export class GeckoSource extends CanvasScreenSource {
     }
   }
 
-  private keepWispTokenFresh(): void {
-    setFreshWispUrl(this.wispUrl);
-    this.stopTokenRefresh();
-    this.tokenTimer = window.setInterval(() => {
-      void resolveWispUrl(undefined, fetch).then((url) => {
-        if (url && this.tokenTimer !== undefined) {
-          this.wispUrl = url;
-          setFreshWispUrl(url);
-        }
-      });
-    }, WISP_TOKEN_REFRESH_MS);
+  /**
+   * WISP の URL を追い続ける。boot で取れていなくても、あとから発行対象になれば拾う。
+   * boot で取れているときは、トークンの期限が切れる前に取り直す。
+   */
+  private watchWisp(): void {
+    this.stopWispWatch();
+    if (this.wispUrl) {
+      setFreshWispUrl(this.wispUrl);
+    }
+    this.wispWatcher = watchWispUrl({
+      current: this.wispUrl,
+      onUrl: (url) => {
+        this.applyWispUrl(url);
+      },
+    });
   }
 
-  private stopTokenRefresh(): void {
-    if (this.tokenTimer !== undefined) {
-      window.clearInterval(this.tokenTimer);
-      this.tokenTimer = undefined;
+  private stopWispWatch(): void {
+    this.wispWatcher?.stop();
+    this.wispWatcher = undefined;
+  }
+
+  /**
+   * 新しい WISP の URL を受け取る。起動時に取れていなかったときは、エンジンを作り直す。
+   * エンジンは接続先を Module.wispUrl として起動時に固定するので、WISP 無しで作った物には
+   * あとから差し替えられない(作り直すまで、その画面はオフラインのまま)。
+   */
+  private applyWispUrl(url: string): void {
+    const gained = this.wispUrl === undefined;
+    this.wispUrl = url;
+    setFreshWispUrl(url);
+    if (gained) {
+      this.rebootWithWisp();
     }
+  }
+
+  private rebootWithWisp(): void {
+    if (this.rebooting || !this.engine) {
+      return;
+    }
+    this.rebooting = true;
+    void (async () => {
+      try {
+        this.engine?.destroy();
+        this.engine = null;
+        this.ready = false;
+        this.status = "idle";
+        await this.boot();
+      } catch (error) {
+        this.setStatus(
+          "error",
+          `エンジンの再起動に失敗しました: ${describe(error)}`,
+        );
+      } finally {
+        this.rebooting = false;
+      }
+    })();
   }
 
   private setDetail(detail: string): void {
@@ -327,7 +369,7 @@ export class GeckoSource extends CanvasScreenSource {
 
   override dispose(): void {
     this.stopProgress();
-    this.stopTokenRefresh();
+    this.stopWispWatch();
     this.engine?.destroy();
     this.engine = null;
     super.dispose();

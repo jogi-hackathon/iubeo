@@ -68,7 +68,7 @@ export interface paths {
     /**
      * 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
      * @description WISP は誰でも使えると、オープンプロキシになる。セッション参加中・マッチング待機/成立後・
-     *     チュートリアル中(クライアントが `POST /api/v1/tutorial/presence` で heartbeat している間)の
+     *     アプリを開いて遊んでいる間(クライアントが `POST /api/v1/tutorial/presence` で heartbeat している間)の
      *     プレイヤーにだけ、期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを
      *     検証してから流す。合言葉(X-Iubeo-Wisp-Pass)は廃止した。
      */
@@ -91,9 +91,10 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * チュートリアル中であることをサーバーに知らせる
-     * @description チュートリアルの進行状態はクライアント(localStorage)側にあり、サーバーは直接は知らない。
-     *     ルームでチュートリアルを進めている間、クライアントが定期的にこのエンドポイントを叩く。
+     * 遊んでいる最中であることをサーバーに知らせる
+     * @description アプリを開いて遊んでいる間、クライアントが定期的にこのエンドポイントを叩く。チュートリアルの
+     *     進行状態はクライアント(localStorage)側にあり、サーバーは直接は知らないので、
+     *     「PC を使う場面に居るか」の判定(WISP トークンの発行対象か)にこれを使う。
      *     最後の heartbeat から一定時間経過すると、WISP トークン発行の対象外になる。
      */
     post: operations["touchTutorialPresence"];

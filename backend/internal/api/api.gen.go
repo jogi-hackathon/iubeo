@@ -2005,7 +2005,7 @@ type ServerInterface interface {
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
-	// TouchTutorialPresence チュートリアル中であることをサーバーに知らせる
+	// TouchTutorialPresence 遊んでいる最中であることをサーバーに知らせる
 	// (POST /api/v1/tutorial/presence)
 	TouchTutorialPresence(w http.ResponseWriter, r *http.Request)
 	// GetVoiceToken Voice Chat に繋ぐためのトークンと接続先を返す

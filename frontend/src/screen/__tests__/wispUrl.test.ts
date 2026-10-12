@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
 
 import {
   describeWispHost,
@@ -7,6 +7,7 @@ import {
   resolveWispUrl,
   setFreshWispUrl,
   WISP_TOKEN_PATH,
+  watchWispUrl,
   wispOverrideFrom,
 } from "../wispUrl";
 
@@ -102,6 +103,82 @@ describe("resolveWispUrl", () => {
         throw new TypeError("network down");
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("watchWispUrl", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("取れない間は短い間隔で再試行し、取れたら onUrl に渡す", async () => {
+    vi.useFakeTimers();
+    const url = "wss://wisp.test/?token=abc";
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(403, {code: "not_eligible"}))
+      .mockResolvedValue(jsonResponse(200, {url}));
+    const onUrl = vi.fn();
+
+    const watcher = watchWispUrl({
+      onUrl,
+      fetchFn,
+      retryMs: 1000,
+      refreshMs: 5000,
+    });
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(onUrl).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onUrl).toHaveBeenCalledWith(url);
+
+    // 取れたあとは、トークンの期限が切れる前に取り直す
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    watcher.stop();
+  });
+
+  it("起動時に取れていれば、再試行ではなく更新の間隔で叩く", async () => {
+    vi.useFakeTimers();
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, {url: "wss://wisp.test/?token=b"}));
+    const onUrl = vi.fn();
+
+    const watcher = watchWispUrl({
+      current: "wss://wisp.test/?token=a",
+      onUrl,
+      fetchFn,
+      retryMs: 1000,
+      refreshMs: 5000,
+    });
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchFn).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(onUrl).toHaveBeenCalledWith("wss://wisp.test/?token=b");
+    watcher.stop();
+  });
+
+  it("stop したら、もう叩かない", async () => {
+    vi.useFakeTimers();
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse(200, {url: "w"}));
+    const onUrl = vi.fn();
+
+    const watcher = watchWispUrl({
+      onUrl,
+      fetchFn,
+      retryMs: 1000,
+      refreshMs: 1000,
+    });
+    watcher.stop();
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(onUrl).not.toHaveBeenCalled();
   });
 });
 

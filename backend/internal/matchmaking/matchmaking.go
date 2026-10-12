@@ -152,6 +152,20 @@ func (m *Matchmaker) Get(playerID string) (State, error) {
 	return m.status(playerID)
 }
 
+// Enrolled は「待機中か、マッチング成立後か」を答える。WISP の発行可否の判定に使うので、
+// Get と違って待機列を進めない(lastSeen を延命しない・CPU を補充しない)。
+// 放置された待機は Get や Join と同じように捨てる。
+func (m *Matchmaker) Enrolled(playerID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.evictStale(m.now())
+	if _, matched := m.matchedState(playerID); matched {
+		return true
+	}
+	return m.find(playerID) >= 0
+}
+
 func (m *Matchmaker) status(playerID string) (State, error) {
 	if st, ok := m.matchedState(playerID); ok {
 		return st, nil
