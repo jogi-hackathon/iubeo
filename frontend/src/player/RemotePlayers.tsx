@@ -2,9 +2,11 @@ import {useFrame} from "@react-three/fiber";
 import {useMemo, useState} from "react";
 
 import {useMyPlayerId} from "../authority/useMyPlayerId";
+import {listColliders} from "../core/bvh";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {HeldItem} from "../items";
 import {useWorkingAtWorkspace} from "../objects/workspace/useWorkingAtWorkspace";
+import {keepCpuClear} from "./cpuClearance";
 import {playerManager} from "./playerStore";
 import {PlayerSkeleton} from "./skeleton";
 import {createPlayerState} from "./state";
@@ -19,6 +21,9 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
 
   useFrame(() => {
     const ok = playerManager.sample(playerId, performance.now(), state);
+    if (ok && player.kind === "cpu") {
+      keepCpuClear(state.position, listColliders());
+    }
     if (ok !== placed) {
       setPlaced(ok);
     }
