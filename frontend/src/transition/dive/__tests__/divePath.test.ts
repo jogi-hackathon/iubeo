@@ -1,7 +1,13 @@
 import {Euler, Matrix4, Quaternion, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
-import {anchorFrame, coverDistance, poseAt, portalTransform} from "../divePath";
+import {
+  anchorFrame,
+  coverDistance,
+  entryDistance,
+  poseAt,
+  portalTransform,
+} from "../divePath";
 
 const rigid = (seed: number): Matrix4 => {
   const q = new Quaternion().setFromEuler(
@@ -50,5 +56,29 @@ describe("anchorFrame / poseAt", () => {
     const eyeAtZero = out.position.clone();
     poseAt(A, -L, out);
     expect(out.position.clone().sub(eyeAtZero).length()).toBeCloseTo(L);
+  });
+});
+
+describe("entryDistance", () => {
+  const screen = new Matrix4().compose(
+    new Vector3(1, 1, -2),
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), 0.4),
+    new Vector3(1, 1, 1),
+  );
+  const at = (d: number, lateral = 0) =>
+    new Vector3(lateral, 0, d).applyMatrix4(screen);
+
+  it("画面の正面で、決まった距離より近くにいれば、その距離から飛び込む", () => {
+    expect(entryDistance(screen, at(0.16), 0.36, 0.14)).toBeCloseTo(0.16);
+  });
+
+  it("遠くにいるとき・正面からずれているときは、決まった距離まで飛ぶ", () => {
+    expect(entryDistance(screen, at(0.8), 0.36, 0.14)).toBe(0.36);
+    expect(entryDistance(screen, at(0.16, 0.3), 0.36, 0.14)).toBe(0.36);
+  });
+
+  it("画面を覆う距離より手前(や画面の裏)からは飛び込み始めない", () => {
+    expect(entryDistance(screen, at(0.1), 0.36, 0.14)).toBe(0.36);
+    expect(entryDistance(screen, at(-0.2), 0.36, 0.14)).toBe(0.36);
   });
 });

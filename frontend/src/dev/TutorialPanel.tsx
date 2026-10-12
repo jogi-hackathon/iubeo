@@ -1,5 +1,9 @@
 import {rowStyle} from "../core/debug/ui";
-import {tutorialManager, useTutorial, useTutorialFlow} from "../tutorial";
+import {
+  tutorialManager,
+  useTutorialFlow,
+} from "../scenes/RoomScene/tutorial/manager";
+import {useTutorial} from "../tutorial";
 
 export function TutorialPanel() {
   const {completed} = useTutorial();

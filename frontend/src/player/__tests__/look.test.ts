@@ -11,6 +11,12 @@ describe("applyLook", () => {
     expect(l.pitch).toBeCloseTo(-50 * LOOK_SENSITIVITY);
   });
 
+  it("scale で感度を倍にできる(設定の感度)", () => {
+    const l = applyLook(look(), 100, 50, 2);
+    expect(l.yaw).toBeCloseTo(-200 * LOOK_SENSITIVITY);
+    expect(l.pitch).toBeCloseTo(-100 * LOOK_SENSITIVITY);
+  });
+
   it("右(dx>0)で yaw が減り、左で増える", () => {
     expect(applyLook(look(), 10, 0).yaw).toBeLessThan(0);
     expect(applyLook(look(), -10, 0).yaw).toBeGreaterThan(0);
