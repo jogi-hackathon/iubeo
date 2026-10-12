@@ -29,9 +29,9 @@ var DefaultConfig = Config{
 	AbandonTimeout: 60 * time.Second,
 	TickInterval:   50 * time.Millisecond,
 	Phases: PhaseRules{
-		Count:        3,
-		Duration:     time.Minute,
-		Intermission: 15 * time.Second,
+		Count:        5,
+		Duration:     45 * time.Second,
+		Intermission: 8 * time.Second,
 		Bypass:       30 * time.Second,
 		Fire:         10 * time.Second,
 	},

@@ -35,9 +35,9 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg := Config{
 		Addr:                 ":8080",
 		MatchSize:            3,
-		PhaseCount:           3,
-		PhaseDuration:        time.Minute,
-		IntermissionDuration: 15 * time.Second,
+		PhaseCount:           5,
+		PhaseDuration:        45 * time.Second,
+		IntermissionDuration: 8 * time.Second,
 		BypassDuration:       30 * time.Second,
 		FireDuration:         10 * time.Second,
 		CPUFillAfter:         30 * time.Second,

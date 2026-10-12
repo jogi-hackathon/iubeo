@@ -32,7 +32,7 @@ func TestFirstPhaseStarts(t *testing.T) {
 	st := playing(t, "p1", "p2", "p3")
 
 	ph := st.Phase
-	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || !ph.StartedAt.Equal(t0) || !ph.DeadlineAt.Equal(t0.Add(time.Minute)) {
+	if ph.Number != 1 || ph.Status != api.PhaseStatusActive || !ph.StartedAt.Equal(t0) || !ph.DeadlineAt.Equal(t0.Add(DefaultConfig.Phases.Duration)) {
 		t.Fatalf("phase = %+v", ph)
 	}
 	if n := countBy(ph.Tasks, func(t TaskState) string { return t.Assignee }); !reflect.DeepEqual(n, map[string]int{"p1": 1, "p2": 1, "p3": 1}) {
@@ -85,7 +85,7 @@ func TestPhaseRedistributesToSurvivors(t *testing.T) {
 
 	extra := map[string]bool{}
 	for seed := range uint64(50) {
-		st, _ := startPhaseWith(t, seed, 3)
+		st, _ := startPhaseWith(t, seed, 4)
 		n := countBy(st.Phase.Tasks, func(t TaskState) string { return t.Assignee })
 		if n["p1"]+n["p2"] != 9 || n["p3"] != 0 || min(n["p1"], n["p2"]) != 4 {
 			t.Fatalf("seed %d: tasks per player = %v", seed, n)
@@ -102,9 +102,9 @@ func TestPhaseRedistributesToSurvivors(t *testing.T) {
 }
 
 func TestPhaseReadEditTargets(t *testing.T) {
-	overlapped := false
+	overlapped, repeated := false, false
 	for seed := range uint64(200) {
-		st, _ := startPhaseWith(t, seed, 3)
+		st, _ := startPhaseWith(t, seed, 5)
 		targets := map[string][]string{}
 		for _, task := range st.Phase.Tasks {
 			if task.Type == api.ReadEdit {
@@ -112,12 +112,17 @@ func TestPhaseReadEditTargets(t *testing.T) {
 			}
 		}
 		for p, ids := range targets {
-			if len(slices.Compact(slices.Sorted(slices.Values(ids)))) != len(ids) || len(ids) > len(directoryStock) {
-				t.Fatalf("seed %d: %s's read_edit targets = %v", seed, p, ids)
-			}
+			n := map[string]int{}
 			for _, id := range ids {
 				if !slices.Contains(stockIDs(st), id) {
 					t.Fatalf("seed %d: target %q is not in stock", seed, id)
+				}
+				n[id]++
+				if n[id] > sameFileLimit {
+					t.Fatalf("seed %d: %s's read_edit targets = %v, want each at most %d", seed, p, ids, sameFileLimit)
+				}
+				if n[id] > 1 {
+					repeated = true
 				}
 			}
 		}
@@ -128,25 +133,77 @@ func TestPhaseReadEditTargets(t *testing.T) {
 	if !overlapped {
 		t.Error("read_edit targets never overlapped between players")
 	}
+	if !repeated {
+		t.Error("the same file was never assigned twice to one player")
+	}
 }
 
 func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 	capped := false
+	limit := len(directoryStock) * sameFileLimit
 	for seed := range uint64(200) {
 		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
 		st.player("p2").Life = api.Eliminated
 		st.player("p3").Life = api.Eliminated
-		st.startPhase(3, t0)
+		st.startPhase(20, t0)
 		n := countBy(st.Phase.Tasks, func(t TaskState) string { return string(t.Type) })
-		if n[string(api.ReadEdit)]+n[string(api.Write)]+n[string(api.WebSearch)]+n[string(api.ImageGeneration)] != 9 || n[string(api.ReadEdit)] > len(directoryStock) {
+		if n[string(api.ReadEdit)]+n[string(api.Write)]+n[string(api.WebSearch)]+n[string(api.ImageGeneration)] != tasksPerPlayer(20)*3 || n[string(api.ReadEdit)] > limit {
 			t.Fatalf("seed %d: tasks = %v", seed, n)
 		}
-		if n[string(api.ReadEdit)] == len(directoryStock) {
+		if n[string(api.ReadEdit)] == limit {
 			capped = true
 		}
 	}
 	if !capped {
 		t.Error("no seed used up the stock")
+	}
+}
+
+func TestPhaseTaskCountGrowsSlowly(t *testing.T) {
+	var got []int
+	for number := 1; number <= 5; number++ {
+		st, _ := startPhaseWith(t, 1, number)
+		got = append(got, len(st.Phase.Tasks))
+	}
+	if want := []int{3, 6, 6, 9, 9}; !slices.Equal(got, want) {
+		t.Errorf("tasks per phase = %v, want %v", got, want)
+	}
+}
+
+// 後半のフェーズほど read_edit が増え、他のプレイヤーと同じファイルを取り合いやすい
+func TestPhaseConflictsRiseInLaterPhases(t *testing.T) {
+	stats := func(number int) (readEdit, contested float64) {
+		var total, re, shared int
+		for seed := range uint64(500) {
+			st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+			st.startPhase(number, t0)
+			owners := map[string]map[string]bool{}
+			for _, task := range st.Phase.Tasks {
+				total++
+				if task.Type != api.ReadEdit {
+					continue
+				}
+				re++
+				if owners[task.TargetFileID] == nil {
+					owners[task.TargetFileID] = map[string]bool{}
+				}
+				owners[task.TargetFileID][task.Assignee] = true
+			}
+			for _, task := range st.Phase.Tasks {
+				if task.Type == api.ReadEdit && len(owners[task.TargetFileID]) > 1 {
+					shared++
+				}
+			}
+		}
+		return float64(re) / float64(total), float64(shared) / float64(re)
+	}
+	re1, c1 := stats(2)
+	re5, c5 := stats(5)
+	if re5 <= re1+0.2 {
+		t.Errorf("read_edit rate: phase 2 = %.2f, phase 5 = %.2f, want it to rise", re1, re5)
+	}
+	if c5 <= c1+0.1 {
+		t.Errorf("contested rate: phase 2 = %.2f, phase 5 = %.2f, want it to rise", c1, c5)
 	}
 }
 

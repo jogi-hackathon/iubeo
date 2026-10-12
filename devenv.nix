@@ -17,9 +17,9 @@
     IUBEO_SIGNING_KEY = "iubeo-dev-only-signing-key-do-not-use-in-prod";
     IUBEO_ALLOWED_ORIGINS = "http://localhost:5173";
     IUBEO_MATCH_SIZE = "3";
-    IUBEO_PHASE_COUNT = "3";
-    IUBEO_PHASE_DURATION = "1m";
-    IUBEO_INTERMISSION_DURATION = "15s";
+    IUBEO_PHASE_COUNT = "5";
+    IUBEO_PHASE_DURATION = "45s";
+    IUBEO_INTERMISSION_DURATION = "8s";
     IUBEO_BYPASS_DURATION = "30s";
     IUBEO_FIRE_DURATION = "10s";
     # 待機が長いときは CPU とマッチする(1 人でも通しを試せる)。短くしたいときは .env に IUBEO_CPU_FILL_AFTER=5s
