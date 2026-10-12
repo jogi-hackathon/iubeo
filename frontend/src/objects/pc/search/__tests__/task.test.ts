@@ -1,43 +1,62 @@
 import {describe, expect, it} from "vitest";
 
-import {createTaskStore, initialTask, pickTask, TASK_PRESETS} from "../task";
+import type {GamePhase, GameTask} from "../../../../net";
+import {currentTopic} from "../task";
 
-describe("pickTask", () => {
-  it("今のお題とは別の語を引く", () => {
-    const current = TASK_PRESETS[0] ?? "";
-    for (let i = 0; i < 50; i += 1) {
-      expect(pickTask(current)).not.toBe(current);
-    }
-  });
-
-  it("乱数の値に応じて、プリセットから決まった語を引く", () => {
-    expect(pickTask(undefined, () => 0)).toBe(TASK_PRESETS[0]);
-    expect(pickTask(undefined, () => 0.999)).toBe(
-      TASK_PRESETS[TASK_PRESETS.length - 1],
-    );
-  });
+const task = (overrides: Partial<GameTask> = {}): GameTask => ({
+  taskId: "task-1-1",
+  type: "web_search",
+  assigneePlayerId: "me",
+  targetFileId: null,
+  topic: "WebAssembly",
+  status: "pending",
+  completedAt: null,
+  ...overrides,
 });
 
-describe("initialTask", () => {
-  it("?task= があれば、その語をそのまま使う", () => {
-    expect(initialTask("?task=WebAssembly")).toBe("WebAssembly");
-    expect(initialTask("?foo=1&task=%20Vite%20")).toBe("Vite");
-  });
-
-  it("?task= が無ければ、プリセットから引く", () => {
-    expect(TASK_PRESETS).toContain(initialTask("?debug"));
-  });
+const phase = (tasks: GameTask[]): GamePhase => ({
+  number: 2,
+  status: "active",
+  startedAt: "2026-10-01T00:00:00Z",
+  deadlineAt: "2026-10-01T00:01:00Z",
+  tasks,
 });
 
-describe("createTaskStore", () => {
-  it("引き直すと、新しいお題に変わって購読者へ知らせる", () => {
-    const store = createTaskStore("Vite");
-    const seen: string[] = [];
-    store.subscribe(() => seen.push(store.getTask()));
+describe("currentTopic", () => {
+  it("自分の未完了の検索タスクのお題を返す", () => {
+    expect(currentTopic(phase([task()]), "me")).toBe("WebAssembly");
+  });
 
-    const next = store.draw(() => 0);
-    expect(next).not.toBe("Vite");
-    expect(store.getTask()).toBe(next);
-    expect(seen).toEqual([next]);
+  it("フェーズが無い・プレイヤーが不明ならお題は無い", () => {
+    expect(currentTopic(null, "me")).toBeNull();
+    expect(currentTopic(phase([task()]), null)).toBeNull();
+  });
+
+  it("他人の検索タスクや、検索以外のタスクは選ばない", () => {
+    const tasks = [
+      task({taskId: "task-1-1", assigneePlayerId: "someone-else"}),
+      task({taskId: "task-1-2", type: "write", topic: null}),
+    ];
+    expect(currentTopic(phase(tasks), "me")).toBeNull();
+  });
+
+  it("完了した検索はスキップし、次の未完了のお題にする", () => {
+    const tasks = [
+      task({taskId: "task-2-1", topic: "Vite", status: "completed"}),
+      task({taskId: "task-2-2", topic: "three.js"}),
+    ];
+    expect(currentTopic(phase(tasks), "me")).toBe("three.js");
+  });
+
+  it("未完了の検索が複数あれば、先頭のタスクのお題を出す", () => {
+    const tasks = [
+      task({taskId: "task-2-1", topic: "Vite"}),
+      task({taskId: "task-2-2", topic: "three.js"}),
+    ];
+    expect(currentTopic(phase(tasks), "me")).toBe("Vite");
+  });
+
+  it("お題が無い検索タスクでは null を返す", () => {
+    expect(currentTopic(phase([task({topic: null})]), "me")).toBeNull();
   });
 });

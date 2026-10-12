@@ -11,6 +11,8 @@ export interface Control {
   down(x: number, y: number): void;
   move(x: number, y: number): void;
   up(x: number, y: number): void;
+  /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたときなど) */
+  cancel(): void;
 }
 
 export type Button = Control & {
@@ -47,6 +49,10 @@ export const createButton = ({
       if (click) {
         onClick();
       }
+    },
+    cancel: () => {
+      holding = false;
+      inside = false;
     },
   };
 };
@@ -110,21 +116,32 @@ export const createSlider = ({
     up: () => {
       holding = false;
     },
+    cancel: () => {
+      holding = false;
+    },
   };
 };
 
 /** 部品をまとめ、窓の中身への入力を、押した部品へ届ける */
 export const createControlSet = (controls: readonly Control[]) => {
   let captured: Control | null = null;
+  const cancel = () => {
+    captured?.cancel();
+    captured = null;
+  };
   return {
     controls,
+    cancel,
     /** 入力を部品へ渡す。どれかの部品が受け取ったら true(描き直しの目安) */
     pointer: (event: AppPointerEvent): boolean => {
       const {x, y} = event;
       if (event.type === "down") {
+        // 前の押しかけが残っていたら(up を受け取れなかったとき)、ここで手放す
+        const released = captured !== null;
+        cancel();
         const hit = controls.find((c) => c.enabled() && contains(c.rect, x, y));
         if (!hit) {
-          return false;
+          return released;
         }
         captured = hit;
         hit.down(x, y);

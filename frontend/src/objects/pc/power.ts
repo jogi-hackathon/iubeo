@@ -60,14 +60,16 @@ export const createPcPower = ({
       if (power !== "off") {
         return;
       }
-      set("booting");
       boot = {startedAt: now(), ms};
+      set("booting");
       cancel = schedule(() => set("on"), ms);
     },
     turnOn: (): void => set("on"),
     turnOff: (): void => set("off"),
   };
 };
+
+export type PcPowerStore = ReturnType<typeof createPcPower>;
 
 export const pcPower = createPcPower();
 

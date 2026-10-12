@@ -9,20 +9,20 @@ import {prewarmEngine} from "./browser/engine";
 import {engineKeyboard, engineScreen} from "./browser/engineScreen";
 import {createSearchDeliverable} from "./deliverable";
 import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
-import {taskStore, useTask} from "./task";
+import {useTopicOf} from "./task";
 import {PcTaskMemo} from "./TaskMemo";
 
 const JUDGE_SETTLE_MS = 1200;
 
 /**
  * Web 検索の PC。Gecko を画面に出し、開いたページがお題に合うかを Clef に見てもらう。
- * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題のメモは PC の横に置く
+ * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題(サーバーが PC の持ち主のタスクごとに決める)のメモは PC の横に置く
  */
 function SearchProgram({object, screen, using, mine}: PcProgramProps) {
   const keyboard = useMemo(() => engineKeyboard(), []);
 
   const judge = useJudge();
-  const task = useTask();
+  const topic = useTopicOf(object.owner ?? null);
   const currentUrl = useRef("");
   const judged = useRef<string | null>(null);
   const settle = useRef<number | undefined>(undefined);
@@ -39,28 +39,27 @@ function SearchProgram({object, screen, using, mine}: PcProgramProps) {
     (url: string) => {
       window.clearTimeout(settle.current);
       settle.current = undefined;
-      if (!url || url.startsWith("data:") || judged.current === url) {
+      if (!topic || !url || url.startsWith("data:") || judged.current === url) {
         return;
       }
       judged.current = url;
       void (async () => {
-        const currentTask = taskStore.getTask();
         const page = await screen.readPage?.();
         if (!page) {
           if (judged.current === url) {
             judged.current = null;
           }
           judgeStore.fail(
-            currentTask,
+            topic,
             url,
             "今のページを読めません（エンジンが起動していない）",
           );
           return;
         }
-        await judgeStore.run({task: currentTask, page});
+        await judgeStore.run({task: topic, page});
       })();
     },
-    [screen],
+    [screen, topic],
   );
 
   const scheduleJudgement = useCallback(
@@ -92,7 +91,7 @@ function SearchProgram({object, screen, using, mine}: PcProgramProps) {
     }
     judged.current = null;
     scheduleJudgement(currentUrl.current);
-  }, [task, using, scheduleJudgement]);
+  }, [topic, using, scheduleJudgement]);
 
   useEffect(() => {
     if (!mine) {
@@ -160,7 +159,7 @@ function SearchProgram({object, screen, using, mine}: PcProgramProps) {
     };
   }, [using, screen, keyboard]);
 
-  return <PcTaskMemo clickable={using} />;
+  return <PcTaskMemo topic={topic} />;
 }
 
 export const searchProgram: PcProgram = {

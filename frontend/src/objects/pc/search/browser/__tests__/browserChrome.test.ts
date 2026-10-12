@@ -12,10 +12,14 @@ import {
   isSearchResultsUrl,
   normalizeAddress,
   removeLastChar,
-  SEARCH_PAGE_URL,
+  SEARCH_PAGE_PATH,
+  searchPageUrl,
   searchUrlFor,
   TOOLBAR_HEIGHT,
 } from "../browserChrome";
+
+const ORIGIN = "https://iubeo.example";
+const LOCAL = "http://localhost:5173";
 
 describe("hitToolbar", () => {
   it("戻る・進む・アドレス欄の上なら、その部品を返す", () => {
@@ -51,18 +55,17 @@ describe("normalizeAddress", () => {
   });
 
   it("それ以外は検索にする（空白は含めて検索語にする）", () => {
-    expect(normalizeAddress("WebAssembly")).toBe(
-      `${SEARCH_PAGE_URL}?q=WebAssembly`,
+    expect(normalizeAddress("WebAssembly", ORIGIN, "")).toBe(
+      `${ORIGIN}${SEARCH_PAGE_PATH}?q=WebAssembly`,
     );
-    expect(normalizeAddress("firefox wasm")).toBe(
-      `${SEARCH_PAGE_URL}?q=firefox%20wasm`,
+    expect(normalizeAddress("firefox wasm", ORIGIN, "")).toBe(
+      `${ORIGIN}${SEARCH_PAGE_PATH}?q=firefox%20wasm`,
     );
   });
 
-  it("検索は Google へ送る（本番は WISP を EC2 の EIP 経由にして reCAPTCHA を避けている）", () => {
-    expect(SEARCH_PAGE_URL).toBe("https://www.google.com/search");
-    expect(normalizeAddress("Gecko engine")).toBe(
-      "https://www.google.com/search?q=Gecko%20engine",
+  it("検索は自分のバックエンドの検索ページへ、トークン付きで送る", () => {
+    expect(normalizeAddress("Gecko engine", ORIGIN, "tok")).toBe(
+      `${ORIGIN}${SEARCH_PAGE_PATH}?q=Gecko%20engine&t=tok`,
     );
   });
 
@@ -71,11 +74,46 @@ describe("normalizeAddress", () => {
   });
 });
 
+describe("searchPageUrl / searchUrlFor", () => {
+  it("検索ページの URL は、アプリと同じオリジンの絶対 URL", () => {
+    expect(searchPageUrl(ORIGIN)).toBe(`${ORIGIN}/api/v1/search/page`);
+    expect(searchPageUrl(LOCAL)).toBe(`${LOCAL}/api/v1/search/page`);
+  });
+
+  it("トークンが空なら t は付けない", () => {
+    expect(searchUrlFor("three.js", ORIGIN, "")).toBe(
+      `${ORIGIN}/api/v1/search/page?q=three.js`,
+    );
+  });
+
+  it("トークンがあれば t に入れ、記号は URL の形に直す", () => {
+    expect(searchUrlFor("a&b=c", ORIGIN, "x+y/z")).toBe(
+      `${ORIGIN}/api/v1/search/page?q=a%26b%3Dc&t=x%2By%2Fz`,
+    );
+  });
+});
+
 describe("isSearchResultsUrl", () => {
-  it("アドレス欄の検索が向く Google の結果ページ（各国ドメインも）", () => {
-    expect(isSearchResultsUrl(searchUrlFor("three.js"))).toBe(true);
+  it("アプリの検索ページは、開発・本番のどちらのオリジンでも結果ページ", () => {
+    expect(isSearchResultsUrl(searchUrlFor("three.js", LOCAL, "t"))).toBe(true);
+    expect(isSearchResultsUrl(searchUrlFor("three.js", ORIGIN, "t"))).toBe(
+      true,
+    );
+  });
+
+  it("アプリの検索ページ以外の API は結果ページではない", () => {
+    expect(isSearchResultsUrl(`${ORIGIN}/api/v1/players`)).toBe(false);
+  });
+
+  it("Google の結果ページ（各国ドメインも）", () => {
     expect(
       isSearchResultsUrl("https://www.google.co.jp/search?q=three.js&hl=ja"),
+    ).toBe(true);
+  });
+
+  it("Yahoo! JAPAN の検索結果ページ", () => {
+    expect(
+      isSearchResultsUrl("https://search.yahoo.co.jp/search?p=three.js"),
     ).toBe(true);
   });
 

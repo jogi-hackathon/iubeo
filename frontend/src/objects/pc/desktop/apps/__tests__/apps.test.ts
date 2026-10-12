@@ -107,6 +107,27 @@ describe("マッチングのアプリ", () => {
     expect(timers.running.size).toBe(0);
   });
 
+  it("試合に入ったら時を刻むのをやめる(窓を開いたまま試合へ行っても描き直させ続けない)", () => {
+    const {flow, timers} = open({
+      status: "matched",
+      playerId: "p",
+      sessionId: "s",
+    });
+    expect(timers.running.size).toBe(1);
+    flow.set({status: "inSession", playerId: "p", sessionId: "s"});
+    expect(timers.running.size).toBe(0);
+  });
+
+  it("押したまま離れても、戻ってから空いた所を押しただけでは何も起きない", () => {
+    const {flow, view} = open();
+    const r = MATCHMAKING_LAYOUT.button;
+    view.pointer?.({type: "down", x: r.x + 5, y: r.y + 5, button: 0});
+    view.cancel?.();
+    view.pointer?.({type: "down", x: 5, y: 5, button: 0});
+    view.pointer?.({type: "up", x: r.x + 5, y: r.y + 5, button: 0});
+    expect(flow.startMatchmaking).not.toHaveBeenCalled();
+  });
+
   it("閉じたら流れの購読と時刻みを止める", () => {
     const {flow, timers, view} = open({status: "queued", playerId: "p"});
     expect(flow.listeners.size).toBe(1);
@@ -175,6 +196,27 @@ describe("設定のアプリ", () => {
     mouse.set.mockClear();
     clickAt(view, SETTINGS_LAYOUT.reset);
     expect(mouse.set).not.toHaveBeenCalled();
+  });
+
+  it("スライダーをつかんだまま離れたら、戻ってから空いた所をドラッグしても感度は変わらない", () => {
+    const {view, get} = open();
+    const r = SETTINGS_LAYOUT.slider;
+    view.pointer?.({
+      type: "down",
+      x: r.x + r.width / 2,
+      y: r.y + 10,
+      button: 0,
+    });
+    const before = get();
+    view.cancel?.();
+    view.pointer?.({type: "down", x: 2, y: 2, button: 0});
+    view.pointer?.({
+      type: "move",
+      x: r.x + r.width - 1,
+      y: r.y + 10,
+      button: -1,
+    });
+    expect(get()).toBe(before);
   });
 
   it("OK で自分の窓を閉じる", () => {

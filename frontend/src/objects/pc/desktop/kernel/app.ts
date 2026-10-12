@@ -14,6 +14,8 @@ export interface AppView {
   pointer?(event: AppPointerEvent): void;
   /** 中身が変わって描き直しが要るときに呼ぶ */
   subscribe?(listener: () => void): () => void;
+  /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたとき) */
+  cancel?(): void;
   dispose?(): void;
 }
 

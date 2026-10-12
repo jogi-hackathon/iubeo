@@ -108,6 +108,28 @@ describe("createSlider", () => {
 });
 
 describe("createControlSet", () => {
+  it("up を受け取れずに次の down が来たら、前の部品を手放す", () => {
+    const onClick = vi.fn();
+    const button = createButton({rect: RECT, onClick});
+    const set = createControlSet([button]);
+    press(set, "down", 20, 15);
+    expect(press(set, "down", 300, 300)).toBe(true);
+    expect(button.pressed()).toBe(false);
+    press(set, "up", 20, 15);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("cancel で、押しかけを何も起こさずにやめる", () => {
+    const onClick = vi.fn();
+    const button = createButton({rect: RECT, onClick});
+    const set = createControlSet([button]);
+    press(set, "down", 20, 15);
+    set.cancel();
+    expect(button.pressed()).toBe(false);
+    press(set, "up", 20, 15);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it("何も無い所を押しても受け取らない", () => {
     const set = createControlSet([
       createButton({rect: RECT, onClick: () => {}}),

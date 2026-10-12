@@ -417,11 +417,14 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     },
     launch,
     close,
-    /** PC から離れるとき。押しかけ・つかみかけだけ片付ける(窓や開いたメニューはそのまま残す) */
+    /** PC から離れるとき。押しかけ・つかみかけだけ片付ける(窓の中身のものも。窓や開いたメニューはそのまま残す) */
     settle: (): void => {
       drag = null;
       captured = null;
       lastIconClick = null;
+      for (const win of state.windows) {
+        win.view.cancel?.();
+      }
       if (state.pressed) {
         set({pressed: null});
       }

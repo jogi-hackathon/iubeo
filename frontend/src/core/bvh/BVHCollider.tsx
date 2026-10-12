@@ -11,13 +11,19 @@ import "./setup";
 
 interface BVHColliderProps {
   enabled?: boolean;
+  blocksCamera?: boolean;
   children?: ReactNode;
 }
 
-export function BVHCollider({enabled = true, children}: BVHColliderProps) {
+export function BVHCollider({
+  enabled = true,
+  blocksCamera = false,
+  children,
+}: BVHColliderProps) {
   const group = useRef<Group>(null);
   const colliders = useRef<Collider[]>([]);
   const enabledRef = useRef(enabled);
+  const blocksCameraRef = useRef(blocksCamera);
 
   useLayoutEffect(() => {
     const root = group.current;
@@ -35,7 +41,11 @@ export function BVHCollider({enabled = true, children}: BVHColliderProps) {
         mesh.geometry.computeBoundsTree();
         built.push(mesh.geometry);
       }
-      const c: Collider = {mesh, enabled: enabledRef.current};
+      const c: Collider = {
+        mesh,
+        enabled: enabledRef.current,
+        blocksCamera: blocksCameraRef.current,
+      };
       addCollider(c);
       added.push(c);
     });
@@ -57,6 +67,13 @@ export function BVHCollider({enabled = true, children}: BVHColliderProps) {
       setColliderEnabled(c, enabled);
     }
   }, [enabled]);
+
+  useEffect(() => {
+    blocksCameraRef.current = blocksCamera;
+    for (const c of colliders.current) {
+      c.blocksCamera = blocksCamera;
+    }
+  }, [blocksCamera]);
 
   return <group ref={group}>{children}</group>;
 }

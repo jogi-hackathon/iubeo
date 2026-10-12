@@ -110,6 +110,10 @@ export const createSettingsApp = ({
           listeners.delete(listener);
         };
       },
+      cancel: () => {
+        controls.cancel();
+        notify();
+      },
       dispose: () => {
         offMouse();
         listeners.clear();

@@ -108,22 +108,19 @@ export function Hud() {
   }
 
   if (lines.length === 0) {
-    return <EliminationFlash />;
+    return null;
   }
   return (
-    <>
-      <div style={panelStyle}>
-        {lines.map((line, i) => (
-          <div key={i} style={lineStyle}>
-            {line.color !== undefined && (
-              <span style={{...swatchStyle, background: line.color}} />
-            )}
-            <span>{line.text}</span>
-          </div>
-        ))}
-      </div>
-      <EliminationFlash />
-    </>
+    <div style={panelStyle}>
+      {lines.map((line, i) => (
+        <div key={i} style={lineStyle}>
+          {line.color !== undefined && (
+            <span style={{...swatchStyle, background: line.color}} />
+          )}
+          <span>{line.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -142,12 +139,3 @@ const swatchStyle: CSSProperties = {
   borderRadius: 2,
   flex: "none",
 };
-
-/** 脱落した瞬間に出す簡単な演出(演出が終わると観戦へ移る。core/spectate) */
-function EliminationFlash() {
-  const spectate = useSpectatePhase();
-  if (spectate !== "eliminating") {
-    return null;
-  }
-  return <div className="elimination-flash">脱落</div>;
-}

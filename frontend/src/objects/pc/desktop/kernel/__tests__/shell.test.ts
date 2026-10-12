@@ -22,6 +22,7 @@ const center = (r: {x: number; y: number; width: number; height: number}) => ({
 const fakeApp = (id: string) => {
   const events: AppPointerEvent[] = [];
   const dispose = vi.fn();
+  const cancel = vi.fn();
   let notify: (() => void) | null = null;
   const app: DesktopApp = {
     id,
@@ -37,10 +38,11 @@ const fakeApp = (id: string) => {
           notify = null;
         };
       },
+      cancel,
       dispose,
     }),
   };
-  return {app, events, dispose, change: () => notify?.()};
+  return {app, events, dispose, cancel, change: () => notify?.()};
 };
 
 const make = () => {
@@ -279,6 +281,14 @@ describe("スタートメニュー", () => {
 });
 
 describe("settle", () => {
+  it("開いている窓の中身にも、押しかけをやめさせる", () => {
+    const a = fakeApp("a");
+    const shell = createShell({apps: [a.app], now: () => 0});
+    shell.launch("a");
+    shell.settle();
+    expect(a.cancel).toHaveBeenCalledTimes(1);
+  });
+
   it("押しかけだけ片付け、窓や開いたメニューは残す", () => {
     const {shell} = make();
     shell.launch("a");

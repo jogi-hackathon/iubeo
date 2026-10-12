@@ -67,6 +67,7 @@ export class BootScreen {
   readonly width = SCREEN_CANVAS.width;
   readonly height = SCREEN_CANVAS.height;
   private readonly ctx: CanvasRenderingContext2D | null;
+  private painted = "";
 
   constructor() {
     const canvas = document.createElement("canvas");
@@ -85,6 +86,12 @@ export class BootScreen {
     }
     const {width, height} = this;
     const frame = bootFrame(elapsed);
+    // 見た目が変わったときだけ描いて送る(棒が止まっている間などは何もしない)
+    const key = `${frame.logo.toFixed(2)} ${frame.bar.toFixed(2)} ${frame.blocks}`;
+    if (key === this.painted) {
+      return;
+    }
+    this.painted = key;
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);

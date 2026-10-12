@@ -14,7 +14,9 @@ import {NO_MODIFIERS, type ScreenModifiers, type ScreenSource} from "./types";
 type Options = {
   /** この PC を virtual で使っている間(離れる補間の途中も含む)。移動量を取り続け、一人称へ持ち越さない */
   enabled: boolean;
-  /** 入力を画面へ送る間(離れ始めたら false) */
+  /** 使っている間(離れ始めたら false)。右クリックと lock が外れたことを、離れる合図として受け取る */
+  using: boolean;
+  /** 入力を画面へ送る間。using の間でも、画面がまだ受け取れない(電源が入っていないなど)ときは false */
   active: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
@@ -31,6 +33,7 @@ type Options = {
  */
 export function useVirtualPointer({
   enabled,
+  using,
   active,
   screen,
   screenRef,
@@ -62,17 +65,19 @@ export function useVirtualPointer({
   }, FRAME_PRIORITY.player);
 
   useEffect(() => {
-    if (!active) {
+    if (!using) {
       return;
     }
-    screen.pointer({
-      type: "move",
-      ...toScreen(cursor, screen),
-      button: -1,
-      buttons: 0,
-      clickCount: 0,
-      modifiers: NO_MODIFIERS,
-    });
+    if (active) {
+      screen.pointer({
+        type: "move",
+        ...toScreen(cursor, screen),
+        button: -1,
+        buttons: 0,
+        clickCount: 0,
+        modifiers: NO_MODIFIERS,
+      });
+    }
 
     const doc = gl.domElement.ownerDocument;
     // 使い始めのクリック(PC を選んだもの)の mouseup だけが届くことがあるので、自分が down を送ったボタンの up だけを送る
@@ -85,6 +90,9 @@ export function useVirtualPointer({
       event.preventDefault();
       if (event.button === 2) {
         onLeave();
+        return;
+      }
+      if (!active) {
         return;
       }
       pressed |= 1 << event.button;
@@ -113,7 +121,7 @@ export function useVirtualPointer({
       });
     };
     const onWheel = (event: WheelEvent) => {
-      if (!isPointerLocked()) {
+      if (!active || !isPointerLocked()) {
         return;
       }
       event.preventDefault();
@@ -132,13 +140,13 @@ export function useVirtualPointer({
       doc.removeEventListener("wheel", onWheel);
       doc.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [active, gl, screen, cursor, onLeave]);
+  }, [using, active, gl, screen, cursor, onLeave]);
 
   useEffect(() => {
-    if (active && !locked) {
+    if (using && !locked) {
       onLeave();
     }
-  }, [active, locked, onLeave]);
+  }, [using, locked, onLeave]);
 }
 
 const corner = new Vector3();

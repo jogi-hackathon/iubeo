@@ -21,6 +21,7 @@ import {
   TUTORIAL_OBJECT_KEYS,
 } from "./look";
 import {tutorialManager, useTutorialFlow} from "./manager";
+import {linkPcBoot} from "./pcBoot";
 import type {TutorialEvent} from "./steps";
 import {TUTORIAL_FILE_COLOR, TutorialFile} from "./TutorialFile";
 import {zonesAt} from "./zones";
@@ -76,16 +77,6 @@ const useTutorialSignals = (): void => {
       }
     });
   }, []);
-
-  useEffect(
-    () =>
-      pcPower.subscribe(() => {
-        if (pcPower.get() === "on") {
-          tutorialManager.signal({type: "pcBooted"});
-        }
-      }),
-    [],
-  );
 
   useFrame(() => {
     const {x, z} = localPlayer.position;
@@ -146,26 +137,26 @@ const useTutorialLook = (flow: Flow): TutorialLook => {
 
 /** 終えるまでは PC の電源を落としておき、触ったら起動する。部屋を出たら点けて戻す(試合の PC のため) */
 const usePcBoot = (flow: Flow): void => {
+  const link = useRef<ReturnType<typeof linkPcBoot> | null>(null);
   useEffect(() => {
-    if (flow.status === "completed") {
-      pcPower.turnOn();
-    } else if (!tutorialStore.getState().completed) {
-      pcPower.turnOff();
-    }
+    const linked = linkPcBoot({
+      power: pcPower,
+      session: pcSession,
+      pcId: ROOM_LAYOUT.pc?.id,
+      bootMs: BOOT_MS,
+      completed: () => tutorialStore.getState().completed,
+      onBooted: () => tutorialManager.signal({type: "pcBooted"}),
+    });
+    link.current = linked;
+    return () => {
+      link.current = null;
+      linked.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    link.current?.sync(flow.status);
   }, [flow.status]);
-
-  useEffect(
-    () =>
-      pcSession.subscribe(() => {
-        const {phase, objectId} = pcSession.getState();
-        if (phase === "active" && objectId === ROOM_LAYOUT.pc?.id) {
-          pcPower.boot(BOOT_MS);
-        }
-      }),
-    [],
-  );
-
-  useEffect(() => () => pcPower.turnOn(), []);
 };
 
 const giveUneditedFile = () =>

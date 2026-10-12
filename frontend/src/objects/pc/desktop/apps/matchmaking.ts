@@ -50,6 +50,11 @@ const phaseOf = (state: GameFlowState): Phase => {
   }
 };
 
+/** 流れるバーを出して時を刻む間(接続中・探している間・見つかってから試合に入るまで) */
+const busy = (state: GameFlowState): boolean =>
+  state.status !== "inSession" &&
+  ["connecting", "waiting", "found"].includes(phaseOf(state));
+
 const formatElapsed = (ms: number): string => {
   const sec = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
@@ -125,8 +130,7 @@ export const createMatchmakingApp = ({
       } else {
         waitingSince = null;
       }
-      const animate =
-        phase === "connecting" || phase === "waiting" || phase === "found";
+      const animate = busy(state);
       if (animate && !stopTicking) {
         stopTicking = schedule(notify, TICK_MS);
       } else if (!animate && stopTicking) {
@@ -188,11 +192,7 @@ export const createMatchmakingApp = ({
         });
 
         const phase = phaseOf(state);
-        if (
-          phase === "connecting" ||
-          phase === "waiting" ||
-          phase === "found"
-        ) {
+        if (busy(state)) {
           paintMarquee(
             ctx,
             MATCHMAKING_LAYOUT.marquee,
@@ -213,6 +213,10 @@ export const createMatchmakingApp = ({
         return () => {
           listeners.delete(listener);
         };
+      },
+      cancel: () => {
+        controls.cancel();
+        notify();
       },
       dispose: () => {
         offFlow();

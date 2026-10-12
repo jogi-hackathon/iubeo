@@ -74,26 +74,24 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - 単独で立てるなら `pnpm wisp`（開発サーバーとは別に動かすとき）。5001 が使われていると、dev は警告を出して続行する。
 
-- 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。お題のメモをクリックすると、別のお題を引く。Esc で離れる（一人称に戻り、マウスルックもそのまま続く。クリックし直さなくてよい）。
+- 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。Esc で離れる（一人称に戻り、マウスルックもそのまま続く。クリックし直さなくてよい）。
 
 - **検索の判定**: 今のお題にふさわしいものを検索できているかを、**ページを開くたびに** Clef が見る（プレイヤーが判定を要求する操作は無い）。HUD は使わず、外れているときだけ CRT が一瞬乱れて理由を画面の中に出す。合っていれば検索は成果物（`search_created` のファイル）として手に入り、合図のあと PC が畳まれる。手元の dev サーバーでは常に一致を返す（本物は Workers AI 上で動く）。
 
 - 初回の起動は、エンジンの wasm を読むので数十秒かかる（画面に「BOOTING」と出る）。2 回目以降は速い。
 
-- wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`PcObject` の `prewarmEngine`）で先に取っておき、
+- wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`search/SearchProgram.tsx` の `prewarm`）で先に取っておき、
   PC を開くときは blob URL としてエンジンに渡す。クリック時に残るのは展開とコンパイル（1 秒弱）だけ。
   33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
   （`src/objects/pc/search/browser/engine.ts` の `prefetchEngineWasm`）
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
 
-- `?task=<語>` でお題を固定できる（確認用）。
-
 - `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
 
 - エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。
 
-- 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
+- 検索は、バックエンドの `GET /api/v1/search/page?q=…&t=…` に送る。バックエンドが Brave Search API（鍵は `IUBEO_BRAVE_API_KEY`）で引いて、自前の HTML の結果ページを返す。`t` は WISP のトークン（エンジンはクッキーを送れないため）。結果ページのリンクは、WISP 経由で実サイトを開く。Google は、データセンターの IP から来ると reCAPTCHA を出すため使わない（アドレス欄に Yahoo! JAPAN などの URL を打てば、そのまま WISP 経由で開ける）。
 
 ### 部屋の PC(デスクトップ)
 

@@ -156,6 +156,19 @@ export const setFreshWispUrl = (url: string | undefined): void => {
   freshWispUrl = url;
 };
 
+export const searchTokenFrom = (wispUrl: string | undefined): string => {
+  if (!wispUrl) {
+    return "";
+  }
+  try {
+    return new URL(wispUrl).searchParams.get("token") ?? "";
+  } catch {
+    return "";
+  }
+};
+
+export const currentSearchToken = (): string => searchTokenFrom(freshWispUrl);
+
 export const installWispTokenRewrite = (): void => {
   const w = globalThis as typeof globalThis & {__wispTokenPatched?: boolean};
   if (w.__wispTokenPatched || typeof w.WebSocket !== "function") {

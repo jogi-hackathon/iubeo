@@ -1,5 +1,5 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo, useRef} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {
   type Camera,
   Euler,
@@ -17,7 +17,7 @@ import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
 import {BootScreen} from "./bootScreen";
-import {createCrtMaterial} from "./crtMaterial";
+import {type CrtControls, createCrtMaterial} from "./crtMaterial";
 import {SCREEN} from "./dimensions";
 import {type PcCursor, useNativePointer} from "./display/useNativePointer";
 import {useVirtualPointer} from "./display/useVirtualPointer";
@@ -61,23 +61,7 @@ export function PcObject({object}: {object: GameObject}) {
   }, [crt]);
 
   const power = usePcPower();
-  const bootScreen = useMemo(() => new BootScreen(), []);
-  const bootCrt = useMemo(
-    () =>
-      createCrtMaterial(
-        bootScreen.texture,
-        bootScreen.width,
-        bootScreen.height,
-      ),
-    [bootScreen],
-  );
-  useEffect(() => {
-    setSkipGTAO(bootCrt.material, true);
-    return () => {
-      bootCrt.material.dispose();
-      bootScreen.dispose();
-    };
-  }, [bootCrt, bootScreen]);
+  const boot = useBootDisplay(power === "booting");
   const powered = power === "on";
 
   useEffect(
@@ -116,7 +100,8 @@ export function PcObject({object}: {object: GameObject}) {
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
     enabled: mine && session.pointer === "virtual",
-    // 電源が落ちている間・起動している間は、画面へ入力を送らない
+    // 電源が入っていない間(起動中も)は画面へ入力を送らないが、右クリックや Esc で離れることはできる
+    using: using && session.pointer === "virtual",
     active: using && powered && session.pointer === "virtual",
     screen,
     screenRef,
@@ -167,22 +152,24 @@ export function PcObject({object}: {object: GameObject}) {
       BOOT_RATE,
       dt,
     );
-    const booting = pcPower.get() === "booting";
-    bootCrt.time.value += dt;
-    bootCrt.on.value = approach(
-      bootCrt.on.value,
-      booting ? 1 : 0,
-      POWER_ON_RATE,
-      dt,
-    );
-    bootCrt.boot.value = approach(
-      bootCrt.boot.value,
-      booting ? 1 : 0,
-      POWER_ON_BOOT_RATE,
-      dt,
-    );
-    if (booting) {
-      bootScreen.paint(pcPower.elapsed());
+    if (boot) {
+      const booting = pcPower.get() === "booting";
+      boot.crt.time.value += dt;
+      boot.crt.on.value = approach(
+        boot.crt.on.value,
+        booting ? 1 : 0,
+        POWER_ON_RATE,
+        dt,
+      );
+      boot.crt.boot.value = approach(
+        boot.crt.boot.value,
+        booting ? 1 : 0,
+        POWER_ON_BOOT_RATE,
+        dt,
+      );
+      if (booting) {
+        boot.screen.paint(pcPower.elapsed());
+      }
     }
     if (
       getEyePosition(localPlayer, eye).distanceTo(
@@ -215,8 +202,8 @@ export function PcObject({object}: {object: GameObject}) {
         screen={
           portalId === object.id
             ? getPortalMaterial()
-            : power === "booting"
-              ? bootCrt.material
+            : power === "booting" && boot
+              ? boot.crt.material
               : crt.material
         }
         screenRef={screenRef}
@@ -224,6 +211,28 @@ export function PcObject({object}: {object: GameObject}) {
     </>
   );
 }
+
+type BootDisplay = {screen: BootScreen; crt: CrtControls};
+
+/** 起動画面とその CRT。電源を入れる PC(部屋の PC)だけが要るので、起動している間だけ作る(作った effect の片付けで捨てる) */
+const useBootDisplay = (booting: boolean): BootDisplay | null => {
+  const [boot, setBoot] = useState<BootDisplay | null>(null);
+  useEffect(() => {
+    if (!booting) {
+      return;
+    }
+    const screen = new BootScreen();
+    const crt = createCrtMaterial(screen.texture, screen.width, screen.height);
+    setSkipGTAO(crt.material, true);
+    setBoot({screen, crt});
+    return () => {
+      setBoot(null);
+      crt.material.dispose();
+      screen.dispose();
+    };
+  }, [booting]);
+  return boot;
+};
 
 const approach = (
   current: number,

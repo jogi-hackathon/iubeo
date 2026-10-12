@@ -81,6 +81,31 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/search/page": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * ゲーム内ブラウザ向けの検索結果ページを返す
+     * @description ゲーム内ブラウザ(WISP 経由の Firefox)は Cookie を送れないので、`GET /api/v1/wisp/token` で
+     *     得た WISP トークン(`t`)で認証する。WISP を設定していないサーバー(ローカル開発)では `t` は要らない。
+     *     検索結果は Brave Search API から取り、HTML のページとして返す。結果のリンクは実サイトへの直リンク。
+     *     トークンは期限切れの直後(1 時間以内)まで受け付ける(スタート画面のフォームが古いトークンを持つことがあるため)。
+     *     `IUBEO_BRAVE_API_KEY` を設定していないサーバー(ローカル開発)では、検索せずに Yahoo! JAPAN の検索結果へ 302 で飛ばす。
+     *     1 プレイヤーあたり 1 分に 10 回まで(302 の場合も数える)。
+     */
+    get: operations["getSearchPage"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tutorial/presence": {
     parameters: {
       query?: never;
@@ -433,6 +458,8 @@ export interface components {
       assigneePlayerId: components["schemas"]["PlayerId"];
       /** @description read_edit のときだけ。対象の在庫ファイルの id */
       targetFileId: string | null;
+      /** @description web_search のときだけ。検索するお題の語。タスクごとにサーバーが決める */
+      topic?: string | null;
       status: components["schemas"]["TaskStatus"];
       /**
        * Format: date-time
@@ -835,6 +862,76 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       503: components["responses"]["Unavailable"];
+    };
+  };
+  getSearchPage: {
+    parameters: {
+      query: {
+        /** @description 検索語(先頭と末尾の空白を除き、200 文字まで使う) */
+        q: string;
+        /** @description WISP トークン(WISP を設定しているサーバーでは必須) */
+        t?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 検索結果の HTML ページ */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description 検索が設定されていない(`IUBEO_BRAVE_API_KEY` が無い)ので、Yahoo! JAPAN の検索結果へ飛ばす */
+      302: {
+        headers: {
+          /** @description `https://search.yahoo.co.jp/search?p=<q をエンコードしたもの>` */
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 検索語が空、または空白だけ(HTML のエラーページ) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description WISP トークンが無い、または無効・期限切れ(HTML のエラーページ) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description 1 分あたりの検索回数の上限を超えた(HTML のエラーページ) */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description 検索プロバイダーの応答が無い、または失敗した(HTML のエラーページ。Brave Search へのリンクを載せる) */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
     };
   };
   touchTutorialPresence: {

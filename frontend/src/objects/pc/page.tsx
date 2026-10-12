@@ -80,7 +80,11 @@ const screenTexture = (): CanvasTexture => {
     ctx.stroke();
     ctx.fillStyle = "#8e8e93";
     ctx.font = "20px sans-serif";
-    ctx.fillText("https://www.google.com/search?q=three.js", 126, 35);
+    ctx.fillText(
+      "https://iubeo.thirdlf03.com/api/v1/search/page?q=three.js",
+      126,
+      35,
+    );
 
     ctx.fillStyle = "#1d1d1f";
     ctx.font = "600 64px sans-serif";
