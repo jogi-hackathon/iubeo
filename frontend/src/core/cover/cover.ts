@@ -34,6 +34,7 @@ export const completeBar = async (): Promise<void> => {
 
 export const finishBootCover = async (): Promise<void> => {
   await completeBar();
+  await coverStore.waitForConsent();
   coverStore.finishBoot();
   uncoverScreen();
 };

@@ -25,6 +25,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   coverStore.setCovered(true);
   coverStore.hideBar();
+  coverStore.setConsented(false);
+  coverStore.setBooting(true);
 });
 
 afterEach(() => {
@@ -70,9 +72,30 @@ describe("coverScreen / uncoverScreen", () => {
 });
 
 describe("finishBootCover", () => {
+  it("了承されるまでは、バーを伸ばし切っても覆いを外さない", async () => {
+    coverStore.setCovered(true);
+    coverStore.setBar(6, 5);
+    const p = finishBootCover();
+
+    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS + 1000);
+    expect(coverStore.getState()).toMatchObject({
+      covered: true,
+      booting: true,
+      bar: {total: 6, done: 6},
+    });
+
+    coverStore.setConsented(true);
+    await p;
+    expect(coverStore.getState()).toMatchObject({
+      covered: false,
+      booting: false,
+    });
+  });
+
   it("進捗バーを 100% まで伸ばし切ってから、起動を終えて覆いを外す", async () => {
     coverStore.setCovered(true);
     coverStore.setBar(6, 5);
+    coverStore.setConsented(true);
     const p = finishBootCover();
 
     await vi.advanceTimersByTimeAsync(0);
