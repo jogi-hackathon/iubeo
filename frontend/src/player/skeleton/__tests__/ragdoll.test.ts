@@ -8,8 +8,10 @@ import {at, frameOf} from "../pose";
 import {
   createRagdoll,
   RAGDOLL_JOINT_RADIUS,
+  RAGDOLL_STEP,
   startRagdoll,
   stepRagdoll,
+  writeRagdollPose,
 } from "../ragdoll";
 
 const floor = (): Collider => {
@@ -188,5 +190,17 @@ describe("ragdoll", () => {
     const before = r.pos.slice();
     stepRagdoll(r, 1 / 60, [floor()]);
     expect(Array.from(r.pos)).toEqual(Array.from(before));
+  });
+
+  it("描く姿勢は、最後のステップの前後を余り時間で補間する", () => {
+    const r = createRagdoll();
+    startRagdoll(r, idle, new Vector3(0, 0.02, 0), 0, new Vector3());
+    stepRagdoll(r, RAGDOLL_STEP * 1.5, [floor()]);
+    const out = new Float32Array(r.pos.length);
+    writeRagdollPose(r, out);
+    for (let i = 0; i < out.length; i++) {
+      expect(at(out, i)).toBeCloseTo((at(r.last, i) + at(r.pos, i)) / 2, 6);
+    }
+    expect(Array.from(r.last)).not.toEqual(Array.from(r.pos));
   });
 });

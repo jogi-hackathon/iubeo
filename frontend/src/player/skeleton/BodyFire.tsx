@@ -5,6 +5,7 @@ import {float, floor, hash, mix, uniformArray, vec3} from "three/tsl";
 import {Sprite} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {registerShaderSwatch} from "../../core/shaderSwatches";
 import {createBlockFireMaterial} from "../../objects/directory/fire";
 import {BONES} from "./joints";
 
@@ -32,8 +33,11 @@ export const bodyFireIgnition = (elapsed: number): number =>
 const createBodyFire = () => {
   const starts = BONES.map(() => new Vector3());
   const ends = BONES.map(() => new Vector3());
-  const startNodes = uniformArray<"vec3">(starts, "vec3");
-  const endNodes = uniformArray<"vec3">(ends, "vec3");
+  // 名前を付けないと WGSL の変数名がノードの id(NodeBuffer_<id>)になり、マウントのたびに別のシェーダーとしてコンパイルされる
+  const startNodes = uniformArray<"vec3">(starts, "vec3").setName(
+    "bodyFireStarts",
+  );
+  const endNodes = uniformArray<"vec3">(ends, "vec3").setName("bodyFireEnds");
   const {material, ignition} = createBlockFireMaterial({
     sizeMin: SIZE_MIN,
     sizeMax: SIZE_MAX,
@@ -64,6 +68,9 @@ const createBodyFire = () => {
   sprite.raycast = () => {};
   return {sprite, ignition, starts, ends};
 };
+
+// 死ぬまでマウントされないので、見本をウォームアップに描かせる。骨に沿わせる位置の計算が山の火と違うので、directoryFire の見本では足りない
+registerShaderSwatch("bodyFire", () => createBodyFire().sprite);
 
 export function BodyFire({points}: {points: Float32Array}) {
   const {sprite, ignition, starts, ends} = useMemo(createBodyFire, []);
