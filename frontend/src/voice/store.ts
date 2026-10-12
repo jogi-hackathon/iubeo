@@ -1,6 +1,7 @@
 import {useSyncExternalStore} from "react";
 import {Vector3, type Camera} from "three";
 
+import {isEliminated, subscribeSpectate} from "../core/spectate";
 import {createPlayerState, playerManager} from "../player";
 import type {PlayerState} from "../player";
 import {createVoiceAudio, type VoiceAudio} from "./audio";
@@ -67,6 +68,7 @@ export const createVoiceEngine = () => {
   let generation = 0;
   let failures = 0;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let unwatchLife: (() => void) | undefined;
 
   const roster = new Set<string>();
   const decoders = new Map<string, AudioDecoder>();
@@ -83,8 +85,13 @@ export const createVoiceEngine = () => {
     }
   };
 
-  // 常時送信。マイクが取れていて、ミュートされていないときだけ送る
-  const transmitting = () => state.micReady && !muted;
+  // 常時送信。マイクが取れていて、ミュートされておらず、脱落していないときだけ送る
+  const transmitting = () => state.micReady && !muted && !isEliminated();
+
+  // 脱落したプレイヤーの声は鳴らさない
+  const isSilenced = (peer: string) =>
+    playerManager.getState().players.find((p) => p.playerId === peer)?.life ===
+    "eliminated";
 
   const closeDecoder = (peer: string) => {
     try {
@@ -94,7 +101,7 @@ export const createVoiceEngine = () => {
   };
 
   const playOpus = (peer: string, opus: Uint8Array) => {
-    if (!audio) {
+    if (!audio || isSilenced(peer)) {
       return;
     }
     let dec = decoders.get(peer);
@@ -141,7 +148,10 @@ export const createVoiceEngine = () => {
     }
     micStarting = audio
       .startMic((pcm) => moq?.publishPcm(pcm, transmitting()))
-      .then(() => set({micReady: true, transmitting: !muted}))
+      .then(() => {
+        state = {...state, micReady: true};
+        set({transmitting: transmitting()});
+      })
       .catch((e: unknown) => {
         console.warn("[voice] mic unavailable", e);
         micStarting = null;
@@ -167,6 +177,8 @@ export const createVoiceEngine = () => {
   const stop = () => {
     generation += 1;
     clearTimeout(retryTimer);
+    unwatchLife?.();
+    unwatchLife = undefined;
     dropLink();
     scratch.clear();
     audio?.close();
@@ -301,6 +313,20 @@ export const createVoiceEngine = () => {
     sessionId = session;
     myPlayerId = playerId;
     muted = state.muted;
+    const offSpectate = subscribeSpectate(() =>
+      set({transmitting: transmitting()}),
+    );
+    // 脱落した瞬間に、もう鳴らす予定に積んである声も止める
+    const offLife = playerManager.on("lifeChanged", ({playerId, life}) => {
+      if (life === "eliminated" && playerId !== myPlayerId) {
+        closeDecoder(playerId);
+        audio?.removePeer(playerId);
+      }
+    });
+    unwatchLife = () => {
+      offSpectate();
+      offLife();
+    };
     set({status: "connecting", detail: undefined, transmitting: false});
     await connect(generation);
   };
