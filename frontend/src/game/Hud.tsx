@@ -1,18 +1,9 @@
-import {type CSSProperties, useEffect, useMemo, useState} from "react";
+import {type CSSProperties, useEffect, useState} from "react";
 
-import {useMyPlayerId} from "../authority/useMyPlayerId";
 import {useSpectatePhase} from "../core/spectate";
 import {useGameFlow} from "../flow";
-import {useObjectsState} from "../objects";
 import {useGameState} from "./gameStore";
-import {
-  type HudLine,
-  noticeLabels,
-  phaseLine,
-  resultLine,
-  taskLine,
-} from "./hudText";
-import {stockColorsOf} from "./stockColors";
+import {noticeLabels, phaseLine, resultLine} from "./hudText";
 
 export const NOTICE_MS = 5000;
 
@@ -58,12 +49,8 @@ const useTransient = (value: string | null, ms: number): string | null => {
 export function Hud() {
   const flow = useGameFlow();
   const game = useGameState();
-  const myPlayerId = useMyPlayerId();
   const spectate = useSpectatePhase();
   const now = useNow(1000);
-  const {objects} = useObjectsState();
-
-  const stockColors = useMemo(() => stockColorsOf(objects), [objects]);
 
   const notice =
     flow.status === "idle" && flow.notice ? noticeLabels[flow.notice] : null;
@@ -72,34 +59,17 @@ export function Hud() {
     NOTICE_MS,
   );
 
-  const lines: HudLine[] = [];
+  // 自分のタスクは出さない(依頼の伝票と机のメモ置きで知らせる)
+  const lines: string[] = [];
   const phase = phaseLine(game, now);
   if (phase !== null) {
-    lines.push({text: phase});
-  }
-  if (game.phase) {
-    const mine = game.phase.tasks.filter(
-      (task) => task.assigneePlayerId === myPlayerId,
-    );
-    if (mine.length > 0) {
-      lines.push({text: "自分のタスク:"});
-      for (const task of mine) {
-        lines.push(
-          taskLine(
-            task,
-            task.targetFileId === null
-              ? undefined
-              : stockColors.get(task.targetFileId),
-          ),
-        );
-      }
-    }
+    lines.push(phase);
   }
   if (spectate === "spectating") {
-    lines.push({text: "観戦中(物には触れられません)"});
+    lines.push("観戦中(物には触れられません)");
   }
   if (shownNotice !== null) {
-    lines.push({text: shownNotice});
+    lines.push(shownNotice);
   }
 
   if (lines.length === 0) {
@@ -108,29 +78,8 @@ export function Hud() {
   return (
     <div style={panelStyle}>
       {lines.map((line, i) => (
-        <div key={i} style={lineStyle}>
-          {line.color !== undefined && (
-            <span style={{...swatchStyle, background: line.color}} />
-          )}
-          <span>{line.text}</span>
-        </div>
+        <div key={i}>{line}</div>
       ))}
     </div>
   );
 }
-
-const lineStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
-
-/** 読み込みと編集の対象ファイルの色(山の紙の色と見比べる) */
-const swatchStyle: CSSProperties = {
-  width: 10,
-  height: 10,
-  boxSizing: "border-box",
-  border: "1px solid rgba(255,255,255,0.7)",
-  borderRadius: 2,
-  flex: "none",
-};

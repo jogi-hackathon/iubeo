@@ -1,5 +1,5 @@
 import type {FlowNotice} from "../flow";
-import type {GameResult, GameTask, TaskType} from "../net";
+import type {GameResult, TaskType} from "../net";
 import {remainingMs, type GameState} from "./gameStore";
 
 export const taskLabels: Record<TaskType, string> = {
@@ -15,13 +15,6 @@ export const noticeLabels: Record<FlowNotice, string> = {
   abandoned: "全員が切断したままになったので、セッションは破棄されました",
   lost: "接続が切れ、再接続できませんでした",
 };
-
-export type HudLine = {text: string; color?: string};
-
-export const taskLine = (task: GameTask, color?: string): HudLine => ({
-  text: `${task.status === "completed" ? "☑" : "☐"} ${taskLabels[task.type]}`,
-  ...(color === undefined ? {} : {color}),
-});
 
 export const phaseLine = (game: GameState, now: number): string | null => {
   if (game.intermission || game.phase?.status === "intermission") {

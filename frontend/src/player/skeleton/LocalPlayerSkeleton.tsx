@@ -4,6 +4,7 @@ import {useDebugFlags} from "../../core/debug/flags";
 import {useSpectatePhase} from "../../core/spectate";
 import {HandheldTerminal} from "../../game/slip/HandheldTerminal";
 import {orderSlip, useOrderSlip} from "../../game/slip/store";
+import {heldSlipWorld} from "../../game/slip/zoom";
 import {HeldItem, useItemState} from "../../items";
 import {useWorkingAtWorkspace} from "../../objects/workspace/useWorkingAtWorkspace";
 import {useTransitionActive} from "../../scenes/transitionActive";
@@ -25,6 +26,7 @@ export function LocalPlayerSkeleton() {
       content={slip.content}
       elapsedMs={() => performance.now() - slip.startedAt}
       onLaunch={orderSlip.launch}
+      slipWorld={heldSlipWorld}
     />
   ) : (
     held && <HeldItem item={held} />

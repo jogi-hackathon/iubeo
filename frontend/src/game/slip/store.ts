@@ -157,12 +157,14 @@ export const useOrderSlip = (): OrderSlipState =>
 
 /**
  * フェーズが始まったときに自分へ届く伝票。自分のタスクが無い、まだ始まっていない、同じフェーズを出した後なら null。
- * delivered は出し終えたフェーズ番号(接続し直しで同じフェーズを受け取っても、二度は出さない)
+ * delivered は出し終えたフェーズ番号(接続し直しで同じフェーズを受け取っても、二度は出さない)。
+ * fileColors はファイル id → 山の紙の色(対象ファイルを色で示す)
  */
 export const slipForPhase = (
   phase: GamePhase | null,
   myPlayerId: PlayerId | null,
   delivered: ReadonlySet<number>,
+  fileColors: ReadonlyMap<string, string> = new Map(),
 ): SlipContent | null => {
   if (!phase || myPlayerId === null || phase.status !== "active") {
     return null;
@@ -173,7 +175,7 @@ export const slipForPhase = (
   const mine = phase.tasks.filter(
     (task) => task.assigneePlayerId === myPlayerId,
   );
-  return mine.length === 0 ? null : slipContent(phase, mine);
+  return mine.length === 0 ? null : slipContent(phase, mine, fileColors);
 };
 
 /** 伝票の飛んでいく先: 自分が owner のワークスペース。owner が無い場でワークスペースが 1 つだけなら、それ */

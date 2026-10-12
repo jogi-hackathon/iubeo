@@ -142,6 +142,8 @@ export type HandheldTerminalProps = {
   elapsedMs?: () => number;
   /** 伝票が手を離れてワークスペースへ飛び始めるときに、伝票の世界座標の行列を渡す(再生ごとに 1 回) */
   onLaunch?: (slipWorld: Matrix4) => void;
+  /** 渡すと、手元の伝票の世界座標を毎フレーム書き込む(千切った伝票へカメラを寄せるのに使う) */
+  slipWorld?: Matrix4;
 };
 
 /**
@@ -155,6 +157,7 @@ export function HandheldTerminal({
   content,
   elapsedMs,
   onLaunch,
+  slipWorld,
 }: HandheldTerminalProps) {
   const device = useRef<Group>(null);
   const slip = useRef<Group>(null);
@@ -249,6 +252,10 @@ export function HandheldTerminal({
       s.quaternion.copy(slotQuaternion);
     }
     shapeStrip(res.strip, {length: paper.length, curl: paper.curl});
+    if (slipWorld && !paper.launched) {
+      s.updateWorldMatrix(true, false);
+      slipWorld.copy(s.matrixWorld);
+    }
 
     const st = stub.current;
     if (st) {

@@ -2,7 +2,7 @@ import {describe, expect, it} from "vitest";
 
 import type {GamePhase, GameTask} from "../../net";
 import type {GameState} from "../gameStore";
-import {noticeLabels, phaseLine, resultLine, taskLine} from "../hudText";
+import {noticeLabels, phaseLine, resultLine} from "../hudText";
 
 const at = (ms: number) => new Date(ms).toISOString();
 
@@ -35,26 +35,6 @@ const game = (overrides: Partial<GameState> = {}): GameState => ({
 });
 
 describe("hudText", () => {
-  it("タスクは、達成でチェックを付け、対象ファイルがあれば色を付ける", () => {
-    expect(taskLine(task())).toEqual({text: "☐ 読み込みと編集"});
-    expect(taskLine(task({status: "completed"}))).toEqual({
-      text: "☑ 読み込みと編集",
-    });
-    expect(taskLine(task(), "#e63946")).toEqual({
-      text: "☐ 読み込みと編集",
-      color: "#e63946",
-    });
-    expect(
-      taskLine(
-        task({
-          type: "image_generation",
-          targetFileId: null,
-          status: "completed",
-        }),
-      ),
-    ).toEqual({text: "☑ 画像生成"});
-  });
-
   it("フェーズ番号と残り秒数をサーバー時刻から出す", () => {
     expect(phaseLine(game({phase: phase()}), 1_000)).toBe(
       "フェーズ 2　残り 5秒",

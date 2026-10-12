@@ -6,7 +6,7 @@ import {SLIP_LENGTH, SLIP_WIDTH} from "./strip";
 export type SlipItem = {
   /** タスクの種類の表示名 */
   kind: string;
-  /** 種類ごとの対象(検索のお題・対象ファイル)。無ければ null */
+  /** 種類ごとの対象(検索のお題・対象ファイルの色)。無ければ null */
   detail: string | null;
 };
 
@@ -34,13 +34,65 @@ const limitOf = (phase: GamePhase): number | null => {
   return Math.max(0, Math.round((deadline - started) / 1000));
 };
 
-const itemOf = (task: GameTask): SlipItem => ({
+/** 色(#rrggbb)の呼び名。ファイルの山の紙の色(赤・橙・黄・緑・青・紫)を色相で見分ける。読めなければ null */
+export const colorName = (hex: string): string | null => {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) {
+    return null;
+  }
+  const [r, g, b] = [m[1], m[2], m[3]].map((v) => parseInt(v!, 16) / 255) as [
+    number,
+    number,
+    number,
+  ];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = max - min;
+  if (chroma < 0.15) {
+    return max > 0.8 ? "白" : max < 0.25 ? "黒" : "灰";
+  }
+  const hue =
+    max === r
+      ? (((g - b) / chroma + 6) % 6) * 60
+      : max === g
+        ? ((b - r) / chroma + 2) * 60
+        : ((r - g) / chroma + 4) * 60;
+  if (hue < 15 || hue >= 330) {
+    return "赤";
+  }
+  if (hue < 40) {
+    return "橙";
+  }
+  if (hue < 70) {
+    return "黄";
+  }
+  if (hue < 170) {
+    return "緑";
+  }
+  return hue < 250 ? "青" : "紫";
+};
+
+/** 読み込みと編集の対象ファイルを、山の紙の色で示す(id は見せない) */
+const targetOf = (
+  task: GameTask,
+  fileColors: ReadonlyMap<string, string>,
+): string | null => {
+  const color =
+    task.targetFileId === null ? undefined : fileColors.get(task.targetFileId);
+  const name = color === undefined ? null : colorName(color);
+  return name === null ? null : `${name}のファイル`;
+};
+
+const itemOf = (
+  task: GameTask,
+  fileColors: ReadonlyMap<string, string>,
+): SlipItem => ({
   kind: taskLabels[task.type],
   detail:
     task.type === "web_search"
       ? (task.topic ?? null)
       : task.type === "read_edit"
-        ? task.targetFileId
+        ? targetOf(task, fileColors)
         : null,
 });
 
@@ -51,14 +103,18 @@ const numberOf = (phase: GamePhase, tasks: readonly GameTask[]): string => {
     .padEnd(NUMBER_LENGTH, "0");
 };
 
-/** フェーズと、その中で自分に割り当てられたタスクから伝票を作る */
+/**
+ * フェーズと、その中で自分に割り当てられたタスクから伝票を作る。
+ * fileColors はファイル id → 山の紙の色(stockColorsOf)。対象ファイルは色の名前で印字する
+ */
 export const slipContent = (
   phase: GamePhase,
   tasks: readonly GameTask[],
+  fileColors: ReadonlyMap<string, string> = new Map(),
 ): SlipContent => ({
   number: numberOf(phase, tasks),
   phase: phase.number,
-  items: tasks.slice(0, SLIP_MAX_ITEMS).map(itemOf),
+  items: tasks.slice(0, SLIP_MAX_ITEMS).map((task) => itemOf(task, fileColors)),
   limitSeconds: limitOf(phase),
 });
 
@@ -68,6 +124,7 @@ export const SAMPLE_SLIP: SlipContent = {
   phase: 3,
   items: [
     {kind: taskLabels.web_search, detail: "三葉虫"},
+    {kind: taskLabels.read_edit, detail: "橙のファイル"},
     {kind: taskLabels.write, detail: null},
   ],
   limitSeconds: 120,

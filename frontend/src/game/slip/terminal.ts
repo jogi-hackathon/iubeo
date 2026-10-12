@@ -173,7 +173,7 @@ export const STAGE_MS: Readonly<
   print: 1800,
   feed: 250,
   tear: 350,
-  look: 2000,
+  look: 2700,
   fly: 900,
 };
 /** 飛ぶ段のうち、端末を視界の下へしまうのにかける時間(ms)。残りは伝票が飛んでいる */
