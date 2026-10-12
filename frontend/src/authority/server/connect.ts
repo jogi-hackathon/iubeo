@@ -72,6 +72,7 @@ export type ConnectDeps = {
   spawnOf: (seat: number) => Spawn;
   onFirstSnapshot?: (placement: FirstPlacement | null) => void;
   onFinished?: (result: GameResult) => void;
+  onPhaseStarted?: () => void;
 };
 
 export const connectSession = (deps: ConnectDeps): (() => void) => {
@@ -128,9 +129,10 @@ export const connectSession = (deps: ConnectDeps): (() => void) => {
       }
     }),
     connection.on("session.started", () => game?.started()),
-    connection.on("phase.started", ({phase, serverTime}) =>
-      game?.phaseStarted(phase, serverTime),
-    ),
+    connection.on("phase.started", ({phase, serverTime}) => {
+      game?.phaseStarted(phase, serverTime);
+      deps.onPhaseStarted?.();
+    }),
     connection.on("phase.ended", ({next}) => game?.phaseEnded(next)),
     connection.on("task.completed", ({taskId, completedAt}) =>
       game?.taskCompleted(taskId, completedAt),

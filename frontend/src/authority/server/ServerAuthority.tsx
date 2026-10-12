@@ -9,6 +9,7 @@ import {
   type InteractMessage,
 } from "../../net";
 import {objectManager} from "../../objects";
+import {taskStore} from "../../objects/pc/task";
 import {localPlayer, type PlayerId, playerManager} from "../../player";
 import type {SceneName} from "../../scenes";
 import {markSceneReady} from "../../scenes/sceneReady";
@@ -99,6 +100,9 @@ export function ServerAuthority({
         latest.current.onReady?.();
       },
       onFinished: () => latest.current.onFinished?.(),
+      onPhaseStarted: () => {
+        taskStore.draw();
+      },
     });
     const offError = connection.on("error", (m) => {
       console.error("[ServerAuthority] サーバーのエラー", m);
