@@ -10,7 +10,11 @@ import (
 
 func newCPUState(t *testing.T, humans, cpus []string) State {
 	t.Helper()
-	st := NewMultiplayerState("sess-1", humans, cpus, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, DefaultConfig.Phases, 1)
+	// CPU のテストは 1 分のフェーズと 15 秒のインターミッションを前提に時間を組んでいる
+	rules := DefaultConfig.Phases
+	rules.Duration = time.Minute
+	rules.Intermission = 15 * time.Second
+	st := NewMultiplayerState("sess-1", humans, cpus, t0, Timeouts{Start: 30 * time.Second, Abandon: 60 * time.Second}, rules, 1)
 	for i, p := range humans {
 		st, _ = step(t, st, Connect{PlayerID: p, ConnID: uint64(i + 1), Now: t0})
 	}
