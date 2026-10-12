@@ -36,7 +36,6 @@ type TaskState struct {
 
 var creationTaskTypes = []api.TaskType{api.Write, api.WebSearch, api.ImageGeneration}
 
-// web_search は 1 人 1 フェーズにつき 1 件まで。2 件目以降はこちらから選ぶ
 var creationTaskTypesNoSearch = []api.TaskType{api.Write, api.ImageGeneration}
 
 func pickCreationType(r *rand.Rand, searched bool) api.TaskType {
