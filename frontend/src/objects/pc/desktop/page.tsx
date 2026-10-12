@@ -1,5 +1,8 @@
+import {audioSettingsStore} from "../../../core/audioSettings";
+import {graphicsStore} from "../../../core/graphics";
 import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import type {GameFlowState} from "../../../flow";
+import {audioDevices} from "../../../voice/devices";
 import {NO_MODIFIERS} from "../display/types";
 import {createDesktopApps} from "./apps";
 import type {MatchmakingPort} from "./apps/matchmaking";
@@ -50,7 +53,13 @@ const createFakeFlow = () => {
 
 const flow = createFakeFlow();
 const screen = new DesktopScreen(
-  createDesktopApps({flow, mouse: mouseSettingsStore}),
+  createDesktopApps({
+    flow,
+    mouse: mouseSettingsStore,
+    graphics: graphicsStore,
+    audio: audioSettingsStore,
+    devices: audioDevices,
+  }),
 );
 const surface = screen.surface;
 surface.style.cssText = [

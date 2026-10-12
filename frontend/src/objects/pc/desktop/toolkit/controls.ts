@@ -13,6 +13,9 @@ export interface Control {
   up(x: number, y: number): void;
   /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたときなど) */
   cancel(): void;
+  popup?(): Rect | null;
+  hover?(x: number, y: number): void;
+  dismiss?(): void;
 }
 
 export type Button = Control & {
@@ -122,15 +125,186 @@ export const createSlider = ({
   };
 };
 
+export type Choice<T> = {value: T; label: string};
+
+export type Tabs = Control & {
+  selected(): number;
+  tabRect(index: number): Rect;
+  readonly count: number;
+};
+
+export const createTabs = ({
+  rect,
+  widths,
+  selected,
+  onSelect,
+}: {
+  rect: Rect;
+  widths: readonly number[];
+  selected: () => number;
+  onSelect: (index: number) => void;
+}): Tabs => {
+  const lefts = widths.map((_, i) =>
+    widths.slice(0, i).reduce((sum, w) => sum + w, rect.x),
+  );
+  const tabRect = (index: number): Rect => ({
+    x: lefts[index]!,
+    y: rect.y,
+    width: widths[index]!,
+    height: rect.height,
+  });
+  return {
+    rect,
+    count: widths.length,
+    enabled: () => true,
+    selected,
+    tabRect,
+    down: (x, y) => {
+      const index = widths.findIndex((_, i) => contains(tabRect(i), x, y));
+      if (index >= 0 && index !== selected()) {
+        onSelect(index);
+      }
+    },
+    move: () => {},
+    up: () => {},
+    cancel: () => {},
+  };
+};
+
+export type Dropdown<T> = Control & {
+  open(): boolean;
+  choices(): readonly Choice<T>[];
+  selectedLabel(): string;
+  highlighted(): number;
+  itemRect(index: number): Rect;
+};
+
+export const DROPDOWN_ITEM_HEIGHT = 16;
+
+export const createDropdown = <T>({
+  rect,
+  choices,
+  value,
+  onChange,
+  bottomLimit,
+  enabled = () => true,
+}: {
+  rect: Rect;
+  choices: () => readonly Choice<T>[];
+  value: () => T;
+  onChange: (value: T) => void;
+  bottomLimit: number;
+  enabled?: () => boolean;
+}): Dropdown<T> => {
+  let isOpen = false;
+  let highlight = -1;
+  let openedByThisPress = false;
+
+  const listRect = (): Rect => {
+    const height = choices().length * DROPDOWN_ITEM_HEIGHT + 2;
+    const below = rect.y + rect.height;
+    const y =
+      below + height <= bottomLimit ? below : Math.max(0, rect.y - height);
+    return {x: rect.x, y, width: rect.width, height};
+  };
+  const itemRect = (index: number): Rect => {
+    const list = listRect();
+    return {
+      x: list.x + 1,
+      y: list.y + 1 + index * DROPDOWN_ITEM_HEIGHT,
+      width: list.width - 2,
+      height: DROPDOWN_ITEM_HEIGHT,
+    };
+  };
+  const itemAt = (x: number, y: number): number =>
+    isOpen ? choices().findIndex((_, i) => contains(itemRect(i), x, y)) : -1;
+  const selectedIndex = () =>
+    choices().findIndex((c) => Object.is(c.value, value()));
+  const close = () => {
+    isOpen = false;
+    highlight = -1;
+  };
+
+  return {
+    rect,
+    enabled,
+    open: () => isOpen,
+    choices,
+    highlighted: () => highlight,
+    itemRect,
+    selectedLabel: () => choices()[selectedIndex()]?.label ?? "",
+    popup: () => (isOpen ? listRect() : null),
+    hover: (x, y) => {
+      const index = itemAt(x, y);
+      if (index >= 0) {
+        highlight = index;
+      }
+    },
+    dismiss: close,
+    down: (x, y) => {
+      if (isOpen && itemAt(x, y) >= 0) {
+        highlight = itemAt(x, y);
+        openedByThisPress = false;
+        return;
+      }
+      if (isOpen) {
+        close();
+        return;
+      }
+      isOpen = true;
+      openedByThisPress = true;
+      highlight = selectedIndex();
+    },
+    move: (x, y) => {
+      const index = itemAt(x, y);
+      if (index >= 0) {
+        highlight = index;
+      }
+    },
+    up: (x, y) => {
+      const index = itemAt(x, y);
+      if (index < 0) {
+        if (!openedByThisPress) {
+          close();
+        }
+        openedByThisPress = false;
+        return;
+      }
+      const choice = choices()[index]!;
+      close();
+      openedByThisPress = false;
+      if (!Object.is(choice.value, value())) {
+        onChange(choice.value);
+      }
+    },
+    cancel: () => {
+      close();
+      openedByThisPress = false;
+    },
+  };
+};
+
+const hits = (c: Control, x: number, y: number): boolean => {
+  const popup = c.popup?.();
+  return contains(c.rect, x, y) || (popup != null && contains(popup, x, y));
+};
+
 /** 部品をまとめ、窓の中身への入力を、押した部品へ届ける */
-export const createControlSet = (controls: readonly Control[]) => {
+export const createControlSet = (
+  source: readonly Control[] | (() => readonly Control[]),
+) => {
+  const current = typeof source === "function" ? source : () => source;
   let captured: Control | null = null;
+  const openPopup = () => current().find((c) => c.popup?.() != null);
   const cancel = () => {
     captured?.cancel();
     captured = null;
+    openPopup()?.cancel();
   };
   return {
-    controls,
+    get controls() {
+      return current();
+    },
     cancel,
     /** 入力を部品へ渡す。どれかの部品が受け取ったら true(描き直しの目安) */
     pointer: (event: AppPointerEvent): boolean => {
@@ -138,8 +312,16 @@ export const createControlSet = (controls: readonly Control[]) => {
       if (event.type === "down") {
         // 前の押しかけが残っていたら(up を受け取れなかったとき)、ここで手放す
         const released = captured !== null;
-        cancel();
-        const hit = controls.find((c) => c.enabled() && contains(c.rect, x, y));
+        captured?.cancel();
+        captured = null;
+        const popped = openPopup();
+        if (popped && !hits(popped, x, y)) {
+          popped.dismiss?.();
+          return true;
+        }
+        const hit =
+          popped ??
+          current().find((c) => c.enabled() && contains(c.rect, x, y));
         if (!hit) {
           return released;
         }
@@ -148,6 +330,11 @@ export const createControlSet = (controls: readonly Control[]) => {
         return true;
       }
       if (!captured) {
+        const popped = openPopup();
+        if (event.type === "move" && popped?.hover) {
+          popped.hover(x, y);
+          return true;
+        }
         return false;
       }
       if (event.type === "move") {

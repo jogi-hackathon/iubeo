@@ -1,7 +1,10 @@
 import {useEffect} from "react";
 
+import {audioSettingsStore} from "../../../core/audioSettings";
+import {graphicsStore} from "../../../core/graphics";
 import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import {gameFlow} from "../../../flow";
+import {audioDevices} from "../../../voice/devices";
 import type {PcProgram, PcProgramProps} from "../program";
 import {searchProgram} from "../search/SearchProgram";
 import {createDesktopApps} from "./apps";
@@ -12,7 +15,13 @@ let screen: DesktopScreen | null = null;
 /** デスクトップは 1 つだけ作り、部屋を出入りしても開いた窓などはそのまま残す */
 export const desktopScreen = (): DesktopScreen => {
   screen ??= new DesktopScreen(
-    createDesktopApps({flow: gameFlow, mouse: mouseSettingsStore}),
+    createDesktopApps({
+      flow: gameFlow,
+      mouse: mouseSettingsStore,
+      graphics: graphicsStore,
+      audio: audioSettingsStore,
+      devices: audioDevices,
+    }),
   );
   return screen;
 };

@@ -1,6 +1,6 @@
 import type {Rect} from "../kernel/geometry";
 import {COLORS, FONT} from "../theme/classic";
-import type {Button, Slider} from "../toolkit/controls";
+import type {Button, Dropdown, Slider, Tabs} from "../toolkit/controls";
 import {raised, sunken, sunkenThin} from "./bevel";
 
 /** 押しボタン。既定のボタン(Enter で押せるもの)は黒い枠で囲む */
@@ -116,6 +116,111 @@ export const paintGroup = (
   ctx.fillRect(r.x + 6, r.y, width + 6, 13);
   ctx.fillStyle = COLORS.text;
   ctx.fillText(title, r.x + 9, r.y + 7);
+};
+
+export const paintTabs = (
+  ctx: CanvasRenderingContext2D,
+  tabs: Tabs,
+  labels: readonly string[],
+  panel: Rect,
+): void => {
+  raised(ctx, panel);
+  ctx.fillStyle = COLORS.face;
+  ctx.fillRect(panel.x + 2, panel.y + 2, panel.width - 4, panel.height - 4);
+  const selected = tabs.selected();
+  const order = [
+    ...labels.map((_, i) => i).filter((i) => i !== selected),
+    selected,
+  ];
+  for (const i of order) {
+    const base = tabs.tabRect(i);
+    const active = i === selected;
+    const r = active
+      ? {
+          x: base.x - 2,
+          y: base.y - 2,
+          width: base.width + 4,
+          height: base.height + 3,
+        }
+      : {x: base.x, y: base.y, width: base.width, height: base.height};
+    ctx.fillStyle = COLORS.face;
+    ctx.fillRect(r.x, r.y, r.width, r.height);
+    ctx.fillStyle = COLORS.highlight;
+    ctx.fillRect(r.x, r.y + 2, 1, r.height - 2);
+    ctx.fillRect(r.x + 1, r.y + 1, 1, 1);
+    ctx.fillRect(r.x + 2, r.y, r.width - 4, 1);
+    ctx.fillStyle = COLORS.darkShadow;
+    ctx.fillRect(r.x + r.width - 1, r.y + 2, 1, r.height - 2);
+    ctx.fillRect(r.x + r.width - 2, r.y + 1, 1, 1);
+    ctx.fillStyle = COLORS.shadow;
+    ctx.fillRect(r.x + r.width - 2, r.y + 2, 1, r.height - 2);
+    ctx.font = FONT;
+    ctx.textAlign = "center";
+    ctx.fillStyle = COLORS.text;
+    ctx.fillText(labels[i]!, r.x + r.width / 2, base.y + base.height / 2 + 1);
+    ctx.textAlign = "left";
+  }
+};
+
+export const paintDropdown = <T>(
+  ctx: CanvasRenderingContext2D,
+  dropdown: Dropdown<T>,
+): void => {
+  const r = dropdown.rect;
+  const enabled = dropdown.enabled();
+  ctx.fillStyle = enabled ? COLORS.window : COLORS.face;
+  ctx.fillRect(r.x, r.y, r.width, r.height);
+  sunken(ctx, r);
+  const arrow = {
+    x: r.x + r.width - 2 - 16,
+    y: r.y + 2,
+    width: 16,
+    height: r.height - 4,
+  };
+  raised(ctx, arrow, dropdown.open());
+  const o = dropdown.open() ? 1 : 0;
+  const ax = arrow.x + arrow.width / 2 + o;
+  const ay = arrow.y + arrow.height / 2 + o;
+  ctx.fillStyle = enabled ? COLORS.text : COLORS.grayText;
+  ctx.beginPath();
+  ctx.moveTo(ax - 4, ay - 2);
+  ctx.lineTo(ax + 4, ay - 2);
+  ctx.lineTo(ax, ay + 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.font = FONT;
+  ctx.fillText(
+    dropdown.selectedLabel(),
+    r.x + 5,
+    r.y + r.height / 2 + 1,
+    arrow.x - r.x - 8,
+  );
+};
+
+export const paintDropdownList = <T>(
+  ctx: CanvasRenderingContext2D,
+  dropdown: Dropdown<T>,
+): void => {
+  const list = dropdown.popup?.();
+  if (!list) {
+    return;
+  }
+  ctx.fillStyle = COLORS.window;
+  ctx.fillRect(list.x, list.y, list.width, list.height);
+  ctx.strokeStyle = COLORS.text;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(list.x + 0.5, list.y + 0.5, list.width - 1, list.height - 1);
+  ctx.font = FONT;
+  dropdown.choices().forEach((choice, i) => {
+    const r = dropdown.itemRect(i);
+    const lit = i === dropdown.highlighted();
+    if (lit) {
+      ctx.fillStyle = COLORS.selection;
+      ctx.fillRect(r.x, r.y, r.width, r.height);
+    }
+    ctx.fillStyle = lit ? COLORS.selectionText : COLORS.text;
+    ctx.fillText(choice.label, r.x + 4, r.y + r.height / 2 + 1, r.width - 8);
+  });
 };
 
 /**
