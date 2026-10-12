@@ -12,6 +12,11 @@ import {
   releasePrewarmedWasm,
   resolveEngine,
 } from "./engine";
+import {
+  isEngineCrashLine,
+  isResumablePage,
+  takeRestartBudget,
+} from "./engineCrash";
 import type {GeckoConstructor, GeckoInstance} from "./geckoTypes";
 import {
   pageToDataUrl,
@@ -53,6 +58,8 @@ export class GeckoSource extends CanvasScreenSource {
   private progressTimer?: number;
   private wispWatcher?: WispWatcher;
   private bootGeneration = 0;
+  private restartHistory: number[] = [];
+  private resumeUrl: string | null = null;
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
   private wispExpiresAt?: string;
@@ -164,7 +171,12 @@ export class GeckoSource extends CanvasScreenSource {
         wispUrl: this.wispUrl,
         forwardInput: true,
         print: (line) => console.log("[gecko]", line),
-        printErr: (line) => console.warn("[gecko]", line),
+        printErr: (line) => {
+          console.warn("[gecko]", line);
+          if (!stale() && isEngineCrashLine(line)) {
+            this.restartAfterCrash();
+          }
+        },
       });
       this.engine = engine;
 
@@ -187,15 +199,18 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
+      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
+      const resume = wispState === "ok" ? this.resumeUrl : null;
       await engine.load(
-        pageToDataUrl(
-          searchStartPage(
-            wispState,
-            import.meta.env.DEV,
-            searchPageUrl(),
-            searchTokenFrom(this.wispUrl),
+        resume ??
+          pageToDataUrl(
+            searchStartPage(
+              wispState,
+              import.meta.env.DEV,
+              searchPageUrl(),
+              searchTokenFrom(this.wispUrl),
+            ),
           ),
-        ),
       );
       if (stale()) {
         return;
@@ -271,6 +286,36 @@ export class GeckoSource extends CanvasScreenSource {
         `エンジンの再起動に失敗しました: ${describe(error)}`,
       );
     });
+  }
+
+  /**
+   * エンジンが落ちた（wasm の RuntimeError など）ときに、作り直す。
+   * 同じ失敗が続く場合は、回数の上限を超えた時点で止めてエラーを出す（無限に再起動しない）。
+   */
+  private restartAfterCrash(): void {
+    const budget = takeRestartBudget(this.restartHistory, performance.now());
+    this.restartHistory = budget.history;
+    if (!budget.allowed) {
+      this.cancelBoot();
+      this.setStatus(
+        "error",
+        "エンジンが短時間に何度も停止したため、再起動を止めました",
+      );
+      return;
+    }
+    // 直前にも落ちていれば、そのページが原因の可能性が高い。読み直さずスタートページへ戻す
+    if (budget.history.length > 1) {
+      this.resumeUrl = null;
+    }
+    console.warn("[gecko] エンジンが停止したので再起動します");
+    this.rebootWithWisp();
+  }
+
+  /** 今開いているページを覚えておく（エンジンが落ちたとき、同じページを読み直すため） */
+  rememberPage(url: string): void {
+    if (isResumablePage(url)) {
+      this.resumeUrl = url;
+    }
   }
 
   private cancelBoot(): void {
