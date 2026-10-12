@@ -20,6 +20,7 @@ import {
   type Vector3Tuple,
 } from "three";
 
+import {useMyPlayerId} from "../../authority/useMyPlayerId";
 import {
   addPowerOutline,
   GUIDE_OUTLINE,
@@ -30,8 +31,9 @@ import {consumeLookDelta, usePointerLocked} from "../../core/input";
 import {usePlayerControlLocked} from "../../core/playerControl";
 import {useSpectatePhase} from "../../core/spectate";
 import {MAX_DELTA} from "../../core/time";
+import {useGameState} from "../../game/gameStore";
 import {FLY_ARC, SLIP_FLY_MS, slipFlight} from "../../game/slip/flight";
-import {useMemoAt} from "../../game/slip/memos";
+import {isMemoDone, useMemoAt} from "../../game/slip/memos";
 import {memoView, useMemoView} from "../../game/slip/memoView";
 import {
   createSlipTexture,
@@ -218,7 +220,7 @@ type Props = {workspaceId: string};
 /**
  * 机のメモ置き。常にクリップを出し、伝票が飛んできたら机の座標系で受け止めて、そのまま残す。
  * 飛び始め(手元の伝票の世界座標)は store の flight にあり、この group の世界行列の逆で机の座標系へ直す。
- * 伝票が置かれていて手が空いていれば、メモ置きを破線で示し、クリックで寄って拡大して見る(MemoViewCamera)
+ * 伝票が置かれていて手が空いていれば、メモ置きを破線で示し(伝票のタスクが終わっていれば示さない)、クリックで寄って拡大して見る(MemoViewCamera)
  */
 export function WorkspaceMemo({workspaceId}: Props) {
   const placed = useMemoAt(workspaceId);
@@ -235,6 +237,11 @@ export function WorkspaceMemo({workspaceId}: Props) {
   const interactive =
     placed !== null && !mine && held === null && !controlLocked && alive;
   const targetId = `${workspaceId}.memo`;
+  // 伝票のタスクが終わっていれば破線で示さない(クリックで読み返すことはできる)
+  const {phase} = useGameState();
+  const myPlayerId = useMyPlayerId();
+  const guide =
+    interactive && placed !== null && !isMemoDone(placed, phase, myPlayerId);
 
   // 見ている伝票が無くなった(セッションを離れた)・机ごと消えたら、その場で預かりを解く
   useEffect(() => {
@@ -270,11 +277,11 @@ export function WorkspaceMemo({workspaceId}: Props) {
   const aimed = useIsAimed(targetId);
   useLayoutEffect(() => {
     const group = root.current;
-    if (!interactive || !group) {
+    if (!guide || !group) {
       return;
     }
     return addPowerOutline(group, {...GUIDE_OUTLINE, dashed: !aimed});
-  }, [interactive, aimed]);
+  }, [guide, aimed]);
 
   const res = useMemo(() => {
     if (!content) {

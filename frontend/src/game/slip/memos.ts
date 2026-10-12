@@ -1,5 +1,7 @@
 import {useSyncExternalStore} from "react";
 
+import type {GamePhase} from "../../net";
+import type {PlayerId} from "../../player/types";
 import type {SlipContent} from "./content";
 
 export type MemosState = {
@@ -45,3 +47,24 @@ export const useMemoAt = (workspaceId: string): SlipContent | null =>
     memos.subscribe,
     () => memos.getState().byWorkspace[workspaceId] ?? null,
   );
+
+/**
+ * メモ置きの伝票のタスクが終わっているか。伝票のフェーズが過ぎた、または同じフェーズで自分のタスクが全部達成済みなら true。
+ * フェーズが分からない(セッション外・dev)ときは終わっていない扱い
+ */
+export const isMemoDone = (
+  memo: SlipContent,
+  phase: GamePhase | null,
+  myPlayerId: PlayerId | null,
+): boolean => {
+  if (!phase) {
+    return false;
+  }
+  if (phase.number !== memo.phase) {
+    return phase.number > memo.phase;
+  }
+  const mine = phase.tasks.filter(
+    (task) => task.assigneePlayerId === myPlayerId,
+  );
+  return mine.length > 0 && mine.every((task) => task.status === "completed");
+};

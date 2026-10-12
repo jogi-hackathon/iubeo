@@ -8,7 +8,6 @@ import {registerDevTab} from "./core/debug/devPanel";
 import {DevPanelManager} from "./core/debug/DevPanelManager";
 import {GameCanvas} from "./core/GameCanvas";
 import {ShaderWarmup, useShaderWarmupDone} from "./core/ShaderWarmup";
-import {Hud} from "./game/Hud";
 import {OrderSlipDirector} from "./game/slip/OrderSlipDirector";
 import {Interaction, Reticle} from "./objects";
 import {OverviewCursor} from "./objects/directory/OverviewCursor";
@@ -68,7 +67,6 @@ export function App() {
       </GameCanvas>
       <Reticle />
       <OverviewCursor />
-      <Hud />
       <DevPanelManager />
     </>
   );

@@ -1,69 +1,13 @@
 import {describe, expect, it} from "vitest";
 
-import type {GamePhase, GameTask} from "../../net";
-import type {GameState} from "../gameStore";
-import {noticeLabels, phaseLine, resultLine} from "../hudText";
-
-const at = (ms: number) => new Date(ms).toISOString();
-
-const task = (overrides: Partial<GameTask> = {}): GameTask => ({
-  taskId: "task-1-1",
-  type: "read_edit",
-  assigneePlayerId: "me",
-  targetFileId: "file-01",
-  status: "pending",
-  completedAt: null,
-  ...overrides,
-});
-
-const phase = (overrides: Partial<GamePhase> = {}): GamePhase => ({
-  number: 2,
-  status: "active",
-  startedAt: at(0),
-  deadlineAt: at(6_000),
-  tasks: [task()],
-  ...overrides,
-});
-
-const game = (overrides: Partial<GameState> = {}): GameState => ({
-  sessionStatus: "playing",
-  phase: null,
-  intermission: false,
-  result: null,
-  serverOffsetMs: 0,
-  ...overrides,
-});
+import {noticeLabels, taskLabels} from "../hudText";
 
 describe("hudText", () => {
-  it("フェーズ番号と残り秒数をサーバー時刻から出す", () => {
-    expect(phaseLine(game({phase: phase()}), 1_000)).toBe(
-      "フェーズ 2　残り 5秒",
-    );
-    expect(
-      phaseLine(game({phase: phase(), serverOffsetMs: 1_000}), 1_000),
-    ).toBe("フェーズ 2　残り 4秒");
-  });
-
-  it("intermission の間は残り時間を出さず、最後のフェーズは完了と出す", () => {
-    expect(phaseLine(game({intermission: true}), 0)).toBe("インターミッション");
-    expect(phaseLine(game({phase: phase({status: "intermission"})}), 0)).toBe(
-      "インターミッション",
-    );
-    expect(
-      phaseLine(game({phase: phase({number: 3, status: "completed"})}), 0),
-    ).toBe("フェーズ 3 完了");
-    expect(phaseLine(game(), 0)).toBeNull();
-  });
-
-  it("決着の結果を出し、切断の理由は文言を持つ", () => {
-    expect(resultLine({outcome: "victory", decidedAt: at(0)})).toBe(
-      "結果: 勝利 (victory)",
-    );
-    expect(resultLine({outcome: "defeat", decidedAt: at(0)})).toBe(
-      "結果: 敗北 (defeat)",
-    );
-    expect(resultLine(null)).toBeNull();
-    for (const label of Object.values(noticeLabels)) {
+  it("タスクの種類と切断の理由は、どれも文言を持つ", () => {
+    for (const label of [
+      ...Object.values(taskLabels),
+      ...Object.values(noticeLabels),
+    ]) {
       expect(label.length).toBeGreaterThan(0);
     }
   });
