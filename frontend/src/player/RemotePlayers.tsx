@@ -28,6 +28,7 @@ function RemotePlayer({player}: {player: PlayerStatus}) {
     <PlayerSkeleton
       state={state}
       visible={placed}
+      ragdoll={player.life === "eliminated"}
       holding={heldItem !== null}
       handItem={heldItem && <HeldItem item={heldItem} />}
     />

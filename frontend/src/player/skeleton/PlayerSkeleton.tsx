@@ -11,6 +11,7 @@ import {
 } from "three";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
+import {listColliders} from "../../core/bvh";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {MAX_DELTA} from "../../core/time";
 import type {PlayerState} from "../types";
@@ -20,6 +21,7 @@ import {writeHeldItemPosition} from "./held";
 import {BONES, J, JOINT_COUNT} from "./joints";
 import {applyLean} from "./lean";
 import {writePoints} from "./pose";
+import {createRagdoll, startRagdoll, stepRagdoll} from "./ragdoll";
 
 const FILL_COLOR = "#ffffff";
 const OUTLINE_COLOR = "#1a1a1a";
@@ -42,6 +44,7 @@ interface PlayerSkeletonProps {
   handItem?: ReactNode;
   visible?: boolean;
   hideHead?: boolean;
+  ragdoll?: boolean;
 }
 
 const identity = new Quaternion();
@@ -85,6 +88,7 @@ export function PlayerSkeleton({
   handItem,
   visible = true,
   hideHead = false,
+  ragdoll = false,
 }: PlayerSkeletonProps) {
   const group = useRef<Group>(null);
   const hand = useRef<Group>(null);
@@ -94,6 +98,7 @@ export function PlayerSkeleton({
   const bonesOutline = useRef<InstancedMesh>(null);
   const animator = useMemo(createAnimator, []);
   const points = useMemo(() => new Float32Array((JOINT_COUNT + 1) * 3), []);
+  const body = useMemo(createRagdoll, []);
 
   useFrame((_, delta) => {
     const g = group.current;
@@ -111,12 +116,25 @@ export function PlayerSkeleton({
     ) {
       return;
     }
-    updateAnimator(animator, state, holding, Math.min(delta, MAX_DELTA));
-    g.position.copy(state.position);
-    g.rotation.y = state.yaw;
-
-    writePoints(points, animator.pose);
-    applyLean(points, state.pitch);
+    const dt = Math.min(delta, MAX_DELTA);
+    if (!ragdoll) {
+      body.active = false;
+    }
+    if (body.active) {
+      stepRagdoll(body, dt, listColliders());
+      writePoints(points, body.pos);
+      g.position.set(0, 0, 0);
+      g.rotation.y = 0;
+    } else {
+      updateAnimator(animator, state, holding, dt);
+      writePoints(points, animator.pose);
+      applyLean(points, state.pitch);
+      g.position.copy(state.position);
+      g.rotation.y = state.yaw;
+      if (ragdoll) {
+        startRagdoll(body, points, state.position, state.yaw, state.velocity);
+      }
+    }
     if (hand.current) {
       writeHeldItemPosition(hand.current.position, points);
     }

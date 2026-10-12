@@ -137,6 +137,60 @@ export const resolveCollisions = (
   return out.subVectors(segment.start, before);
 };
 
+const center = new Vector3();
+const sphereBox = new Box3();
+
+export const resolveSphere = (
+  position: Vector3,
+  radius: number,
+  colliders: readonly Collider[],
+  out: Vector3,
+): Vector3 => {
+  before.copy(position);
+  center.copy(position);
+
+  for (const {mesh, enabled} of colliders) {
+    if (!enabled) {
+      continue;
+    }
+    const bvh = mesh.geometry.boundsTree;
+    if (!bvh) {
+      warnMissingBvh(mesh);
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    inverse.copy(mesh.matrixWorld).invert();
+    const scale = scaleVec.setFromMatrixScale(mesh.matrixWorld).x;
+    const lr = radius / scale;
+
+    center.applyMatrix4(inverse);
+    sphereBox.min.copy(center).addScalar(-lr);
+    sphereBox.max.copy(center).addScalar(lr);
+
+    bvh.shapecast({
+      intersectsBounds: (box) => box.intersectsBox(sphereBox),
+      intersectsTriangle: (tri: ExtendedTriangle) => {
+        tri.closestPointToPoint(center, triPoint);
+        push.subVectors(center, triPoint);
+        const dist = push.length();
+        if (dist >= lr) {
+          return;
+        }
+        if (dist > 1e-6) {
+          push.divideScalar(dist);
+        } else {
+          push.copy(tri.getNormal(normal));
+        }
+        center.addScaledVector(push, lr - dist);
+      },
+    });
+
+    center.applyMatrix4(mesh.matrixWorld);
+  }
+
+  return out.subVectors(center, before);
+};
+
 export const stepPlayer = (
   state: PlayerState,
   input: MoveInput,

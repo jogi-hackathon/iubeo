@@ -4,6 +4,11 @@ import {authorityRegistry} from "../authority/registry";
 import {useTeamState} from "../authority/team";
 import {mutedStyle, rowStyle} from "../core/debug/ui";
 import type {JsonValue} from "../core/json";
+import {
+  beginElimination,
+  resetSpectate,
+  useSpectatePhase,
+} from "../core/spectate";
 import {useItemState} from "../items";
 import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
@@ -34,6 +39,7 @@ export function GameDebugPanel() {
   const {held} = useItemState();
   const {current: sceneName} = useSceneState();
   const rejected = useSyncExternalStore(subscribeRejected, () => lastRejected);
+  const spectate = useSpectatePhase();
   const authority = useSyncExternalStore(
     authorityRegistry.subscribe,
     authorityRegistry.current,
@@ -48,6 +54,23 @@ export function GameDebugPanel() {
   return (
     <>
       <div style={headStyle}>authority: {kind}</div>
+      <div style={rowStyle}>
+        <span style={{flex: 1}}>me: {spectate}</span>
+        <button
+          type="button"
+          disabled={spectate !== "alive"}
+          onClick={beginElimination}
+        >
+          eliminate
+        </button>
+        <button
+          type="button"
+          disabled={spectate === "alive"}
+          onClick={resetSpectate}
+        >
+          revive
+        </button>
+      </div>
       {hasSpares && (
         <div style={rowStyle}>
           {(["personal", "shared"] as const).map((scope) => (
