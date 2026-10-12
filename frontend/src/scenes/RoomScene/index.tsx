@@ -44,12 +44,7 @@ function RoomProps() {
         visible={false}
         ao="realtime"
       />
-      <Chair
-        position={CHAIR_POSITION}
-        visible={chairVisible}
-        collidable={false}
-        ao="realtime"
-      />
+      <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
     </>
   );
 }
