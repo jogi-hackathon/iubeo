@@ -1,4 +1,4 @@
-# iubeo
+# IUBEO
 
 > 現実のAIと人間、概念的な立場が逆転している世界
 > 人は道具であり、リソースである。
@@ -6,7 +6,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/iubeo_logo_dark.svg">
-    <img src="docs/assets/iubeo_logo.svg" alt="iubeo" width="420">
+    <img src="docs/assets/iubeo_logo.svg" alt="IUBEO" width="420">
   </picture>
 </p>
 
@@ -31,7 +31,7 @@
   - [Cloudflare Containers](https://developers.cloudflare.com/) (開発用・フォールバック・WISP)
 - [Terraform](https://www.terraform.io/) (インフラ管理)
 
-![iubeo インフラ構成](docs/assets/arch.png)
+![IUBEO インフラ構成](docs/assets/arch.png)
 
 ### 開発環境
 
