@@ -219,7 +219,7 @@ func (st *State) tick(in Tick) []Output {
 		}
 		p.moved = false
 		msg.Players = append(msg.Players, struct {
-			PlayerId  api.PlayerId  `json:"playerId"` //nolint:revive
+			PlayerId  api.PlayerId  `json:"playerId"` //nolint:revive // 生成された TransformsMessage.Players の要素型と同じ形にする
 			Transform api.Transform `json:"transform"`
 		}{PlayerId: p.ID, Transform: cloneTransform(p.Transform)})
 	}

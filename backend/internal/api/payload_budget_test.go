@@ -25,7 +25,7 @@ func TestPayloadBudget(t *testing.T) {
 	down := TransformsMessage{Type: Transforms, ServerTime: time.Now()}
 	for i, pid := range []PlayerId{id(0), id(1), id(2)} {
 		down.Players = append(down.Players, struct {
-			PlayerId  PlayerId  `json:"playerId"` //nolint:revive
+			PlayerId  PlayerId  `json:"playerId"` //nolint:revive // 生成された TransformsMessage.Players の要素型と同じ形にする
 			Transform Transform `json:"transform"`
 		}{PlayerId: pid, Transform: Transform{
 			Position: pos(), Yaw: 1.5707963267948966, Pitch: -0.1234567890123456, Seq: int64(1000 + i),
