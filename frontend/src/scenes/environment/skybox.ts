@@ -25,6 +25,11 @@ import type {Node, WebGPURenderer} from "three/webgpu";
 import type {PostProcessSettings} from "../../camera/postprocess/settings";
 import {cellHash} from "../../core/cellHash";
 import {drawingBufferSize, screenPixel} from "../../core/screenPixel";
+import {
+  approachCountdown,
+  countdownTarget,
+  type CountdownLevels,
+} from "./countdownSky";
 import {createSea} from "./sea";
 
 export const SKY_HORIZON = "#ffffff";
@@ -43,6 +48,11 @@ const ANOMALY_ATTACK_MS = 100;
 const ANOMALY_HOLD_MS = 300;
 const ANOMALY_DECAY_MS = 1000;
 const ANOMALY_FLICKER = 0.3;
+const COUNTDOWN_RED_MAX = 0.9;
+const COUNTDOWN_NOISE_MAX = 0.55;
+const COUNTDOWN_RATE_MAX = 0.12;
+const COUNTDOWN_PREVIEW_MS = 22_000;
+const COUNTDOWN_PREVIEW_HOLD_MS = 1500;
 
 const skyGradient = (dirY: Node<"float">): Node<"float"> =>
   pow(max(dirY, 0), 1.15);
@@ -87,6 +97,8 @@ export interface Skybox {
   apply(settings: PostProcessSettings): void;
   update(renderer: WebGPURenderer, camera: Camera): void;
   flashAnomaly(): void;
+  setCountdown(remainingMs: number | null): void;
+  previewCountdown(): void;
 }
 
 const anomalyEnvelope = (elapsed: number): number => {
@@ -113,9 +125,15 @@ const createSkybox = (): Skybox => {
     elevationStart: uniform(0),
     elevationEnd: uniform(1),
     updateRate: uniform(2),
-    anomaly: uniform(0),
+    red: uniform(0),
+    noise: uniform(0),
+    noiseRate: uniform(0),
   };
   let anomalyStartedAt = -Infinity;
+  let remaining: number | null = null;
+  let previewDeadline: number | null = null;
+  let countdown: CountdownLevels = {red: 0, noise: 0};
+  let lastUpdateAt = performance.now();
 
   const sea = createSea();
   // 画面のピクセル。scene pass が内部解像度でも、ノイズのブロックと海の文字は画面のピクセルで刻む
@@ -126,9 +144,9 @@ const createSkybox = (): Skybox => {
       smoothstep(u.elevationStart, u.elevationEnd, dirY)
         .mul(u.enabled)
         .mul(LAYER_MAX),
-      u.anomaly.mul(LAYER_MAX),
+      u.noise.mul(LAYER_MAX),
     );
-  const intensity = u.intensity.add(u.anomaly.mul(ANOMALY_INTENSITY));
+  const intensity = u.intensity.add(u.noise.mul(ANOMALY_INTENSITY));
   const layer = layerAt(dir.y);
 
   const s3 = smoothstep(4.4, 6.2, layer);
@@ -136,7 +154,7 @@ const createSkybox = (): Skybox => {
   const s1 = smoothstep(0.8, 2.4, layer).mul(s2.oneMinus().sub(s3));
 
   const step1 = mod(
-    floor(time.mul(u.updateRate.add(u.anomaly.mul(ANOMALY_UPDATE_RATE)))),
+    floor(time.mul(u.updateRate.add(u.noiseRate.mul(ANOMALY_UPDATE_RATE)))),
     4096,
   );
   const step2 = floor(step1.mul(0.5));
@@ -209,7 +227,7 @@ const createSkybox = (): Skybox => {
   rgb = mix(
     rgb,
     color(ANOMALY_RED).mul(redShade),
-    u.anomaly.mul(ANOMALY_RED_AMOUNT),
+    u.red.mul(ANOMALY_RED_AMOUNT),
   );
   rgb = select(dir.y.lessThan(0), sea.colorAt(px), rgb);
 
@@ -217,12 +235,44 @@ const createSkybox = (): Skybox => {
     node: rgb.clamp(0, 1),
     update: (renderer, camera) => {
       sea.update(renderer, camera);
-      const level = anomalyEnvelope(performance.now() - anomalyStartedAt);
-      u.anomaly.value =
-        level > 0 ? level * (1 - ANOMALY_FLICKER * Math.random()) : 0;
+      const now = performance.now();
+      if (
+        previewDeadline !== null &&
+        now - previewDeadline > COUNTDOWN_PREVIEW_HOLD_MS
+      ) {
+        previewDeadline = null;
+      }
+      const effective =
+        previewDeadline === null
+          ? remaining
+          : Math.min(remaining ?? Infinity, previewDeadline - now);
+      countdown = approachCountdown(
+        countdown,
+        countdownTarget(effective),
+        now - lastUpdateAt,
+      );
+      lastUpdateAt = now;
+      const anomaly = anomalyEnvelope(now - anomalyStartedAt);
+      const flickered =
+        anomaly > 0 ? anomaly * (1 - ANOMALY_FLICKER * Math.random()) : 0;
+      u.red.value = Math.max(flickered, countdown.red * COUNTDOWN_RED_MAX);
+      u.noise.value = Math.max(
+        flickered,
+        countdown.noise * COUNTDOWN_NOISE_MAX,
+      );
+      u.noiseRate.value = Math.max(
+        flickered,
+        countdown.noise * COUNTDOWN_RATE_MAX,
+      );
     },
     flashAnomaly: () => {
       anomalyStartedAt = performance.now();
+    },
+    setCountdown: (remainingMs) => {
+      remaining = remainingMs;
+    },
+    previewCountdown: () => {
+      previewDeadline = performance.now() + COUNTDOWN_PREVIEW_MS;
     },
     apply(s) {
       sea.apply(s);

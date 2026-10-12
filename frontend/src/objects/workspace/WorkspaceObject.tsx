@@ -10,6 +10,7 @@ import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js"
 import {aoModeUserData} from "../../bake/aoMode";
 import {BVHCollider} from "../../core/bvh";
 import {useControlLockWhileWorking} from "../controlLock";
+import {useLayoutSlot} from "../layoutContext";
 import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
 import {
@@ -20,6 +21,7 @@ import {
   type PartLook,
 } from "./desk";
 import {WorkspaceFile} from "./WorkspaceFile";
+import {WorkspaceMemo} from "./WorkspaceMemo";
 
 const CYLINDER_SEGMENTS = 10;
 
@@ -58,10 +60,12 @@ function Part({part, geometry}: {part: DeskPart; geometry: BufferGeometry}) {
  * - 動的に増減するオブジェクトなのでベイクAOの対象外(realtime)。ManagedObjects の他の kind と同じ
  * - 部品はすべて同じオブジェクト(ObjectRoot)の配下なので、どこを狙っても机に当たり、アウトラインは机全体の外周に 1 本付く
  * - 作業中の間は、プレイヤーの移動・視点を預かる(useControlLockWhileWorking)
+ * - 机の左奥にメモ置き(WorkspaceMemo)。依頼の伝票が飛んできて残る。レイアウトで memo: false なら置かない(部屋)
  */
 export function WorkspaceObject({object}: {object: GameObject}) {
   useControlLockWhileWorking(object);
   const {visible} = useObjectState();
+  const {memo = true} = useLayoutSlot().item;
   const geometries = useMemo(() => DESK_PARTS.map(partGeometry), []);
   useEffect(
     () => () => {
@@ -86,6 +90,7 @@ export function WorkspaceObject({object}: {object: GameObject}) {
         />
       ))}
       <WorkspaceFile working={object.users.length > 0} />
+      {memo && <WorkspaceMemo workspaceId={object.id} />}
     </group>
   );
 }

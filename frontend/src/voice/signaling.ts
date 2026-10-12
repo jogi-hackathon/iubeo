@@ -12,6 +12,10 @@ export type VcClientMsg =
   | {type: "signal"; to: string; data: unknown}
   | {type: "ping"; t: number};
 
+// VC サーバーはクライアントから 60 秒何も届かないと WS を閉じ、roster から外す。
+// roster に居ないと moq-relay の revalidate で音声も切られるので、それより短い間隔で ping を送る
+const PING_INTERVAL_MS = 20_000;
+
 const parse = (raw: string): VcServerMsg | undefined => {
   try {
     const v: unknown = JSON.parse(raw);
@@ -29,13 +33,31 @@ const parse = (raw: string): VcServerMsg | undefined => {
 export class Signaling {
   readonly ws: WebSocket;
   readonly ready: Promise<void>;
+  /** WS が閉じたら解決する */
+  readonly closed: Promise<void>;
   onMsg: (m: VcServerMsg) => void = () => {};
+  private pingTimer?: ReturnType<typeof setInterval>;
 
   constructor(url: string) {
     this.ws = new WebSocket(url);
+    let markClosed!: () => void;
+    this.closed = new Promise((resolve) => {
+      markClosed = resolve;
+    });
     this.ready = new Promise((resolve, reject) => {
-      this.ws.onopen = () => resolve();
+      this.ws.onopen = () => {
+        this.pingTimer = setInterval(
+          () => this.send({type: "ping", t: performance.now()}),
+          PING_INTERVAL_MS,
+        );
+        resolve();
+      };
       this.ws.onerror = () => reject(new Error("signaling: ws error"));
+      this.ws.onclose = (ev) => {
+        clearInterval(this.pingTimer);
+        reject(new Error(`signaling: closed (${ev.code})`));
+        markClosed();
+      };
     });
     this.ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") {
@@ -55,6 +77,7 @@ export class Signaling {
   }
 
   close(): void {
+    clearInterval(this.pingTimer);
     try {
       this.ws.close();
     } catch {
