@@ -28,7 +28,6 @@ export const createBootStore = (
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    /** 何度呼んでも boot は1回だけ実行する(StrictMode の effect 二重実行対策) */
     start: (): void => {
       if (started) {
         return;

@@ -1,6 +1,5 @@
 import {PRINT_STEPS, type ScreenStatus} from "./terminal";
 
-/** 画面(58mm × 38mm)の描画解像度 */
 export const SCREEN_CANVAS = {width: 288, height: 189} as const;
 
 const MONO = '"Menlo", "SF Mono", "Consolas", "Hiragino Sans", monospace';
@@ -14,21 +13,17 @@ const LINE_HEIGHT = 20;
 const LEFT = 12;
 const BOX_PAD = 6;
 
-/** 受信中に回る印(Claude Code のスピナーと同じ並び) */
 export const SPINNER = ["·", "✢", "✳", "✶", "✻", "✽"] as const;
 
 export type ScreenFrame = {
   status: ScreenStatus;
-  /** 印刷の進み(0..1)。印刷中だけ行数と棒にする */
   progress: number;
-  /** 4Hz で進む刻み。スピナーとカーソルの点滅に使う */
   tick: number;
 };
 
 const SPINNING: ReadonlySet<ScreenStatus> = new Set(["receiving"]);
 const BLINKING: ReadonlySet<ScreenStatus> = new Set(["ready", "tear", "done"]);
 
-/** 描き直しが要るかを決める鍵。進みは行数に丸め、刻みは動きのある状態だけ効かせる */
 export const screenKey = ({status, progress, tick}: ScreenFrame): string => {
   const lines = status === "printing" ? Math.round(progress * PRINT_STEPS) : 0;
   const motion = SPINNING.has(status)
@@ -41,7 +36,6 @@ export const screenKey = ({status, progress, tick}: ScreenFrame): string => {
 
 type Span = {text: string; color?: string};
 type Line = readonly Span[];
-/** 枠で囲む行は box にする(角丸の枠を線で描く) */
 type Row = {spans: Line; box?: boolean};
 
 const row = (spans: Line, box = false): Row => ({spans, box});

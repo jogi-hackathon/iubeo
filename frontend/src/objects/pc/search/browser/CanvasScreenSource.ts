@@ -11,16 +11,8 @@ import {
 } from "../../display/types";
 
 /**
- * 「ブラウザを 1 枚の canvas に描き、それをテクスチャとして読む」ための基底クラス。
- *
- * 正しさに関わる点が 2 つある:
- *
- *  1. canvas はレイアウトされ、フォーカス可能な状態のままにしておく必要がある。エンジンは canvas 自身に
- *     リスナーを付け、mousedown で `canvas.focus()` を呼ぶ。`display: none` ではなく画面外へ追い出し、
- *     実際の画素サイズを保つ（`opacity: 0` で見えなくする）。
- *  2. CSS サイズとバッキングストアのサイズを一致させること。エンジンはクライアント座標を
- *     canvas 画素へ `(clientX - rect.left) * (W / rect.width)` で変換するため、CSS で拡大縮小していると
- *     すべてのクリックが静かにずれる。
+ * エンジンは canvas に focus() するので、display:none ではなく画面外に置いてレイアウトとフォーカスを保つ。
+ * エンジンはクリック位置を (clientX - rect.left) * (W / rect.width) で変換するので、CSS サイズを画素サイズと揃えないとクリックがずれる。
  */
 export abstract class CanvasScreenSource implements ScreenSource {
   readonly canvas: HTMLCanvasElement;
@@ -178,7 +170,7 @@ export abstract class CanvasScreenSource implements ScreenSource {
         ...modifierInit(event.modifiers),
       },
     );
-    // keyCode / charCode はレガシーで KeyboardEventInit の型からは弾かれるが、エンジンは今でも読む
+    // keyCode / charCode は KeyboardEventInit の型にないが、エンジンは今も読む
     Object.defineProperty(domEvent, "keyCode", {
       value: event.keyCode,
       configurable: true,
@@ -234,7 +226,6 @@ const noticeLines = (status: ScreenStatus, detail: string): string[] => {
   }
 };
 
-/** DOM のイベントは修飾キーを altKey などの名前で受け取る。そのまま広げると、エンジンに届かない */
 const modifierInit = (modifiers: ScreenModifiers): EventModifierInit => ({
   altKey: modifiers.alt,
   ctrlKey: modifiers.ctrl,

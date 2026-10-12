@@ -1,13 +1,7 @@
-/**
- * pointer lock のまま動かす仮想カーソル。位置は -1〜1(x は右、y は上)で持ち、
- * マウスの移動量(ピクセル)を、カーソルが動く範囲の見かけの大きさ(viewport)で割って足す。
- * 俯瞰ビューは画面全体、PC は画面に映っている範囲を viewport にする
- */
 export type Cursor = {x: number; y: number};
 
 export const CENTER_CURSOR: Readonly<Cursor> = {x: 0, y: 0};
 
-/** 矢印の形(16×24 の SVG パス)。DOM の SVG にも canvas の Path2D にもそのまま使える */
 export const CURSOR_ARROW_PATH =
   "M1 1 L1 19 L5.2 15 L8.4 22.4 L11.4 21.1 L8.2 13.9 L14 13.9 Z";
 
@@ -43,7 +37,6 @@ export const createVirtualCursor = () => {
         notify();
       }
     },
-    /** 動いたときだけ通知し、true を返す */
     move: (
       dx: number,
       dy: number,

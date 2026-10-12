@@ -3,14 +3,8 @@ import {resolve} from "node:path";
 
 import type {Plugin} from "vite";
 
-/**
- * dev サーバー専用。`engine-local/`（Gecko エンジン）を「ソース」ではなく素の配信物として返す。
- *
- * 経緯: エンジンは public/ に置いた素のファイルで、動的 import で URL から読む。ところが dev サーバでは、
- * ソース中の動的 import を Vite が変換して `?import` を付けるため、public 配信ではなく変換の経路に乗り、
- * 「should not be imported from source code」で 500 になる。@vite-ignore を付けても変換は避けられない。
- * そこで Vite の内部ミドルウェアより前に割り込み、/engine/ 配下はクエリを落として素の静的ファイルとして返す。
- */
+// dev では Vite が動的 import に ?import を付けて変換の経路に乗せ、「should not be imported from source code」で 500 になる。
+// @vite-ignore でも避けられないので、内部ミドルウェアより前で素の静的ファイルとして返す
 export const serveEnginePlugin = (): Plugin => {
   const root = resolve(process.cwd(), "engine-local");
 

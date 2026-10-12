@@ -40,7 +40,6 @@ const gtaoContext = (gtao: Node<"float">) =>
   });
 
 export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
-  // AO 用の pre-pass(法線・深度)。透明物は AO の入力に含めない。
   // テクスチャの型は PassNode.setup が Renderer の出力バッファ型(HalfFloat)で上書きするので、法線は詰めずにそのまま書く。
   // GTAO は深度を textureGather で読むため、Renderer の MSAA(antialias)を引き継がないよう samples: 0 にする
   // (マルチサンプルの深度テクスチャだと WGSL のコンパイルに失敗する)
@@ -70,13 +69,10 @@ export const createAmbientOcclusion = (scene: Scene, camera: Camera) => {
 
   return {
     aoOnlyPass,
-    /** pre-pass の深度(内部解像度・samples 0)。選択マスク・輪郭線も読むので、AO が off でも pre-pass は描かれる */
     depth: prePassDepth,
-    /** pre-pass のビュー空間の法線(詰めていない xyz) */
     normal: prePassNormal,
     contextFor: (s: PostProcessSettings) =>
       s.ao.enabled ? contexts[s.ao.denoise ? "denoised" : "raw"] : null,
-    /** renderScale はシーンの内部解像度(pipeline)。AO の解像度は、その内部解像度に対する s.ao.resolutionScale */
     apply: (s: PostProcessSettings, renderScale: number): void => {
       aoPass.radius.value = s.ao.radius;
       aoPass.scale.value = s.ao.scale;

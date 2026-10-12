@@ -45,7 +45,6 @@ describe("slipZoomPose", () => {
     const quaternion = new Quaternion();
     slipZoomPose(world, 75, position, quaternion);
     const distance = fitDistance(SLIP_LENGTH, 75, SLIP_ZOOM_FILL);
-    // 表(+Z)は y 軸まわりに 90° 回って +X を向く
     expect(position.x).toBeCloseTo(1 + distance);
     expect(position.y).toBeCloseTo(2 + SLIP_LENGTH / 2);
     expect(position.z).toBeCloseTo(3);

@@ -37,7 +37,6 @@ type searchPage struct {
 	Results  []search.Result
 }
 
-// WithSearch は検索ページの結果を取る Client を設定する。設定していなければ GetSearchPage は Yahoo! JAPAN へ飛ばす。
 func (s *Server) WithSearch(client search.Client) *Server {
 	s.searcher = client
 	return s
@@ -111,7 +110,6 @@ func truncateRunes(s string, n int) string {
 	return string([]rune(s)[:n])
 }
 
-// displayURL は結果の URL を読める形で出す(パーセントエンコードした日本語などを戻す)。戻せなければそのまま。
 func displayURL(raw string) string {
 	if u, err := url.PathUnescape(raw); err == nil && utf8.ValidString(u) {
 		return u

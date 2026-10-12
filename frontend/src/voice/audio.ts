@@ -2,10 +2,8 @@ import type {AudioManager, MicHandle} from "../core/audio/audioManager";
 import type {Vec3} from "../core/audio/sfx/types";
 
 const SAMPLE_RATE = 48000;
-// 相手の声の再生音量。2 倍 (約 +6dB)。割れないよう最後にリミッターを通す
-const PEER_GAIN = 2;
-// datagram の到着の揺れを吸収するため、再生をこれだけ遅らせて並べる
-const JITTER_LEAD_S = 0.06;
+const PEER_GAIN_2X = 2;
+const PLAYBACK_JITTER_BUFFER_S = 0.06;
 
 const CAPTURE_WORKLET = `
 class Capture extends AudioWorkletProcessor {
@@ -89,7 +87,7 @@ export const createVoiceAudio = (host: VoiceAudioHost): VoiceAudio => {
     let p = peers.get(peer);
     if (!p) {
       const gain = ctx.createGain();
-      gain.gain.value = PEER_GAIN;
+      gain.gain.value = PEER_GAIN_2X;
       const panner = ctx.createPanner();
       panner.panningModel = "HRTF";
       panner.distanceModel = "inverse";
@@ -145,7 +143,7 @@ export const createVoiceAudio = (host: VoiceAudioHost): VoiceAudio => {
       source.connect(p.gain);
       const now = ctx.currentTime;
       if (p.nextAt < now + 0.01 || p.nextAt > now + 0.5) {
-        p.nextAt = now + JITTER_LEAD_S;
+        p.nextAt = now + PLAYBACK_JITTER_BUFFER_S;
       }
       source.start(p.nextAt);
       p.nextAt += pcm.length / SAMPLE_RATE;
@@ -159,9 +157,7 @@ export const createVoiceAudio = (host: VoiceAudioHost): VoiceAudio => {
       try {
         p.gain.disconnect();
         p.panner.disconnect();
-      } catch {
-        /* already disconnected */
-      }
+      } catch {}
       peers.delete(peer);
     },
 

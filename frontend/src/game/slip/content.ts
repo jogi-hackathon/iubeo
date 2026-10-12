@@ -2,22 +2,15 @@ import type {GamePhase, GameTask} from "../../net";
 import {taskLabels} from "../hudText";
 import {SLIP_LENGTH, SLIP_WIDTH} from "./strip";
 
-/** 伝票の 1 項目(自分に割り当てられた 1 つのタスク) */
 export type SlipItem = {
-  /** タスクの種類の表示名 */
   kind: string;
-  /** 種類ごとの対象(検索のお題・対象ファイルの色)。無ければ null */
   detail: string | null;
 };
 
-/** 伝票に印字する中身。表示の文字列まで決めておき、描くだけにする */
 export type SlipContent = {
-  /** 伝票番号(フェーズ番号と最初のタスク id から) */
   number: string;
   phase: number;
-  /** そのフェーズで自分に割り当てられたタスク(割り当ての順) */
   items: readonly SlipItem[];
-  /** フェーズの制限時間(秒)。開始と締切の差 */
   limitSeconds: number | null;
 };
 
@@ -32,7 +25,6 @@ const limitOf = (phase: GamePhase): number | null => {
   return Math.max(0, Math.round((deadline - started) / 1000));
 };
 
-/** 色(#rrggbb)の呼び名。ファイルの山の紙の色(赤・橙・黄・緑・青・紫)を色相で見分ける。読めなければ null */
 export const colorName = (hex: string): string | null => {
   const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
   if (!m) {
@@ -70,7 +62,6 @@ export const colorName = (hex: string): string | null => {
   return hue < 250 ? "青" : "紫";
 };
 
-/** 読み込みと編集の対象ファイルを、山の紙の色で示す(id は見せない) */
 const targetOf = (
   task: GameTask,
   fileColors: ReadonlyMap<string, string>,
@@ -101,10 +92,6 @@ const numberOf = (phase: GamePhase, tasks: readonly GameTask[]): string => {
     .padEnd(NUMBER_LENGTH, "0");
 };
 
-/**
- * フェーズと、その中で自分に割り当てられたタスクから伝票を作る。
- * fileColors はファイル id → 山の紙の色(stockColorsOf)。対象ファイルは色の名前で印字する
- */
 export const slipContent = (
   phase: GamePhase,
   tasks: readonly GameTask[],
@@ -116,7 +103,6 @@ export const slipContent = (
   limitSeconds: limitOf(phase),
 });
 
-/** 見本の伝票(撮影ページとテスト用) */
 export const SAMPLE_SLIP: SlipContent = {
   number: "3-TASK31",
   phase: 3,
@@ -128,7 +114,6 @@ export const SAMPLE_SLIP: SlipContent = {
   limitSeconds: 120,
 };
 
-/** 紙 58mm × 120mm を 320px 幅で描く */
 export const SLIP_CANVAS = {
   width: 320,
   height: Math.round((320 * SLIP_LENGTH) / SLIP_WIDTH),
@@ -138,13 +123,10 @@ const FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
 const MONO = `"Menlo", "Courier New", ${FONT}`;
 const INK = "#1a1a1a";
 const EDGE = 3;
-/** 上下の端のギザギザ(千切った跡)。山の幅と高さ */
 const TOOTH = {width: 12, height: 7} as const;
 const MARGIN = 26;
-/** 項目 1 行の高さの上限。件数が少なくても行を間延びさせない */
 const ITEM_MAX_SLOT = 40;
 
-/** 紙の形(ギザギザの上下端)を path にする。外側は透明にする */
 const paperPath = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
   ctx.beginPath();
   ctx.moveTo(0, TOOTH.height);
@@ -185,7 +167,6 @@ const dashed = (ctx: CanvasRenderingContext2D, y: number, w: number) => {
   ctx.restore();
 };
 
-/** 伝票番号から決まるバーコード風の縞 */
 const barcode = (
   ctx: CanvasRenderingContext2D,
   number: string,
@@ -229,7 +210,6 @@ const itemLine = (item: SlipItem, i: number) =>
     ? `${i + 1}. ${item.kind}`
     : `${i + 1}. ${item.kind} / ${item.detail}`;
 
-/** 行ごとに大きさが違うと読みにくいので、いちばん長い行に合わせてそろえる */
 const paintItems = (
   ctx: CanvasRenderingContext2D,
   items: readonly SlipItem[],
@@ -249,7 +229,6 @@ const paintItems = (
   });
 };
 
-/** 伝票の表を描く(透明な canvas に紙の形で塗る) */
 export const paintSlip = (
   canvas: HTMLCanvasElement,
   content: SlipContent,
@@ -281,7 +260,6 @@ export const paintSlip = (
   ctx.font = `16px ${FONT}`;
   ctx.fillText(`タスク ${content.items.length} 件`, MARGIN, 196);
 
-  // 項目は紙の残り(制限の行とバーコードの上)に収める。多いほど詰める
   const top = 212;
   const bottom = h - 170;
   const slot = Math.min(
@@ -307,7 +285,6 @@ export const paintSlip = (
   ctx.fillText("IUBEO", w / 2, h - 56);
 };
 
-/** 伝票の裏(白い紙の形だけ) */
 export const paintSlipBack = (canvas: HTMLCanvasElement): void => {
   const ctx = canvas.getContext("2d");
   if (!ctx) {

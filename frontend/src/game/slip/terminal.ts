@@ -2,10 +2,6 @@ import type {Vector3Tuple} from "three";
 
 import {SLIP_LENGTH} from "./strip";
 
-/**
- * ハンディーターミナル(伝票のプリンタ付き)の寸法と部品。手に持つ座標系(手首の中点が原点、-Z が前)に置く。
- * 画面と鍵盤は +Z(目の側)を向き、紙は上面のスロットから +Y へ出る
- */
 const BODY_WIDTH = 0.078;
 const BODY_HEIGHT = 0.16;
 const BODY_DEPTH = 0.026;
@@ -43,7 +39,6 @@ const ANTENNA_RADIUS = 0.0035;
 const ANTENNA_HEIGHT = 0.014;
 
 export type TerminalPartShape = "box" | "cylinder";
-/** body: 白い塗りに縁取り / accent: 暗い塗り / key: 白い塗りで縁取り無し */
 export type TerminalPartLook = "body" | "accent" | "key";
 
 export type TerminalPart = {
@@ -52,7 +47,6 @@ export type TerminalPart = {
   position: Vector3Tuple;
   scale: Vector3Tuple;
   rotation?: Vector3Tuple;
-  /** 角の丸み(box のみ) */
   radius?: number;
 };
 
@@ -117,37 +111,27 @@ export const TERMINAL_PARTS: readonly TerminalPart[] = [
   })),
 ];
 
-/** 画面(表示面)の大きさと位置。ベゼルの内側に置く */
 export const TERMINAL_SCREEN = {
   width: SCREEN_BEZEL[0] - 2 * SCREEN_INSET,
   height: SCREEN_BEZEL[1] - 2 * SCREEN_INSET,
   position: [0, SCREEN_Y, FRONT_Z + BEZEL_DEPTH / 2 + 0.0003] as Vector3Tuple,
 } as const;
 
-/** 紙が出てくる位置(端末のローカル座標)。ここから +Y へ出る */
 export const SLIP_EXIT: Vector3Tuple = [0, BODY_TOP + SLOT_HEIGHT / 2, SLOT_Z];
-/** 千切ったあとにスロットに残る紙の長さ */
 export const PAPER_STUB = 0.006;
 
 export const TERMINAL_OUTLINE = 0.0012;
-/** 手に持ったときの傾き(画面が目を向く) */
 export const TERMINAL_HELD_TILT = -0.42;
 
-/** 千切った伝票を見る位置(手の座標系)。伝票の中心と、目を向く傾き */
 export const SLIP_LOOK = {
   center: [0, 0.05, 0.13] as Vector3Tuple,
   tilt: -0.37,
 } as const;
-/** 持ち上げる前(視界の下)の位置と傾き */
 export const TERMINAL_BELOW = {y: -0.3, tilt: -0.9} as const;
 
-/** 印刷の行送りの回数。1 行ずつ送るので動きがコマ送りになる */
 export const PRINT_STEPS = 24;
-/** 千切るときに手前へ折る角度 */
 export const TEAR_TILT = 0.55;
-/** 印刷中に紙が手前(+Z)へ巻く強さと、千切ったあとに残る巻き */
 export const PAPER_CURL = {printing: 1.1, rest: 0.22} as const;
-/** 印刷中の端末の震え(m) */
 export const PRINT_JITTER = 0.0004;
 
 export const TERMINAL_STAGES = [
@@ -162,7 +146,6 @@ export const TERMINAL_STAGES = [
 ] as const;
 export type TerminalStage = (typeof TERMINAL_STAGES)[number];
 
-/** 各段の長さ(ms)。順に再生する */
 export const STAGE_MS: Readonly<
   Record<Exclude<TerminalStage, "done">, number>
 > = {
@@ -174,7 +157,6 @@ export const STAGE_MS: Readonly<
   look: 2700,
   fly: 900,
 };
-/** 飛ぶ段のうち、視線を元へ戻し終えるまでの時間(ms)。残りは伝票が飛んでいる */
 export const STOW_MS = 400;
 
 const STAGE_START = (() => {
@@ -194,20 +176,14 @@ export const stageStart = (stage: TerminalStage): number => STAGE_START[stage];
 
 export type TerminalPose = {
   stage: TerminalStage;
-  /** 段の中の進み(0..1)。done は 1 */
   progress: number;
   device: {y: number; z: number; tilt: number; jitter: number};
   paper: {
-    /** スロットから出ている紙の長さ(m) */
     length: number;
     curl: number;
-    /** 千切れて端末から離れているか */
     torn: boolean;
-    /** 千切って見る位置へ向かう進み(0..1) */
     toLook: number;
-    /** 千切るときに手前へ折る角度 */
     tearTilt: number;
-    /** 伝票が手を離れてワークスペースへ飛んでいるか(手元の伝票は隠す) */
     launched: boolean;
   };
   screen: {status: ScreenStatus; progress: number};
@@ -236,7 +212,6 @@ const stageAt = (
   return {stage: "done", progress: 1};
 };
 
-/** 行送り: 1 行ごとに素早く送って止まる、を PRINT_STEPS 回。全体では 0 → 1 */
 export const steppedFeed = (progress: number): number => {
   const p = clamp01(progress) * PRINT_STEPS;
   const line = Math.floor(p);
@@ -282,10 +257,6 @@ const screenOf = (
   }
 };
 
-/**
- * 依頼が届いてからの経過時間(ms)で、端末と紙の姿勢を返す。
- * 持ち上げ → 受信 → 印刷(行送り) → 送り出し → 千切る → 見る → 飛ぶ、の順に自動で進む
- */
 export const terminalPose = (elapsedMs: number): TerminalPose => {
   const {stage, progress} = stageAt(elapsedMs);
 

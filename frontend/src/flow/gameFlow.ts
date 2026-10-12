@@ -66,7 +66,6 @@ export const createGameFlow = ({
   sleep,
   pollMs = 1000,
 }: GameFlowOptions) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: GameFlowState = {status: "idle"};
   const listeners = new Set<() => void>();
   let run = 0;

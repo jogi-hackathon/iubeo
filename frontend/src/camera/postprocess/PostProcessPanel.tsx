@@ -44,7 +44,6 @@ export function PostProcessPanel() {
         </label>
       </Section>
       <Section title="Upscale">
-        {/* 内部解像度(graphics の resolutionScale)から画面の解像度へ。off はバイリニア(比較用) */}
         <Check
           label="FSR1"
           checked={s.upscale.enabled}
@@ -61,8 +60,6 @@ export function PostProcessPanel() {
         />
       </Section>
       <Section title="AO">
-        {/* ベイク AO と GTAO の分担は prop ごとの AO モード(src/bake/aoMode.ts)。show AO only は合成後の AO。
-            baked を外すと aoMap ごと外れ、baked モードの面も GTAO に戻る */}
         <Check
           label="show AO only"
           checked={s.ao.showOnly}
@@ -275,7 +272,6 @@ export function PostProcessPanel() {
         />
       </Section>
       <Section title="Contour">
-        {/* 物の縁の細い輪郭線。pre-pass の法線・深度から。遠くは fade で薄くする */}
         <Check
           label="enabled"
           checked={s.contour.enabled}

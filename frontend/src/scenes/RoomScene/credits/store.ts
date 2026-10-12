@@ -2,13 +2,6 @@ import {useSyncExternalStore} from "react";
 
 import {lockPlayerControl} from "../../../core/playerControl";
 
-/**
- * 窓の外に流れるスタッフクレジットの状態(クライアントだけが持つ。サーバーには送らない)。
- *
- * - idle: 一人称
- * - active: カメラを窓の正面へ預かり、空にクレジットを流している
- * - leaving: 一人称へ戻る補間の途中。終わるまでプレイヤーは預かったままにする
- */
 export type CreditsPhase = "idle" | "active" | "leaving";
 
 type Options = {

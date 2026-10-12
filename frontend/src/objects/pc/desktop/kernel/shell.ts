@@ -31,7 +31,6 @@ export type ShellWindow = {
   minimized: boolean;
 };
 
-/** 押している途中のボタン。離したときに同じボタンの上なら押したことにする */
 export type Pressed =
   | {kind: "close"; windowId: number}
   | {kind: "minimize"; windowId: number}
@@ -40,9 +39,7 @@ export type Pressed =
   | {kind: "startEntry"; index: number};
 
 export type ShellState = {
-  /** 重なり順(後ろほど手前) */
   windows: readonly ShellWindow[];
-  /** タスクバーのボタンの並び(開いた順) */
   taskOrder: readonly number[];
   focused: number | null;
   selectedIcon: string | null;
@@ -59,16 +56,7 @@ type Options = {
   now?: () => number;
 };
 
-/**
- * 2000 風のデスクトップの状態と、マウスの入力の解釈(描画は paint/、画素の置き場所は layout.ts)。
- *
- * - アイコン: クリックで選び、ダブルクリックでアプリを開く(同じアプリの窓は 1 つだけ)
- * - 窓: 押すと手前へ。タイトルバーでつかんで動かし、_ で最小化、× で閉じる。中身の入力はアプリへ渡す
- * - タスクバー: スタートでメニューを開く。窓のボタンは、最小化なら戻し、手前なら最小化し、それ以外は手前へ
- * - スタートメニュー: アプリを開く
- *
- * ダブルクリックは自分で数える(pointer lock の間は、ブラウザのクリック回数がカーソルの位置と合わないため)
- */
+// ダブルクリックは自分で数える(pointer lock の間は、ブラウザのクリック回数がカーソルの位置と合わない)
 export const createShell = ({apps, now = () => performance.now()}: Options) => {
   const entries: StartMenuEntry[] = apps.map((app) => ({appId: app.id}));
 
@@ -257,7 +245,6 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
         }
         return;
       }
-      // メニューの外を押したら閉じるだけ(押した先には届けない)
       set({startOpen: false, hoveredEntry: null});
       return;
     }
@@ -397,7 +384,6 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     entries: entries as readonly StartMenuEntry[],
     apps,
     getState: (): ShellState => state,
-    /** 状態が変わるたびに増える(描き直しの目安) */
     getVersion: (): number => version,
     subscribe: (listener: () => void): (() => void) => {
       listeners.add(listener);
@@ -418,7 +404,6 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     },
     launch,
     close,
-    /** PC から離れるとき。押しかけ・つかみかけだけ片付ける(窓の中身のものも。窓や開いたメニューはそのまま残す) */
     settle: (): void => {
       drag = null;
       captured = null;

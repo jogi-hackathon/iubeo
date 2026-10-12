@@ -41,7 +41,6 @@ const VIEW_SECONDS = 0.5;
 const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
-/** 電源を入れたとき(起動画面)の管の点き方。ふだんより、ゆっくり */
 const POWER_ON_RATE = 1.6;
 const POWER_ON_BOOT_RATE = 1.2;
 const PREWARM_DISTANCE = 4;
@@ -137,7 +136,6 @@ export function PcObject({object}: {object: GameObject}) {
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
     enabled: mine && session.pointer === "virtual",
-    // 電源が入っていない間(起動中も)は画面へ入力を送らないが、右クリックや Esc で離れることはできる
     using: using && session.pointer === "virtual",
     active: using && powered && session.pointer === "virtual",
     screen,
@@ -253,7 +251,6 @@ export function PcObject({object}: {object: GameObject}) {
 
 type BootDisplay = {screen: BootScreen; crt: CrtControls};
 
-/** 起動画面とその CRT。電源を入れる PC(部屋の PC)だけが要るので、起動している間だけ作る(作った effect の片付けで捨てる) */
 const useBootDisplay = (booting: boolean): BootDisplay | null => {
   const [boot, setBoot] = useState<BootDisplay | null>(null);
   useEffect(() => {
@@ -283,7 +280,6 @@ const approach = (
 const easeInOut = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
-/** 画面の正面に寄る距離。view.fill があれば、画面が視界のその割合を占める距離(縦と横のきつい方に合わせる) */
 const viewDistance = (
   program: PcProgram,
   camera: Camera,

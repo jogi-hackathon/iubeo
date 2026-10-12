@@ -44,7 +44,6 @@ export function TutorialFile({onTake}: {onTake: () => void}) {
     };
   }, []);
 
-  // 照準が合っている間は破線を止めて、黒の実線にする
   const aimed = useIsAimed(TUTORIAL_FILE_ID);
   useLayoutEffect(() => {
     const group = root.current;

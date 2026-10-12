@@ -42,7 +42,6 @@ function ObjectRoot({
     },
     [id, enabled],
   );
-  // 照準が合っている間は破線を止めて、黒の実線にする
   const aimed = useIsAimed(id);
   useEffect(() => {
     const root = group.current;

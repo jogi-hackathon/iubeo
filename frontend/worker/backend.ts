@@ -105,11 +105,7 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-/**
- * Voice Chat の env。Worker の env はコンテナへ自動で渡らないので、ここで明示的に載せる。
- * 3 つとも揃っているときだけ渡し、欠けていればサーバー側が「VC 無し」として動く(トークンは 200 で available: false)。
- * 署名だけなのでコンテナにインターネットは要らない(enableInternet: false のまま)
- */
+/** Worker の env はコンテナへ自動で渡らないため、ここで明示的に載せる */
 const voiceEnv = (env: Env): Record<string, string> => {
   const {IUBEO_VC_PRIVATE_KEY: key} = env;
   const signaling = env.IUBEO_VC_SIGNALING_URL;
@@ -148,13 +144,6 @@ async function proxyToEc2(request: Request): Promise<Response> {
   return fetch(forwarded);
 }
 
-/**
- * `ctx.exports` のうち、この Worker が使うもの。
- *
- * 共有の Durable Object 名を `env` のバインディングで持たせると、cf が
- * `script_name` 付きの binding を出力して自己参照でも deploy に失敗する。
- * そのためバインディングをやめ、`ctx.exports` から直接引く。
- */
 interface LoopbackExports {
   Backend: DurableObjectNamespace<Backend>;
 }

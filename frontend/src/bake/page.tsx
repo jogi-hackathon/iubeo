@@ -38,7 +38,6 @@ const SOFTWARE_RE =
 const isSceneName = (name: string): name is SceneName =>
   (sceneNames as string[]).includes(name);
 
-/** WebGPU が使えないと WebGPURenderer は黙って WebGL2 に落ちるので、確認して止める */
 const createRenderer = async (props: object) => {
   const renderer = new WebGPURenderer({
     ...(props as ConstructorParameters<typeof WebGPURenderer>[0]),
@@ -158,7 +157,6 @@ function Runner({
       onProgress({status: `エラー: ${error}`});
       window.__bakeResult = {ok: false, error, adapter};
     });
-    // マウント時に1回だけ走らせる(StrictMode は使っていない)
   }, [gl, scene, onProgress]);
 
   return null;
