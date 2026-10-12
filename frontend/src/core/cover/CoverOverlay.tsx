@@ -6,7 +6,7 @@ import {useCoverState} from "./coverStore";
 const TICK_MS = 100;
 
 export function CoverOverlay() {
-  const {covered, bar} = useCoverState();
+  const {covered, bar, booting} = useCoverState();
   const barShown = bar !== null;
   const [, tick] = useReducer((n: number) => n + 1, 0);
 
@@ -35,6 +35,9 @@ export function CoverOverlay() {
             }}
           />
         </div>
+      )}
+      {booting && (
+        <p className="cover-notice">このアプリでは音声が再生されます</p>
       )}
     </div>
   );

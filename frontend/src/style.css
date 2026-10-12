@@ -65,6 +65,20 @@ body,
   transition: width 0.4s ease-out;
 }
 
+.cover-notice {
+  position: absolute;
+  top: calc(50% + 20px);
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+  color: #999;
+  font:
+    12px / 1.4 ui-monospace,
+    Menlo,
+    monospace;
+  white-space: nowrap;
+}
+
 .boot-error {
   background: #111;
   color: #f88;
