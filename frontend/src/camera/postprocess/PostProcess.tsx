@@ -5,6 +5,7 @@ import type {Renderer, WebGPURenderer} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {getRenderScale, graphicsStore} from "../../core/graphics";
+import {updateDrawingBufferSize} from "../../core/screenPixel";
 import {proxyView} from "../../transition/dive/proxyView";
 import {updateGlitch} from "./glitchState";
 import {createPostProcessPipeline, type PostProcessPipeline} from "./pipeline";
@@ -39,6 +40,8 @@ export function PostProcess() {
   }, [gl, scene, camera]);
 
   useFrame(() => {
+    // scene pass の中でも画面のピクセルで模様を刻めるよう、描画バッファの大きさを渡す(core/screenPixel)
+    updateDrawingBufferSize(gl);
     if (proxyView.active) {
       proxyView.render(
         gl as unknown as WebGPURenderer,

@@ -12,8 +12,6 @@ import {
   mix,
   mod,
   pow,
-  screenCoordinate,
-  screenSize,
   select,
   smoothstep,
   time,
@@ -26,6 +24,7 @@ import type {Node, WebGPURenderer} from "three/webgpu";
 
 import type {PostProcessSettings} from "../../camera/postprocess/settings";
 import {cellHash} from "../../core/cellHash";
+import {drawingBufferSize, screenPixel} from "../../core/screenPixel";
 import {createSea} from "./sea";
 
 export const SKY_HORIZON = "#ffffff";
@@ -55,7 +54,7 @@ const skyColor = (dirY: Node<"float">): Node<"vec3"> => {
 };
 
 const rayDirection = (px: Node<"vec2">): Node<"vec3"> => {
-  const ndc = px.div(screenSize).mul(2).sub(1).mul(vec2(1, -1));
+  const ndc = px.div(drawingBufferSize).mul(2).sub(1).mul(vec2(1, -1));
   const view = cameraProjectionMatrixInverse.mul(vec4(ndc, 1, 1));
   return cameraWorldMatrix.mul(vec4(view.xyz.div(view.w), 0)).xyz.normalize();
 };
@@ -119,7 +118,8 @@ const createSkybox = (): Skybox => {
   let anomalyStartedAt = -Infinity;
 
   const sea = createSea();
-  const px = screenCoordinate.xy;
+  // 画面のピクセル。scene pass が内部解像度でも、ノイズのブロックと海の文字は画面のピクセルで刻む
+  const px = screenPixel;
   const dir = rayDirection(px);
   const layerAt = (dirY: Node<"float">): Node<"float"> =>
     max(
@@ -155,7 +155,7 @@ const createSkybox = (): Skybox => {
     vec2(shiftBlocks.mul(u.blockSize3), 0),
     vec2(0),
   );
-  const samplePx = px.add(offset).clamp(vec2(0), screenSize.sub(1));
+  const samplePx = px.add(offset).clamp(vec2(0), drawingBufferSize.sub(1));
   const base = skyColor(rayDirection(samplePx).y);
 
   const center1 = floor(samplePx.div(u.blockSize1)).add(0.5).mul(u.blockSize1);
