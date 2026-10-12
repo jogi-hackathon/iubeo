@@ -1,9 +1,9 @@
 import {useThree} from "@react-three/fiber";
 import {useEffect} from "react";
-import {type Mesh, Raycaster, Vector2} from "three/webgpu";
+import type {Mesh} from "three/webgpu";
 
-import type {CursorKind, ScreenModifiers, ScreenSource} from "./display/types";
-import {taskStore} from "./search/task";
+import {createPointerPick} from "./pointerPick";
+import type {CursorKind, ScreenModifiers, ScreenSource} from "./types";
 
 export type PcCursor = {x: number; y: number};
 
@@ -11,15 +11,14 @@ type Options = {
   enabled: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
-  memoRef: {readonly current: Mesh | null};
   cursor: PcCursor;
 };
 
-export function usePcPointer({
+/** 本物のマウスで画面を狙う(マウスの固定を外し、カーソルの下の画面の位置へ入力を送る) */
+export function useNativePointer({
   enabled,
   screen,
   screenRef,
-  memoRef,
   cursor,
 }: Options): void {
   const gl = useThree((s) => s.gl);
@@ -30,26 +29,10 @@ export function usePcPointer({
       return;
     }
     const canvas = gl.domElement;
-    const raycaster = new Raycaster();
-    const ndc = new Vector2();
+    const hitOf = createPointerPick(canvas, camera);
     let dragging = false;
     let captured: number | null = null;
     let hovering = false;
-
-    const hitOf = (event: PointerEvent | WheelEvent, target: Mesh | null) => {
-      if (!target) {
-        return null;
-      }
-      const rect = canvas.getBoundingClientRect();
-      ndc.set(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      camera.updateMatrixWorld();
-      raycaster.setFromCamera(ndc, camera);
-      const hit = raycaster.intersectObject(target, false)[0];
-      return hit?.uv ? hit : null;
-    };
 
     const screenPick = (event: PointerEvent | WheelEvent) => {
       const hit = hitOf(event, screenRef.current);
@@ -78,11 +61,6 @@ export function usePcPointer({
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (hitOf(event, memoRef.current)) {
-        event.preventDefault();
-        taskStore.draw();
-        return;
-      }
       const pick = screenPick(event);
       if (!pick) {
         return;
@@ -190,7 +168,7 @@ export function usePcPointer({
       canvas.removeEventListener("contextmenu", onContextMenu);
       canvas.style.cursor = "";
     };
-  }, [enabled, gl, camera, screen, screenRef, memoRef, cursor]);
+  }, [enabled, gl, camera, screen, screenRef, cursor]);
 }
 
 const cursorCss = (kind: CursorKind): string =>

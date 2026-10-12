@@ -1,15 +1,13 @@
 import {useFrame} from "@react-three/fiber";
-import {useCallback, useEffect, useMemo, useRef} from "react";
+import {useEffect, useMemo, useRef} from "react";
 import {Euler, Matrix4, type Mesh, Quaternion, Vector3} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
-import {itemManager} from "../../items/itemStore";
 import {getEyePosition, localPlayer} from "../../player";
 import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
-import {objectManager} from "../objectStore";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
 import {pcInteraction} from "./interaction";
@@ -20,26 +18,14 @@ import {
   registerPcScreen,
   usePortalScreenId,
 } from "./pcScreenRegistry";
-import {isSearchResultsUrl} from "./search/browser/browserChrome";
-import {prewarmEngine} from "./search/browser/engine";
-import {engineKeyboard, engineScreen} from "./search/browser/engineScreen";
-import {createSearchDeliverable} from "./search/deliverable";
-import {
-  CONFIRM_MS,
-  judgeAnnouncement,
-  judgeStore,
-  useJudge,
-} from "./search/judge";
-import {taskStore, useTask} from "./search/task";
+import {searchProgram} from "./search/SearchProgram";
 import {type PcPhase, pcSession, usePcSession} from "./session";
-import {type PcCursor, usePcPointer} from "./usePcPointer";
 
 const VIEW_SECONDS = 0.5;
 const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
 const PREWARM_DISTANCE = 4;
-const JUDGE_SETTLE_MS = 1200;
 
 const UP = new Vector3(0, 1, 0);
 const eye = new Vector3();
@@ -48,8 +34,8 @@ const euler = new Euler(0, 0, 0, "YXZ");
 
 export function PcObject({object}: {object: GameObject}) {
   const {item} = useLayoutSlot();
-  const screen = useMemo(() => engineScreen(), []);
-  const keyboard = useMemo(() => engineKeyboard(), []);
+  const program = searchProgram;
+  const screen = useMemo(() => program.screen(), [program]);
   const crt = useMemo(
     () => createCrtMaterial(screen.texture, screen.width, screen.height),
     [screen],
@@ -91,157 +77,15 @@ export function PcObject({object}: {object: GameObject}) {
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
-  const showing = session.objectId === object.id && session.phase !== "idle";
+  const mine = session.objectId === object.id;
+  const showing = mine && session.phase !== "idle";
 
   const screenRef = useRef<Mesh>(null);
-  const memoRef = useRef<Mesh>(null);
   const portalId = usePortalScreenId();
   useEffect(() => {
     const mesh = screenRef.current;
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
-  const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
-  usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
-
-  const judge = useJudge();
-  const task = useTask();
-  const mine = session.objectId === object.id;
-  const currentUrl = useRef("");
-  const judged = useRef<string | null>(null);
-  const settle = useRef<number | undefined>(undefined);
-  const deliverable = useMemo(
-    () =>
-      createSearchDeliverable({
-        interact: (id) => objectManager.interact(id),
-        held: () => itemManager.getHeld() !== null,
-      }),
-    [],
-  );
-
-  const judgeNow = useCallback(
-    (url: string) => {
-      window.clearTimeout(settle.current);
-      settle.current = undefined;
-      if (!url || url.startsWith("data:") || judged.current === url) {
-        return;
-      }
-      judged.current = url;
-      void (async () => {
-        const currentTask = taskStore.getTask();
-        const page = await screen.readPage?.();
-        if (!page) {
-          if (judged.current === url) {
-            judged.current = null;
-          }
-          judgeStore.fail(
-            currentTask,
-            url,
-            "今のページを読めません（エンジンが起動していない）",
-          );
-          return;
-        }
-        await judgeStore.run({task: currentTask, page});
-      })();
-    },
-    [screen],
-  );
-
-  const scheduleJudgement = useCallback(
-    (url: string) => {
-      window.clearTimeout(settle.current);
-      if (!url || url.startsWith("data:") || isSearchResultsUrl(url)) {
-        return;
-      }
-      currentUrl.current = url;
-      settle.current = window.setTimeout(() => judgeNow(url), JUDGE_SETTLE_MS);
-    },
-    [judgeNow],
-  );
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    screen.onPageChange = scheduleJudgement;
-    return () => {
-      screen.onPageChange = undefined;
-      window.clearTimeout(settle.current);
-    };
-  }, [using, screen, scheduleJudgement]);
-
-  useEffect(() => {
-    if (!using || !currentUrl.current) {
-      return;
-    }
-    judged.current = null;
-    scheduleJudgement(currentUrl.current);
-  }, [task, using, scheduleJudgement]);
-
-  useEffect(() => {
-    if (!mine) {
-      return;
-    }
-    const announcement = using ? judgeAnnouncement(judge) : null;
-    screen.setNotice?.(announcement?.lines ?? null, announcement?.tear);
-    if (!announcement) {
-      return;
-    }
-    const timer = window.setTimeout(
-      () => screen.setNotice?.(null),
-      announcement.ms,
-    );
-    return () => window.clearTimeout(timer);
-  }, [screen, mine, using, judge]);
-  useEffect(
-    () => () => {
-      if (mine) {
-        screen.setNotice?.(null);
-      }
-    },
-    [screen, mine],
-  );
-
-  useEffect(() => {
-    if (!using || judge.status !== "done" || judge.result.verdict !== "match") {
-      return;
-    }
-    const timer = window.setTimeout(() => pcSession.leave(), CONFIRM_MS);
-    return () => window.clearTimeout(timer);
-  }, [using, judge]);
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    deliverable.onJudge(judge, object.id);
-  }, [using, judge, object.id, deliverable]);
-
-  useEffect(() => {
-    if (!using) {
-      judgeStore.reset();
-      currentUrl.current = "";
-      judged.current = null;
-      window.clearTimeout(settle.current);
-      deliverable.reset();
-    }
-  }, [using, deliverable]);
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    void screen.boot();
-    keyboard.onActiveChange = (active) => {
-      if (!active) {
-        pcSession.leave();
-      }
-    };
-    keyboard.engage(screen);
-    return () => {
-      keyboard.onActiveChange = undefined;
-      keyboard.disengage();
-    };
-  }, [using, screen, keyboard]);
 
   const drive = useMemo(
     () => ({
@@ -301,7 +145,7 @@ export function PcObject({object}: {object: GameObject}) {
         pcPosition.set(...item.position),
       ) < PREWARM_DISTANCE
     ) {
-      prewarmEngine(location.search);
+      program.prewarm?.();
     }
 
     if (phase === "idle") {
@@ -315,18 +159,25 @@ export function PcObject({object}: {object: GameObject}) {
   }, FRAME_PRIORITY.camera);
 
   return (
-    <PcModel
-      screen={
-        portalId === object.id
-          ? getPortalMaterial()
-          : logoOn && !showing
-            ? logoCrt.material
-            : crt.material
-      }
-      screenRef={screenRef}
-      memoRef={memoRef}
-      showMemo={item.look !== "plain"}
-    />
+    <>
+      <program.Runner
+        object={object}
+        screen={screen}
+        using={using}
+        mine={mine}
+        screenRef={screenRef}
+      />
+      <PcModel
+        screen={
+          portalId === object.id
+            ? getPortalMaterial()
+            : logoOn && !showing
+              ? logoCrt.material
+              : crt.material
+        }
+        screenRef={screenRef}
+      />
+    </>
   );
 }
 

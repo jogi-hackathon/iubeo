@@ -1,12 +1,55 @@
-import {type Ref, useEffect, useLayoutEffect, useMemo} from "react";
+import {useThree} from "@react-three/fiber";
+import {type Ref, useEffect, useLayoutEffect, useMemo, useRef} from "react";
 import {CanvasTexture, type Mesh, SRGBColorSpace} from "three/webgpu";
 
+import {aoModeUserData} from "../../../bake/aoMode";
 import {MEMO} from "../dimensions";
+import {createPointerPick} from "../display/pointerPick";
 import {type TaskStore, taskStore, useTask} from "./task";
 
 const PIXELS = {width: 512, height: 358} as const;
 
 const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
+
+/** PC の左に置くお題のメモ(PC の座標系に置く)。clickable の間は、クリックで別のお題を引く */
+export function PcTaskMemo({
+  clickable = false,
+  store = taskStore,
+}: {
+  clickable?: boolean;
+  store?: TaskStore;
+}) {
+  const gl = useThree((s) => s.gl);
+  const camera = useThree((s) => s.camera);
+  const memoRef = useRef<Mesh>(null);
+
+  useEffect(() => {
+    if (!clickable) {
+      return;
+    }
+    const canvas = gl.domElement;
+    const hitOf = createPointerPick(canvas, camera);
+    const onPointerDown = (event: PointerEvent) => {
+      if (!hitOf(event, memoRef.current)) {
+        return;
+      }
+      event.preventDefault();
+      store.draw();
+    };
+    canvas.addEventListener("pointerdown", onPointerDown);
+    return () => canvas.removeEventListener("pointerdown", onPointerDown);
+  }, [clickable, gl, camera, store]);
+
+  return (
+    <group
+      position={[MEMO.x, 0, MEMO.z]}
+      rotation={[MEMO.tilt, 0, 0]}
+      userData={aoModeUserData("realtime")}
+    >
+      <TaskMemo ref={memoRef} store={store} />
+    </group>
+  );
+}
 
 export function TaskMemo({
   ref,

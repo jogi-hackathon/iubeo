@@ -7,6 +7,7 @@ import {createRenderer} from "../../core/renderer";
 import {createCrtMaterial} from "./crtMaterial";
 import {SCREEN_CANVAS} from "./display/resolution";
 import {PcModel} from "./PcModel";
+import {PcTaskMemo} from "./search/TaskMemo";
 
 interface View {
   label: string;
@@ -152,6 +153,7 @@ function Shot({view}: {view: View}) {
       <directionalLight position={[-6, 8, 10]} intensity={0.25} />
       <DeskTop />
       <PcModel screen={screen.material} screenRef={screenRef} />
+      <PcTaskMemo />
       <Ready />
     </Canvas>
   );
