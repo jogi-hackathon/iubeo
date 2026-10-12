@@ -113,7 +113,7 @@ room(LocalAuthority)にいる
   - 取り消し(DELETE)が 409 なら、既に成立している。そのまま成立として進む。取り消した後は、ポーリングの応答を捨てる。
   - 列に入る要求(POST)が返る前に取り消したら、返ってきた時点で待機列を抜ける(サーバーには入ってしまっているため)。
   - 成立したときに既に sandbox にいたら(待機中にデバッグパネルで移っていた)、移れないので error にする。room から start し直せば、参加中のセッションに戻れる。
-- シーンの移動(`navigator.enter`)は `scenes/sceneStore.ts` が結ぶ(`flow/` はシーンを import しない)。`goTo` は遷移中と起動の覆いの間は黙って無視するので、`enter` はそれらが終わるまで待ってから呼ぶ。
+- シーンの移動(`navigator.enter`)は `scenes/sceneStore.ts` が結ぶ(`flow/` はシーンを import しない)。`goTo` は遷移中と起動の覆いの間は呼ばれても何もしないので、`enter` はそれらが終わるまで待ってから呼ぶ。
 - どのシーンへの切り替えも、新しいシーンの準備完了まで白いオーバーレイで覆う。`LocalAuthority` は置き終わった時点、`ServerAuthority` は最初の snapshot を受け取って自分を置いた時点で準備完了。
   - 準備完了の条件は、シーンごとに表(`scenes/readiness.ts`)で型として決める(`authority` / `mount`。書き忘れるとコンパイルが通らない)。sandbox は、セッションがあれば `authority`、無ければ `mount`(建物だけで、マウントで足りる)。`mount` のシーンにだけ `ReportSceneReady` を置く(`App` と bake)。
   - `ServerAuthority` は、最初の snapshot の前に接続が終わっても、先に準備完了を報告する(覆いが外れなくなるのを避ける)。
