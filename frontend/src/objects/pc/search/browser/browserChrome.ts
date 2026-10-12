@@ -1,4 +1,4 @@
-export const SCREEN_CANVAS = {width: 960, height: 720} as const;
+import {SCREEN_CANVAS} from "../../display/resolution";
 
 export const TOOLBAR_HEIGHT = 56;
 

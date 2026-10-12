@@ -6,18 +6,13 @@ import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {itemManager} from "../../items/itemStore";
 import {getEyePosition, localPlayer} from "../../player";
-import {isSearchResultsUrl} from "../../screen/browserChrome";
-import {prewarmEngine} from "../../screen/engine";
-import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
 import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import {objectManager} from "../objectStore";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
-import {createSearchDeliverable} from "./deliverable";
 import {pcInteraction} from "./interaction";
-import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
 import {createLogoTexture} from "./logoScreen";
 import {PcModel} from "./PcModel";
 import {
@@ -25,8 +20,18 @@ import {
   registerPcScreen,
   usePortalScreenId,
 } from "./pcScreenRegistry";
+import {isSearchResultsUrl} from "./search/browser/browserChrome";
+import {prewarmEngine} from "./search/browser/engine";
+import {engineKeyboard, engineScreen} from "./search/browser/engineScreen";
+import {createSearchDeliverable} from "./search/deliverable";
+import {
+  CONFIRM_MS,
+  judgeAnnouncement,
+  judgeStore,
+  useJudge,
+} from "./search/judge";
+import {taskStore, useTask} from "./search/task";
 import {type PcPhase, pcSession, usePcSession} from "./session";
-import {taskStore, useTask} from "./task";
 import {type PcCursor, usePcPointer} from "./usePcPointer";
 
 const VIEW_SECONDS = 0.5;

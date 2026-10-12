@@ -83,7 +83,7 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 - wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`PcObject` の `prewarmEngine`）で先に取っておき、
   PC を開くときは blob URL としてエンジンに渡す。クリック時に残るのは展開とコンパイル（1 秒弱）だけ。
   33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
-  （`src/screen/engine.ts` の `prefetchEngineWasm`）
+  （`src/objects/pc/search/browser/engine.ts` の `prefetchEngineWasm`）
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
 
@@ -104,7 +104,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
 ```
 
 - 実 GPU の WebGPU が使える Chrome が要る（`pnpm bake:ao` と同じ）。ページは `pc.html`（dev 専用。build には入らない）
-- 撮影しているのは `src/pc/page.tsx`。視点や背景を変えたいときはここを直す
+- 撮影しているのは `src/objects/pc/page.tsx`。視点や背景を変えたいときはここを直す
 
 ### 本番の WISP（トークンで保護）
 
@@ -233,14 +233,14 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 | `judge/` | 検索の判定(Workers AI の Clef)の要求と応答。Worker(`worker/judge.ts`)からも使う |
 | `net/` | HTTP と WebSocket の接続、位置のバイナリ形式、OpenAPI から生成した型(`schema.gen.ts`) |
 | `objects/` | オーソリティが置くオブジェクト(`directory/`、`workspace/`、`canvas/`、`pc/`、`lighter_stand/`)と狙い・インタラクト |
-| `pc/` | PC の 3D モデルを撮るページ(`pc.html`。dev 専用) |
 | `player/` | プレイヤー操作・物理・スケルトン、他のプレイヤーの描画 |
 | `props/` | `BVHCollider` で包む基本プロップ |
 | `scenes/` | シーン定義と環境、シーンの切り替えと準備完了 |
-| `screen/` | PC の画面(Gecko エンジン、画面の合成、キー入力、WISP の接続先) |
 | `transition/` | シーン切り替えの演出(`dive/`) |
 | `tutorial/` | room のチュートリアルの手順と進み具合 |
 | `voice/` | ボイスチャット([docs/voice-chat.md](../docs/voice-chat.md)) |
+
+`objects/pc/` は、PC 本体(モデル・CRT・使っている状態・撮影ページの `page.tsx`)を直下に置き、`display/` に画面の約束(`ScreenSource`)・解像度・キー入力、`search/` に Web 検索(お題・判定・成果物と、`browser/` に Gecko・WISP の接続先)を置く。
 
 `worker/` は Cloudflare の Worker(`frontend.ts`・`backend.ts`・`wisp.ts`・`judge.ts`。`wispToken.ts` は WISP のトークンの検証)、`scripts/` は開発用のスクリプトと Vite のプラグイン。
 

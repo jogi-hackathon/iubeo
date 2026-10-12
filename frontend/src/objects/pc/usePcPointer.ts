@@ -2,12 +2,8 @@ import {useThree} from "@react-three/fiber";
 import {useEffect} from "react";
 import {type Mesh, Raycaster, Vector2} from "three/webgpu";
 
-import type {
-  CursorKind,
-  ScreenModifiers,
-  ScreenSource,
-} from "../../screen/types";
-import {taskStore} from "./task";
+import type {CursorKind, ScreenModifiers, ScreenSource} from "./display/types";
+import {taskStore} from "./search/task";
 
 export type PcCursor = {x: number; y: number};
 

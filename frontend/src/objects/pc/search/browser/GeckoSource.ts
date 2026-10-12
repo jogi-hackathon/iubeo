@@ -1,3 +1,9 @@
+import {
+  NO_MODIFIERS,
+  type ScreenKeyEvent,
+  type ScreenModifiers,
+  type ScreenPointerEvent,
+} from "../../display/types";
 import {CanvasScreenSource} from "./CanvasScreenSource";
 import {
   importEngine,
@@ -11,12 +17,6 @@ import {
   searchStartPage,
   type WispState,
 } from "./searchStartPage";
-import {
-  NO_MODIFIERS,
-  type ScreenKeyEvent,
-  type ScreenModifiers,
-  type ScreenPointerEvent,
-} from "./types";
 import {
   describeWispHost,
   resolveWispUrl,

@@ -1,4 +1,4 @@
-import {isEditableTarget} from "../core/input/useKeys";
+import {isEditableTarget} from "../../../core/input/useKeys";
 import {type ScreenKeyEvent, type ScreenSource, SYNTHETIC_KEY} from "./types";
 
 /**

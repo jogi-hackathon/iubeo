@@ -3,10 +3,10 @@ import {useEffect, useMemo} from "react";
 import {createRoot} from "react-dom/client";
 import {CanvasTexture, type Mesh, SRGBColorSpace} from "three/webgpu";
 
-import {createRenderer} from "../core/renderer";
-import {createCrtMaterial} from "../objects/pc/crtMaterial";
-import {PcModel} from "../objects/pc/PcModel";
-import {SCREEN_CANVAS} from "../screen/browserChrome";
+import {createRenderer} from "../../core/renderer";
+import {createCrtMaterial} from "./crtMaterial";
+import {SCREEN_CANVAS} from "./display/resolution";
+import {PcModel} from "./PcModel";
 
 interface View {
   label: string;

@@ -1,6 +1,6 @@
 import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
-import {SCREEN_CANVAS} from "../../screen/browserChrome";
+import {SCREEN_CANVAS} from "./display/resolution";
 
 // TODO: 仮のモックアップ。IUBEO のロゴができたら、文字の描画をやめて SVG を読み込んで描く形に置き換える
 export const createLogoTexture = (): CanvasTexture => {

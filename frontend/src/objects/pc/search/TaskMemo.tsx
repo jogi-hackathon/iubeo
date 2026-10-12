@@ -1,7 +1,7 @@
 import {type Ref, useEffect, useLayoutEffect, useMemo} from "react";
 import {CanvasTexture, type Mesh, SRGBColorSpace} from "three/webgpu";
 
-import {MEMO} from "./dimensions";
+import {MEMO} from "../dimensions";
 import {type TaskStore, taskStore, useTask} from "./task";
 
 const PIXELS = {width: 512, height: 358} as const;

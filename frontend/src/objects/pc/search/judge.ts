@@ -1,12 +1,12 @@
 import {useSyncExternalStore} from "react";
 
-import {normalizeJudgeRequest} from "../../judge/request";
+import {normalizeJudgeRequest} from "../../../judge/request";
 import type {
   JudgeRequest,
   JudgeResult,
   JudgeVerdict,
   PageSnapshot,
-} from "../../judge/types";
+} from "../../../judge/types";
 
 export type {JudgeRequest, JudgeResult, JudgeVerdict, PageSnapshot};
 

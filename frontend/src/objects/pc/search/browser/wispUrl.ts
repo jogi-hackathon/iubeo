@@ -1,4 +1,4 @@
-import {withPlayerCookie} from "../net/player";
+import {withPlayerCookie} from "../../../../net/player";
 
 export const WISP_TOKEN_PATH = "/api/v1/wisp/token";
 

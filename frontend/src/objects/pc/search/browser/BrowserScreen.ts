@@ -1,6 +1,15 @@
 import {CanvasTexture, SRGBColorSpace} from "three/webgpu";
 
-import type {PageSnapshot} from "../judge/types";
+import type {PageSnapshot} from "../../../../judge/types";
+import {SCREEN_CANVAS} from "../../display/resolution";
+import type {
+  CursorKind,
+  ScreenKeyEvent,
+  ScreenModifiers,
+  ScreenPointerEvent,
+  ScreenSource,
+  ScreenStatus,
+} from "../../display/types";
 import {
   type AddressEdit,
   addressDraftFor,
@@ -10,19 +19,10 @@ import {
   displayUrl,
   hitToolbar,
   normalizeAddress,
-  SCREEN_CANVAS,
   TOOLBAR_HEIGHT,
   TOOLBAR_LAYOUT,
 } from "./browserChrome";
 import {GeckoSource} from "./GeckoSource";
-import type {
-  CursorKind,
-  ScreenKeyEvent,
-  ScreenModifiers,
-  ScreenPointerEvent,
-  ScreenSource,
-  ScreenStatus,
-} from "./types";
 
 const URL_SYNC_MS = 500;
 const NAVIGATION_HOLD_MS = 10000;

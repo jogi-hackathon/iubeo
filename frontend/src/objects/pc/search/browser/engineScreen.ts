@@ -1,7 +1,7 @@
-import {SCREEN_CANVAS} from "./browserChrome";
+import {KeyboardCapture} from "../../display/KeyboardCapture";
+import {SCREEN_CANVAS} from "../../display/resolution";
+import type {ScreenSource} from "../../display/types";
 import {BrowserScreen} from "./BrowserScreen";
-import {KeyboardCapture} from "./KeyboardCapture";
-import type {ScreenSource} from "./types";
 
 export const SCREEN_RESOLUTION = SCREEN_CANVAS;
 

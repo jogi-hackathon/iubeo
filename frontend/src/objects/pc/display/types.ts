@@ -1,6 +1,6 @@
 import type {Texture} from "three/webgpu";
 
-import type {PageSnapshot} from "../judge/types";
+import type {PageSnapshot} from "../../../judge/types";
 
 export type CursorKind = "default" | "pointer" | "text";
 

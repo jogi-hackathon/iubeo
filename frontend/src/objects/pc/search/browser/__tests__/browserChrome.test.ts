@@ -1,5 +1,6 @@
 import {describe, expect, it} from "vitest";
 
+import {SCREEN_CANVAS} from "../../../display/resolution";
 import {
   type AddressEdit,
   addressDraftFor,
@@ -11,7 +12,6 @@ import {
   isSearchResultsUrl,
   normalizeAddress,
   removeLastChar,
-  SCREEN_CANVAS,
   SEARCH_PAGE_URL,
   searchUrlFor,
   TOOLBAR_HEIGHT,

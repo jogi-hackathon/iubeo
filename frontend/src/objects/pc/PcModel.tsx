@@ -7,7 +7,7 @@ import {aoModeUserData} from "../../bake/aoMode";
 import {HINGE, LAPTOP, LID, MEMO, SCREEN, TRACKPAD} from "./dimensions";
 import {KEY_CAP_GROUPS, KEYBOARD, type KeyCapGroup} from "./keyboard";
 import {createKeyCapGeometry} from "./keyCapGeometry";
-import {TaskMemo} from "./TaskMemo";
+import {TaskMemo} from "./search/TaskMemo";
 
 const SHELL = "#f3f3f3";
 const SHELL_DARK = "#dddddd";

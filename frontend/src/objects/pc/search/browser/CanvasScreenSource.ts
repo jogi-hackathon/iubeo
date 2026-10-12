@@ -8,7 +8,7 @@ import {
   type ScreenSource,
   type ScreenStatus,
   SYNTHETIC_KEY,
-} from "./types";
+} from "../../display/types";
 
 /**
  * 「ブラウザを 1 枚の canvas に描き、それをテクスチャとして読む」ための基底クラス。
