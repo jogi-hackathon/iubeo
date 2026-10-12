@@ -51,7 +51,6 @@ func (i *Issuer) Verify(token string) (string, bool) {
 	return i.VerifyWithGrace(token, 0)
 }
 
-// VerifyWithGrace は署名が正しく、期限が grace 以内に切れたトークンを受け付ける。
 func (i *Issuer) VerifyWithGrace(token string, grace time.Duration) (string, bool) {
 	payload, sig, ok := strings.Cut(token, ".")
 	if !ok {
