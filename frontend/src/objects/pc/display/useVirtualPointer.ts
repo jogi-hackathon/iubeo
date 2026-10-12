@@ -8,6 +8,7 @@ import {
   isPointerLocked,
   usePointerLocked,
 } from "../../../core/input";
+import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import type {VirtualCursor} from "../../../core/input/virtualCursor";
 import {NO_MODIFIERS, type ScreenModifiers, type ScreenSource} from "./types";
 
@@ -29,6 +30,7 @@ type Options = {
  * pointer lock を保ったまま、マウスの移動量で画面の上の仮想カーソルを動かす(俯瞰ビューと同じ動かし方)。
  * 右クリックは画面へ送らず、離れる合図にする(俯瞰ビューと同じ。lock が残るので、一人称に戻ってもクリックし直さなくてよい)。
  * 移動量は、画面が窓の上に映っている大きさで割る(窓の上での手応えが、本物のカーソルと揃う)。
+ * そこへ設定のマウスの感度を掛ける。
  * カーソルの位置は move として画面へ送るだけで、描くのは画面のソースの役目
  */
 export function useVirtualPointer({
@@ -52,7 +54,8 @@ export function useVirtualPointer({
     if (!active || !mesh || (dx === 0 && dy === 0)) {
       return;
     }
-    if (cursor.move(dx, dy, projectedSize(mesh, camera, size))) {
+    const k = mouseSettingsStore.getState().sensitivity;
+    if (cursor.move(dx * k, dy * k, projectedSize(mesh, camera, size))) {
       screen.pointer({
         type: "move",
         ...toScreen(cursor, screen),

@@ -20,6 +20,23 @@ var webSearchTopics = []string{
 	"Vite",
 	"wisp-js",
 	"Mercury Workshop",
+	"TypeScript",
+	"Golang",
+	"Cloudflare Workers",
+	"Durable Objects",
+	"WebSocket",
+	"WebGPU",
+	"Docker",
+	"GitHub Actions",
+	"六本木",
+	"虎ノ門",
+	"アドテク",
+	"デジタル広告",
+	"資産運用",
+	"長期投資",
+	"名古屋 天気",
+	"名古屋 観光",
+	"名古屋 グルメ",
 }
 
 func topicsOf(tasks []TaskState) []string {

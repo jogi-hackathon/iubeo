@@ -67,9 +67,17 @@ export interface ScreenSource {
   readPage?(): Promise<PageSnapshot | null>;
   onPageChange?: (url: string) => void;
   setNotice?(lines: readonly string[] | null, tear?: boolean): void;
+  /** 文字を入れる位置(画面の画素)。IME の変換候補をそこに出すのに使う */
+  caretPoint?(): ScreenCaret | null;
+  /** IME で変換中の文字(確定前)。変換していなければ null */
+  setComposition?(text: string | null): void;
+  /** 新しいタスクを始める(ブラウザなら、最初の検索画面へ戻す) */
+  startTask?(taskId: string): void;
 
   dispose(): void;
 }
+
+export type ScreenCaret = {x: number; y: number; height: number};
 
 export const NO_MODIFIERS: ScreenModifiers = {
   alt: false,

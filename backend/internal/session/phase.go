@@ -36,6 +36,17 @@ type TaskState struct {
 
 var creationTaskTypes = []api.TaskType{api.Write, api.WebSearch, api.ImageGeneration}
 
+// web_search は 1 人 1 フェーズにつき 1 件まで。2 件目以降はこちらから選ぶ
+var creationTaskTypesNoSearch = []api.TaskType{api.Write, api.ImageGeneration}
+
+func pickCreationType(r *rand.Rand, searched bool) api.TaskType {
+	types := creationTaskTypes
+	if searched {
+		types = creationTaskTypesNoSearch
+	}
+	return types[r.IntN(len(types))]
+}
+
 // 同じプレイヤーに同じファイルの read_edit を出してよい回数
 const sameFileLimit = 2
 
@@ -87,6 +98,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 	for i, pid := range alive {
 		used := map[string]int{}
 		var mine []string
+		searched := false
 		for range quota[i] {
 			t := TaskState{ID: taskID(number, len(tasks)+1), Assignee: pid}
 			if r.Float64() < readEditRate(number) {
@@ -102,7 +114,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 				}
 				switch {
 				case len(left) == 0:
-					t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
+					t.Type = pickCreationType(r, searched)
 				case len(contested) > 0 && r.Float64() < conflictRate(number):
 					t.TargetFileID = contested[r.IntN(len(contested))]
 				default:
@@ -113,7 +125,10 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 					mine = append(mine, t.TargetFileID)
 				}
 			} else {
-				t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
+				t.Type = pickCreationType(r, searched)
+			}
+			if t.Type == api.WebSearch {
+				searched = true
 			}
 			tasks = append(tasks, t)
 		}

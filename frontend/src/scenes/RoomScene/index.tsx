@@ -7,6 +7,7 @@ import {ManagedObjects} from "../../objects";
 import {Chair, useGridFloorMaterial, Wall} from "../../props";
 import {tutorialStore} from "../../tutorial";
 import {WhiteWorld} from "../environment/WhiteWorld";
+import {WindowCredits} from "./credits/WindowCredits";
 import {ROOM_INITIAL} from "./initial";
 import {
   CHAIR_POSITION,
@@ -44,12 +45,8 @@ function RoomProps() {
         visible={false}
         ao="realtime"
       />
-      <Chair
-        position={CHAIR_POSITION}
-        visible={chairVisible}
-        collidable={false}
-        ao="realtime"
-      />
+      <Chair position={CHAIR_POSITION} visible={chairVisible} ao="realtime" />
+      <WindowCredits windowVisible={windowVisible} />
     </>
   );
 }
@@ -63,7 +60,7 @@ function RoomProps() {
  * 初期状態は、ディレクトリの俯瞰ビューだけ機能 OFF(チュートリアルが後から ON にする。ファイルを持っているときの「入れる」は、これと関係なく動く)、他は全部表示・全部機能 ON。
  * Canvas の外からは getActiveToggles / useActiveToggles で参照できる。
  * 出し入れするイスとオブジェクトは、ベイクすると隠したあとも影が壁・床に残るので、AO は realtime にしてベイクしない(壁・床・天井だけをベイクする)。
- * 左の壁の窓は、専用のジオメトリができるまで何もはめない空洞(非表示にすると壁板でふさぐ)
+ * 左の壁の窓は、専用のジオメトリができるまで何もはめない空洞(非表示にすると壁板でふさぐ)。窓の前で外を見続けると、空にスタッフクレジットが流れる(./credits)
  */
 export function RoomScene() {
   const [toggles] = useState(() =>

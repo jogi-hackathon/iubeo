@@ -1,7 +1,7 @@
 import {Box3, Vector3} from "three";
 
 import type {Collider} from "../../core/bvh";
-import {GRAVITY, PHYSICS_STEP} from "../constants";
+import {GRAVITY} from "../constants";
 import {
   prepareSphereTargets,
   resolveSphere,
@@ -11,7 +11,17 @@ import {
 import {BONES, J, JOINT_COUNT, NECK} from "./joints";
 import {at} from "./pose";
 
+/**
+ * ラグドールの計算の刻み。プレイヤーの移動(PHYSICS_STEP)より粗くして軽くする。
+ * 描くときは writeRagdollPose で直前の 2 ステップの間を補間する
+ */
+export const RAGDOLL_STEP = 1 / 60;
 export const RAGDOLL_ITERATIONS = 8;
+/**
+ * 衝突は反復の何回に 1 回解くか(最後の反復では必ず解く)。
+ * 衝突がラグドールの計算のほとんどを占めるので、骨の長さを保つ反復より少なくする
+ */
+export const RAGDOLL_COLLIDE_EVERY = 4;
 export const RAGDOLL_DAMPING = 0.995;
 export const RAGDOLL_FRICTION = 0.6;
 export const RAGDOLL_JOINT_RADIUS = 0.06;
@@ -75,6 +85,8 @@ export interface Ragdoll {
   still: number;
   carry: number;
   pos: Float32Array;
+  /** 最後のステップを進める前の pos(描くときの補間用) */
+  last: Float32Array;
   prev: Float32Array;
   contact: Float32Array;
   rest: Float32Array;
@@ -86,6 +98,7 @@ export const createRagdoll = (): Ragdoll => ({
   still: 0,
   carry: 0,
   pos: new Float32Array(JOINT_COUNT * 3),
+  last: new Float32Array(JOINT_COUNT * 3),
   prev: new Float32Array(JOINT_COUNT * 3),
   contact: new Float32Array(JOINT_COUNT * 3),
   rest: new Float32Array(LINKS.length),
@@ -127,13 +140,14 @@ export const startRagdoll = (
         : i === J.lShoulder || i === J.rShoulder
           ? RAGDOLL_SHOULDER_PUSH
           : 0;
-    r.prev[i * 3] = wx - (velocity.x + pushX * push) * PHYSICS_STEP;
-    r.prev[i * 3 + 1] = wy - velocity.y * PHYSICS_STEP;
-    r.prev[i * 3 + 2] = wz - (velocity.z + pushZ * push) * PHYSICS_STEP;
+    r.prev[i * 3] = wx - (velocity.x + pushX * push) * RAGDOLL_STEP;
+    r.prev[i * 3 + 1] = wy - velocity.y * RAGDOLL_STEP;
+    r.prev[i * 3 + 2] = wz - (velocity.z + pushZ * push) * RAGDOLL_STEP;
   }
   for (const [k, [a, b]] of LINKS.entries()) {
     r.rest[k] = distance(r.pos, a, b);
   }
+  r.last.set(r.pos);
   r.active = true;
   r.sleeping = false;
   r.still = 0;
@@ -324,7 +338,9 @@ const substep = (
     satisfyLinks(r);
     separateLegs(r.pos);
     keepArmsOutOfTorso(r.pos);
-    collide(r, targets);
+    if ((RAGDOLL_ITERATIONS - 1 - iter) % RAGDOLL_COLLIDE_EVERY === 0) {
+      collide(r, targets);
+    }
   }
   stopTunneling(r, targets);
   applyFriction(r);
@@ -349,12 +365,24 @@ export const stepRagdoll = (
   near.expandByScalar(RAGDOLL_NEAR_MARGIN);
   const targets = prepareSphereTargets(colliders, near);
   r.carry += dt;
-  while (r.carry >= PHYSICS_STEP) {
-    r.carry -= PHYSICS_STEP;
-    const speed = substep(r, PHYSICS_STEP, targets);
-    r.still = speed < RAGDOLL_SLEEP_SPEED ? r.still + PHYSICS_STEP : 0;
+  while (r.carry >= RAGDOLL_STEP) {
+    r.carry -= RAGDOLL_STEP;
+    r.last.set(r.pos);
+    const speed = substep(r, RAGDOLL_STEP, targets);
+    r.still = speed < RAGDOLL_SLEEP_SPEED ? r.still + RAGDOLL_STEP : 0;
   }
   if (r.still >= RAGDOLL_SLEEP_SECONDS) {
     r.sleeping = true;
+  }
+};
+
+/**
+ * 描く姿勢を out に書く。計算の刻みは画面のフレームより粗いので、最後のステップの前後を余り時間(carry)で補間する
+ * (1 ステップ遅れて描く代わりに、フレームごとのステップ数のばらつきでカクつかない)
+ */
+export const writeRagdollPose = (r: Ragdoll, out: Float32Array): void => {
+  const t = Math.min(1, r.carry / RAGDOLL_STEP);
+  for (let i = 0; i < r.pos.length; i++) {
+    out[i] = at(r.last, i) + (at(r.pos, i) - at(r.last, i)) * t;
   }
 };

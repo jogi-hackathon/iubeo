@@ -5,7 +5,8 @@ import {SCREEN_CANVAS} from "./display/resolution";
 
 const BAR_BLOCKS = 20;
 
-const LOGO_INK = {x: 150, y: 1150, width: 5700, height: 1700};
+/** ロゴの SVG(6000×4000)のうち、線が描かれている範囲 */
+export const LOGO_INK = {x: 150, y: 1150, width: 5700, height: 1700};
 const LOGO_WIDTH = 280;
 
 /** 起動画面の時間割(ms)。黒いまま管が点く → ロゴが浮かぶ → 読み込みの棒が埋まる → 少し待って消える */

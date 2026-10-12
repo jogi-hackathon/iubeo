@@ -159,6 +159,23 @@ func TestPhaseReadEditPerPlayerCap(t *testing.T) {
 	}
 }
 
+func TestPhaseWebSearchAtMostOncePerPlayer(t *testing.T) {
+	for seed := range uint64(300) {
+		st := NewMultiplayerState("sess-1", []string{"p1", "p2", "p3"}, nil, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, seed)
+		st.player("p3").Life = api.Eliminated
+		st.startPhase(5, t0)
+		n := countBy(st.Phase.Tasks, func(t TaskState) string {
+			if t.Type != api.WebSearch {
+				return ""
+			}
+			return t.Assignee
+		})
+		if n["p1"] > 1 || n["p2"] > 1 {
+			t.Fatalf("seed %d: web_search per player = %v", seed, n)
+		}
+	}
+}
+
 func TestPhaseTaskCountGrowsSlowly(t *testing.T) {
 	var got []int
 	for number := 1; number <= 5; number++ {

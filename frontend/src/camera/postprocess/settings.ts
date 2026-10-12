@@ -45,6 +45,23 @@ export interface PostProcessSettings {
     intensity: number;
     smoothness: number;
   };
+  /**
+   * 物の縁の細い輪郭線(AO の pre-pass の法線・深度から)。depthThreshold は隣との奥行きの差の比、
+   * normalThreshold は 1 - dot(法線)。fadeStart〜fadeEnd(m)で薄くなる
+   */
+  contour: {
+    enabled: boolean;
+    strength: number;
+    depthThreshold: number;
+    normalThreshold: number;
+    fadeStart: number;
+    fadeEnd: number;
+  };
+  /** フィルムグレイン(画面の解像度で画素ごとのノイズ。バンディングを散らすディザも兼ねる)。amount は ±amount/2 */
+  grain: {
+    enabled: boolean;
+    amount: number;
+  };
   ao: {
     enabled: boolean;
     showOnly: boolean;
@@ -54,6 +71,14 @@ export interface PostProcessSettings {
     thickness: number;
     samples: number;
     resolutionScale: number;
+  };
+  /**
+   * 内部解像度(core/graphics の resolutionScale)から画面の解像度への引き伸ばし。FSR1(EASU + RCAS)。
+   * off はバイリニア(比較用)。sharpness は RCAS の強さ(0 が最大、2 で無し)
+   */
+  upscale: {
+    enabled: boolean;
+    sharpness: number;
   };
   bakedAO: {
     enabled: boolean;
@@ -84,6 +109,15 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     cellSize: 8,
   },
   vignette: {enabled: true, intensity: 0.25, smoothness: 0.6},
+  contour: {
+    enabled: true,
+    strength: 0.1,
+    depthThreshold: 0.02,
+    normalThreshold: 0.25,
+    fadeStart: 6,
+    fadeEnd: 25,
+  },
+  grain: {enabled: true, amount: 0.03},
   ao: {
     enabled: true,
     showOnly: false,
@@ -94,6 +128,7 @@ export const DEFAULT_POSTPROCESS_SETTINGS: PostProcessSettings = {
     samples: 16,
     resolutionScale: 0.5,
   },
+  upscale: {enabled: true, sharpness: 0.2},
   bakedAO: {enabled: true, intensity: 1},
 };
 

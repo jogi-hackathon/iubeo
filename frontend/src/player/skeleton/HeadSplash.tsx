@@ -16,6 +16,7 @@ import {
 import {Sprite, SpriteNodeMaterial} from "three/webgpu";
 
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {registerShaderSwatch} from "../../core/shaderSwatches";
 import {
   blockFireColor,
   snapFloat,
@@ -86,6 +87,9 @@ const createSplash = () => {
   sprite.raycast = () => {};
   return {sprite, origin, direction, elapsed, floorY};
 };
+
+// 死ぬまでマウントされないので、見本をウォームアップに描かせる。elapsed が負のままなので粒の大きさは 0
+registerShaderSwatch("headSplash", () => createSplash().sprite);
 
 export const floorBelow = (body: Ragdoll): number =>
   Math.min(at(body.pos, J.lToe * 3 + 1), at(body.pos, J.rToe * 3 + 1)) -

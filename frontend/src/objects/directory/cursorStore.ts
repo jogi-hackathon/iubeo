@@ -1,3 +1,4 @@
+import {mouseSettingsStore} from "../../core/input/mouseSettings";
 import {createVirtualCursor} from "../../core/input/virtualCursor";
 
 const cursor = createVirtualCursor();
@@ -11,7 +12,8 @@ export const moveOverviewCursor = (
   dy: number,
   viewport: {width: number; height: number},
 ): void => {
-  cursor.move(dx, dy, viewport);
+  const k = mouseSettingsStore.getState().sensitivity;
+  cursor.move(dx * k, dy * k, viewport);
 };
 
 export const subscribeCursor = cursor.subscribe;

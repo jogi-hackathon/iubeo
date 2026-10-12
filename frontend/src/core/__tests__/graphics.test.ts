@@ -1,8 +1,13 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 
-import {graphicsStore, parseGraphicsSettings} from "../graphics";
+import {
+  getDpr,
+  getRenderScale,
+  graphicsStore,
+  parseGraphicsSettings,
+} from "../graphics";
 
-const DEFAULTS = {resolutionScale: 0.75, fpsLimit: 60};
+const DEFAULTS = {resolutionScale: 0.5, fpsLimit: 60};
 
 const GRAPHICS_KEY = "iubeo:graphics";
 
@@ -38,6 +43,26 @@ describe("graphicsStore の配線", () => {
 
     graphicsStore.reset();
     expect(storage.map.has(GRAPHICS_KEY)).toBe(false);
+  });
+});
+
+describe("getDpr / getRenderScale", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("1 以下の resolutionScale は Canvas ではなく内部解像度で落とす", () => {
+    vi.stubGlobal("window", {devicePixelRatio: 2});
+    const s = {resolutionScale: 0.75, fpsLimit: 60};
+    expect(getDpr(s)).toBe(2);
+    expect(getRenderScale(s)).toBe(0.75);
+  });
+
+  it("1 を超える分(スーパーサンプリング)だけ Canvas を大きくする", () => {
+    vi.stubGlobal("window", {devicePixelRatio: 2});
+    const s = {resolutionScale: 1.5, fpsLimit: 60};
+    expect(getDpr(s)).toBe(3);
+    expect(getRenderScale(s)).toBe(1);
   });
 });
 
