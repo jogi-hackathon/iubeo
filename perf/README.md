@@ -46,7 +46,7 @@ cd ../backend && go test ./internal/session -run '^$' -bench . -benchmem -count 
 - ブラウザは Playwright の Chrome for Testing(WebGPU 有効)。このアプリは WebGPU のみ対応なので、WebGPU が取れない環境では計測できない。
 - 4G・CPU 制限は CDP のエミュレーション。実機の値ではなく、相対比較に使う。
 - 負荷試験は同じマシンで、サーバーと負荷を同時に動かす。RTT は tick(50ms)の位相に左右され、回ごとに 40〜47ms ほど揺れる。**1 回では判断しない**。
-- 見た目の比較は、同じ条件で 2 回撮って差の大きさ(ノイズの床)を先に測ってから判断する(`NOTES.md` 参照)。
+- 見た目の比較は、同じ条件で 2 回撮って差の大きさ(ノイズフロア)を先に測ってから判断する(`NOTES.md` 参照)。
 
 ## ファイル
 
@@ -63,7 +63,7 @@ cd ../backend && go test ./internal/session -run '^$' -bench . -benchmem -count 
 
 ## コンソールをきれいに保つ
 
-エラー・警告が出ていると、本物の異常が見えなくなる。次の 3 つを定期的に見て、0 件を保つ:
+エラー・警告が出ていると、本物の異常が見えなくなる。次の 3 つを定期的に見て、0 件を保つ。
 
 ```sh
 node perf/lib/console-audit.mjs --url http://localhost:5173                      # 開発サーバー(room)

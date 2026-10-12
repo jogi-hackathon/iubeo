@@ -27,7 +27,7 @@ ALB・ECS・NAT・ACM は使いません。
 - ブラウザ → `wss://<公開オリジン>/wisp/` → WISP Worker → `target` が `ec2` ならこの 8081 へ流す。
   それ以外は Cloudflare のコンテナ（iubeo-wisp）へ流すフォールバックになる
 - トークンの検証は WISP 側が行う（`/etc/iubeo/wisp-env` の `IUBEO_WISP_KEY` + `IUBEO_WISP_REQUIRE_TOKEN=1`）。
-  セキュリティグループは Cloudflare 帯だけだが、CF の IP は世界中で共有されるので検証を握りつぶさない
+  セキュリティグループは Cloudflare 帯だけだが、CF の IP は世界中で共有されるので検証を省かない
 - トークンの発行は EC2 の backend が行う（`/etc/iubeo/env` の `IUBEO_WISP_*`）。
   `wisp_enabled = true` で有効にすると、プレイヤーの Cookie がある人（ルームに入った人）に発行する。
   false だと backend はトークンを発行しない（WISP は動くが全て拒否する）
@@ -42,7 +42,7 @@ Cloudflare の Worker（`iubeo-backend` / `iubeo-wisp`）は、KV の `target` �
 ## つけっぱなしにする
 
 `auto_stop_hours = 0` にすると、`/ec2start` は起動と `target` の切り替えだけを行い、自動停止の予約を作りません。
-停止は明示的に `/ec2stop`（または `{"action": "stop"}` の直接 invoke）を実行するまで来ません。
+停止は、明示的に `/ec2stop`（または `{"action": "stop"}` の直接 invoke）を実行するまで行われません。
 
 - `AUTO_STOP_HOURS` が `0` 以下（または数値でない）なら予約を作らず、Discord には「自動停止は無効」と投稿します
 - 予約の作り直しはしないので、無効化する前に作られた予約が残っていれば消します（`/ec2start` のたびに消してから作る）
@@ -91,7 +91,7 @@ Discord の interactions エンドポイントには `control_function_url` を�
 - `user_data` を変えてもインスタンスは作り直しません（`user_data_replace_on_change = false`）。反映は手で行います。
   とくに `/etc/iubeo/env` は**初回起動時にしか作らない**（署名鍵と WISP 鍵を作り直さないため）。
   そのため、あとから足した env（例: `IUBEO_VC_*`）は既存インスタンスには入らず、`deploy_command`
-  （イメージの入れ替え）でも入りません。反映するには次のどちらか:
+  （イメージの入れ替え）でも入りません。反映するには次のどちらかを行います。
 
   - **作り直す**: `terraform apply -replace=aws_instance.backend`
     （EIP はそのまま。署名鍵と WISP 鍵は生成し直しになるので、プレイヤーの Cookie は無効になる）
@@ -105,7 +105,7 @@ Discord の interactions エンドポイントには `control_function_url` を�
     ```
 
   検索の Brave Search API キー（`IUBEO_BRAVE_API_KEY`）も同じ要領で `/etc/iubeo/env` に足せます。
-  未設定なら `/api/v1/search/page` は検索せず Yahoo! JAPAN の検索結果へ 302 で飛ばすので、キーが無くても壊れません
+  未設定なら `/api/v1/search/page` は検索せず Yahoo! JAPAN の検索結果へ 302 で飛ばすので、キーが無くても動かなくなることはありません
   （テンプレートには入れていない。キーは Terraform の変数に通さず手で入れる）。
 
   反映できたかは、セッション中に `GET /api/v1/voice/token` が `available: true` を返すことで確かめます
