@@ -12,7 +12,7 @@ import {type Sheet} from "./mountain";
 import {createPaperMaterial, setSheetInfo} from "./paperMaterial";
 import type {DirectoryModel} from "./useDirectory";
 
-const CORE_COLOR = "#e4e4e1";
+const CORE_COLOR = "#ffffff";
 
 const createCoreMaterial = (): MeshStandardNodeMaterial => {
   const m = new MeshStandardNodeMaterial({flatShading: true});
