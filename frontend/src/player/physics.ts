@@ -1,5 +1,5 @@
-import {Box3, Line3, Matrix4, Vector3} from "three";
-import type {ExtendedTriangle} from "three-mesh-bvh";
+import {Box3, DoubleSide, Line3, Matrix4, Ray, Vector3} from "three";
+import {type ExtendedTriangle, MeshBVH} from "three-mesh-bvh";
 
 import type {Collider} from "../core/bvh";
 import {
@@ -135,6 +135,132 @@ export const resolveCollisions = (
   }
 
   return out.subVectors(segment.start, before);
+};
+
+export interface SphereTarget {
+  bvh: MeshBVH;
+  matrixWorld: Matrix4;
+  inverse: Matrix4;
+  scale: number;
+}
+
+const worldBox = new Box3();
+
+export const prepareSphereTargets = (
+  colliders: readonly Collider[],
+  near: Box3,
+): SphereTarget[] => {
+  const targets: SphereTarget[] = [];
+  for (const {mesh, enabled} of colliders) {
+    if (!enabled) {
+      continue;
+    }
+    const bvh = mesh.geometry.boundsTree;
+    if (!(bvh instanceof MeshBVH)) {
+      warnMissingBvh(mesh);
+      continue;
+    }
+    mesh.updateWorldMatrix(true, false);
+    bvh.getBoundingBox(worldBox).applyMatrix4(mesh.matrixWorld);
+    if (!worldBox.intersectsBox(near)) {
+      continue;
+    }
+    targets.push({
+      bvh,
+      matrixWorld: mesh.matrixWorld,
+      inverse: mesh.matrixWorld.clone().invert(),
+      scale: scaleVec.setFromMatrixScale(mesh.matrixWorld).x,
+    });
+  }
+  return targets;
+};
+
+const center = new Vector3();
+const sphereBox = new Box3();
+let localRadius = 0;
+
+const pushSphereOut = (tri: ExtendedTriangle): void => {
+  tri.closestPointToPoint(center, triPoint);
+  push.subVectors(center, triPoint);
+  const dist = push.length();
+  if (dist >= localRadius) {
+    return;
+  }
+  if (dist > 1e-6) {
+    push.divideScalar(dist);
+  } else {
+    push.copy(tri.getNormal(normal));
+  }
+  center.addScaledVector(push, localRadius - dist);
+};
+
+const sphereCast = {
+  intersectsBounds: (box: Box3) => box.intersectsBox(sphereBox),
+  intersectsTriangle: pushSphereOut,
+};
+
+export const resolveSphere = (
+  position: Vector3,
+  radius: number,
+  targets: readonly SphereTarget[],
+  out: Vector3,
+): Vector3 => {
+  before.copy(position);
+  center.copy(position);
+
+  for (const {bvh, matrixWorld, inverse: toLocal, scale} of targets) {
+    localRadius = radius / scale;
+    center.applyMatrix4(toLocal);
+    sphereBox.min.copy(center).addScalar(-localRadius);
+    sphereBox.max.copy(center).addScalar(localRadius);
+    bvh.shapecast(sphereCast);
+    center.applyMatrix4(matrixWorld);
+  }
+
+  return out.subVectors(center, before);
+};
+
+const ray = new Ray();
+const sweepEnd = new Vector3();
+const hitNormal = new Vector3();
+
+export const sweepSphere = (
+  from: Vector3,
+  to: Vector3,
+  radius: number,
+  targets: readonly SphereTarget[],
+): boolean => {
+  let nearest = Infinity;
+  for (const {bvh, matrixWorld, inverse: toLocal} of targets) {
+    ray.origin.copy(from).applyMatrix4(toLocal);
+    sweepEnd.copy(to).applyMatrix4(toLocal);
+    ray.direction.subVectors(sweepEnd, ray.origin);
+    const far = ray.direction.length();
+    if (far < 1e-9) {
+      continue;
+    }
+    ray.direction.divideScalar(far);
+    const hit = bvh.raycastFirst(ray, DoubleSide, 0, far);
+    if (!hit?.face) {
+      continue;
+    }
+    hit.point.applyMatrix4(matrixWorld);
+    const distance = hit.point.distanceTo(from);
+    if (distance >= nearest) {
+      continue;
+    }
+    nearest = distance;
+    hitNormal.copy(hit.face.normal).transformDirection(matrixWorld);
+    if (hitNormal.dot(sweepEnd.subVectors(to, from)) > 0) {
+      hitNormal.negate();
+    }
+    center.copy(hit.point).addScaledVector(hitNormal, radius);
+  }
+  if (nearest === Infinity) {
+    return false;
+  }
+  to.copy(center);
+  return true;
 };
 
 export const stepPlayer = (

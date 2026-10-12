@@ -3,7 +3,7 @@ import {MeshBasicNodeMaterial, Vector2} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {crtEffect} from "../../objects/pc/crtMaterial";
-import {SCREEN_CANVAS} from "../../screen/browserChrome";
+import {SCREEN_CANVAS} from "../../objects/pc/display/resolution";
 import {proxyView} from "./proxyView";
 
 export const portalCrt = {

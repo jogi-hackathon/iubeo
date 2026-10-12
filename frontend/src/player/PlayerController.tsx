@@ -4,6 +4,7 @@ import {listColliders} from "../core/bvh";
 import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
+import {mouseSettingsStore} from "../core/input/mouseSettings";
 import {isPlayerControlLocked} from "../core/playerControl";
 import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
@@ -31,7 +32,7 @@ export function PlayerController() {
       return;
     }
     const {dx, dy} = consumeLookDelta();
-    applyLook(localPlayer, dx, dy);
+    applyLook(localPlayer, dx, dy, mouseSettingsStore.getState().sensitivity);
     const k = keys.current;
     input.forward = k.has("KeyW");
     input.back = k.has("KeyS");

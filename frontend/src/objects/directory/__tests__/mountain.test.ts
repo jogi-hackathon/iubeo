@@ -1,4 +1,4 @@
-import {Vector3} from "three";
+import {Euler, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
 import {
@@ -11,6 +11,7 @@ import {
   mountainHeightMax,
   mountainReach,
   mountainViewHeight,
+  mountainViewOffset,
   OUTPUT_MAX,
   PAPERS,
   VIEW_HEIGHT,
@@ -174,14 +175,12 @@ describe("buildMountain", () => {
       expect(tilts.some((t) => t > 0.7)).toBe(true);
     });
 
-    it("差し色は、はみ出し紙のごく少数だけ。束(箱)は全て紙の白", () => {
+    it("束・成果物の板・はみ出す紙は、全て紙の白", () => {
       for (const seed of SEEDS) {
         const m = buildMountain(seed);
-        for (const s of [...m.sheets, ...m.outputSheets]) {
+        for (const s of [...m.sheets, ...m.outputSheets, ...m.looseSheets]) {
           expect(PAPER).toContain(s.color);
         }
-        const accents = m.looseSheets.filter((l) => !PAPER.includes(l.color));
-        expect(accents.length).toBeLessThanOrEqual(m.looseSheets.length * 0.3);
       }
     });
 
@@ -277,6 +276,7 @@ describe("山の大きさ", () => {
       radiusTop: 0.6,
       heightMin: 4.6,
       heightMax: 5.4,
+      half: false,
     });
     expect(mountainReach("large")).toBe(MOUNTAIN_REACH);
     expect(mountainHeightMax("large")).toBe(MOUNTAIN_HEIGHT_MAX);
@@ -382,11 +382,43 @@ describe("buildMountain(small)", () => {
               m.tierRadii,
               m.tierHeight,
               mountainViewHeight("small"),
+              mountainViewOffset("small"),
             ),
           ).toBe(true);
         }
       }
     });
+  });
+
+  it("壁に背を付けた半分の山で、芯・束・成果物の板・はみ出す紙のどれも壁(z=0)の向こうへ出ない", () => {
+    const euler = new Euler();
+    const v = new Vector3();
+    for (const seed of MANY) {
+      const m = buildMountain(seed, "small");
+      for (let i = 2; i < m.core.positions.length; i += 3) {
+        expect(m.core.positions[i]).toBeGreaterThanOrEqual(-1e-9);
+      }
+      const boxes = [
+        ...[...m.sheets, ...m.outputSheets].map((s) => ({
+          ...s,
+          rotation: [0, s.yaw, 0] as const,
+        })),
+        ...m.looseSheets,
+      ];
+      for (const b of boxes) {
+        euler.set(b.rotation[0], b.rotation[1], b.rotation[2], "YXZ");
+        for (const sx of [-0.5, 0.5]) {
+          for (const sy of [-0.5, 0.5]) {
+            for (const sz of [-0.5, 0.5]) {
+              v.set(sx * b.size[0], sy * b.size[1], sz * b.size[2])
+                .applyEuler(euler)
+                .add(new Vector3(...b.position));
+              expect(v.z).toBeGreaterThan(0);
+            }
+          }
+        }
+      }
+    }
   });
 
   it("成果物の板は、置き場の数(large の上限より少ない)だけ用意される", () => {

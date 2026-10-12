@@ -9,6 +9,7 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/config"
 	"github.com/jogi-hackathon/iubeo/backend/internal/matchmaking"
 	"github.com/jogi-hackathon/iubeo/backend/internal/player"
+	"github.com/jogi-hackathon/iubeo/backend/internal/search"
 	"github.com/jogi-hackathon/iubeo/backend/internal/server"
 	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 	"github.com/jogi-hackathon/iubeo/backend/internal/voice"
@@ -38,6 +39,9 @@ func main() {
 	)
 	if cfg.WispKey != nil {
 		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL)
+	}
+	if cfg.BraveAPIKey != "" {
+		srv.WithSearch(search.NewCached(search.NewBrave(cfg.BraveAPIKey, ""), time.Now))
 	}
 	if cfg.VCSeed != nil {
 		issuer, err := voice.NewIssuer(cfg.VCSeed, "", voice.DefaultTTL, time.Now)

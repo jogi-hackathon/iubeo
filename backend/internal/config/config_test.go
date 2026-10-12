@@ -210,3 +210,25 @@ func TestLoadWisp(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadBraveAPIKey(t *testing.T) {
+	base := map[string]string{
+		"IUBEO_SIGNING_KEY":     validKey,
+		"IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+	}
+	cfg, err := Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BraveAPIKey != "" {
+		t.Errorf("BraveAPIKey = %q, want empty when unset", cfg.BraveAPIKey)
+	}
+	base["IUBEO_BRAVE_API_KEY"] = "brave-key"
+	cfg, err = Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BraveAPIKey != "brave-key" {
+		t.Errorf("BraveAPIKey = %q, want brave-key", cfg.BraveAPIKey)
+	}
+}

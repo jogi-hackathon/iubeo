@@ -148,7 +148,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
           "status": "pending", "completedAt": null },
         { "taskId": "task-2-2", "type": "write", "assigneePlayerId": "p1", "targetFileId": null,
           "status": "completed", "completedAt": "2026-10-01T12:02:34Z" },
-        { "taskId": "task-2-3", "type": "web_search", "assigneePlayerId": "p2", "targetFileId": null,
+        { "taskId": "task-2-3", "type": "web_search", "assigneePlayerId": "p2", "targetFileId": null, "topic": "Vite",
           "status": "pending", "completedAt": null },
         { "taskId": "task-2-4", "type": "image_generation", "assigneePlayerId": "p2", "targetFileId": null,
           "status": "pending", "completedAt": null }
@@ -220,6 +220,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 - 第 n フェーズの全体の件数は **n × セッション開始時の人数**。
 - 生存者で均等に割り、端数は乱数で選んだ生存者に 1 件ずつ足す。脱落者が出たら、全体の件数はそのままで生存者に再分配する(例: 3 人で始めて 1 人脱落 → 第3フェーズは 9 件を 4・5 件に分ける)。
 - 種類は `read_edit` / `write` / `web_search` / `image_generation` の 4 つから均等に乱数で選ぶ。
+- `web_search` のタスクには `topic`(お題の語)を割り当てる。お題はタスクごとに、同じフェーズの中では なるべく別の語になるように選ぶ(候補を使い切ったら重複を許す)。お題は他の抽選の後に引く(先に引くと、同じ seed の結果が変わるため)。
 - `read_edit` の `targetFileId` は在庫のファイルから乱数で選ぶ。**別のプレイヤーとは重なってよい**。同じファイルが要る人どうしで取り合いになり、「今それ編集しようとしてたのに」というコンフリクトを起こすため。同じプレイヤーの中では重複させず、自分の分で在庫を使い切ってから `read_edit` を引いたら、`write` / `web_search` / `image_generation` から乱数で選び直す(read_edit 以外の割合をなるべく崩さないため)。在庫はフェーズごとに初期状態に戻る。
 - 同じファイルを何人もが編集できるように、編集済み(`edited`)は持っている間だけの状態にする。ディレクトリに入れたら(達成の判定の後で)`unedited` に戻し、次の人がまた取り出して編集できる。達成にならないまま入れた場合も、切断で戻った場合も同じく `unedited` に戻る(編集は無駄になる)。
 - タスクの id は `task-{フェーズ番号}-{連番}`。乱数はセッションごとの種から作り、状態に持って進める(規則の関数を純粋に保つため)。
@@ -258,7 +259,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 #### 5.4.2 PC(検索)
 
-PC は各プレイヤーの区画にある personal のオブジェクト(`pc-{席}`)。検索がお題に合っているかの判定はクライアントが行い、合ったときに `interact` を送る。アクションは 2 秒(`PcActionDuration`)かかり、結果はその後に反映する。
+PC は各プレイヤーの区画にある personal のオブジェクト(`pc-{席}`)。検索がお題に合っているかの判定はクライアントが行い、合ったときに `interact` を送る。お題は、PC の持ち主の未完了の `web_search` タスクのうち先頭のもの(`topic`)。メモに出し、判定にも使う。PC を使えるのは持ち主だけ。完了すると次の未完了タスクのお題になり、無ければメモは「なし」で判定しない。アクションは 2 秒(`PcActionDuration`)かかり、結果はその後に反映する。
 
 - 手ぶらで `interact` → 2 秒後に、新しいファイル(`search_created`。色なし)を手に持つ。id はサーバーが UUID で採番する
 - 何かを持っていると `missing_item`(新しいファイルを手に持つので、手が空いている必要がある)、作業中は `unavailable` で拒否する。他人の PC は `not_owner`(共通の検証)

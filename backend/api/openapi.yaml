@@ -26,6 +26,7 @@ tags:
   - name: sessions
   - name: tutorial
   - name: wisp
+  - name: search
 
 paths:
   /healthz:
@@ -111,6 +112,72 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/Unavailable"
+
+  /api/v1/search/page:
+    get:
+      tags: [search]
+      operationId: getSearchPage
+      summary: ゲーム内ブラウザ向けの検索結果ページを返す
+      description: |
+        ゲーム内ブラウザ(WISP 経由の Firefox)は Cookie を送れないので、`GET /api/v1/wisp/token` で
+        得た WISP トークン(`t`)で認証する。WISP を設定していないサーバー(ローカル開発)では `t` は要らない。
+        検索結果は Brave Search API から取り、HTML のページとして返す。結果のリンクは実サイトへの直リンク。
+        トークンは期限切れの直後(1 時間以内)まで受け付ける(スタート画面のフォームが古いトークンを持つことがあるため)。
+        `IUBEO_BRAVE_API_KEY` を設定していないサーバー(ローカル開発)では、検索せずに Yahoo! JAPAN の検索結果へ 302 で飛ばす。
+        1 プレイヤーあたり 1 分に 10 回まで(302 の場合も数える)。
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 検索語(先頭と末尾の空白を除き、200 文字まで使う)
+          schema:
+            type: string
+        - name: t
+          in: query
+          required: false
+          description: WISP トークン(WISP を設定しているサーバーでは必須)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 検索結果の HTML ページ
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: 検索語が空、または空白だけ(HTML のエラーページ)
+          content:
+            text/html:
+              schema:
+                type: string
+        "401":
+          description: WISP トークンが無い、または無効・期限切れ(HTML のエラーページ)
+          content:
+            text/html:
+              schema:
+                type: string
+        "429":
+          description: 1 分あたりの検索回数の上限を超えた(HTML のエラーページ)
+          content:
+            text/html:
+              schema:
+                type: string
+        "502":
+          description: 検索プロバイダーの応答が無い、または失敗した(HTML のエラーページ。Brave Search へのリンクを載せる)
+          content:
+            text/html:
+              schema:
+                type: string
+        "302":
+          description: 検索が設定されていない(`IUBEO_BRAVE_API_KEY` が無い)ので、Yahoo! JAPAN の検索結果へ飛ばす
+          headers:
+            Location:
+              description: "`https://search.yahoo.co.jp/search?p=<q をエンコードしたもの>`"
+              schema:
+                type: string
+                format: uri
 
   /api/v1/tutorial/presence:
     post:
@@ -620,6 +687,10 @@ components:
           $ref: "#/components/schemas/PlayerId"
         targetFileId:
           description: read_edit のときだけ。対象の在庫ファイルの id
+          type: string
+          nullable: true
+        topic:
+          description: web_search のときだけ。検索するお題の語。タスクごとにサーバーが決める
           type: string
           nullable: true
         status:

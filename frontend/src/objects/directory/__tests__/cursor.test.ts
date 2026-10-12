@@ -1,7 +1,8 @@
 import {Quaternion, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
-import {CENTER_CURSOR, cursorRay, moveCursor} from "../cursor";
+import {CENTER_CURSOR} from "../../../core/input/virtualCursor";
+import {cursorRay} from "../cursor";
 import {createFileAssigner, pickFile, plateOf} from "../fileAssign";
 import {buildMountain, MOUNTAIN_HEIGHT_MAX, MOUNTAIN_REACH} from "../mountain";
 import {
@@ -12,32 +13,6 @@ import {
 
 const FOV = CAMERA_FOV;
 const ASPECTS = [16 / 9, 4 / 3];
-const VIEWPORT = {width: 1600, height: 900};
-
-describe("moveCursor", () => {
-  it("中央から始まる", () => {
-    expect(CENTER_CURSOR).toEqual({x: 0, y: 0});
-  });
-
-  it("移動量は画面のピクセル数で NDC に直す(右で右、下で下)", () => {
-    const c = moveCursor({x: 0, y: 0}, 400, 90, VIEWPORT);
-    expect(c.x).toBeCloseTo(0.5);
-    expect(c.y).toBeCloseTo(-0.2);
-  });
-
-  it("左・上へは逆向きに動く", () => {
-    const c = moveCursor({x: 0, y: 0}, -160, -45, VIEWPORT);
-    expect(c.x).toBeCloseTo(-0.2);
-    expect(c.y).toBeCloseTo(0.1);
-  });
-
-  it("画面の外には出ない", () => {
-    const c = moveCursor({x: 0.9, y: -0.9}, 1e6, 1e6, VIEWPORT);
-    expect(c).toEqual({x: 1, y: -1});
-    moveCursor(c, -1e6, -1e6, VIEWPORT);
-    expect(c).toEqual({x: -1, y: 1});
-  });
-});
 
 describe("cursorRay", () => {
   const pose = computeOverviewPose([0, 0, 0], 0.4);

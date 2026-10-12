@@ -1,40 +1,46 @@
 import {useFrame} from "@react-three/fiber";
-import {useCallback, useEffect, useMemo, useRef} from "react";
-import {Euler, Matrix4, type Mesh, Quaternion, Vector3} from "three/webgpu";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {
+  type Camera,
+  Euler,
+  Matrix4,
+  type Mesh,
+  Quaternion,
+  Vector3,
+} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
-import {itemManager} from "../../items/itemStore";
+import {createVirtualCursor} from "../../core/input/virtualCursor";
 import {getEyePosition, localPlayer} from "../../player";
-import {isSearchResultsUrl} from "../../screen/browserChrome";
-import {prewarmEngine} from "../../screen/engine";
-import {engineKeyboard, engineScreen} from "../../screen/engineScreen";
-import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
-import {objectManager} from "../objectStore";
 import type {GameObject} from "../types";
-import {createCrtMaterial} from "./crtMaterial";
-import {createSearchDeliverable} from "./deliverable";
+import {BootScreen} from "./bootScreen";
+import {type CrtControls, createCrtMaterial} from "./crtMaterial";
+import {SCREEN} from "./dimensions";
+import {type PcCursor, useNativePointer} from "./display/useNativePointer";
+import {useVirtualPointer} from "./display/useVirtualPointer";
 import {pcInteraction} from "./interaction";
-import {CONFIRM_MS, judgeAnnouncement, judgeStore, useJudge} from "./judge";
-import {createLogoTexture} from "./logoScreen";
 import {PcModel} from "./PcModel";
 import {
   getPortalMaterial,
   registerPcScreen,
   usePortalScreenId,
 } from "./pcScreenRegistry";
+import {pcPower, usePcPower} from "./power";
+import type {PcProgram} from "./program";
+import {programOf} from "./programs";
 import {type PcPhase, pcSession, usePcSession} from "./session";
-import {taskStore, useTask} from "./task";
-import {type PcCursor, usePcPointer} from "./usePcPointer";
 
 const VIEW_SECONDS = 0.5;
 const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
+/** 電源を入れたとき(起動画面)の管の点き方。ふだんより、ゆっくり */
+const POWER_ON_RATE = 1.6;
+const POWER_ON_BOOT_RATE = 1.2;
 const PREWARM_DISTANCE = 4;
-const JUDGE_SETTLE_MS = 1200;
 
 const UP = new Vector3(0, 1, 0);
 const eye = new Vector3();
@@ -43,8 +49,8 @@ const euler = new Euler(0, 0, 0, "YXZ");
 
 export function PcObject({object}: {object: GameObject}) {
   const {item} = useLayoutSlot();
-  const screen = useMemo(() => engineScreen(), []);
-  const keyboard = useMemo(() => engineKeyboard(), []);
+  const program = useMemo(() => programOf(item.program), [item.program]);
+  const screen = useMemo(() => program.screen(), [program]);
   const crt = useMemo(
     () => createCrtMaterial(screen.texture, screen.width, screen.height),
     [screen],
@@ -54,24 +60,9 @@ export function PcObject({object}: {object: GameObject}) {
     return () => crt.material.dispose();
   }, [crt]);
 
-  const logoOn = usePcLogo();
-  const logoTexture = useMemo(() => createLogoTexture(), []);
-  const logoCrt = useMemo(
-    () =>
-      createCrtMaterial(
-        logoTexture,
-        logoTexture.image.width,
-        logoTexture.image.height,
-      ),
-    [logoTexture],
-  );
-  useEffect(() => {
-    setSkipGTAO(logoCrt.material, true);
-    return () => {
-      logoCrt.material.dispose();
-      logoTexture.dispose();
-    };
-  }, [logoCrt, logoTexture]);
+  const power = usePcPower();
+  const boot = useBootDisplay(power === "booting");
+  const powered = power === "on";
 
   useEffect(
     () => () => {
@@ -82,161 +73,41 @@ export function PcObject({object}: {object: GameObject}) {
     [object.id],
   );
 
-  useInteraction(object, pcInteraction);
+  const interaction = useMemo(() => pcInteraction(program.pointer), [program]);
+  useInteraction(object, interaction);
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
-  const showing = session.objectId === object.id && session.phase !== "idle";
+  const mine = session.objectId === object.id;
+  const showing =
+    powered &&
+    (program.alwaysOn === true || (mine && session.phase !== "idle"));
 
   const screenRef = useRef<Mesh>(null);
-  const memoRef = useRef<Mesh>(null);
   const portalId = usePortalScreenId();
   useEffect(() => {
     const mesh = screenRef.current;
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
-  const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
-  usePcPointer({enabled: using, screen, screenRef, memoRef, cursor});
 
-  const judge = useJudge();
-  const task = useTask();
-  const mine = session.objectId === object.id;
-  const currentUrl = useRef("");
-  const judged = useRef<string | null>(null);
-  const settle = useRef<number | undefined>(undefined);
-  const deliverable = useMemo(
-    () =>
-      createSearchDeliverable({
-        interact: (id) => objectManager.interact(id),
-        held: () => itemManager.getHeld() !== null,
-      }),
-    [],
-  );
-
-  const judgeNow = useCallback(
-    (url: string) => {
-      window.clearTimeout(settle.current);
-      settle.current = undefined;
-      if (!url || url.startsWith("data:") || judged.current === url) {
-        return;
-      }
-      judged.current = url;
-      void (async () => {
-        const currentTask = taskStore.getTask();
-        const page = await screen.readPage?.();
-        if (!page) {
-          if (judged.current === url) {
-            judged.current = null;
-          }
-          judgeStore.fail(
-            currentTask,
-            url,
-            "今のページを読めません（エンジンが起動していない）",
-          );
-          return;
-        }
-        await judgeStore.run({task: currentTask, page});
-      })();
-    },
-    [screen],
-  );
-
-  const scheduleJudgement = useCallback(
-    (url: string) => {
-      window.clearTimeout(settle.current);
-      if (!url || url.startsWith("data:") || isSearchResultsUrl(url)) {
-        return;
-      }
-      currentUrl.current = url;
-      settle.current = window.setTimeout(() => judgeNow(url), JUDGE_SETTLE_MS);
-    },
-    [judgeNow],
-  );
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    screen.onPageChange = scheduleJudgement;
-    return () => {
-      screen.onPageChange = undefined;
-      window.clearTimeout(settle.current);
-    };
-  }, [using, screen, scheduleJudgement]);
-
-  useEffect(() => {
-    if (!using || !currentUrl.current) {
-      return;
-    }
-    judged.current = null;
-    scheduleJudgement(currentUrl.current);
-  }, [task, using, scheduleJudgement]);
-
-  useEffect(() => {
-    if (!mine) {
-      return;
-    }
-    const announcement = using ? judgeAnnouncement(judge) : null;
-    screen.setNotice?.(announcement?.lines ?? null, announcement?.tear);
-    if (!announcement) {
-      return;
-    }
-    const timer = window.setTimeout(
-      () => screen.setNotice?.(null),
-      announcement.ms,
-    );
-    return () => window.clearTimeout(timer);
-  }, [screen, mine, using, judge]);
-  useEffect(
-    () => () => {
-      if (mine) {
-        screen.setNotice?.(null);
-      }
-    },
-    [screen, mine],
-  );
-
-  useEffect(() => {
-    if (!using || judge.status !== "done" || judge.result.verdict !== "match") {
-      return;
-    }
-    const timer = window.setTimeout(() => pcSession.leave(), CONFIRM_MS);
-    return () => window.clearTimeout(timer);
-  }, [using, judge]);
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    deliverable.onJudge(judge, object.id);
-  }, [using, judge, object.id, deliverable]);
-
-  useEffect(() => {
-    if (!using) {
-      judgeStore.reset();
-      currentUrl.current = "";
-      judged.current = null;
-      window.clearTimeout(settle.current);
-      deliverable.reset();
-    }
-  }, [using, deliverable]);
-
-  useEffect(() => {
-    if (!using) {
-      return;
-    }
-    void screen.boot();
-    keyboard.onActiveChange = (active) => {
-      if (!active) {
-        pcSession.leave();
-      }
-    };
-    keyboard.engage(screen);
-    return () => {
-      keyboard.onActiveChange = undefined;
-      keyboard.disengage();
-    };
-  }, [using, screen, keyboard]);
+  const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
+  useNativePointer({
+    enabled: using && powered && session.pointer === "native",
+    screen,
+    screenRef,
+    cursor: nativeCursor,
+  });
+  const virtualCursor = useMemo(() => createVirtualCursor(), []);
+  useVirtualPointer({
+    enabled: mine && session.pointer === "virtual",
+    // 電源が入っていない間(起動中も)は画面へ入力を送らないが、右クリックや Esc で離れることはできる
+    using: using && session.pointer === "virtual",
+    active: using && powered && session.pointer === "virtual",
+    screen,
+    screenRef,
+    cursor: virtualCursor,
+    onLeave: pcSession.leave,
+  });
 
   const drive = useMemo(
     () => ({
@@ -248,7 +119,7 @@ export function PcObject({object}: {object: GameObject}) {
     [],
   );
 
-  useFrame(({camera}, dt) => {
+  useFrame(({camera, size}, dt) => {
     const state = pcSession.getState();
     const phase: PcPhase = state.objectId === object.id ? state.phase : "idle";
     const mesh = screenRef.current;
@@ -262,7 +133,10 @@ export function PcObject({object}: {object: GameObject}) {
     if (phase !== "idle" && mesh) {
       drive.t = Math.min(1, drive.t + dt / VIEW_SECONDS);
       const e = easeInOut(drive.t);
-      const target = phase === "active" ? viewPose(mesh) : eyePose();
+      const target =
+        phase === "active"
+          ? viewPose(mesh, viewDistance(program, camera, size))
+          : eyePose();
       camera.position.lerpVectors(drive.from, target.position, e);
       camera.quaternion.slerpQuaternions(drive.fromQuat, target.quaternion, e);
       if (phase === "leaving" && drive.t >= 1) {
@@ -278,28 +152,34 @@ export function PcObject({object}: {object: GameObject}) {
       BOOT_RATE,
       dt,
     );
-    logoCrt.time.value += dt;
-    logoCrt.on.value = approach(
-      logoCrt.on.value,
-      logoOn ? 1 : 0,
-      POWER_RATE,
-      dt,
-    );
-    logoCrt.boot.value = approach(
-      logoCrt.boot.value,
-      logoOn ? 1 : 0,
-      BOOT_RATE,
-      dt,
-    );
+    if (boot) {
+      const booting = pcPower.get() === "booting";
+      boot.crt.time.value += dt;
+      boot.crt.on.value = approach(
+        boot.crt.on.value,
+        booting ? 1 : 0,
+        POWER_ON_RATE,
+        dt,
+      );
+      boot.crt.boot.value = approach(
+        boot.crt.boot.value,
+        booting ? 1 : 0,
+        POWER_ON_BOOT_RATE,
+        dt,
+      );
+      if (booting) {
+        boot.screen.paint(pcPower.elapsed());
+      }
+    }
     if (
       getEyePosition(localPlayer, eye).distanceTo(
         pcPosition.set(...item.position),
       ) < PREWARM_DISTANCE
     ) {
-      prewarmEngine(location.search);
+      program.prewarm?.();
     }
 
-    if (phase === "idle") {
+    if (phase === "idle" && !program.alwaysOn) {
       return;
     }
     screen.tick();
@@ -310,20 +190,49 @@ export function PcObject({object}: {object: GameObject}) {
   }, FRAME_PRIORITY.camera);
 
   return (
-    <PcModel
-      screen={
-        portalId === object.id
-          ? getPortalMaterial()
-          : logoOn && !showing
-            ? logoCrt.material
-            : crt.material
-      }
-      screenRef={screenRef}
-      memoRef={memoRef}
-      showMemo={item.look !== "plain"}
-    />
+    <>
+      <program.Runner
+        object={object}
+        screen={screen}
+        using={using}
+        mine={mine}
+        screenRef={screenRef}
+      />
+      <PcModel
+        screen={
+          portalId === object.id
+            ? getPortalMaterial()
+            : power === "booting" && boot
+              ? boot.crt.material
+              : crt.material
+        }
+        screenRef={screenRef}
+      />
+    </>
   );
 }
+
+type BootDisplay = {screen: BootScreen; crt: CrtControls};
+
+/** 起動画面とその CRT。電源を入れる PC(部屋の PC)だけが要るので、起動している間だけ作る(作った effect の片付けで捨てる) */
+const useBootDisplay = (booting: boolean): BootDisplay | null => {
+  const [boot, setBoot] = useState<BootDisplay | null>(null);
+  useEffect(() => {
+    if (!booting) {
+      return;
+    }
+    const screen = new BootScreen();
+    const crt = createCrtMaterial(screen.texture, screen.width, screen.height);
+    setSkipGTAO(crt.material, true);
+    setBoot({screen, crt});
+    return () => {
+      setBoot(null);
+      crt.material.dispose();
+      screen.dispose();
+    };
+  }, [booting]);
+  return boot;
+};
 
 const approach = (
   current: number,
@@ -335,12 +244,33 @@ const approach = (
 const easeInOut = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
-const viewPose = (mesh: Mesh): {position: Vector3; quaternion: Quaternion} => {
+/** 画面の正面に寄る距離。view.fill があれば、画面が視界のその割合を占める距離(縦と横のきつい方に合わせる) */
+const viewDistance = (
+  program: PcProgram,
+  camera: Camera,
+  size: {width: number; height: number},
+): number => {
+  const fill = program.view?.fill;
+  if (!fill || !("fov" in camera) || typeof camera.fov !== "number") {
+    return VIEW_DISTANCE;
+  }
+  const tan = Math.tan((camera.fov * Math.PI) / 360);
+  const aspect = size.width / size.height;
+  return Math.max(
+    SCREEN.height / (2 * tan * fill),
+    SCREEN.width / (2 * tan * aspect * fill),
+  );
+};
+
+const viewPose = (
+  mesh: Mesh,
+  distance: number,
+): {position: Vector3; quaternion: Quaternion} => {
   const center = mesh.getWorldPosition(new Vector3());
   const normal = new Vector3(0, 0, 1).applyQuaternion(
     mesh.getWorldQuaternion(new Quaternion()),
   );
-  const position = center.clone().addScaledVector(normal, VIEW_DISTANCE);
+  const position = center.clone().addScaledVector(normal, distance);
   const quaternion = new Quaternion().setFromRotationMatrix(
     new Matrix4().lookAt(position, center, UP),
   );

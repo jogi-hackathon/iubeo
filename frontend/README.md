@@ -58,7 +58,7 @@ pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz
 
 ## PC（Web 検索の画面）
 
-机の上の PC の画面は、Firefox のエンジン（Gecko）を WebAssembly にしたものが動く。HUD は使わず、お題は机のメモに、状態は画面そのものに出す。参考: iubeo-lab の `browser-in-browser`（同じ仕組みの実験。画面の接続部を移植した）。
+試合（sandbox）の机の上の PC の画面は、Firefox のエンジン（Gecko）を WebAssembly にしたものが動く（部屋の PC は下の「部屋の PC(デスクトップ)」）。HUD は使わず、お題は机のメモに、状態は画面そのものに出す。参考: iubeo-lab の `browser-in-browser`（同じ仕組みの実験。画面の接続部を移植した）。
 
 ```sh
 # 1. エンジンを取り込む（約 34MB。engine-local/ に置き、リポジトリには入れない）
@@ -74,26 +74,38 @@ pnpm dev     # http://localhost:5173/?debug（debug シーン）
 
 - 単独で立てるなら `pnpm wisp`（開発サーバーとは別に動かすとき）。5001 が使われていると、dev は警告を出して続行する。
 
-- 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。お題のメモをクリックすると、別のお題を引く。Esc で離れる（一人称に戻り、マウスルックもそのまま続く。クリックし直さなくてよい）。
+- 使い方: PC を狙って左クリックすると電源が入り、画面の前へ寄る。画面の上ではマウスと鍵盤がエンジンに届く。Esc で離れる（一人称に戻り、マウスルックもそのまま続く。クリックし直さなくてよい）。
 
 - **検索の判定**: 今のお題にふさわしいものを検索できているかを、**ページを開くたびに** Clef が見る（プレイヤーが判定を要求する操作は無い）。HUD は使わず、外れているときだけ CRT が一瞬乱れて理由を画面の中に出す。合っていれば検索は成果物（`search_created` のファイル）として手に入り、合図のあと PC が畳まれる。手元の dev サーバーでは常に一致を返す（本物は Workers AI 上で動く）。
 
 - 初回の起動は、エンジンの wasm を読むので数十秒かかる（画面に「BOOTING」と出る）。2 回目以降は速い。
 
-- wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`PcObject` の `prewarmEngine`）で先に取っておき、
+- wasm（約 33MB）は、アプリの起動の裏（PC に近づいたとき。`search/SearchProgram.tsx` の `prewarm`）で先に取っておき、
   PC を開くときは blob URL としてエンジンに渡す。クリック時に残るのは展開とコンパイル（1 秒弱）だけ。
   33MB のリソースはブラウザの HTTP キャッシュに入らないので、バイト列を自分で持って渡している
-  （`src/screen/engine.ts` の `prefetchEngineWasm`）
+  （`src/objects/pc/search/browser/engine.ts` の `prefetchEngineWasm`）
 
 - エンジンが無いときは、画面に「NO ENGINE」と出る（`pnpm engine:link` を実行する）。
-
-- `?task=<語>` でお題を固定できる（確認用）。
 
 - `pnpm dev` の開発サーバーは、エンジンの SharedArrayBuffer のために COOP/COEP を付ける（vite.config.ts）。
 
 - エンジンは静的アセットには載せない。静的アセットは 1 ファイル 25 MiB までで、エンジン（約 34MB）は配れない。本番は R2 から配る（下の「エンジンの配信元」）。
 
-- 検索結果は、WISP 経由で Google に出る。本番で WISP を EC2 の Elastic IP 経由にしているのは、Cloudflare のコンテナ（共有の出口 IP）からだと Google が reCAPTCHA を出すため（アドレス欄に URL を打てば lite.duckduckgo.com などにも行ける）。
+- 検索は、バックエンドの `GET /api/v1/search/page?q=…&t=…` に送る。バックエンドが Brave Search API（鍵は `IUBEO_BRAVE_API_KEY`）で引いて、自前の HTML の結果ページを返す。`t` は WISP のトークン（エンジンはクッキーを送れないため）。結果ページのリンクは、WISP 経由で実サイトを開く。Google は、データセンターの IP から来ると reCAPTCHA を出すため使わない（アドレス欄に Yahoo! JAPAN などの URL を打てば、そのまま WISP 経由で開ける）。
+
+### 部屋の PC(デスクトップ)
+
+部屋の PC だけは Web 検索ではなく、Windows 2000 風のデスクトップが動く(レイアウトの `program: "desktop"`)。アイコンをダブルクリックしてアプリ(接続・設定)を開く。
+
+- チュートリアルの間は PC の電源が落ちていて、画面は真っ暗。最後の手順で PC を触ると電源が入り、BIOS 風の起動画面(IUBEO のロゴと読み込みの棒)を 9 秒ほど出してからデスクトップになり、そこでチュートリアルが完了する(起動の間は入力を受けない)。終えたあとの部屋で触れるのは PC だけ
+- 接続(中身はマッチング): 「待機」でセッションへの接続を待ち始め、待っている間は「取り下げ」で止める。接続先が決まったら、そのまま画面へ飛び込んでセッションへ移る。プレイヤーは IUBEO では道具の側なので、相手を探すのではなく、セッションへつながれるのを待つ言い方にしている。マッチングの状態は HUD には出さない
+- 設定: マウスの感度(一人称で見回す速さの倍率)。動かしたらすぐ効き、localStorage の `iubeo:mouse` に残る
+
+- 使っている間は pointer lock を保ったまま、マウスの移動量で画面の中のカーソルを動かす(ディレクトリの俯瞰ビューと同じ)。画面が視界の 9 割を占めるまで寄る
+- 離れるのは、右クリックか Esc。右クリックなら、一人称に戻ってもクリックし直さなくてよい(Esc は pointer lock が外れるのでクリックし直す)
+- PC にシャットダウンは無く、画面はいつも点いている。開いた窓やスタートメニューは、離れてもそのまま残る
+- 部屋の PC に近づいたときも、試合の PC で使う検索のエンジンを先に取っておく
+- 見た目は 3D を通さずに `http://localhost:5173/desktop.html`(dev 専用。build には入らない)で触って確かめられる。2 倍に拡大して出し、本物のマウスで操作する。接続はサーバーにつながず、ページの下のボタンで状態(待っている・接続先が決まった・エラーなど)を切り替える
 
 ### PC の 3D モデルを撮る
 
@@ -104,7 +116,7 @@ pnpm shot:pc --out=/tmp/pc-after.png
 ```
 
 - 実 GPU の WebGPU が使える Chrome が要る（`pnpm bake:ao` と同じ）。ページは `pc.html`（dev 専用。build には入らない）
-- 撮影しているのは `src/pc/page.tsx`。視点や背景を変えたいときはここを直す
+- 撮影しているのは `src/objects/pc/page.tsx`。視点や背景を変えたいときはここを直す
 
 ### 本番の WISP（トークンで保護）
 
@@ -233,14 +245,14 @@ dev サーバーの別途起動は不要。スクリプトが空きポートで 
 | `judge/` | 検索の判定(Workers AI の Clef)の要求と応答。Worker(`worker/judge.ts`)からも使う |
 | `net/` | HTTP と WebSocket の接続、位置のバイナリ形式、OpenAPI から生成した型(`schema.gen.ts`) |
 | `objects/` | オーソリティが置くオブジェクト(`directory/`、`workspace/`、`canvas/`、`pc/`、`lighter_stand/`)と狙い・インタラクト |
-| `pc/` | PC の 3D モデルを撮るページ(`pc.html`。dev 専用) |
 | `player/` | プレイヤー操作・物理・スケルトン、他のプレイヤーの描画 |
 | `props/` | `BVHCollider` で包む基本プロップ |
 | `scenes/` | シーン定義と環境、シーンの切り替えと準備完了 |
-| `screen/` | PC の画面(Gecko エンジン、画面の合成、キー入力、WISP の接続先) |
 | `transition/` | シーン切り替えの演出(`dive/`) |
-| `tutorial/` | room のチュートリアルの手順と進み具合 |
+| `tutorial/` | チュートリアルの進行の仕組み・終えたかの保存・在席の通知(どのシーンにも依存しない。部屋の手順と見せ方は `scenes/RoomScene/tutorial/`) |
 | `voice/` | ボイスチャット([docs/voice-chat.md](../docs/voice-chat.md)) |
+
+`objects/pc/` は、PC 本体(モデル・CRT・使っている状態・撮影ページの `page.tsx`)を直下に置き、`display/` に画面の約束(`ScreenSource`)・解像度・キー入力、`search/` に Web 検索(お題・判定・成果物と、`browser/` に Gecko・WISP の接続先)、`desktop/` に部屋の PC の 2000 風デスクトップ(`kernel/` が状態と入力の解釈、`paint/` と `theme/` が見た目、`apps/` がアプリ)を置く。どちらを動かすかはレイアウトの `program` で選ぶ(`programs.ts`)。
 
 `worker/` は Cloudflare の Worker(`frontend.ts`・`backend.ts`・`wisp.ts`・`judge.ts`。`wispToken.ts` は WISP のトークンの検証)、`scripts/` は開発用のスクリプトと Vite のプラグイン。
 
