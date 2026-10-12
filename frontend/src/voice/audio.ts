@@ -1,4 +1,5 @@
 import type {AudioManager, MicHandle} from "../core/audio/audioManager";
+import type {Vec3} from "../core/audio/sfx/types";
 
 const SAMPLE_RATE = 48000;
 // 相手の声の再生音量。2 倍 (約 +6dB)。割れないよう最後にリミッターを通す
@@ -44,8 +45,6 @@ const workletUrl = (): string =>
     new Blob([CAPTURE_WORKLET], {type: "application/javascript"}),
   );
 
-export type Vec3 = {x: number; y: number; z: number};
-
 type PeerAudio = {
   gain: GainNode;
   panner: PannerNode;
@@ -59,7 +58,6 @@ export type VoiceAudio = {
   feed(peer: string, pcm: Float32Array): void;
   removePeer(peer: string): void;
   setPeerPosition(peer: string, pos: Vec3): void;
-  setListener(pos: Vec3, forward: Vec3, up: Vec3): void;
   close(): void;
 };
 
@@ -172,19 +170,6 @@ export const createVoiceAudio = (host: VoiceAudioHost): VoiceAudio => {
       p.panner.positionX.value = pos.x;
       p.panner.positionY.value = pos.y;
       p.panner.positionZ.value = pos.z;
-    },
-
-    setListener(pos: Vec3, forward: Vec3, up: Vec3): void {
-      const l = ctx.listener;
-      l.positionX.value = pos.x;
-      l.positionY.value = pos.y;
-      l.positionZ.value = pos.z;
-      l.forwardX.value = forward.x;
-      l.forwardY.value = forward.y;
-      l.forwardZ.value = forward.z;
-      l.upX.value = up.x;
-      l.upY.value = up.y;
-      l.upZ.value = up.z;
     },
 
     close(): void {

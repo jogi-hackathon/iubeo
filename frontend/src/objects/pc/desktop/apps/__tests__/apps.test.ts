@@ -283,6 +283,17 @@ describe("設定のアプリ", () => {
     expect(mouse.getState().sensitivity).toBe(3);
   });
 
+  it("サウンドのタブでゲームの音量を動かし、適用で保存する", () => {
+    const {view, audio} = open();
+    selectTab(view, SETTINGS_TAB.sound);
+    const r = SETTINGS_LAYOUT.speaker.game;
+    view.pointer?.({type: "down", x: r.x, y: r.y + 10, button: 0});
+    view.pointer?.({type: "up", x: r.x, y: r.y + 10, button: 0});
+    expect(audio.set).not.toHaveBeenCalled();
+    clickAt(view, SETTINGS_LAYOUT.apply);
+    expect(audio.getState().gameVolume).toBe(0);
+  });
+
   it("変えていなければ適用は押せない", () => {
     const {view, mouse, graphics, audio} = open();
     clickAt(view, SETTINGS_LAYOUT.apply);

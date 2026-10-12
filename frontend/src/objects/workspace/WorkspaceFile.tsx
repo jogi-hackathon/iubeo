@@ -9,6 +9,7 @@ import {
   SRGBColorSpace,
 } from "three";
 
+import type {WritingCue} from "../../core/audio/sfx/types";
 import {UNDER_SHEET_COLOR, UNDER_SHEET_OFFSET} from "../paperSheet";
 import {WORKSPACE_ACTION_MS} from "./data";
 import {FILE_POSITION, FILE_SIZE} from "./desk";
@@ -19,6 +20,7 @@ import {
   paintPage,
   type WritingScript,
 } from "./writing";
+import {toWritingCue} from "./writingCue";
 
 export const FILE_SECONDS = 0.4;
 const FILE_RISE = 0.04;
@@ -39,7 +41,17 @@ const toMeters = (px: number, py: number): [number, number] => [
   (py / PAGE.height - 0.5) * FILE_SIZE[1],
 ];
 
-export function WorkspaceFile({working}: {working: boolean}) {
+interface WorkspaceFileProps {
+  working: boolean;
+  onWritingStart?: (cue: WritingCue) => void;
+  onWritingInterrupt?: () => void;
+}
+
+export function WorkspaceFile({
+  working,
+  onWritingStart,
+  onWritingInterrupt,
+}: WorkspaceFileProps) {
   const root = useRef<Group>(null);
   const cursor = useRef<Mesh>(null);
   const state = useRef({
@@ -91,6 +103,13 @@ export function WorkspaceFile({working}: {working: boolean}) {
       s.elapsed = 0;
       s.drawn = -1;
       s.script = createWritingScript(Date.now() >>> 0, WRITE_MS);
+      onWritingStart?.(toWritingCue(s.script, FILE_SECONDS));
+    }
+    if (!working && s.wasWorking && s.script) {
+      const lastBeat = s.script.beats.at(-1);
+      if (lastBeat && s.elapsed * 1000 - WRITE_START_MS < lastBeat.at) {
+        onWritingInterrupt?.();
+      }
     }
     s.wasWorking = working;
     if (working) {

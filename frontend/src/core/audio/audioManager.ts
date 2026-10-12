@@ -1,5 +1,6 @@
 import {type AudioSettings, audioSettingsStore} from "../audioSettings";
 import {createAudioDevices} from "./devices";
+import type {Vec3} from "./sfx/types";
 
 const SAMPLE_RATE = 48000;
 const LEVEL_FFT_SIZE = 1024;
@@ -43,6 +44,7 @@ export const createAudioManager = ({
 
   type Graph = {
     ctx: SinkSelectableContext;
+    master: GainNode;
     gameBus: GainNode;
     voiceBus: GainNode;
     micGain: GainNode;
@@ -50,6 +52,7 @@ export const createAudioManager = ({
     levelBuf: Float32Array<ArrayBuffer>;
   };
   let graph: Graph | undefined;
+  let muted = true;
 
   let sinkRequested: string | null = null;
   let sinkSwitch: Promise<void> = Promise.resolve();
@@ -166,7 +169,10 @@ export const createAudioManager = ({
     limiter.ratio.value = 20;
     limiter.attack.value = 0.003;
     limiter.release.value = 0.15;
-    limiter.connect(ctx.destination);
+    const master = ctx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ctx.destination);
+    limiter.connect(master);
     const gameBus = ctx.createGain();
     gameBus.connect(limiter);
     const voiceBus = ctx.createGain();
@@ -177,6 +183,7 @@ export const createAudioManager = ({
     micGain.connect(analyser);
     graph = {
       ctx,
+      master,
       gameBus,
       voiceBus,
       micGain,
@@ -193,6 +200,34 @@ export const createAudioManager = ({
     if (graph?.ctx.state === "suspended") {
       void graph.ctx.resume().catch(() => {});
     }
+  };
+
+  const setMuted = (next: boolean): void => {
+    muted = next;
+    if (graph) {
+      graph.master.gain.value = muted ? 0 : 1;
+    }
+  };
+
+  const setListener = (pos: Vec3, forward: Vec3, up: Vec3): void => {
+    if (!graph) {
+      return;
+    }
+    const l = graph.ctx.listener;
+    if (l.positionX) {
+      l.positionX.value = pos.x;
+      l.positionY.value = pos.y;
+      l.positionZ.value = pos.z;
+      l.forwardX.value = forward.x;
+      l.forwardY.value = forward.y;
+      l.forwardZ.value = forward.z;
+      l.upX.value = up.x;
+      l.upY.value = up.y;
+      l.upZ.value = up.z;
+      return;
+    }
+    l.setPosition(pos.x, pos.y, pos.z);
+    l.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
   };
 
   const acquireMic = async (): Promise<MicHandle> => {
@@ -263,6 +298,8 @@ export const createAudioManager = ({
     gameBus: (): GainNode => ensure().gameBus,
     voiceBus: (): GainNode => ensure().voiceBus,
     unlock,
+    setMuted,
+    setListener,
     acquireMic,
     micLevel,
     micMeter,

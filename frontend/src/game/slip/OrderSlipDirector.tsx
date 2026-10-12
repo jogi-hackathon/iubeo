@@ -3,6 +3,7 @@ import {useEffect, useRef} from "react";
 import {Euler, type PerspectiveCamera, Quaternion, Vector3} from "three";
 
 import {useMyPlayerId} from "../../authority/useMyPlayerId";
+import {sfxEngine} from "../../core/audio/sfx/engine";
 import {useDebugFlags} from "../../core/debug/flags";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {consumeLookDelta} from "../../core/input";
@@ -17,7 +18,7 @@ import {useGameState} from "../gameStore";
 import {stockColorsOf} from "../stockColors";
 import {memos} from "./memos";
 import {myWorkspaceId, orderSlip, slipForPhase, useOrderSlip} from "./store";
-import {stageStart, STOW_MS, TERMINAL_SEQUENCE_MS} from "./terminal";
+import {STAGE_MS, stageStart, STOW_MS, TERMINAL_SEQUENCE_MS} from "./terminal";
 import {heldSlipWorld, slipZoomBlend, slipZoomPose} from "./zoom";
 
 /** 再生中に視線を向ける手元の角度(下向き)。端末と千切った伝票が視界に収まる */
@@ -42,6 +43,12 @@ const viewQuaternion = new Quaternion();
 const zoomPosition = new Vector3();
 const zoomQuaternion = new Quaternion();
 
+const SLIP_CUE = {
+  printSeconds: STAGE_MS.print / 1000,
+  feedSeconds: STAGE_MS.feed / 1000,
+  tearSeconds: STAGE_MS.tear / 1000,
+};
+
 /**
  * 依頼の伝票の進行役。
  * - フェーズが始まって自分のタスクがあれば、伝票を届ける(store)。接続し直しで同じフェーズを受けても二度は出さない
@@ -51,6 +58,7 @@ const zoomQuaternion = new Quaternion();
  * - 見終えた伝票は自分のワークスペースへ飛ばし、メモ置きに残す(WorkspaceMemo)
  * - 脱落したら、再生も待ちも捨てる
  */
+
 export function OrderSlipDirector() {
   const game = useGameState();
   const myPlayerId = useMyPlayerId();
@@ -59,6 +67,7 @@ export function OrderSlipDirector() {
   const {playing} = useOrderSlip();
   const {objects} = useObjectsState();
   const delivered = useRef(new Set<number>());
+  const printed = useRef<number | null>(null);
   // 伝票を作る時点のファイルの色を引くためだけに使う(物が動くたびに届け直しを考えない)
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
@@ -104,10 +113,21 @@ export function OrderSlipDirector() {
 
   useFrame(({camera}) => {
     if (!playing) {
+      if (printed.current !== null) {
+        sfxEngine.stopThem("slip");
+        printed.current = null;
+      }
       return;
     }
     consumeLookDelta();
     const elapsed = performance.now() - playing.startedAt;
+    if (
+      elapsed >= stageStart("print") &&
+      printed.current !== playing.startedAt
+    ) {
+      printed.current = playing.startedAt;
+      sfxEngine.them("slip", SLIP_CUE);
+    }
     if (elapsed >= TERMINAL_SEQUENCE_MS) {
       orderSlip.finish();
       return;

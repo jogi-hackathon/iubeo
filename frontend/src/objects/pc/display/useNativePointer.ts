@@ -12,6 +12,8 @@ type Options = {
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
   cursor: PcCursor;
+  onPress?: (phase: "down" | "up") => void;
+  onMove?: (distance: number) => void;
 };
 
 /** 本物のマウスで画面を狙う(マウスの固定を外し、カーソルの下の画面の位置へ入力を送る) */
@@ -20,6 +22,8 @@ export function useNativePointer({
   screen,
   screenRef,
   cursor,
+  onPress,
+  onMove,
 }: Options): void {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
@@ -69,6 +73,7 @@ export function useNativePointer({
       event.preventDefault();
       dragging = true;
       captured = event.pointerId;
+      onPress?.("down");
       canvas.setPointerCapture(event.pointerId);
 
       cursor.x = pick.uv.x;
@@ -93,6 +98,7 @@ export function useNativePointer({
         return;
       }
       hovering = true;
+      onMove?.(Math.hypot(event.movementX, event.movementY));
       cursor.x = pick.uv.x;
       cursor.y = pick.uv.y;
       canvas.style.cursor = cursorCss(screen.cursorKind(pick.x, pick.y));
@@ -115,6 +121,7 @@ export function useNativePointer({
       canvas.releasePointerCapture(event.pointerId);
       captured = null;
       dragging = false;
+      onPress?.("up");
       const pick = screenPick(event);
       screen.pointer({
         type: "up",
@@ -168,7 +175,7 @@ export function useNativePointer({
       canvas.removeEventListener("contextmenu", onContextMenu);
       canvas.style.cursor = "";
     };
-  }, [enabled, gl, camera, screen, screenRef, cursor]);
+  }, [enabled, gl, camera, screen, screenRef, cursor, onPress, onMove]);
 }
 
 const cursorCss = (kind: CursorKind): string =>

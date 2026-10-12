@@ -1,3 +1,4 @@
+import {sfxEngine} from "../core/audio/sfx/engine";
 import {
   ApiError,
   type ApiClient,
@@ -89,6 +90,7 @@ export const createGameFlow = ({
 
   const enterSession = (playerId: string, sessionId: string) => {
     set({status: "matched", playerId, sessionId});
+    sfxEngine.them("match");
     set({status: "entering", playerId, sessionId});
     try {
       void Promise.resolve(navigator.enter("sandbox")).catch(fail);

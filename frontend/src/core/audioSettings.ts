@@ -6,6 +6,7 @@ export interface AudioSettings {
   micVolume: number;
   outputDeviceId: string | null;
   inputDeviceId: string | null;
+  soundNoticeAccepted: boolean;
 }
 
 export const MAX_GAME_VOLUME = 1;
@@ -18,6 +19,7 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   micVolume: 1,
   outputDeviceId: null,
   inputDeviceId: null,
+  soundNoticeAccepted: false,
 };
 
 const volume = (raw: unknown, max: number, fallback: number): number =>
@@ -40,6 +42,7 @@ export const parseAudioSettings = (raw: unknown): AudioSettings => {
     micVolume: volume(r.micVolume, MAX_MIC_VOLUME, d.micVolume),
     outputDeviceId: deviceId(r.outputDeviceId),
     inputDeviceId: deviceId(r.inputDeviceId),
+    soundNoticeAccepted: r.soundNoticeAccepted === true,
   };
 };
 
