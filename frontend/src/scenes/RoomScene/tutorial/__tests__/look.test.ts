@@ -39,20 +39,20 @@ describe("lookFor", () => {
     expect(ids).toEqual(["takeFile"]);
   });
 
-  it("idle は隠し、完了は全部表示して全部機能 OFF", () => {
+  it("idle は隠し、完了は全部表示して PC だけ機能 ON", () => {
     expect(lookFor({status: "idle"})).toBe(HIDDEN_LOOK);
     expect(lookFor({status: "completed"})).toBe(COMPLETED_LOOK);
     expect(COMPLETED_LOOK.visible).toEqual(TUTORIAL_OBJECT_KEYS);
-    expect(COMPLETED_LOOK.enabled).toEqual([]);
+    expect(COMPLETED_LOOK.enabled).toEqual(["pc"]);
   });
 });
 
 describe("toggleInitialFor", () => {
-  it("完了後は何も隠さず、全オブジェクトと俯瞰を機能 OFF にする", () => {
+  it("完了後は何も隠さず、PC 以外のオブジェクトと俯瞰を機能 OFF にする", () => {
     const initial = toggleInitialFor(COMPLETED_LOOK);
     expect(initial.hidden).toEqual([]);
     expect(initial.disabled).toEqual([
-      ...TUTORIAL_OBJECT_KEYS,
+      ...TUTORIAL_OBJECT_KEYS.filter((key) => key !== "pc"),
       "directory:overview",
     ]);
   });

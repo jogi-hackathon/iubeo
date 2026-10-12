@@ -29,9 +29,10 @@ export const HIDDEN_LOOK: TutorialLook = {
   pickupFile: false,
 };
 
+/** 終えたあとは全部見せ、PC(デスクトップのマッチング)だけ触れる */
 export const COMPLETED_LOOK: TutorialLook = {
   visible: TUTORIAL_OBJECT_KEYS,
-  enabled: [],
+  enabled: ["pc"],
   highlighted: [],
   pickupFile: false,
 };
@@ -80,10 +81,10 @@ const STEP_LOOKS: Record<TutorialStepId, TutorialLook> = {
     highlighted: ["directory"],
     pickupFile: false,
   },
-  pcFront: {
+  usePc: {
     visible: TUTORIAL_OBJECT_KEYS,
-    enabled: [],
-    highlighted: [],
+    enabled: ["pc"],
+    highlighted: ["pc"],
     pickupFile: false,
   },
 };

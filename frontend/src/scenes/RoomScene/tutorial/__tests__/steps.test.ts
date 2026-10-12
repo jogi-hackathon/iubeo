@@ -34,14 +34,14 @@ describe("TUTORIAL_STEPS", () => {
       {type: "held", file: null},
       {type: "held", file: "image_created"},
       {type: "held", file: null},
-      {type: "zone", zone: "pcFront"},
+      {type: "usePc"},
     ]);
     expect(state).toEqual({status: "completed"});
   });
 
   it("順番を飛ばした操作では進まない", () => {
     const state = run([
-      {type: "zone", zone: "pcFront"},
+      {type: "usePc"},
       {type: "held", file: "image_created"},
       {type: "zone", zone: "chair"},
       {type: "held", file: "edited"},

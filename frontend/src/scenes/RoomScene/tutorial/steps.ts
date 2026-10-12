@@ -1,11 +1,13 @@
 import type {FileStatus} from "../../../items";
 import type {TutorialStep} from "../../../tutorial";
 
-export type TutorialZone = "chair" | "pcFront";
+export type TutorialZone = "chair";
 
 export type TutorialEvent =
   | {type: "zone"; zone: TutorialZone}
-  | {type: "held"; file: FileStatus | null};
+  | {type: "held"; file: FileStatus | null}
+  /** 部屋の PC を使い始めた */
+  | {type: "usePc"};
 
 export type TutorialStepId =
   | "chair"
@@ -16,7 +18,7 @@ export type TutorialStepId =
   | "directoryStoreEdited"
   | "canvasCreate"
   | "directoryStoreImage"
-  | "pcFront";
+  | "usePc";
 
 const enterZone =
   (zone: TutorialZone) =>
@@ -39,5 +41,5 @@ export const TUTORIAL_STEPS: readonly Step[] = [
   {id: "directoryStoreEdited", advanceOn: holdFile(null)},
   {id: "canvasCreate", advanceOn: holdFile("image_created")},
   {id: "directoryStoreImage", advanceOn: holdFile(null)},
-  {id: "pcFront", advanceOn: enterZone("pcFront")},
+  {id: "usePc", advanceOn: (event) => event.type === "usePc"},
 ];

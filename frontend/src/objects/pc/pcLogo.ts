@@ -9,6 +9,10 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
   return () => clearTimeout(id);
 };
 
+/**
+ * PC の画面に IUBEO のロゴを、決めた時間だけ出す(チュートリアルを終えたときの起動画面)。
+ * 出している間は、PC を使っていても画面へ入力を送らない(PcObject)
+ */
 export const createPcLogo = ({
   schedule = defaultSchedule,
 }: PcLogoOptions = {}) => {

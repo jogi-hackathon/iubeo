@@ -102,7 +102,7 @@ export function PcObject({object}: {object: GameObject}) {
 
   const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   useNativePointer({
-    enabled: using && session.pointer === "native",
+    enabled: using && !logoOn && session.pointer === "native",
     screen,
     screenRef,
     cursor: nativeCursor,
@@ -110,7 +110,8 @@ export function PcObject({object}: {object: GameObject}) {
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
     enabled: mine && session.pointer === "virtual",
-    active: using && session.pointer === "virtual",
+    // ロゴ(起動画面)を出している間は、画面へ入力を送らない
+    active: using && !logoOn && session.pointer === "virtual",
     screen,
     screenRef,
     cursor: virtualCursor,
@@ -204,7 +205,7 @@ export function PcObject({object}: {object: GameObject}) {
         screen={
           portalId === object.id
             ? getPortalMaterial()
-            : logoOn && !showing
+            : logoOn
               ? logoCrt.material
               : crt.material
         }

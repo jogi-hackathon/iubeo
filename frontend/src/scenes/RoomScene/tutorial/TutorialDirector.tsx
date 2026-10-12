@@ -6,8 +6,10 @@ import {cameraGlitch} from "../../../camera/postprocess";
 import {useToggles} from "../../../core/toggles";
 import {FILE_KIND, itemManager, parseFileData} from "../../../items";
 import {pcLogo} from "../../../objects/pc/pcLogo";
+import {pcSession} from "../../../objects/pc/session";
 import {localPlayer} from "../../../player/local";
 import {type TutorialFlowState, tutorialStore} from "../../../tutorial";
+import {ROOM_LAYOUT} from "../layout";
 import {
   calmLook,
   COMPLETED_LOOK,
@@ -22,7 +24,7 @@ import type {TutorialEvent} from "./steps";
 import {TUTORIAL_FILE_COLOR, TutorialFile} from "./TutorialFile";
 import {zonesAt} from "./zones";
 
-const LOGO_MS = 5000;
+const LOGO_MS = 3000;
 const STEP_GAP_MS = 600;
 const GLITCH_MS = 450;
 const GLITCH_LEAD_MS = 110;
@@ -33,9 +35,9 @@ type Flow = TutorialFlowState<TutorialEvent>;
  * 部屋のチュートリアルを進める。進行(./manager)へ合図を送り、手順に合わせて物の見せ方(./look)を切り替える。
  *
  * - 進行: シーンに入ったら始め、出たら中断する(dev パネルで reset されたら始め直す)
- * - 合図: 手に持ったファイルの状態と、プレイヤーが立っている範囲(./zones)
+ * - 合図: 手に持ったファイルの状態、プレイヤーが立っている範囲(./zones)、部屋の PC を使い始めたこと
  * - 見せ方: 次の手順へは少し間を置いて移り、新しい物が現れるときは画面を一瞬乱す
- * - 終えたら、PC の画面に IUBEO のロゴを少しの間出す
+ * - 終えたら(最後の手順は PC を触ること)、PC の画面に IUBEO のロゴを起動画面として少しの間出す
  */
 export function TutorialDirector() {
   const flow = useTutorialFlow();
@@ -74,6 +76,17 @@ const useTutorialSignals = (): void => {
       }
     });
   }, []);
+
+  useEffect(
+    () =>
+      pcSession.subscribe(() => {
+        const {phase, objectId} = pcSession.getState();
+        if (phase === "active" && objectId === ROOM_LAYOUT.pc?.id) {
+          tutorialManager.signal({type: "usePc"});
+        }
+      }),
+    [],
+  );
 
   useFrame(() => {
     const {x, z} = localPlayer.position;
