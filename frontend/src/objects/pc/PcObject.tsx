@@ -4,12 +4,15 @@ import {Euler, Matrix4, type Mesh, Quaternion, Vector3} from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {createVirtualCursor} from "../../core/input/virtualCursor";
 import {getEyePosition, localPlayer} from "../../player";
 import {usePcLogo} from "../../tutorial/pcLogo";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
 import {createCrtMaterial} from "./crtMaterial";
+import {type PcCursor, useNativePointer} from "./display/useNativePointer";
+import {useVirtualPointer} from "./display/useVirtualPointer";
 import {pcInteraction} from "./interaction";
 import {createLogoTexture} from "./logoScreen";
 import {PcModel} from "./PcModel";
@@ -73,7 +76,8 @@ export function PcObject({object}: {object: GameObject}) {
     [object.id],
   );
 
-  useInteraction(object, pcInteraction);
+  const interaction = useMemo(() => pcInteraction(program.pointer), [program]);
+  useInteraction(object, interaction);
 
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
@@ -86,6 +90,23 @@ export function PcObject({object}: {object: GameObject}) {
     const mesh = screenRef.current;
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
+
+  const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
+  useNativePointer({
+    enabled: using && session.pointer === "native",
+    screen,
+    screenRef,
+    cursor: nativeCursor,
+  });
+  const virtualCursor = useMemo(() => createVirtualCursor(), []);
+  useVirtualPointer({
+    enabled: mine && session.pointer === "virtual",
+    active: using && session.pointer === "virtual",
+    screen,
+    screenRef,
+    cursor: virtualCursor,
+    onLeave: pcSession.leave,
+  });
 
   const drive = useMemo(
     () => ({

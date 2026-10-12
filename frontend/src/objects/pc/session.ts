@@ -13,16 +13,25 @@ import {lockPlayerControl} from "../../core/playerControl";
  * - active: PC を使っている。プレイヤーを預かり、カメラは画面の前、マウスと鍵盤は画面へ向く
  * - leaving: 一人称へ戻る補間の途中。終わるまでプレイヤーは預かったままにする
  *
+ * マウスの扱いは使い始めるときに選ぶ（中で動くものが決める）
+ *
+ * - native: pointer lock を解き、本物のマウスで画面を狙う。離れ終わったら lock を取り直す
+ * - virtual: pointer lock を保ったまま、移動量で仮想カーソルを動かす（俯瞰ビューと同じ）。
+ *   lock は解かないので取り直さない（右クリックで離れれば lock は残る。Esc で外れたときは、一人称に戻ってからクリックで取り直す）
+ *
  * 状態は変えるたびに新しいオブジェクトにする（useSyncExternalStore の参照同一性のため）
  */
 export type PcPhase = "idle" | "active" | "leaving";
 
+export type PcPointerMode = "native" | "virtual";
+
 export type PcSessionState = {
   phase: PcPhase;
   objectId: string | null;
+  pointer: PcPointerMode | null;
 };
 
-const IDLE: PcSessionState = {phase: "idle", objectId: null};
+const IDLE: PcSessionState = {phase: "idle", objectId: null, pointer: null};
 
 type Options = {
   lock?: () => () => void;
@@ -67,13 +76,17 @@ export const createPcSession = ({
         listeners.delete(listener);
       };
     },
-    enter: (objectId: string): boolean => {
+    enter: (objectId: string, pointer: PcPointerMode = "native"): boolean => {
       if (state.phase !== "idle") {
         return false;
       }
-      releases = [lock(), suppress()];
-      exitPointerLock();
-      set({phase: "active", objectId});
+      if (pointer === "native") {
+        releases = [lock(), suppress()];
+        exitPointerLock();
+      } else {
+        releases = [lock()];
+      }
+      set({phase: "active", objectId, pointer});
       return true;
     },
     leave: (): void => {
@@ -83,9 +96,12 @@ export const createPcSession = ({
     },
     finish: (): void => {
       if (state.phase === "leaving") {
+        const {pointer} = state;
         releaseAll();
         set(IDLE);
-        resume();
+        if (pointer === "native") {
+          resume();
+        }
       }
     },
     reset: (): void => {

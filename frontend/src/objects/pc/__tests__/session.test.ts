@@ -28,13 +28,21 @@ const make = () => {
 
 describe("createPcSession", () => {
   it("初期状態は一人称(idle)で、PC は使われていない", () => {
-    expect(make().session.getState()).toEqual({phase: "idle", objectId: null});
+    expect(make().session.getState()).toEqual({
+      phase: "idle",
+      objectId: null,
+      pointer: null,
+    });
   });
 
   it("enter で使い始め、プレイヤーを預かり、pointer lock を解き、クリックで lock を取らせない", () => {
     const {session, lock, suppressPointerLock, exitPointerLock} = make();
     expect(session.enter("pc-1")).toBe(true);
-    expect(session.getState()).toEqual({phase: "active", objectId: "pc-1"});
+    expect(session.getState()).toEqual({
+      phase: "active",
+      objectId: "pc-1",
+      pointer: "native",
+    });
     expect(lock).toHaveBeenCalledTimes(1);
     expect(suppressPointerLock).toHaveBeenCalledTimes(1);
     expect(exitPointerLock).toHaveBeenCalledTimes(1);
@@ -52,12 +60,20 @@ describe("createPcSession", () => {
     const {session, release, releaseSuppress} = make();
     session.enter("pc-1");
     session.leave();
-    expect(session.getState()).toEqual({phase: "leaving", objectId: "pc-1"});
+    expect(session.getState()).toEqual({
+      phase: "leaving",
+      objectId: "pc-1",
+      pointer: "native",
+    });
     expect(release).not.toHaveBeenCalled();
     expect(releaseSuppress).not.toHaveBeenCalled();
 
     session.finish();
-    expect(session.getState()).toEqual({phase: "idle", objectId: null});
+    expect(session.getState()).toEqual({
+      phase: "idle",
+      objectId: null,
+      pointer: null,
+    });
     expect(release).toHaveBeenCalledTimes(1);
     expect(releaseSuppress).toHaveBeenCalledTimes(1);
   });
@@ -115,9 +131,55 @@ describe("createPcSession", () => {
     const {session, release, releaseSuppress} = make();
     session.enter("pc-1");
     session.reset();
-    expect(session.getState()).toEqual({phase: "idle", objectId: null});
+    expect(session.getState()).toEqual({
+      phase: "idle",
+      objectId: null,
+      pointer: null,
+    });
     expect(release).toHaveBeenCalledTimes(1);
     expect(releaseSuppress).toHaveBeenCalledTimes(1);
+  });
+
+  it("virtual は pointer lock を解かず、クリックでの lock も止めない(プレイヤーは預かる)", () => {
+    const {session, lock, suppressPointerLock, exitPointerLock} = make();
+    expect(session.enter("pc-1", "virtual")).toBe(true);
+    expect(session.getState()).toEqual({
+      phase: "active",
+      objectId: "pc-1",
+      pointer: "virtual",
+    });
+    expect(lock).toHaveBeenCalledTimes(1);
+    expect(suppressPointerLock).not.toHaveBeenCalled();
+    expect(exitPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("virtual は離れ終わっても pointer lock を取り直さない(解いていないので。Esc で外れたときはクリックで取り直す)", () => {
+    const {session, release, resumePointerLock} = make();
+    session.enter("pc-1", "virtual");
+    session.leave();
+    expect(session.getState().pointer).toBe("virtual");
+    session.finish();
+    expect(session.getState()).toEqual({
+      phase: "idle",
+      objectId: null,
+      pointer: null,
+    });
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(resumePointerLock).not.toHaveBeenCalled();
+  });
+
+  it("virtual のあとに native で入り直すと、native の扱いに戻る", () => {
+    const {session, suppressPointerLock, exitPointerLock, resumePointerLock} =
+      make();
+    session.enter("pc-1", "virtual");
+    session.reset();
+    session.enter("pc-2");
+    expect(session.getState().pointer).toBe("native");
+    expect(suppressPointerLock).toHaveBeenCalledTimes(1);
+    expect(exitPointerLock).toHaveBeenCalledTimes(1);
+    session.leave();
+    session.finish();
+    expect(resumePointerLock).toHaveBeenCalledTimes(1);
   });
 
   it("購読者には状態が変わるたびに通知し、解除後は通知しない", () => {

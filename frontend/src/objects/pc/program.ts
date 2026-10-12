@@ -3,6 +3,7 @@ import type {Mesh} from "three/webgpu";
 
 import type {GameObject} from "../types";
 import type {ScreenSource} from "./display/types";
+import type {PcPointerMode} from "./session";
 
 export type PcProgramProps = {
   object: GameObject;
@@ -15,14 +16,16 @@ export type PcProgramProps = {
 };
 
 /**
- * PC の中で動くもの。PcObject はモデル・CRT・カメラの寄り・セッションだけを持ち、
- * 画面に何を出して入力をどう扱うかはここに任せる
+ * PC の中で動くもの。PcObject はモデル・CRT・カメラの寄り・セッションと、マウスを画面へ届けるところだけを持ち、
+ * 画面に何を出して入力をどう解釈するかはここに任せる
  *
+ * - pointer: マウスの扱い(session.ts の PcPointerMode)
  * - screen: 画面のソース。PcObject が一度だけ呼んで持ち続ける
  * - prewarm: プレイヤーが PC に近づいている間、毎フレーム呼ぶ(重い読み込みを先に始めるため。何度呼ばれてもよいこと)
- * - Runner: PcObject の配下(PC の座標系)に置くコンポーネント。入力・判定などのフックを持ち、PC に付く小物(お題のメモなど)を描いてよい
+ * - Runner: PcObject の配下(PC の座標系)に置くコンポーネント。判定や鍵盤などのフックを持ち、PC に付く小物(お題のメモなど)を描いてよい
  */
 export type PcProgram = {
+  pointer: PcPointerMode;
   screen: () => ScreenSource;
   prewarm?: () => void;
   Runner: ComponentType<PcProgramProps>;

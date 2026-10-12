@@ -1,9 +1,8 @@
 import {useEffect, useRef} from "react";
 
+import {CURSOR_ARROW_PATH} from "../../core/input/virtualCursor";
 import {getCursor, subscribeCursor} from "./cursorStore";
 import {useOverviewPhase} from "./overview";
-
-const ARROW = "M1 1 L1 19 L5.2 15 L8.4 22.4 L11.4 21.1 L8.2 13.9 L14 13.9 Z";
 
 export function OverviewCursor() {
   const phase = useOverviewPhase();
@@ -45,7 +44,12 @@ export function OverviewCursor() {
         zIndex: 10000,
       }}
     >
-      <path d={ARROW} fill="#ffffff" stroke="#1a1a1a" strokeLinejoin="round" />
+      <path
+        d={CURSOR_ARROW_PATH}
+        fill="#ffffff"
+        stroke="#1a1a1a"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

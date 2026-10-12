@@ -3,7 +3,6 @@ import {useCallback, useEffect, useMemo, useRef} from "react";
 import {itemManager} from "../../../items/itemStore";
 import {useLayoutSlot} from "../../layoutContext";
 import {objectManager} from "../../objectStore";
-import {type PcCursor, useNativePointer} from "../display/useNativePointer";
 import type {PcProgram, PcProgramProps} from "../program";
 import {pcSession} from "../session";
 import {isSearchResultsUrl} from "./browser/browserChrome";
@@ -21,17 +20,9 @@ const JUDGE_SETTLE_MS = 1200;
  * 合えば検索を成果物として渡し、合図のあと PC を畳む。
  * お題のメモは PC の横に置く(部屋の PC は look: "plain" で置かない)
  */
-function SearchProgram({
-  object,
-  screen,
-  using,
-  mine,
-  screenRef,
-}: PcProgramProps) {
+function SearchProgram({object, screen, using, mine}: PcProgramProps) {
   const {item} = useLayoutSlot();
   const keyboard = useMemo(() => engineKeyboard(), []);
-  const cursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
-  useNativePointer({enabled: using, screen, screenRef, cursor});
 
   const judge = useJudge();
   const task = useTask();
@@ -176,6 +167,7 @@ function SearchProgram({
 }
 
 export const searchProgram: PcProgram = {
+  pointer: "native",
   screen: engineScreen,
   prewarm: () => prewarmEngine(location.search),
   Runner: SearchProgram,
