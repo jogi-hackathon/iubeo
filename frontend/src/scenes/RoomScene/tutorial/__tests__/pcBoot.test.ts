@@ -17,7 +17,6 @@ const setup = ({completed = false}: {completed?: boolean} = {}) => {
       };
     },
   });
-  // 本物のプレイヤーの預かりや pointer lock には触らない
   const session = createPcSession({
     lock: () => () => {},
     suppressPointerLock: () => () => {},

@@ -13,7 +13,6 @@ import {getShaderSwatchBook} from "./shaderSwatches";
 import {exposeForWarmup, firstMeshOf} from "./warmupExposure";
 import {createWarmupTracker, sceneSignature} from "./warmupTracker";
 
-// 終了の状態はモジュールに置く。Fast Refresh でこのモジュールが再評価されたら、コンポーネント側も一緒にやり直す
 let finishing = false;
 let done = false;
 let holds = 0;
@@ -134,7 +133,6 @@ export function ShaderWarmup() {
     device.queue.onSubmittedWorkDone().then(finish, finish);
   }, FRAME_PRIORITY.warmup);
 
-  // 描画(PostProcess)のあと、同じフレームの内に表示とカリングを戻す
   useFrame(() => {
     const s = state.current;
     s.restoreExposure?.();

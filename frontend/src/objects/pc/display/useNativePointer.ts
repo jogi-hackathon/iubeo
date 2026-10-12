@@ -16,7 +16,6 @@ type Options = {
   onMove?: (distance: number) => void;
 };
 
-/** 本物のマウスで画面を狙う(マウスの固定を外し、カーソルの下の画面の位置へ入力を送る) */
 export function useNativePointer({
   enabled,
   screen,

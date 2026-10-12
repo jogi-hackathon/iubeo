@@ -34,17 +34,10 @@ import {
 } from "./wispUrl";
 
 /**
- * Gecko（Firefox のエンジン）を WebAssembly 化したものを、このタブの中で走らせる画面ソース。
- * サーバも無く、レイテンシもゼロ。
- *
- * エンジン自身の canvas をそのままテクスチャに流し、入力は合成 DOM イベントとして投げ返す。
- * こうするとエンジンの入力パイプラインをそのまま再利用でき、コマンドプロトコルを二重に実装せずに済む。
- *
  * エンジンは毎フレームのソフトウェア合成結果を 2D コンテキストへ putImageData で書くので、
  * そこを包んで dirty を立てる（エンジンの内部実装には触れない）。
  *
  * cross-origin isolation は必須（エンジンが pthread のため SharedArrayBuffer を使う）。
- * COOP: same-origin + COEP: require-corp を vite.config.ts が付与している。
  */
 
 const PROGRESS_INTERVAL_MS = 1000;
@@ -201,7 +194,6 @@ export class GeckoSource extends CanvasScreenSource {
           ? "ok"
           : "unreachable";
       this.wispState = wispState;
-      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
       const resume = wispState === "ok" ? this.resumeUrl : null;
       await engine.load(resume ?? this.homeUrl());
       if (stale()) {
@@ -280,10 +272,6 @@ export class GeckoSource extends CanvasScreenSource {
     });
   }
 
-  /**
-   * エンジンが落ちた（wasm の RuntimeError など）ときに、作り直す。
-   * 同じ失敗が続く場合は、回数の上限を超えた時点で止めてエラーを出す（無限に再起動しない）。
-   */
   private restartAfterCrash(): void {
     const budget = takeRestartBudget(this.restartHistory, performance.now());
     this.restartHistory = budget.history;
@@ -295,7 +283,6 @@ export class GeckoSource extends CanvasScreenSource {
       );
       return;
     }
-    // 直前にも落ちていれば、そのページが原因の可能性が高い。読み直さずスタートページへ戻す
     if (budget.history.length > 1) {
       this.resumeUrl = null;
     }
@@ -303,7 +290,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.rebootWithWisp();
   }
 
-  /** 今開いているページを覚えておく（エンジンが落ちたとき、同じページを読み直すため） */
   rememberPage(url: string): void {
     if (isResumablePage(url)) {
       this.resumeUrl = url;
@@ -412,7 +398,6 @@ export class GeckoSource extends CanvasScreenSource {
     this.markDirty();
   }
 
-  /** 最初の検索画面の URL */
   homeUrl(): string {
     return pageToDataUrl(
       searchStartPage(
@@ -424,7 +409,6 @@ export class GeckoSource extends CanvasScreenSource {
     );
   }
 
-  /** 最初の検索画面へ戻す。起動前なら、起動したときに開くページを検索画面にしておく */
   goHome(): void {
     this.resumeUrl = null;
     this.navigate(this.homeUrl());

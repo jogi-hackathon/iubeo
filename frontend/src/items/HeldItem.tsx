@@ -83,8 +83,6 @@ const UNIT_GEOMETRIES: Record<
   prism: new CylinderGeometry(1, 1, 1, 3),
 };
 
-// 手に持つまでマウントされないので、塗りと縁取り(BackSide)の見本をウォームアップに描かせる。
-// ファイルの色ごとの縁取りは OUTLINE_MATERIAL と同じシェーダー・設定(色は uniform)なので、見本は 1 つで足りる。炎は lighterFlame が登録する
 registerShaderSwatch("heldItem", () => {
   const group = new Group();
   group.add(
@@ -241,10 +239,6 @@ function HeldLighter() {
   );
 }
 
-/**
- * 手元に出すアイテムのメッシュ。ライターは Zippo 型のモデル(HeldLighter。蓋を開いて火を灯す)、ファイルは状態(status)ごとのモデル(fileModel)、それ以外はダミーの箱。
- * ファイルの縁の色は data.color にする(色が無ければ従来の暗い縁)
- */
 export function HeldItem({item}: {item: Item}) {
   return (
     <group name={`held-item:${item.kind}`}>

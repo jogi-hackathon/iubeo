@@ -16,11 +16,6 @@ import {paintCursor} from "./paint/cursor";
 import {paintShell} from "./paint/shell";
 import {loadIcons} from "./theme/icons";
 
-/**
- * 2000 風のデスクトップを映す画面のソース。シェルの絵を下地(base)に描いておき、
- * カーソルが動いただけのときは下地を写してカーソルを重ねるだけにする。
- * キーボードは使わない(PC から離れるのは、右クリックか Esc)
- */
 export class DesktopScreen implements ScreenSource {
   readonly texture: CanvasTexture;
   readonly shell: Shell;
@@ -52,7 +47,6 @@ export class DesktopScreen implements ScreenSource {
     this.texture.anisotropy = 4;
     // 一度も描いていない canvas を GPU へ上げると Chrome が転送を飛ばすので、先に 1 回描く(BrowserScreen と同じ)
     this.tick();
-    // アイコンの SVG は読み込みを待つ。読めたら下地を描き直す
     loadIcons().then(
       () => {
         this.paintedVersion = -1;
@@ -70,7 +64,6 @@ export class DesktopScreen implements ScreenSource {
     return SCREEN.height;
   }
 
-  /** dev の確認ページが、画面の canvas をそのまま並べるために使う */
   get surface(): HTMLCanvasElement {
     return this.canvas;
   }

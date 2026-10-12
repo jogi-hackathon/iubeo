@@ -15,7 +15,6 @@ export const createSceneManager = ({
     throw new Error(`使えないシーンです: ${initial}`);
   }
 
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: SceneState = {current: initial};
   const listeners = new Set<() => void>();
 

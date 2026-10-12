@@ -13,28 +13,17 @@ import type {VirtualCursor} from "../../../core/input/virtualCursor";
 import {NO_MODIFIERS, type ScreenModifiers, type ScreenSource} from "./types";
 
 type Options = {
-  /** この PC を virtual で使っている間(離れる補間の途中も含む)。移動量を取り続け、一人称へ持ち越さない */
   enabled: boolean;
-  /** 使っている間(離れ始めたら false)。右クリックと lock が外れたことを、離れる合図として受け取る */
   using: boolean;
-  /** 入力を画面へ送る間。using の間でも、画面がまだ受け取れない(電源が入っていないなど)ときは false */
   active: boolean;
   screen: ScreenSource;
   screenRef: {readonly current: Mesh | null};
   cursor: VirtualCursor;
-  /** 右クリックしたとき・pointer lock が外れたとき(Esc など)。使うのをやめる合図 */
   onLeave: () => void;
   onPress?: (phase: "down" | "up") => void;
   onMove?: (distance: number) => void;
 };
 
-/**
- * pointer lock を保ったまま、マウスの移動量で画面の上の仮想カーソルを動かす(俯瞰ビューと同じ動かし方)。
- * 右クリックは画面へ送らず、離れる合図にする(俯瞰ビューと同じ。lock が残るので、一人称に戻ってもクリックし直さなくてよい)。
- * 移動量は、画面が窓の上に映っている大きさで割る(窓の上での手応えが、本物のカーソルと揃う)。
- * そこへ設定のマウスの感度を掛ける。
- * カーソルの位置は move として画面へ送るだけで、描くのは画面のソースの役目
- */
 export function useVirtualPointer({
   enabled,
   using,
@@ -88,7 +77,6 @@ export function useVirtualPointer({
     }
 
     const doc = gl.domElement.ownerDocument;
-    // 使い始めのクリック(PC を選んだもの)の mouseup だけが届くことがあるので、自分が down を送ったボタンの up だけを送る
     let pressed = 0;
 
     const onMouseDown = (event: MouseEvent) => {
@@ -162,7 +150,6 @@ export function useVirtualPointer({
 const corner = new Vector3();
 const projected: Array<{x: number; y: number}> = [];
 
-/** 画面の板が、窓の上(CSS ピクセル)で占める幅と高さ */
 const projectedSize = (
   mesh: Mesh,
   camera: Camera,

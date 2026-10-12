@@ -2,5 +2,6 @@
 extend-exclude = ["go.mod", "go.sum"]
 
 [default.extend-words]
+thr = "thr"
 Paeth = "Paeth"
 metalness = "metalness"

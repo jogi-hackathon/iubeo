@@ -50,7 +50,6 @@ type DiveSession = {
   fromPosition: Vector3;
   fromQuaternion: Quaternion;
   viewPose: Pose;
-  /** 飛び込み始める距離(divePath の entryDistance) */
   entry: number;
   restoreNear: number | null;
   ready: boolean;

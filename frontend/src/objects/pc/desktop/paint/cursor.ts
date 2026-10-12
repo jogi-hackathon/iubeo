@@ -2,7 +2,6 @@ import {CURSOR_ARROW_PATH} from "../../../../core/input/virtualCursor";
 
 let arrow: Path2D | null = null;
 
-/** 矢印のカーソル(先端が x, y)。俯瞰ビューと同じ形 */
 export const paintCursor = (
   ctx: CanvasRenderingContext2D,
   x: number,

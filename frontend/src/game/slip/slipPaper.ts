@@ -28,7 +28,6 @@ export const canvasTexture = (width: number, height: number) => {
   return {canvas, texture};
 };
 
-/** 紙の帯のジオメトリ(頂点は shapeStrip で書く) */
 export const createStripGeometry = (): BufferGeometry => {
   const geometry = new BufferGeometry();
   geometry.setAttribute(
@@ -63,7 +62,6 @@ export const shapeStrip = (geometry: BufferGeometry, shape: StripShape) => {
   geometry.computeBoundingSphere();
 };
 
-/** 伝票の表(中身を描いた紙)。呼ぶ側が dispose する */
 export const createSlipTexture = (content: SlipContent): CanvasTexture => {
   const {canvas, texture} = canvasTexture(
     SLIP_CANVAS.width,
@@ -73,7 +71,6 @@ export const createSlipTexture = (content: SlipContent): CanvasTexture => {
   return texture;
 };
 
-/** 裏面の白い紙の形。中身に依らないので 1 枚を共有する(dispose しない) */
 let backTexture: CanvasTexture | null = null;
 export const slipBackTexture = (): CanvasTexture => {
   if (!backTexture) {
