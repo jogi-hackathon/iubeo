@@ -4,17 +4,20 @@ import {SCREEN_CANVAS} from "../../../display/resolution";
 import {
   type AddressEdit,
   addressDraftFor,
+  addressEditOf,
   applyAddressKey,
   applyAddressText,
   CONTENT_HEIGHT,
   displayUrl,
   hitToolbar,
   isSearchResultsUrl,
+  moveAddressCaret,
   normalizeAddress,
-  removeLastChar,
   SEARCH_PAGE_PATH,
   searchPageUrl,
   searchUrlFor,
+  selectAddressWord,
+  selectedAddressText,
   TOOLBAR_HEIGHT,
 } from "../browserChrome";
 
@@ -147,104 +150,186 @@ describe("displayUrl / addressDraftFor", () => {
   });
 });
 
-describe("removeLastChar", () => {
-  it("末尾の 1 文字を消す（日本語も 1 文字ずつ）", () => {
-    expect(removeLastChar("abc")).toBe("ab");
-    expect(removeLastChar("検索語")).toBe("検索");
-    expect(removeLastChar("")).toBe("");
-  });
-});
+type Modifiers = {ctrl: boolean; meta: boolean; alt: boolean; shift: boolean};
+const plain: Modifiers = {ctrl: false, meta: false, alt: false, shift: false};
+const ctrl: Modifiers = {...plain, ctrl: true};
+const meta: Modifiers = {...plain, meta: true};
+const alt: Modifiers = {...plain, alt: true};
+const shift: Modifiers = {...plain, shift: true};
 
-const edit = (text: string, selectAll = false): AddressEdit => ({
-  text,
-  selectAll,
-});
-const plain = {ctrl: false, meta: false};
-const key = (
-  k: string,
-  charCode = 0,
-  modifiers = plain,
-): {key: string; charCode: number; modifiers: typeof plain} => ({
+const key = (k: string, modifiers: Modifiers = plain) => ({
   key: k,
-  charCode,
+  charCode:
+    k.length === 1 && !modifiers.ctrl && !modifiers.meta
+      ? k.codePointAt(0)!
+      : 0,
   modifiers,
 });
 
+/** 文字・カーソル・選択の端だけを見る */
+const view = ({text, caret, anchor}: AddressEdit) => ({text, caret, anchor});
+const at = (text: string, caret: number, anchor = caret) => ({
+  text,
+  caret,
+  anchor,
+});
+
+const press = (edit: AddressEdit, ...keys: ReturnType<typeof key>[]) =>
+  keys.reduce(applyAddressKey, edit);
+
+describe("addressEditOf", () => {
+  it("カーソルは末尾。全選択で始めることもできる", () => {
+    expect(view(addressEditOf("abc"))).toEqual(at("abc", 3));
+    expect(view(addressEditOf("abc", true))).toEqual(at("abc", 3, 0));
+  });
+});
+
 describe("applyAddressKey", () => {
-  it("普通の文字は末尾に足す", () => {
-    expect(applyAddressKey(edit("abc"), key("d", 0x64))).toEqual(edit("abcd"));
+  it("文字はカーソルの位置に入る", () => {
+    const edit = press(addressEditOf("ac"), key("ArrowLeft"), key("b"));
+    expect(view(edit)).toEqual(at("abc", 2));
   });
 
-  it("Backspace は末尾の 1 文字を消す", () => {
-    expect(applyAddressKey(edit("abc"), key("Backspace"))).toEqual(edit("ab"));
+  it("Backspace は前、Delete は後ろの 1 文字を消す(日本語も 1 文字ずつ)", () => {
+    expect(view(press(addressEditOf("検索語"), key("Backspace")))).toEqual(
+      at("検索", 2),
+    );
+    const edit = press(addressEditOf("abc"), key("Home"), key("Delete"));
+    expect(view(edit)).toEqual(at("bc", 0));
   });
 
-  it("⌘A / Ctrl+A で全選択になる（空なら選ぶものが無い）", () => {
-    for (const modifiers of [
-      {ctrl: false, meta: true},
-      {ctrl: true, meta: false},
-    ]) {
-      expect(applyAddressKey(edit("abc"), key("a", 0, modifiers))).toEqual(
-        edit("abc", true),
+  it("⌘A / Ctrl+A で全選択し、次の文字で置き換わる", () => {
+    for (const modifiers of [meta, ctrl]) {
+      const selected = press(
+        addressEditOf("https://example.com/"),
+        key("a", modifiers),
       );
+      expect(view(selected)).toEqual(at("https://example.com/", 20, 0));
+      expect(view(press(selected, key("x")))).toEqual(at("x", 1));
     }
-    expect(
-      applyAddressKey(edit(""), key("a", 0, {ctrl: false, meta: true})),
-    ).toEqual(edit(""));
   });
 
-  it("全選択の次の 1 文字で全体が置き換わる", () => {
-    const selected = applyAddressKey(
-      edit("https://example.com/"),
-      key("a", 0, {ctrl: true, meta: false}),
-    );
-    expect(applyAddressKey(selected, key("x", 0x78))).toEqual(edit("x"));
-  });
-
-  it("⌘⌫ / Ctrl+Backspace で全部消える", () => {
-    for (const modifiers of [
-      {ctrl: false, meta: true},
-      {ctrl: true, meta: false},
+  it("選択中の Backspace / Delete / ⌘X は選択を消す", () => {
+    for (const k of [
+      key("Backspace"),
+      key("Delete"),
+      key("x", meta),
+      key("x", ctrl),
     ]) {
-      expect(
-        applyAddressKey(
-          edit("https://example.com/"),
-          key("Backspace", 0, modifiers),
-        ),
-      ).toEqual(edit(""));
+      expect(view(press(addressEditOf("abc", true), k))).toEqual(at("", 0));
     }
   });
 
-  it("全選択中の Backspace / Delete / ⌘Delete でも全部消える", () => {
-    for (const k of ["Backspace", "Delete"]) {
-      expect(applyAddressKey(edit("abc", true), key(k))).toEqual(edit(""));
-    }
-    expect(
-      applyAddressKey(edit("abc"), key("Delete", 0, {ctrl: true, meta: false})),
-    ).toEqual(edit(""));
-  });
-
-  it("カーソルは末尾だけなので、Delete 単体では何も起きない", () => {
-    expect(applyAddressKey(edit("abc"), key("Delete"))).toEqual(edit("abc"));
-  });
-
-  it("修飾キー付きの文字（charCode 0）や対象外のキーは状態を変えない", () => {
-    const state = edit("abc");
-    expect(applyAddressKey(state, key("x", 0, {ctrl: true, meta: false}))).toBe(
-      state,
+  it("⌘⌫ は行頭まで、⌘Delete は行末まで消す", () => {
+    const middle = press(
+      addressEditOf("abcd"),
+      key("ArrowLeft"),
+      key("ArrowLeft"),
     );
-    expect(applyAddressKey(state, key("ArrowLeft"))).toBe(state);
+    expect(view(press(middle, key("Backspace", meta)))).toEqual(at("cd", 0));
+    expect(view(press(middle, key("Delete", meta)))).toEqual(at("ab", 2));
+  });
+
+  it("Option / Ctrl 付きの Backspace・Delete は 1 単語ずつ消す", () => {
+    for (const modifiers of [alt, ctrl]) {
+      expect(
+        view(press(addressEditOf("foo bar.baz"), key("Backspace", modifiers))),
+      ).toEqual(at("foo bar.", 8));
+      const edit = press(
+        addressEditOf("foo bar"),
+        key("Home"),
+        key("Delete", modifiers),
+      );
+      expect(view(edit)).toEqual(at(" bar", 0));
+    }
+  });
+
+  it("←→ で 1 文字、Option / Ctrl+←→ で 1 単語、⌘←→・Home/End・↑↓ で端へ動く", () => {
+    const edit = addressEditOf("foo bar baz");
+    expect(press(edit, key("ArrowLeft")).caret).toBe(10);
+    expect(press(edit, key("ArrowLeft", alt)).caret).toBe(8);
+    expect(
+      press(edit, key("ArrowLeft", ctrl), key("ArrowLeft", ctrl)).caret,
+    ).toBe(4);
+    expect(press(edit, key("Home"), key("ArrowRight", alt)).caret).toBe(3);
+    for (const k of [key("ArrowLeft", meta), key("Home"), key("ArrowUp")]) {
+      expect(press(edit, k).caret).toBe(0);
+    }
+    for (const k of [key("ArrowRight", meta), key("End"), key("ArrowDown")]) {
+      expect(press(edit, key("Home"), k).caret).toBe(11);
+    }
+  });
+
+  it("Shift を足すと選択が広がり、Shift なしの←→は選択の端へたたむ", () => {
+    const selected = press(
+      addressEditOf("abcd"),
+      key("ArrowLeft", shift),
+      key("ArrowLeft", shift),
+    );
+    expect(view(selected)).toEqual(at("abcd", 2, 4));
+    expect(selectedAddressText(selected)).toBe("cd");
+    expect(view(press(selected, key("ArrowLeft")))).toEqual(at("abcd", 2));
+    expect(view(press(selected, key("ArrowRight")))).toEqual(at("abcd", 4));
+    const word = press(
+      addressEditOf("foo bar"),
+      key("ArrowLeft", {...alt, shift: true}),
+    );
+    expect(selectedAddressText(word)).toBe("bar");
+  });
+
+  it("⌘Z で元に戻し、⌘⇧Z / Ctrl+Y でやり直す。続けて打った文字はまとめて戻る", () => {
+    const typed = press(
+      addressEditOf("a"),
+      key("b"),
+      key("c"),
+      key("Backspace"),
+    );
+    expect(typed.text).toBe("ab");
+    const undone = press(typed, key("z", meta));
+    expect(undone.text).toBe("abc");
+    expect(press(undone, key("z", ctrl)).text).toBe("a");
+    expect(press(undone, key("z", {...meta, shift: true})).text).toBe("ab");
+    expect(press(undone, key("y", ctrl)).text).toBe("ab");
+  });
+
+  it("元に戻すものが無い・対象外のキー・⌘C は状態を変えない", () => {
+    const state = addressEditOf("abc");
+    for (const k of [
+      key("z", meta),
+      key("c", meta),
+      key("x", ctrl),
+      key("Tab"),
+      key("q", ctrl),
+    ]) {
+      expect(applyAddressKey(state, k)).toBe(state);
+    }
   });
 });
 
 describe("applyAddressText", () => {
-  it("改行を除いて末尾に足す", () => {
-    expect(applyAddressText(edit("abc"), "d\ne\nf")).toEqual(edit("abcdef"));
+  it("改行を除いて、カーソルの位置に入れる", () => {
+    const edit = press(addressEditOf("af"), key("ArrowLeft"));
+    expect(view(applyAddressText(edit, "b\nc\nde"))).toEqual(at("abcdef", 5));
   });
 
-  it("全選択中は置き換わる（貼り付け・IME の確定）", () => {
-    expect(applyAddressText(edit("abc", true), "貼り付け")).toEqual(
-      edit("貼り付け"),
-    );
+  it("選択中は置き換わる(貼り付け・IME の確定)", () => {
+    expect(
+      view(applyAddressText(addressEditOf("abc", true), "貼り付け")),
+    ).toEqual(at("貼り付け", 4));
+  });
+});
+
+describe("moveAddressCaret / selectAddressWord", () => {
+  it("クリックした位置へカーソルを置き、Shift なら選択を広げる(はみ出さない)", () => {
+    const edit = addressEditOf("abcdef");
+    expect(view(moveAddressCaret(edit, 2, false))).toEqual(at("abcdef", 2));
+    expect(view(moveAddressCaret(edit, 2, true))).toEqual(at("abcdef", 2, 6));
+    expect(view(moveAddressCaret(edit, 99, false))).toEqual(at("abcdef", 6));
+  });
+
+  it("ダブルクリックでその単語を選ぶ", () => {
+    const edit = addressEditOf("https://example.com/path");
+    expect(selectedAddressText(selectAddressWord(edit, 10))).toBe("example");
+    expect(selectedAddressText(selectAddressWord(edit, 6))).toBe("");
   });
 });

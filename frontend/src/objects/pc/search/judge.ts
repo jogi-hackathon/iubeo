@@ -32,9 +32,11 @@ export type JudgeAnnouncement = {
 
 export const taskTerms = (task: string): string[] => {
   const seen = new Map<string, string>();
-  for (const word of task.split(/[^A-Za-z0-9]+/)) {
+  for (const word of task.split(/[^\p{L}\p{N}]+/u)) {
     const lower = word.toLowerCase();
-    if (lower.length >= 3 && !seen.has(lower)) {
+    // 英数字の語は 3 文字から、日本語の語は 2 文字から数える
+    const min = /^[A-Za-z0-9]+$/.test(word) ? 3 : 2;
+    if (lower.length >= min && !seen.has(lower)) {
       seen.set(lower, word);
     }
   }

@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 
 import type {GamePhase, GameTask} from "../../../../net";
-import {currentTopic} from "../task";
+import {currentSearchTaskId, currentTopic} from "../task";
 
 const task = (overrides: Partial<GameTask> = {}): GameTask => ({
   taskId: "task-1-1",
@@ -58,5 +58,22 @@ describe("currentTopic", () => {
 
   it("お題が無い検索タスクでは null を返す", () => {
     expect(currentTopic(phase([task({topic: null})]), "me")).toBeNull();
+  });
+});
+
+describe("currentSearchTaskId", () => {
+  it("今のお題のタスクの ID を返し、完了すると次のタスクの ID に変わる", () => {
+    const tasks = [
+      task({taskId: "task-2-1", status: "completed"}),
+      task({taskId: "task-2-2"}),
+    ];
+    expect(currentSearchTaskId(phase(tasks), "me")).toBe("task-2-2");
+  });
+
+  it("未完了の検索タスクが無ければ null", () => {
+    expect(
+      currentSearchTaskId(phase([task({status: "completed"})]), "me"),
+    ).toBeNull();
+    expect(currentSearchTaskId(null, "me")).toBeNull();
   });
 });

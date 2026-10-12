@@ -139,7 +139,7 @@ export abstract class CanvasScreenSource implements ScreenSource {
         button: event.button,
         buttons: event.buttons,
         detail: event.clickCount,
-        ...event.modifiers,
+        ...modifierInit(event.modifiers),
       }),
     );
   }
@@ -162,7 +162,7 @@ export abstract class CanvasScreenSource implements ScreenSource {
         deltaX: dx,
         deltaY: dy,
         deltaMode: 0,
-        ...modifiers,
+        ...modifierInit(modifiers),
       }),
     );
   }
@@ -175,7 +175,7 @@ export abstract class CanvasScreenSource implements ScreenSource {
         cancelable: true,
         composed: true,
         key: event.key,
-        ...event.modifiers,
+        ...modifierInit(event.modifiers),
       },
     );
     // keyCode / charCode はレガシーで KeyboardEventInit の型からは弾かれるが、エンジンは今でも読む
@@ -233,3 +233,11 @@ const noticeLines = (status: ScreenStatus, detail: string): string[] => {
       return ["", detail];
   }
 };
+
+/** DOM のイベントは修飾キーを altKey などの名前で受け取る。そのまま広げると、エンジンに届かない */
+const modifierInit = (modifiers: ScreenModifiers): EventModifierInit => ({
+  altKey: modifiers.alt,
+  ctrlKey: modifiers.ctrl,
+  shiftKey: modifiers.shift,
+  metaKey: modifiers.meta,
+});

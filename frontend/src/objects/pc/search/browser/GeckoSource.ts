@@ -63,6 +63,7 @@ export class GeckoSource extends CanvasScreenSource {
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
   private wispExpiresAt?: string;
+  private wispState: WispState = "none";
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
@@ -199,19 +200,10 @@ export class GeckoSource extends CanvasScreenSource {
         : wispOk
           ? "ok"
           : "unreachable";
+      this.wispState = wispState;
       // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
       const resume = wispState === "ok" ? this.resumeUrl : null;
-      await engine.load(
-        resume ??
-          pageToDataUrl(
-            searchStartPage(
-              wispState,
-              import.meta.env.DEV,
-              searchPageUrl(),
-              searchTokenFrom(this.wispUrl),
-            ),
-          ),
-      );
+      await engine.load(resume ?? this.homeUrl());
       if (stale()) {
         return;
       }
@@ -389,7 +381,7 @@ export class GeckoSource extends CanvasScreenSource {
     if (!this.ready) {
       return;
     }
-    this.dispatchKey(event);
+    this.dispatchKey(withAccelAsCtrl(event));
     this.markDirty();
   }
 
@@ -418,6 +410,24 @@ export class GeckoSource extends CanvasScreenSource {
       });
     }
     this.markDirty();
+  }
+
+  /** 最初の検索画面の URL */
+  homeUrl(): string {
+    return pageToDataUrl(
+      searchStartPage(
+        this.wispState,
+        import.meta.env.DEV,
+        searchPageUrl(),
+        searchTokenFrom(this.wispUrl),
+      ),
+    );
+  }
+
+  /** 最初の検索画面へ戻す。起動前なら、起動したときに開くページを検索画面にしておく */
+  goHome(): void {
+    this.resumeUrl = null;
+    this.navigate(this.homeUrl());
   }
 
   navigate(url: string): void {
@@ -481,6 +491,15 @@ const checkWisp = (url: string, timeoutMs: number): Promise<boolean> =>
     ws.onopen = () => finish(true);
     ws.onerror = () => finish(false);
   });
+
+/**
+ * エンジンは Mac ではない環境として動くので、ショートカットの修飾キーは Ctrl しか見ない。
+ * ⌘A・⌘C などを Ctrl に読み替えて、Mac でも定番のショートカットが効くようにする
+ */
+const withAccelAsCtrl = (event: ScreenKeyEvent): ScreenKeyEvent =>
+  event.modifiers.meta
+    ? {...event, modifiers: {...event.modifiers, ctrl: true, meta: false}}
+    : event;
 
 const describe = (error: unknown): string =>
   error instanceof Error ? `${error.name}: ${error.message}` : String(error);
