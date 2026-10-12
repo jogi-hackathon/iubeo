@@ -10,9 +10,14 @@ import {useAimedObjectId} from "./aimStore";
 
 const SIZE = 4;
 const SIZE_AIMED = 8;
-const VOICE_RING_SIZE = 20;
+// 輪は点より少し大きくしないと中の抜けが見えない
+const SIZE_HOLLOW = 7;
 
-const dotStyle = (size: number): CSSProperties => ({
+/**
+ * 照準の点。声が出ているときは塗りつぶし、ミュート中(声が届いていないとき)は
+ * 中を抜いた輪にして、色を使わずに状態が分かるようにする
+ */
+const dotStyle = (size: number, hollow: boolean): CSSProperties => ({
   position: "fixed",
   top: "50%",
   left: "50%",
@@ -20,37 +25,13 @@ const dotStyle = (size: number): CSSProperties => ({
   height: size,
   transform: "translate(-50%, -50%)",
   boxSizing: "border-box",
-  border: "1px solid #1a1a1a",
+  border: hollow ? "1.5px solid #ffffff" : "1px solid #1a1a1a",
   borderRadius: "50%",
-  background: "#ffffff",
+  background: hollow ? "transparent" : "#ffffff",
+  boxShadow: hollow ? "0 0 0 1px #1a1a1a, inset 0 0 0 1px #1a1a1a" : "none",
   pointerEvents: "none",
   zIndex: 10000,
 });
-
-const voiceRingStyle = (
-  status: "idle" | "connecting" | "ready" | "unavailable",
-  transmitting: boolean,
-  muted: boolean,
-): CSSProperties => {
-  const color = transmitting ? "#3fb950" : muted ? "#e63946" : "#8a8a8a";
-  const opacity =
-    status !== "ready" ? 0 : transmitting ? 0.9 : muted ? 0.7 : 0.25;
-  return {
-    position: "fixed",
-    top: "50%",
-    left: "50%",
-    width: VOICE_RING_SIZE,
-    height: VOICE_RING_SIZE,
-    transform: "translate(-50%, -50%)",
-    boxSizing: "border-box",
-    border: `1.5px solid ${color}`,
-    borderRadius: "50%",
-    opacity,
-    transition: "opacity 120ms linear",
-    pointerEvents: "none",
-    zIndex: 9999,
-  };
-};
 
 const HINT_STYLE: CSSProperties = {
   position: "fixed",
@@ -86,12 +67,12 @@ export function Reticle() {
   if (!locked || freeCamera || spectate !== "alive" || taken) {
     return null;
   }
+  // VC につながっているのに声が届いていない(ミュート中・マイクが取れていない)ときだけ輪にする
+  const hollow = voice.status === "ready" && !voice.transmitting;
+  const size = hollow ? SIZE_HOLLOW : SIZE;
   return (
     <>
-      <div
-        style={voiceRingStyle(voice.status, voice.transmitting, voice.muted)}
-      />
-      <div style={dotStyle(aimed === null ? SIZE : SIZE_AIMED)} />
+      <div style={dotStyle(aimed === null ? size : SIZE_AIMED, hollow)} />
       {hint && <div style={HINT_STYLE}>M でミュート</div>}
     </>
   );
