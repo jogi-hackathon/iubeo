@@ -9,11 +9,22 @@ import (
 
 const directoryID = "directory-1"
 
+type cpuSpot struct {
+	At    [3]float64
+	Look  [3]float64
+	Pitch float64
+}
+
 var (
 	cpuLocalSpawn     = [3]float64{0, 0.05, 4.93}
-	cpuLocalDirectory = [3]float64{0, 0.05, 1.1}
-	cpuLocalDesk      = [3]float64{3.5, 0.05, 5.43}
-	cpuLocalCanvas    = [3]float64{-4, 0.05, 3.0}
+	cpuLocalDirectory = cpuSpot{At: [3]float64{0, 0.05, 4.05}, Look: [3]float64{0, 0.05, 0}, Pitch: -0.3}
+	cpuLocalDesk      = cpuSpot{At: [3]float64{2.85, 0.05, 5.5}, Look: [3]float64{3.05, 0.05, 6.5}, Pitch: -0.35}
+	cpuLocalCanvas    = cpuSpot{At: [3]float64{-3.05, 0.05, 4.15}, Look: [3]float64{-4, 0.05, 3.93}, Pitch: 0}
+	cpuLocalRests     = []cpuSpot{
+		{At: [3]float64{0, 0.05, 5.9}, Look: [3]float64{0, 0.05, 8}},
+		{At: [3]float64{-1.6, 0.05, 4.8}, Look: [3]float64{0, 0.05, 0}},
+		{At: [3]float64{1.4, 0.05, 4.6}, Look: [3]float64{2.85, 0.05, 6}},
+	}
 )
 
 func cpuSeatYaw(seat int) float64 {
@@ -30,7 +41,11 @@ func cpuWaypoint(seat int, local [3]float64) [3]float64 {
 	}
 }
 
-func cpuStation(t api.TaskType) [3]float64 {
+func cpuSpotOf(seat int, local cpuSpot) cpuSpot {
+	return cpuSpot{At: cpuWaypoint(seat, local.At), Look: cpuWaypoint(seat, local.Look), Pitch: local.Pitch}
+}
+
+func cpuStation(t api.TaskType) cpuSpot {
 	switch t {
 	case api.ImageGeneration:
 		return cpuLocalCanvas
