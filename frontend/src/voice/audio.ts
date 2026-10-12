@@ -1,3 +1,5 @@
+import type {AudioSettings} from "../core/audioSettings";
+
 const SAMPLE_RATE = 48000;
 // 相手の声の再生音量。2 倍 (約 +6dB)。割れないよう最後にリミッターを通す
 const PEER_GAIN = 2;
@@ -40,6 +42,37 @@ const workletUrl = (): string =>
 
 export type Vec3 = {x: number; y: number; z: number};
 
+export type AudioSettingsSource = {
+  getState(): Readonly<AudioSettings>;
+  subscribe(listener: () => void): () => void;
+};
+
+type SinkSelectableContext = AudioContext & {
+  setSinkId?(sinkId: string): Promise<void>;
+};
+
+const micConstraints = (deviceId: string | null): MediaStreamConstraints => ({
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: 1,
+    ...(deviceId === null ? {} : {deviceId: {exact: deviceId}}),
+  },
+});
+
+const openMicStream = async (deviceId: string | null): Promise<MediaStream> => {
+  try {
+    return await navigator.mediaDevices.getUserMedia(micConstraints(deviceId));
+  } catch (e) {
+    if (deviceId === null) {
+      throw e;
+    }
+    console.warn("[voice] selected mic unavailable; using default", e);
+    return navigator.mediaDevices.getUserMedia(micConstraints(null));
+  }
+};
+
 type PeerAudio = {
   gain: GainNode;
   panner: PannerNode;
@@ -59,8 +92,12 @@ export type VoiceAudio = {
   close(): void;
 };
 
-export const createVoiceAudio = (): VoiceAudio => {
-  const ctx = new AudioContext({sampleRate: SAMPLE_RATE});
+export const createVoiceAudio = (
+  settingsSource: AudioSettingsSource,
+): VoiceAudio => {
+  const ctx: SinkSelectableContext = new AudioContext({
+    sampleRate: SAMPLE_RATE,
+  });
   const peers = new Map<string, PeerAudio>();
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -6;
@@ -69,9 +106,74 @@ export const createVoiceAudio = (): VoiceAudio => {
   limiter.attack.value = 0.003;
   limiter.release.value = 0.15;
   limiter.connect(ctx.destination);
+  const voiceBus = ctx.createGain();
+  voiceBus.connect(limiter);
+  const micGain = ctx.createGain();
   let micStream: MediaStream | undefined;
+  let micSource: MediaStreamAudioSourceNode | undefined;
   let micNode: AudioWorkletNode | undefined;
+  let micDeviceId: string | null = null;
+  let micRequested: string | null = null;
+  let micSwitch: Promise<void> = Promise.resolve();
   let workletReady: Promise<void> | undefined;
+  let closed = false;
+
+  let settings = settingsSource.getState();
+  let sinkRequested: string | null = null;
+  let sinkSwitch: Promise<void> = Promise.resolve();
+
+  const applySink = (next: string | null) => {
+    const setSinkId = ctx.setSinkId?.bind(ctx);
+    if (next === sinkRequested || !setSinkId) {
+      return;
+    }
+    sinkRequested = next;
+    sinkSwitch = sinkSwitch.then(async () => {
+      if (closed || next !== sinkRequested) {
+        return;
+      }
+      try {
+        await setSinkId(next ?? "");
+      } catch (e) {
+        console.warn("[voice] selected speaker unavailable; using default", e);
+        await setSinkId("").catch(() => {});
+      }
+    });
+  };
+
+  const attachMic = async (deviceId: string | null): Promise<void> => {
+    const stream = await openMicStream(deviceId);
+    if (closed) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    micSource?.disconnect();
+    micStream?.getTracks().forEach((t) => t.stop());
+    micStream = stream;
+    micDeviceId = deviceId;
+    micSource = ctx.createMediaStreamSource(stream);
+    micSource.connect(micGain);
+  };
+
+  const applySettings = () => {
+    settings = settingsSource.getState();
+    voiceBus.gain.value = settings.voiceVolume;
+    micGain.gain.value = settings.micVolume;
+    applySink(settings.outputDeviceId);
+    if (micNode && settings.inputDeviceId !== micRequested) {
+      const wanted = settings.inputDeviceId;
+      micRequested = wanted;
+      micSwitch = micSwitch
+        .then(() =>
+          wanted === micRequested && wanted !== micDeviceId
+            ? attachMic(wanted)
+            : undefined,
+        )
+        .catch((e: unknown) => console.warn("[voice] mic switch failed", e));
+    }
+  };
+  applySettings();
+  const offSettings = settingsSource.subscribe(applySettings);
 
   const loadWorklet = (): Promise<void> => {
     workletReady ??= ctx.audioWorklet.addModule(workletUrl());
@@ -90,7 +192,7 @@ export const createVoiceAudio = (): VoiceAudio => {
       panner.maxDistance = 40;
       panner.rolloffFactor = 1;
       gain.connect(panner);
-      panner.connect(limiter);
+      panner.connect(voiceBus);
       p = {gain, panner, nextAt: 0};
       peers.set(peer, p);
     }
@@ -115,22 +217,18 @@ export const createVoiceAudio = (): VoiceAudio => {
         return;
       }
       await loadWorklet();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
-      micStream = stream;
-      const source = ctx.createMediaStreamSource(stream);
+      micRequested = settings.inputDeviceId;
+      await attachMic(micRequested);
+      if (closed) {
+        throw new Error("voice audio closed");
+      }
       const node = new AudioWorkletNode(ctx, "iubeo-capture", {
         processorOptions: {chunk: 960},
       });
       node.port.onmessage = (e: MessageEvent) => onPcm(e.data as Float32Array);
-      source.connect(node);
+      micGain.connect(node);
       micNode = node;
+      applySettings();
     },
 
     hasMic(): boolean {
@@ -190,6 +288,8 @@ export const createVoiceAudio = (): VoiceAudio => {
     },
 
     close(): void {
+      closed = true;
+      offSettings();
       try {
         micNode?.port.close();
       } catch {}

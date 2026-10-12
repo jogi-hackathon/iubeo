@@ -1,10 +1,12 @@
 import {useSyncExternalStore} from "react";
 import {Vector3, type Camera} from "three";
 
+import {audioSettingsStore} from "../core/audioSettings";
 import {isEliminated, subscribeSpectate} from "../core/spectate";
 import {createPlayerState, playerManager} from "../player";
 import type {PlayerState} from "../player";
 import {createVoiceAudio, type VoiceAudio} from "./audio";
+import {audioDevices} from "./devices";
 import {MoqVoice} from "./moq";
 import {Signaling} from "./signaling";
 
@@ -149,6 +151,7 @@ export const createVoiceEngine = () => {
     micStarting = audio
       .startMic((pcm) => moq?.publishPcm(pcm, transmitting()))
       .then(() => {
+        audioDevices.refresh();
         state = {...state, micReady: true};
         set({transmitting: transmitting()});
       })
@@ -226,7 +229,7 @@ export const createVoiceEngine = () => {
         giveUp("この環境ではVCを使わない");
         return;
       }
-      audio ??= createVoiceAudio();
+      audio ??= createVoiceAudio(audioSettingsStore);
       ensureMic();
       const link = new MoqVoice();
       moq = link;
