@@ -2,7 +2,7 @@ import * as Tone from "../tone";
 import type {Recipe} from "../types";
 import {createBurstPool} from "./burst";
 
-const LEVEL = -16;
+const LEVEL = -20;
 const PITCH_HZ = 1046;
 const BEEPS = 3;
 const BEEP_SECONDS = 0.06;

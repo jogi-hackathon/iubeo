@@ -2,7 +2,7 @@ import * as Tone from "../tone";
 import type {Recipe} from "../types";
 import {createBurstPool} from "./burst";
 
-const LEVEL = -20;
+const LEVEL = -24;
 const LENGTH = 1.6;
 const FADE_IN = 0.06;
 const FADE_OUT = 0.3;
