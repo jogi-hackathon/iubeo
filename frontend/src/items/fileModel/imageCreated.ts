@@ -8,8 +8,7 @@ const FRAME_OUTLINE = 0.004;
 const SUN_RADIUS = 0.01;
 const SUN_SIDES = 16;
 const BAR_DEPTH = FRAME_DEPTH + 0.002;
-const CANVAS_DEPTH = 0.004;
-const INNER_WIDTH = FRAME_WIDTH - 2 * FRAME_BAR;
+const BAR_OVERHANG = 0.001;
 const INNER_HEIGHT = FRAME_HEIGHT - 2 * FRAME_BAR;
 const MOUNTAIN_DEPTH = FRAME_DEPTH + 0.002;
 const TRIANGLE_HALF_WIDTH = Math.sqrt(3) / 2;
@@ -51,31 +50,19 @@ const mountain = (x: number, width: number, height: number): FilePart => ({
 export const IMAGE_CREATED: FileModel = {
   parts: [
     paper([0, 0, 0], [FRAME_WIDTH, FRAME_HEIGHT, FRAME_DEPTH]),
-    {
-      shape: "box",
-      look: "blank",
-      position: [0, 0, 0],
-      scale: [INNER_WIDTH, INNER_HEIGHT, CANVAS_DEPTH],
-    },
     mountain(-0.014, 0.036, 0.03),
     mountain(0.021, 0.024, 0.02),
     ...sun(0.024, 0.012),
-    frameBar(
-      [0, (FRAME_HEIGHT - FRAME_BAR) / 2, 0],
-      [FRAME_WIDTH, FRAME_BAR, BAR_DEPTH],
-    ),
-    frameBar(
-      [0, -(FRAME_HEIGHT - FRAME_BAR) / 2, 0],
-      [FRAME_WIDTH, FRAME_BAR, BAR_DEPTH],
-    ),
-    frameBar(
-      [(FRAME_WIDTH - FRAME_BAR) / 2, 0, 0],
-      [FRAME_BAR, INNER_HEIGHT, BAR_DEPTH],
-    ),
-    frameBar(
-      [-(FRAME_WIDTH - FRAME_BAR) / 2, 0, 0],
-      [FRAME_BAR, INNER_HEIGHT, BAR_DEPTH],
-    ),
+    ...[1, -1].flatMap((side) => [
+      frameBar(
+        [0, (side * (FRAME_HEIGHT - FRAME_BAR + BAR_OVERHANG)) / 2, 0],
+        [FRAME_WIDTH + 2 * BAR_OVERHANG, FRAME_BAR + BAR_OVERHANG, BAR_DEPTH],
+      ),
+      frameBar(
+        [(side * (FRAME_WIDTH - FRAME_BAR + BAR_OVERHANG)) / 2, 0, 0],
+        [FRAME_BAR + BAR_OVERHANG, INNER_HEIGHT, BAR_DEPTH],
+      ),
+    ]),
   ],
   outline: FRAME_OUTLINE,
 };
