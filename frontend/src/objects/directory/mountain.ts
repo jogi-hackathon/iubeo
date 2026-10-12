@@ -1,3 +1,5 @@
+import {Euler, Vector3} from "three";
+
 import type {Vec3} from "../../props/types";
 import {createRandom, hashString} from "./random";
 
@@ -48,6 +50,7 @@ export type MountainSize = {
   radiusTop: number;
   heightMin: number;
   heightMax: number;
+  half: boolean;
 };
 
 export type MountainSizeName = "large" | "small";
@@ -59,6 +62,7 @@ export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
     radiusTop: 0.6,
     heightMin: 4.6,
     heightMax: 5.4,
+    half: false,
   },
   small: {
     tiers: 3,
@@ -66,6 +70,7 @@ export const MOUNTAIN_SIZES: Record<MountainSizeName, MountainSize> = {
     radiusTop: 0.6,
     heightMin: 1.9,
     heightMax: 2.2,
+    half: true,
   },
 };
 
@@ -79,6 +84,13 @@ export const mountainHeightMax = (size: MountainSizeName): number =>
 
 export const mountainViewHeight = (size: MountainSizeName): number =>
   mountainHeightMax(size) * 2;
+
+export type ViewOffset = {x: number; z: number};
+
+const ON_AXIS: ViewOffset = {x: 0, z: 0};
+
+export const mountainViewOffset = (size: MountainSizeName): ViewOffset =>
+  MOUNTAIN_SIZES[size].half ? {x: 0, z: mountainReach(size) / 2} : ON_AXIS;
 
 export const MOUNTAIN_HEIGHT_MAX = mountainHeightMax("large");
 export const MOUNTAIN_REACH = mountainReach("large");
@@ -97,14 +109,19 @@ const CORE_INSET = 0.1;
 const CORE_DROP = 0.05;
 const CORE_SKIRT = 0.3;
 
-export const PAPERS = ["#ffffff", "#fafaf8", "#f5f5f2", "#fcfcfb"] as const;
-const ACCENTS = ["#c9a46a", "#8fa7a0", "#b98277", "#7f94b3"] as const;
-const ACCENT_RATE = 0.12;
+export const PAPERS = ["#ffffff"] as const;
+const WALL_GAP = 0.01;
 
 const pick = <T>(list: readonly T[], r: number): T =>
   list[Math.floor(r * list.length)] as T;
 
-const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
+const buildCore = (
+  radii: number[],
+  tierHeight: number,
+  half: boolean,
+): CoreMesh => {
+  const arc = half ? Math.PI : Math.PI * 2;
+  const ringCount = half ? CORE_SEGMENTS + 1 : CORE_SEGMENTS;
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
@@ -116,7 +133,7 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
     const bottom = positions.length / 3;
     [y0, y1].forEach((y, v) => {
       for (let j = 0; j <= CORE_SEGMENTS; j++) {
-        const a = (j / CORE_SEGMENTS) * Math.PI * 2;
+        const a = (j / CORE_SEGMENTS) * arc;
         positions.push(Math.cos(a) * r, y, Math.sin(a) * r);
         uvs.push(j / CORE_SEGMENTS, v);
       }
@@ -129,8 +146,8 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
     }
     groups.push({start: sideStart, count: indices.length - sideStart});
     const ring = positions.length / 3;
-    for (let j = 0; j < CORE_SEGMENTS; j++) {
-      const a = (j / CORE_SEGMENTS) * Math.PI * 2;
+    for (let j = 0; j < ringCount; j++) {
+      const a = (j / CORE_SEGMENTS) * arc;
       positions.push(Math.cos(a) * r, y1, Math.sin(a) * r);
       uvs.push(0.5 + Math.cos(a) / 2, 0.5 + Math.sin(a) / 2);
     }
@@ -139,11 +156,38 @@ const buildCore = (radii: number[], tierHeight: number): CoreMesh => {
     uvs.push(0.5, 0.5);
     const topStart = indices.length;
     for (let j = 0; j < CORE_SEGMENTS; j++) {
-      indices.push(center, ring + ((j + 1) % CORE_SEGMENTS), ring + j);
+      indices.push(center, ring + ((j + 1) % ringCount), ring + j);
     }
     groups.push({start: topStart, count: indices.length - topStart});
   });
   return {positions, uvs, indices, groups};
+};
+
+const keepInFrontOfWall = (sheet: Sheet): void => {
+  const [w, , d] = sheet.size;
+  const reachZ =
+    Math.abs((w / 2) * Math.sin(sheet.yaw)) +
+    Math.abs((d / 2) * Math.cos(sheet.yaw));
+  sheet.position[2] = Math.max(sheet.position[2], reachZ + WALL_GAP);
+};
+
+const corner = new Vector3();
+const rotation = new Euler();
+
+const keepLooseInFrontOfWall = (sheet: LooseSheet): void => {
+  rotation.set(...sheet.rotation, "YXZ");
+  let reachZ = 0;
+  for (const sx of [-0.5, 0.5]) {
+    for (const sy of [-0.5, 0.5]) {
+      for (const sz of [-0.5, 0.5]) {
+        corner
+          .set(sx * sheet.size[0], sy * sheet.size[1], sz * sheet.size[2])
+          .applyEuler(rotation);
+        reachZ = Math.max(reachZ, -corner.z);
+      }
+    }
+  }
+  sheet.position[2] = Math.max(sheet.position[2], reachZ + WALL_GAP);
 };
 
 export const DIRECTORY_MOUNTAIN_SEED = "directory-1";
@@ -153,7 +197,7 @@ export const buildMountain = (
   sizeName: MountainSizeName = "large",
 ): Mountain => {
   const size = MOUNTAIN_SIZES[sizeName];
-  const {tiers, radiusBottom, radiusTop} = size;
+  const {tiers, radiusBottom, radiusTop, half} = size;
   const random = createRandom(hashString(`mountain:${seed}`));
   const range = ([a, b]: [number, number]) => a + random() * (b - a);
   const height = size.heightMin + random() * (size.heightMax - size.heightMin);
@@ -174,11 +218,13 @@ export const buildMountain = (
     const inner = tierRadii[t + 1] ?? 0;
     const band = outer - inner;
     const mid = (outer + inner) / 2;
-    const count = Math.max(3, Math.round((2 * Math.PI * mid) / BUNDLE_PITCH));
-    const phase = random() * Math.PI * 2;
+    const arc = half ? Math.PI : Math.PI * 2;
+    const count = Math.max(3, Math.round((arc * mid) / BUNDLE_PITCH));
+    const phase = half ? 0 : random() * Math.PI * 2;
+    const offset = half ? 0.5 : 0;
     for (let i = 0; i < count; i++) {
       const theta =
-        phase + ((i + (random() - 0.5) * 0.3) / count) * Math.PI * 2;
+        phase + ((i + offset + (random() - 0.5) * 0.3) / count) * arc;
       const r = mid + (random() - 0.5) * 0.14;
       const depth = Math.min(range(BUNDLE_DEPTH), band - 0.04);
       const width = range(BUNDLE_WIDTH);
@@ -211,6 +257,9 @@ export const buildMountain = (
           size: [w, thickness, d],
           color: pick(PAPERS, random()),
         };
+        if (half) {
+          keepInFrontOfWall(top);
+        }
         y += thickness;
         sheets.push(top);
       }
@@ -248,12 +297,16 @@ export const buildMountain = (
     .slice(0, OUTPUT_MAX)
     .map(({slot}): Sheet => {
       const thickness = 0.04;
-      return {
+      const sheet: Sheet = {
         position: [slot.x, slot.topY + thickness / 2, slot.z],
         yaw: slot.yaw + (random() - 0.5) * 0.6,
         size: [0.5, thickness, 0.36],
         color: pick(PAPERS, random()),
       };
+      if (half) {
+        keepInFrontOfWall(sheet);
+      }
+      return sheet;
     });
 
   const looseSheets = Array.from({length: LOOSE_COUNT}, (): LooseSheet => {
@@ -285,8 +338,7 @@ export const buildMountain = (
     }
     const cosT = Math.cos(tilt);
     const sinT = Math.sin(tilt);
-    const accent = random() < ACCENT_RATE;
-    return {
+    const sheet: LooseSheet = {
       position: [
         inner.x + out.x * (depth / 2) * cosT,
         y + (depth / 2) * sinT,
@@ -294,15 +346,19 @@ export const buildMountain = (
       ],
       rotation: [tilt, yaw, (random() - 0.5) * 0.3],
       size: [width, thickness, depth],
-      color: accent ? pick(ACCENTS, random()) : pick(PAPERS, random()),
+      color: pick(PAPERS, random()),
     };
+    if (half) {
+      keepLooseInFrontOfWall(sheet);
+    }
+    return sheet;
   });
 
   return {
     height,
     tierRadii,
     tierHeight,
-    core: buildCore(tierRadii, tierHeight),
+    core: buildCore(tierRadii, tierHeight, half),
     sheets,
     looseSheets,
     outputSheets,
@@ -312,6 +368,7 @@ export const buildMountain = (
         tierRadii,
         tierHeight,
         mountainViewHeight(sizeName),
+        mountainViewOffset(sizeName),
       ),
     ),
   };
@@ -322,6 +379,7 @@ export const isVisibleFromAbove = (
   tierRadii: readonly number[],
   tierHeight: number,
   cameraHeight: number,
+  camera: ViewOffset = ON_AXIS,
   clearance = 0.08,
 ): boolean => {
   const r = Math.hypot(face.x, face.z);
@@ -329,13 +387,26 @@ export const isVisibleFromAbove = (
   if (rise <= 0) {
     return false;
   }
+  const dx = camera.x - face.x;
+  const dz = camera.z - face.z;
+  const a = dx * dx + dz * dz;
+  const b = 2 * (face.x * dx + face.z * dz);
   for (let u = 0; u < tierRadii.length; u++) {
     const cornerR = tierRadii[u] as number;
     const cornerY = (u + 1) * tierHeight;
-    if (cornerY <= face.topY + 1e-9 || cornerR >= r) {
+    if (cornerY <= face.topY + 1e-9 || cornerR >= r || a < 1e-12) {
       continue;
     }
-    const lineY = cameraHeight - rise * (cornerR / r);
+    const c = r * r - cornerR * cornerR;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) {
+      continue;
+    }
+    const s = (-b - Math.sqrt(disc)) / (2 * a);
+    if (s < 0 || s > 1) {
+      continue;
+    }
+    const lineY = face.topY + rise * s;
     if (lineY < cornerY + clearance) {
       return false;
     }

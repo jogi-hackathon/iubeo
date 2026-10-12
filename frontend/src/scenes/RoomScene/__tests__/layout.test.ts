@@ -1,7 +1,10 @@
-import {Box3, BoxGeometry, Mesh, Vector3} from "three";
+import {Box3, BoxGeometry, Euler, Mesh, Vector3} from "three";
 import {describe, expect, it} from "vitest";
 
-import {mountainReach} from "../../../objects/directory/mountain";
+import {
+  buildMountain,
+  DIRECTORY_MOUNTAIN_SEED,
+} from "../../../objects/directory/mountain";
 import {HINGE, LAPTOP, LID, MEMO} from "../../../objects/pc/dimensions";
 import {CHAIR_PARTS} from "../../../props/chairParts";
 import {
@@ -33,6 +36,34 @@ const wallBox = (wall: (typeof ROOM_WALLS)[number]) =>
 
 const insideWall = (x: number, y: number, z: number) =>
   ROOM_WALLS.some((w) => wallBox(w).containsPoint(new Vector3(x, y, z)));
+
+const mountainCorners = (() => {
+  const m = buildMountain(DIRECTORY_MOUNTAIN_SEED, "small");
+  const euler = new Euler();
+  const boxes = [
+    ...[...m.sheets, ...m.outputSheets].map((s) => ({
+      ...s,
+      rotation: [0, s.yaw, 0] as const,
+    })),
+    ...m.looseSheets,
+  ];
+  return boxes.flatMap((b) => {
+    euler.set(b.rotation[0], b.rotation[1], b.rotation[2], "YXZ");
+    return [-0.5, 0.5].flatMap((sx) =>
+      [-0.5, 0.5].flatMap((sy) =>
+        [-0.5, 0.5].map((sz) =>
+          new Vector3(sx * b.size[0], sy * b.size[1], sz * b.size[2])
+            .applyEuler(euler)
+            .add(new Vector3(...b.position)),
+        ),
+      ),
+    );
+  });
+})();
+const mountainFrontZ = Math.max(...mountainCorners.map((c) => c.z));
+const mountainRadius = Math.max(
+  ...mountainCorners.map((c) => Math.hypot(c.x, c.z)),
+);
 
 describe("room layout", () => {
   it("室内は一辺 ROOM_SIZE の立方体", () => {
@@ -127,11 +158,11 @@ describe("room layout", () => {
     }
   });
 
-  it("ディレクトリは、奥の壁の向こうに中心を置き、室内への張り出しは 2m 未満", () => {
+  it("ディレクトリは、奥の壁の内側の面に背を付け、室内への張り出しは 2.1m 未満", () => {
     const [x, , z] = DIRECTORY_POSITION;
     expect(x).toBe(0);
-    expect(z).toBeLessThanOrEqual(ROOM_INNER_Z_NORTH);
-    expect(z + mountainReach("small") - ROOM_INNER_Z_NORTH).toBeLessThan(2);
+    expect(z).toBe(ROOM_INNER_Z_NORTH);
+    expect(mountainFrontZ).toBeLessThan(2.1);
   });
 
   it("キャンバスの足元(x ±0.49・z -0.62〜0.32 を CANVAS_YAW で回したもの)は、壁にめり込まず、山の端より外", () => {
@@ -152,7 +183,7 @@ describe("room layout", () => {
       expect(z).toBeGreaterThan(ROOM_INNER_Z_NORTH);
       expect(
         Math.hypot(x - DIRECTORY_POSITION[0], z - DIRECTORY_POSITION[2]),
-      ).toBeGreaterThan(mountainReach("small"));
+      ).toBeGreaterThan(mountainRadius);
     }
   });
 
@@ -167,10 +198,11 @@ describe("room layout", () => {
     expect(facing[1]).toBeCloseTo((toSpawn[1] as number) / len);
   });
 
-  it("机(1.6m x 0.8m)の奥の縁と山の端(束の端まで mountainReach(small))の間は 0.5m 以上空く", () => {
+  it("机(1.6m x 0.8m)の奥の縁と山の端(はみ出す紙の端まで)の間は 0.5m 以上空く", () => {
     const deskBackZ = WORKSPACE_POSITION[2] - 0.4;
-    const mountainFrontZ = DIRECTORY_POSITION[2] + mountainReach("small");
-    expect(deskBackZ - mountainFrontZ).toBeGreaterThanOrEqual(0.5);
+    expect(
+      deskBackZ - (DIRECTORY_POSITION[2] + mountainFrontZ),
+    ).toBeGreaterThanOrEqual(0.5);
   });
 
   it("イスは机の手前に座り、机に重ならず、人が引いて座れる間がある", () => {
