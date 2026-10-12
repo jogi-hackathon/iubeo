@@ -92,7 +92,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec cf deploy --mode wisp
+        run: |
+          for i in 1 2 3; do
+            pnpm exec cf deploy --mode wisp && exit 0
+            if [ "$i" -lt 3 ]; then
+              echo "WISP deploy failed (attempt $i/3). Retrying in 20s..."
+              sleep 20
+            fi
+          done
+          echo "WISP deploy failed after 3 attempts"
+          exit 1
 
       - name: フロント Worker をデプロイ
         working-directory: frontend
