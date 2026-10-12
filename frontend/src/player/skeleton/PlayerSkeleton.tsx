@@ -1,22 +1,22 @@
 import {useFrame} from "@react-three/fiber";
-import {type ReactNode, useMemo, useRef} from "react";
+import {type ReactNode, useEffect, useMemo, useRef} from "react";
 import {
-  BackSide,
   type Group,
   type InstancedMesh,
   Matrix4,
-  MeshBasicMaterial,
   Quaternion,
   Vector3,
 } from "three";
 
-import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
 import {listColliders} from "../../core/bvh";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {MAX_DELTA} from "../../core/time";
 import type {PlayerState} from "../types";
 import {createAnimator, updateAnimator} from "./animator";
+import {BodyFire, bodyFireIgnition} from "./BodyFire";
 import {composeBone} from "./bone";
+import {bodyDecay, createSkeletonMaterials} from "./decay";
+import {HeadSplash} from "./HeadSplash";
 import {writeHeldItemPosition} from "./held";
 import {BONES, J, JOINT_COUNT} from "./joints";
 import {applyLean} from "./lean";
@@ -29,14 +29,6 @@ const OUTLINE_WIDTH = 0.008;
 const BONE_RADIUS = 0.015;
 const JOINT_RADIUS = 0.03;
 const HEAD_RADIUS = 0.11;
-
-const FILL_MATERIAL = new MeshBasicMaterial({color: FILL_COLOR});
-const OUTLINE_MATERIAL = new MeshBasicMaterial({
-  color: OUTLINE_COLOR,
-  side: BackSide,
-});
-setSkipGTAO(FILL_MATERIAL, true);
-setSkipGTAO(OUTLINE_MATERIAL, true);
 
 interface PlayerSkeletonProps {
   state: PlayerState;
@@ -99,8 +91,14 @@ export function PlayerSkeleton({
   const animator = useMemo(createAnimator, []);
   const points = useMemo(() => new Float32Array((JOINT_COUNT + 1) * 3), []);
   const body = useMemo(createRagdoll, []);
+  const materials = useMemo(
+    () => createSkeletonMaterials(FILL_COLOR, OUTLINE_COLOR),
+    [],
+  );
+  useEffect(() => () => materials.dispose(), [materials]);
+  const diedAt = useRef<number | null>(null);
 
-  useFrame((_, delta) => {
+  useFrame(({clock}, delta) => {
     const g = group.current;
     const fillBones = bones.current;
     const fillJoints = joints.current;
@@ -119,7 +117,14 @@ export function PlayerSkeleton({
     const dt = Math.min(delta, MAX_DELTA);
     if (!ragdoll) {
       body.active = false;
+      diedAt.current = null;
     }
+    diedAt.current ??= ragdoll ? clock.elapsedTime : null;
+    const sinceDeath =
+      diedAt.current === null ? -1 : clock.elapsedTime - diedAt.current;
+    materials.decay.value = bodyDecay(sinceDeath);
+    materials.blink.value = bodyFireIgnition(sinceDeath);
+    const headless = hideHead || ragdoll;
     if (body.active) {
       stepRagdoll(body, dt, listColliders());
       writePoints(points, body.pos);
@@ -141,12 +146,12 @@ export function PlayerSkeleton({
     writeLayer(
       {bones: fillBones, joints: fillJoints, grow: 0},
       points,
-      hideHead,
+      headless,
     );
     writeLayer(
       {bones: outlineBones, joints: outlineJoints, grow: OUTLINE_WIDTH},
       points,
-      hideHead,
+      headless,
     );
   }, FRAME_PRIORITY.skeleton);
 
@@ -158,7 +163,7 @@ export function PlayerSkeleton({
         frustumCulled={false}
       >
         <cylinderGeometry args={[1, 1, 1, 8, 1]} />
-        <primitive object={FILL_MATERIAL} attach="material" />
+        <primitive object={materials.boneFill} attach="material" />
       </instancedMesh>
       <instancedMesh
         ref={joints}
@@ -166,7 +171,7 @@ export function PlayerSkeleton({
         frustumCulled={false}
       >
         <sphereGeometry args={[1, 12, 8]} />
-        <primitive object={FILL_MATERIAL} attach="material" />
+        <primitive object={materials.jointFill} attach="material" />
       </instancedMesh>
       <instancedMesh
         ref={bonesOutline}
@@ -174,7 +179,7 @@ export function PlayerSkeleton({
         frustumCulled={false}
       >
         <cylinderGeometry args={[1, 1, 1, 8, 1]} />
-        <primitive object={OUTLINE_MATERIAL} attach="material" />
+        <primitive object={materials.boneOutline} attach="material" />
       </instancedMesh>
       <instancedMesh
         ref={jointsOutline}
@@ -182,9 +187,11 @@ export function PlayerSkeleton({
         frustumCulled={false}
       >
         <sphereGeometry args={[1, 12, 8]} />
-        <primitive object={OUTLINE_MATERIAL} attach="material" />
+        <primitive object={materials.jointOutline} attach="material" />
       </instancedMesh>
       <group ref={hand}>{handItem}</group>
+      {ragdoll && <BodyFire points={points} />}
+      {ragdoll && <HeadSplash body={body} />}
     </group>
   );
 }

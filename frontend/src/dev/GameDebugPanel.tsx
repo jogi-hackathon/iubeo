@@ -14,6 +14,7 @@ import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
 import {DIRECTORY_KIND, parseDirectoryData} from "../objects/directory/data";
 import type {SceneLayout} from "../objects/layout";
+import {getSkybox} from "../scenes/environment/skybox";
 import {sceneLayouts} from "../scenes/layouts";
 import {TEST_SPARE_IDS} from "../scenes/TestScene/layout";
 import {useSceneState} from "../scenes/useScene";
@@ -59,7 +60,10 @@ export function GameDebugPanel() {
         <button
           type="button"
           disabled={spectate !== "alive"}
-          onClick={beginElimination}
+          onClick={() => {
+            beginElimination();
+            getSkybox().flashAnomaly();
+          }}
         >
           eliminate
         </button>

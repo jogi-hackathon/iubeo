@@ -7,6 +7,7 @@ import {
   subscribePostProcessSettings,
 } from "../../camera/postprocess/settings";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
+import {playerManager} from "../../player/playerStore";
 import {getSkybox, SKY_HORIZON} from "./skybox";
 
 export function WhiteWorld() {
@@ -19,8 +20,14 @@ export function WhiteWorld() {
       skybox.apply(getPostProcessSettings()),
     );
     scene.backgroundNode = skybox.node;
+    const offLife = playerManager.on("lifeChanged", ({life}) => {
+      if (life === "eliminated") {
+        skybox.flashAnomaly();
+      }
+    });
     return () => {
       unsubscribe();
+      offLife();
       scene.backgroundNode = null;
     };
   }, [scene]);

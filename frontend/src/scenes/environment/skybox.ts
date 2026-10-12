@@ -36,6 +36,14 @@ const BLOCK_SIZES = [8, 20, 44] as const;
 const LAYER_MAX = 6.2;
 /** 仰角の幅の下限(度)。start == end だと smoothstep の edge0 == edge1 になる */
 const MIN_ELEVATION_RANGE = 1;
+const ANOMALY_RED = "#b0101c";
+const ANOMALY_RED_AMOUNT = 0.8;
+const ANOMALY_INTENSITY = 2.5;
+const ANOMALY_UPDATE_RATE = 24;
+const ANOMALY_ATTACK_MS = 100;
+const ANOMALY_HOLD_MS = 300;
+const ANOMALY_DECAY_MS = 1000;
+const ANOMALY_FLICKER = 0.3;
 
 const skyGradient = (dirY: Node<"float">): Node<"float"> =>
   pow(max(dirY, 0), 1.15);
@@ -79,7 +87,22 @@ export interface Skybox {
   node: Node<"vec3">;
   apply(settings: PostProcessSettings): void;
   update(renderer: WebGPURenderer, camera: Camera): void;
+  flashAnomaly(): void;
 }
+
+const anomalyEnvelope = (elapsed: number): number => {
+  if (elapsed < 0) {
+    return 0;
+  }
+  if (elapsed < ANOMALY_ATTACK_MS) {
+    return elapsed / ANOMALY_ATTACK_MS;
+  }
+  const decay = (elapsed - ANOMALY_HOLD_MS) / ANOMALY_DECAY_MS;
+  if (decay <= 0) {
+    return 1;
+  }
+  return Math.max(0, 1 - decay) ** 2;
+};
 
 const createSkybox = (): Skybox => {
   const u = {
@@ -91,29 +114,38 @@ const createSkybox = (): Skybox => {
     elevationStart: uniform(0),
     elevationEnd: uniform(1),
     updateRate: uniform(2),
+    anomaly: uniform(0),
   };
+  let anomalyStartedAt = -Infinity;
 
   const sea = createSea();
   const px = screenCoordinate.xy;
   const dir = rayDirection(px);
   const layerAt = (dirY: Node<"float">): Node<"float"> =>
-    smoothstep(u.elevationStart, u.elevationEnd, dirY)
-      .mul(u.enabled)
-      .mul(LAYER_MAX);
+    max(
+      smoothstep(u.elevationStart, u.elevationEnd, dirY)
+        .mul(u.enabled)
+        .mul(LAYER_MAX),
+      u.anomaly.mul(LAYER_MAX),
+    );
+  const intensity = u.intensity.add(u.anomaly.mul(ANOMALY_INTENSITY));
   const layer = layerAt(dir.y);
 
   const s3 = smoothstep(4.4, 6.2, layer);
   const s2 = smoothstep(2.6, 4.2, layer).mul(s3.oneMinus());
   const s1 = smoothstep(0.8, 2.4, layer).mul(s2.oneMinus().sub(s3));
 
-  const step1 = mod(floor(time.mul(u.updateRate)), 4096);
+  const step1 = mod(
+    floor(time.mul(u.updateRate.add(u.anomaly.mul(ANOMALY_UPDATE_RATE)))),
+    4096,
+  );
   const step2 = floor(step1.mul(0.5));
   const step3 = floor(step1.mul(0.25));
 
   const cell3 = floor(px.div(u.blockSize3));
   const center3 = cell3.add(0.5).mul(u.blockSize3);
   const s3Block = smoothstep(4.4, 6.2, layerAt(rayDirection(center3).y)).mul(
-    u.intensity,
+    intensity,
   );
   const shifted = cellHash(cell3, step3, 100).lessThan(s3Block.mul(0.2));
   const k = floor(cellHash(cell3, step3, 101).mul(6));
@@ -131,7 +163,7 @@ const createSkybox = (): Skybox => {
   let rgb: Node<"vec3"> = mix(
     base,
     flat,
-    s3.mul(u.intensity).mul(0.65).clamp(0, 1),
+    s3.mul(intensity).mul(0.65).clamp(0, 1),
   );
 
   const artifacts = s1
@@ -164,7 +196,7 @@ const createSkybox = (): Skybox => {
     .mul(smoothstep(0.6, 2.4, layer))
     .mul(smoothstep(3.6, 5.0, layer).oneMinus());
 
-  rgb = rgb.add(vec3(artifacts.add(mosquito).mul(u.intensity)));
+  rgb = rgb.add(vec3(artifacts.add(mosquito).mul(intensity)));
 
   const dropped = cellHash(cell3, step3, 102).lessThan(s3Block.mul(0.05));
   const dropLevel = select(
@@ -173,11 +205,25 @@ const createSkybox = (): Skybox => {
     float(0.82),
   );
   rgb = select(dropped, vec3(dropLevel), rgb);
+  const redShade = cellHash(cell3, step1, 300).mul(0.8).add(0.4);
+  rgb = mix(
+    rgb,
+    color(ANOMALY_RED).mul(redShade),
+    u.anomaly.mul(ANOMALY_RED_AMOUNT),
+  );
   rgb = select(dir.y.lessThan(0), sea.colorAt(px), rgb);
 
   return {
     node: rgb.clamp(0, 1),
-    update: (renderer, camera) => sea.update(renderer, camera),
+    update: (renderer, camera) => {
+      sea.update(renderer, camera);
+      const level = anomalyEnvelope(performance.now() - anomalyStartedAt);
+      u.anomaly.value =
+        level > 0 ? level * (1 - ANOMALY_FLICKER * Math.random()) : 0;
+    },
+    flashAnomaly: () => {
+      anomalyStartedAt = performance.now();
+    },
     apply(s) {
       sea.apply(s);
       const n = s.skyNoise;

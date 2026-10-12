@@ -19,7 +19,7 @@ export function LocalPlayerSkeleton() {
     <PlayerSkeleton
       state={localPlayer}
       visible={!transitioning}
-      hideHead={!freeCamera && !detached && !dead}
+      hideHead={!freeCamera && !detached}
       ragdoll={dead}
       holding={held !== null}
       handItem={held && <HeldItem item={held} />}
