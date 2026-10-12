@@ -35,6 +35,12 @@ describe("taskTerms", () => {
   it("同じ語は 1 つにまとめる（画面に出すので、最初の書き方を残す）", () => {
     expect(taskTerms("Vite vite VITE")).toEqual(["Vite"]);
   });
+
+  it("日本語の語は 2 文字から数え、空白と記号で区切る", () => {
+    expect(taskTerms("ラーメン レシピ")).toEqual(["ラーメン", "レシピ"]);
+    expect(taskTerms("猫・犬")).toEqual([]);
+    expect(taskTerms("天気予報")).toEqual(["天気予報"]);
+  });
 });
 
 describe("localJudge", () => {
