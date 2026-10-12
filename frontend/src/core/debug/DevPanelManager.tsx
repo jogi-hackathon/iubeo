@@ -12,6 +12,7 @@ import {
   setDebugFlag,
   useDebugFlags,
 } from "./flags";
+import {SfxTab} from "./SfxTab";
 import {Check} from "./ui";
 
 const dockStyle: CSSProperties = {
@@ -77,6 +78,7 @@ function ViewTab() {
 }
 
 registerDevTab({id: "view", label: "View", order: 0, Component: ViewTab});
+registerDevTab({id: "sfx", label: "SE", order: 90, Component: SfxTab});
 
 export function DevPanelManager() {
   const panel = useDevPanel();

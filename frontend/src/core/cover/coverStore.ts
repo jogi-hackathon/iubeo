@@ -10,9 +10,17 @@ export interface CoverState {
   covered: boolean;
   bar: CoverBar | null;
   booting: boolean;
+  consented: boolean;
+  awaitingConsent: boolean;
 }
 
-let state: CoverState = {covered: true, bar: null, booting: true};
+let state: CoverState = {
+  covered: true,
+  bar: null,
+  booting: true,
+  consented: false,
+  awaitingConsent: false,
+};
 const listeners = new Set<() => void>();
 
 const set = (next: CoverState) => {
@@ -41,6 +49,11 @@ export const coverStore = {
       set({...state, booting: false});
     }
   },
+  setBooting: (booting: boolean): void => {
+    if (booting !== state.booting) {
+      set({...state, booting});
+    }
+  },
   setBar: (total: number, done: number): void => {
     const bar = state.bar;
     if (bar && bar.total === total && bar.done === done) {
@@ -53,6 +66,27 @@ export const coverStore = {
       set({...state, bar: null});
     }
   },
+  setAwaitingConsent: (awaitingConsent: boolean): void => {
+    if (awaitingConsent !== state.awaitingConsent) {
+      set({...state, awaitingConsent});
+    }
+  },
+  setConsented: (consented: boolean): void => {
+    if (consented !== state.consented) {
+      set({...state, consented});
+    }
+  },
+  waitForConsent: (): Promise<void> =>
+    state.consented
+      ? Promise.resolve()
+      : new Promise((resolve) => {
+          const unsubscribe = coverStore.subscribe(() => {
+            if (state.consented) {
+              unsubscribe();
+              resolve();
+            }
+          });
+        }),
 };
 
 export const useCoverState = (): CoverState =>

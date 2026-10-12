@@ -29,6 +29,7 @@ export class KeyboardCapture {
   private readonly teardown: Array<() => void> = [];
 
   onActiveChange?: (active: boolean) => void;
+  onKey?: () => void;
 
   constructor() {
     const field = document.createElement("textarea");
@@ -233,6 +234,9 @@ export class KeyboardCapture {
     event.stopPropagation();
     const down = toScreenKey(event, "down");
     this.pressed.set(event.code, down);
+    if (!MODIFIER_KEYS.has(event.key)) {
+      this.onKey?.();
+    }
     this.source.key(down);
   }
 
@@ -325,6 +329,8 @@ const IME_KEYS = new Set([
   "Convert",
   "NonConvert",
 ]);
+
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 
 const isImeKey = (event: KeyboardEvent): boolean =>
   event.keyCode === 229 || IME_KEYS.has(event.key);

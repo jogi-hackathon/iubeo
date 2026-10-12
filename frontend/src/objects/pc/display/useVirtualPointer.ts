@@ -24,6 +24,8 @@ type Options = {
   cursor: VirtualCursor;
   /** 右クリックしたとき・pointer lock が外れたとき(Esc など)。使うのをやめる合図 */
   onLeave: () => void;
+  onPress?: (phase: "down" | "up") => void;
+  onMove?: (distance: number) => void;
 };
 
 /**
@@ -41,6 +43,8 @@ export function useVirtualPointer({
   screenRef,
   cursor,
   onLeave,
+  onPress,
+  onMove,
 }: Options): void {
   const gl = useThree((s) => s.gl);
   const locked = usePointerLocked();
@@ -56,6 +60,7 @@ export function useVirtualPointer({
     }
     const k = mouseSettingsStore.getState().sensitivity;
     if (cursor.move(dx * k, dy * k, projectedSize(mesh, camera, size))) {
+      onMove?.(Math.hypot(dx, dy));
       screen.pointer({
         type: "move",
         ...toScreen(cursor, screen),
@@ -99,6 +104,7 @@ export function useVirtualPointer({
         return;
       }
       pressed |= 1 << event.button;
+      onPress?.("down");
       screen.pointer({
         type: "down",
         ...toScreen(cursor, screen),
@@ -114,6 +120,7 @@ export function useVirtualPointer({
         return;
       }
       pressed &= ~bit;
+      onPress?.("up");
       screen.pointer({
         type: "up",
         ...toScreen(cursor, screen),
@@ -143,7 +150,7 @@ export function useVirtualPointer({
       doc.removeEventListener("wheel", onWheel);
       doc.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [using, active, gl, screen, cursor, onLeave]);
+  }, [using, active, gl, screen, cursor, onLeave, onPress]);
 
   useEffect(() => {
     if (using && !locked) {

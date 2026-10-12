@@ -1,4 +1,4 @@
-import {useFrame, useThree} from "@react-three/fiber";
+import {useFrame} from "@react-three/fiber";
 import {useEffect} from "react";
 
 import {pcSession} from "../objects/pc/session";
@@ -17,8 +17,6 @@ export function VoiceChat({
   sessionId: string;
   playerId: string;
 }) {
-  const camera = useThree((s) => s.camera);
-
   useEffect(() => {
     void voiceEngine.start(sessionId, playerId);
     return () => voiceEngine.stop();
@@ -51,7 +49,7 @@ export function VoiceChat({
     };
   }, []);
 
-  useFrame(() => voiceEngine.updateFrame(camera, performance.now()));
+  useFrame(() => voiceEngine.updateFrame(performance.now()));
 
   return null;
 }

@@ -1,5 +1,8 @@
 import {useEffect} from "react";
 
+import {audioManager} from "../../../core/audio/audioManager";
+import {audioSettingsStore} from "../../../core/audioSettings";
+import {graphicsStore} from "../../../core/graphics";
 import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import {gameFlow} from "../../../flow";
 import type {PcProgram, PcProgramProps} from "../program";
@@ -12,7 +15,14 @@ let screen: DesktopScreen | null = null;
 /** デスクトップは 1 つだけ作り、部屋を出入りしても開いた窓などはそのまま残す */
 export const desktopScreen = (): DesktopScreen => {
   screen ??= new DesktopScreen(
-    createDesktopApps({flow: gameFlow, mouse: mouseSettingsStore}),
+    createDesktopApps({
+      flow: gameFlow,
+      mouse: mouseSettingsStore,
+      graphics: graphicsStore,
+      audio: audioSettingsStore,
+      devices: audioManager.devices,
+      micMeter: audioManager.micMeter,
+    }),
   );
   return screen;
 };
