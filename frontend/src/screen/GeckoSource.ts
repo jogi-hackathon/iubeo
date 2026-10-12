@@ -1,3 +1,4 @@
+import {searchPageUrl} from "./browserChrome";
 import {CanvasScreenSource} from "./CanvasScreenSource";
 import {
   importEngine,
@@ -20,6 +21,7 @@ import {
 import {
   describeWispHost,
   resolveWispUrl,
+  searchTokenFrom,
   setFreshWispUrl,
   type WispWatcher,
   watchWispUrl,
@@ -186,7 +188,14 @@ export class GeckoSource extends CanvasScreenSource {
           ? "ok"
           : "unreachable";
       await engine.load(
-        pageToDataUrl(searchStartPage(wispState, import.meta.env.DEV)),
+        pageToDataUrl(
+          searchStartPage(
+            wispState,
+            import.meta.env.DEV,
+            searchPageUrl(),
+            searchTokenFrom(this.wispUrl),
+          ),
+        ),
       );
       if (stale()) {
         return;

@@ -5,6 +5,7 @@ import {
   installWispTokenRewrite,
   replaceWispToken,
   resolveWispUrl,
+  searchTokenFrom,
   setFreshWispUrl,
   WISP_REFRESH_MARGIN_MS,
   WISP_TOKEN_PATH,
@@ -202,6 +203,20 @@ describe("describeWispHost", () => {
       "example.test",
     );
     expect(describeWispHost("not a url")).toBe("");
+  });
+});
+
+describe("searchTokenFrom", () => {
+  it("WISP の URL の token を、検索ページへ渡す値にする", () => {
+    expect(searchTokenFrom("wss://example.test/wisp/?token=abc.def")).toBe(
+      "abc.def",
+    );
+  });
+
+  it("token の無い URL や無い値は空", () => {
+    expect(searchTokenFrom("ws://127.0.0.1:5001/")).toBe("");
+    expect(searchTokenFrom(undefined)).toBe("");
+    expect(searchTokenFrom("not a url")).toBe("");
   });
 });
 
