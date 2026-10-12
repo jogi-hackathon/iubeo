@@ -44,6 +44,7 @@ export const createAudioManager = ({
 
   type Graph = {
     ctx: SinkSelectableContext;
+    master: GainNode;
     gameBus: GainNode;
     voiceBus: GainNode;
     micGain: GainNode;
@@ -51,6 +52,7 @@ export const createAudioManager = ({
     levelBuf: Float32Array<ArrayBuffer>;
   };
   let graph: Graph | undefined;
+  let muted = true;
 
   let sinkRequested: string | null = null;
   let sinkSwitch: Promise<void> = Promise.resolve();
@@ -167,7 +169,10 @@ export const createAudioManager = ({
     limiter.ratio.value = 20;
     limiter.attack.value = 0.003;
     limiter.release.value = 0.15;
-    limiter.connect(ctx.destination);
+    const master = ctx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ctx.destination);
+    limiter.connect(master);
     const gameBus = ctx.createGain();
     gameBus.connect(limiter);
     const voiceBus = ctx.createGain();
@@ -178,6 +183,7 @@ export const createAudioManager = ({
     micGain.connect(analyser);
     graph = {
       ctx,
+      master,
       gameBus,
       voiceBus,
       micGain,
@@ -193,6 +199,13 @@ export const createAudioManager = ({
   const unlock = (): void => {
     if (graph?.ctx.state === "suspended") {
       void graph.ctx.resume().catch(() => {});
+    }
+  };
+
+  const setMuted = (next: boolean): void => {
+    muted = next;
+    if (graph) {
+      graph.master.gain.value = muted ? 0 : 1;
     }
   };
 
@@ -285,6 +298,7 @@ export const createAudioManager = ({
     gameBus: (): GainNode => ensure().gameBus,
     voiceBus: (): GainNode => ensure().voiceBus,
     unlock,
+    setMuted,
     setListener,
     acquireMic,
     micLevel,

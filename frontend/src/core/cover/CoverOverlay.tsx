@@ -1,13 +1,14 @@
 import {useEffect, useReducer} from "react";
 
 import {audioManager} from "../audio/audioManager";
+import {audioSettingsStore} from "../audioSettings";
 import {barFraction} from "./coverProgress";
 import {coverStore, useCoverState} from "./coverStore";
 
 const TICK_MS = 100;
 
 export function CoverOverlay() {
-  const {covered, bar, booting, consented} = useCoverState();
+  const {covered, bar, booting, consented, awaitingConsent} = useCoverState();
   const barShown = bar !== null;
   const [, tick] = useReducer((n: number) => n + 1, 0);
 
@@ -22,7 +23,7 @@ export function CoverOverlay() {
   return (
     <div className="cover-overlay" data-covered={covered}>
       {bar && (
-        <div className="cover-bar">
+        <div className="cover-bar" data-hidden={awaitingConsent || !covered}>
           <div
             className="cover-bar-fill"
             style={{
@@ -38,14 +39,19 @@ export function CoverOverlay() {
         </div>
       )}
       {booting && (
-        <div className="cover-notice">
+        <div className="cover-notice" data-shown={awaitingConsent}>
           <p>このアプリでは音声が再生されます</p>
           <button
             type="button"
             disabled={consented}
             onClick={() => {
               audioManager.context();
+              audioManager.setMuted(false);
               audioManager.unlock();
+              audioSettingsStore.set({
+                ...audioSettingsStore.get(),
+                soundNoticeAccepted: true,
+              });
               coverStore.setConsented(true);
             }}
           >

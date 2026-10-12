@@ -12,7 +12,11 @@ export function AudioListenerSync() {
   useEffect(() => {
     const unlock = () => audioManager.unlock();
     window.addEventListener("pointerdown", unlock);
-    return () => window.removeEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, []);
 
   useFrame(() => {

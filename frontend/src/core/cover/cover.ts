@@ -1,3 +1,5 @@
+import {audioManager} from "../audio/audioManager";
+import {audioSettingsStore} from "../audioSettings";
 import {coverStore} from "./coverStore";
 
 export const COVER_IN_MS = 300;
@@ -34,7 +36,14 @@ export const completeBar = async (): Promise<void> => {
 
 export const finishBootCover = async (): Promise<void> => {
   await completeBar();
+  if (audioSettingsStore.get().soundNoticeAccepted) {
+    audioManager.setMuted(false);
+    audioManager.unlock();
+    coverStore.setConsented(true);
+  }
+  coverStore.setAwaitingConsent(!coverStore.getState().consented);
   await coverStore.waitForConsent();
+  coverStore.setAwaitingConsent(false);
   coverStore.finishBoot();
   uncoverScreen();
 };

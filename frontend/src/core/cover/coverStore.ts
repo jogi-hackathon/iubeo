@@ -11,6 +11,7 @@ export interface CoverState {
   bar: CoverBar | null;
   booting: boolean;
   consented: boolean;
+  awaitingConsent: boolean;
 }
 
 let state: CoverState = {
@@ -18,6 +19,7 @@ let state: CoverState = {
   bar: null,
   booting: true,
   consented: false,
+  awaitingConsent: false,
 };
 const listeners = new Set<() => void>();
 
@@ -62,6 +64,11 @@ export const coverStore = {
   hideBar: (): void => {
     if (state.bar !== null) {
       set({...state, bar: null});
+    }
+  },
+  setAwaitingConsent: (awaitingConsent: boolean): void => {
+    if (awaitingConsent !== state.awaitingConsent) {
+      set({...state, awaitingConsent});
     }
   },
   setConsented: (consented: boolean): void => {

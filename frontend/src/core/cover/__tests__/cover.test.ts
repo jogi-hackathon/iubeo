@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
+import {audioSettingsStore} from "../../audioSettings";
 import {
   BAR_FILL_MS,
   BAR_HOLD_MS,
@@ -26,6 +27,8 @@ beforeEach(() => {
   coverStore.setCovered(true);
   coverStore.hideBar();
   coverStore.setConsented(false);
+  audioSettingsStore.reset();
+  coverStore.setAwaitingConsent(false);
   coverStore.setBooting(true);
 });
 
@@ -77,10 +80,14 @@ describe("finishBootCover", () => {
     coverStore.setBar(6, 5);
     const p = finishBootCover();
 
-    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS + 1000);
+    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS - 1);
+    expect(coverStore.getState().awaitingConsent).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1000);
     expect(coverStore.getState()).toMatchObject({
       covered: true,
       booting: true,
+      awaitingConsent: true,
       bar: {total: 6, done: 6},
     });
 
@@ -89,6 +96,7 @@ describe("finishBootCover", () => {
     expect(coverStore.getState()).toMatchObject({
       covered: false,
       booting: false,
+      awaitingConsent: false,
     });
   });
 
@@ -163,5 +171,24 @@ describe("showBarWhileWaiting", () => {
     const p = showBarWhileWaiting(Promise.reject(new Error("x")));
     await expect(p).rejects.toThrow("x");
     expect(coverStore.getState().bar).toBeNull();
+  });
+
+  it("以前に了承していれば、注意を出さずにバーを伸ばし切って覆いを外す", async () => {
+    audioSettingsStore.set({
+      ...audioSettingsStore.get(),
+      soundNoticeAccepted: true,
+    });
+    coverStore.setCovered(true);
+    coverStore.setBar(6, 5);
+    const p = finishBootCover();
+
+    await vi.advanceTimersByTimeAsync(BAR_FILL_MS + BAR_HOLD_MS);
+    await p;
+    expect(coverStore.getState()).toMatchObject({
+      covered: false,
+      booting: false,
+      awaitingConsent: false,
+      consented: true,
+    });
   });
 });

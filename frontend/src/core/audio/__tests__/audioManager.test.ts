@@ -236,6 +236,26 @@ describe("audioManager", () => {
     expect(manager.micLevel()).toBe(0);
   });
 
+  it("setMuted(false) を呼ぶまでは全体を無音にする", () => {
+    const {manager, context} = make();
+    const gains: {gain: {value: number}; connect: ReturnType<typeof vi.fn>}[] =
+      [];
+    context.ctx.createGain = () => {
+      const node = fakeNode();
+      gains.push(node);
+      return node;
+    };
+    manager.context();
+    const master = gains.find((g) =>
+      g.connect.mock.calls.some(([to]) => to === context.ctx.destination),
+    );
+    expect(master?.gain.value).toBe(0);
+    manager.setMuted(false);
+    expect(master?.gain.value).toBe(1);
+    manager.setMuted(true);
+    expect(master?.gain.value).toBe(0);
+  });
+
   it("unlock は止まっているときだけ resume する", async () => {
     const {manager, context} = make();
     manager.unlock();

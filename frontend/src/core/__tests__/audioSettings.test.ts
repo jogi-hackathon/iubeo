@@ -26,4 +26,14 @@ describe("parseAudioSettings", () => {
     expect(s.inputDeviceId).toBeNull();
     expect(parseAudioSettings({inputDeviceId: 3}).inputDeviceId).toBeNull();
   });
+
+  it("音声の注意への了承は true のときだけ残し、それ以外は false", () => {
+    expect(
+      parseAudioSettings({soundNoticeAccepted: true}).soundNoticeAccepted,
+    ).toBe(true);
+    expect(
+      parseAudioSettings({soundNoticeAccepted: "yes"}).soundNoticeAccepted,
+    ).toBe(false);
+    expect(parseAudioSettings({}).soundNoticeAccepted).toBe(false);
+  });
 });
