@@ -267,3 +267,17 @@ func TestSearchPageKeepsTokenOnlyInForm(t *testing.T) {
 		t.Fatalf("token appears %d times, want 1 (hidden input only)", n)
 	}
 }
+
+func TestDisplayURL(t *testing.T) {
+	cases := map[string]string{
+		"https://ja.wikipedia.org/wiki/%E6%9D%B1%E4%BA%AC%E3%82%BF%E3%83%AF%E3%83%BC": "https://ja.wikipedia.org/wiki/東京タワー",
+		"https://example.com/a%ZZ": "https://example.com/a%ZZ",
+		"https://example.com/%FF":  "https://example.com/%FF",
+		"https://threejs.org/":     "https://threejs.org/",
+	}
+	for in, want := range cases {
+		if got := displayURL(in); got != want {
+			t.Errorf("displayURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

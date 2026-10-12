@@ -35,7 +35,7 @@
 {{range .Results}}
 <li>
 <a class="title" href="{{.URL}}">{{.Title}}</a>
-<div class="url">{{.URL}}</div>
+<div class="url">{{displayURL .URL}}</div>
 <p class="desc">{{.Description}}</p>
 </li>
 {{end}}

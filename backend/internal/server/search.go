@@ -26,7 +26,7 @@ const (
 //go:embed search.html
 var searchHTML string
 
-var searchTmpl = template.Must(template.New("search").Parse(searchHTML))
+var searchTmpl = template.Must(template.New("search").Funcs(template.FuncMap{"displayURL": displayURL}).Parse(searchHTML))
 
 type searchPage struct {
 	Query    string
@@ -109,4 +109,12 @@ func truncateRunes(s string, n int) string {
 		return s
 	}
 	return string([]rune(s)[:n])
+}
+
+// displayURL は結果の URL を読める形で出す(パーセントエンコードした日本語などを戻す)。戻せなければそのまま。
+func displayURL(raw string) string {
+	if u, err := url.PathUnescape(raw); err == nil && utf8.ValidString(u) {
+		return u
+	}
+	return raw
 }
