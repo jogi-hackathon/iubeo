@@ -106,7 +106,7 @@ room(LocalAuthority)にいる
 
 ゲームの流れ(`flow/gameFlow.ts`)は、シーンもオーソリティも知らない純粋な状態機械で、状態は `idle` → `issuing` → `queued` → `matched` → `entering` → `inSession`(失敗は `error`)。HTTP・シーンの移動・待ちは引数で受け取る。
 
-- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の PC のデスクトップの「マッチング」アプリ(`objects/pc/desktop/apps/matchmaking.ts`)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ(アプリは探している間のキャンセルもする)。アプリは `gameFlow` を直接 import せず、デスクトップを作るとき(`DesktopProgram.tsx`)に渡される。PC を使っている最中に成立したら、そのまま画面へ飛び込む(ダイブはカメラが画面の正面に寄っていれば、下がらずにその距離から始める)。
+- マッチングはゲームの流れの仕事で、シーンやオーソリティの仕事ではない。きっかけは、room の PC のデスクトップの「接続」アプリ(`objects/pc/desktop/apps/matchmaking.ts`。画面ではマッチングを「接続」と呼ぶ)と、開発用パネル(`dev/GameFlowPanel.tsx`)のボタンで、どちらも `gameFlow.startMatchmaking()` を 1 回呼ぶ(アプリは待っている間の取り下げもする)。アプリは `gameFlow` を直接 import せず、デスクトップを作るとき(`DesktopProgram.tsx`)に渡される。PC を使っている最中に成立したら、そのまま画面へ飛び込む(ダイブはカメラが画面の正面に寄っていれば、下がらずにその距離から始める)。
 - 待機中の扱い(サーバー側の事実に合わせる):
   - サーバーは 10 秒見ないと待機列から外すので、1 秒ごとに GET する。GET が 404(`not_queued`)なら入り直す。
   - 入るとき 409(`in_session`)なら、既にセッションに居る。`GET /players/me` の `sessionId` で成立として進む。
@@ -120,7 +120,7 @@ room(LocalAuthority)にいる
 - 覆いは `opacity: 0.995`(完全な不透明にしない)。不透明な間はブラウザが下の Canvas を合成せず、外し始めた瞬間に重い合成が走ってフェードが飛ぶため(目には白のまま)。進捗バーは、起動の段階と、シーンの準備を待つ間(0.5 秒を超えたとき)に出す。
 - これで、前のシーンのオブジェクトの映り込みや、ベイク AO のずれを防ぐ(新しいシーンが描かれる前に同期で置き直す仕組みは使わない)。
 - 準備完了とゲームの開始は別。snapshot は全員がそろうのを待つ間にも届く。全員がつながるとサーバーが `session.started` を送る(state-schema §6)。人間が 30 秒そろわないとセッションは解散する。
-- 始まってからの表示は HUD(`game/Hud.tsx`。Canvas の外の DOM オーバーレイ)が受け持つ。フェーズと締切・タスクは `phase.started` / `phase.ended` / `task.completed` と snapshot の `game` を `game/gameStore` に集め、残り時間は `deadlineAt` と `serverTime` から毎回計算する。マッチングと待機の状態は `flow` の状態と snapshot の `status` を見る。`read_edit` の対象ファイルは、在庫の色(`game/stockColors.ts`。`directory-1` の `stock` から引く)を行の頭の四角で出し、山の紙と見比べられるようにする(誰かが持っている間は在庫に無いので色は出ない)。値を見せるだけで、判定はしない(ADR-0003)。
+- 始まってからの表示は HUD(`game/Hud.tsx`。Canvas の外の DOM オーバーレイ)が受け持つ。フェーズと締切・タスクは `phase.started` / `phase.ended` / `task.completed` と snapshot の `game` を `game/gameStore` に集め、残り時間は `deadlineAt` と `serverTime` から毎回計算する。マッチングと待機の状態は HUD に出さない(待っている間の様子は、PC の「接続」アプリが出す)。`read_edit` の対象ファイルは、在庫の色(`game/stockColors.ts`。`directory-1` の `stock` から引く)を行の頭の四角で出し、山の紙と見比べられるようにする(誰かが持っている間は在庫に無いので色は出ない)。値を見せるだけで、判定はしない(ADR-0003)。
 - 脱落(`player.updated` の `life: eliminated`)したら、頭が消し飛んで体がラグドールで倒れ、5秒ほどブロックノイズの炎を纏いながら体がブロック状に欠けていき(`player/skeleton/BodyFire`・`decay`)、空が一瞬紅く乱れる演出(`scenes/environment/skybox`。誰が脱落しても出る)の後、`FlyCamera` での観戦に移る(`core/spectate`)。観戦はデバッグ用の `freeCamera`(F8)とは別の状態で、`ObjectManager` には影響せず、狙い・操作・移動を止める(物には触れられない)。セッションを離れたら通常に戻る。
 - 決着(`session.finished`)したら、結果を console に出して `gameStore` に持ち、room へシーン遷移する(勝敗画面は作らない)。結果は戻った後も HUD が数秒出す。
 - セッションの終わり(接続の close)は、ゲームの流れが受ける(`sessionClosed(code, reason)`)。close の reason から通知(`FlowNotice`)を決め、console に出し、HUD が数秒だけ 1 行で出してから room へ戻る。
@@ -199,11 +199,11 @@ useInteraction(object, pcInteraction); // マウントで登録、アンマウ�
 | E | `ServerAuthority`、ゲームの流れ(マッチング → sandbox → room)、開発用マルチシーンの削除 | 済 |
 | F | room の仮のマッチングボタン、HUD(フェーズ・タスク・残り時間)、脱落の演出と観戦、決着と切断理由の通知(#84) | 済 |
 | - | room のチュートリアル(進行の仕組みは `tutorial/`、部屋の手順・見せ方・進行役は `scenes/RoomScene/tutorial/`) | 済 |
-| - | room の PC を Windows 2000 風のデスクトップに(`objects/pc/desktop/`。マッチング・設定のアプリ)。仮のマッチングボタンは撤去 | 済 |
+| - | room の PC を Windows 2000 風のデスクトップに(`objects/pc/desktop/`。接続(マッチング)・設定のアプリ)。仮のマッチングボタンは撤去 | 済 |
 
 残り:
 
-- マッチングのきっかけは、room の PC のデスクトップの「マッチング」アプリ。シングルプレイの動線は設けない(人数がそろわなければ CPU で埋まる。state-schema §6.1)。
+- マッチングのきっかけは、room の PC のデスクトップの「接続」アプリ。シングルプレイの動線は設けない(人数がそろわなければ CPU で埋まる。state-schema §6.1)。
 - 勝敗画面は作らない(結果は console と HUD の 1 行だけ)。
 - フェーズの数値・バランスの調整は未着手(issue #84 の対象外)。
 

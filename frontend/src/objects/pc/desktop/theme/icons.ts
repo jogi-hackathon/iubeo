@@ -1,121 +1,87 @@
 import type {IconName} from "../kernel/app";
+import settingsSvg from "./icons/settings.svg?raw";
+import startSvg from "./icons/start.svg?raw";
+import terminalSvg from "./icons/terminal.svg?raw";
 
-type PixelIcon = {palette: Record<string, string>; rows: readonly string[]};
+/** スタートボタンの印も含めた、描けるアイコン */
+export type PaintableIcon = IconName | "start";
 
-// 16×16 のドット絵。"." は透明
-const ICONS: Record<IconName | "logo", PixelIcon> = {
-  matchmaking: {
-    palette: {k: "#000000", B: "#9a9a9a", b: "#5a5a5a", g: "#e0e0e0"},
-    rows: [
-      "................",
-      ".....kkkkkk.....",
-      "...kkBBggBBkk...",
-      "..kBBggggBBBBk..",
-      ".kBBgggggBBBBBk.",
-      ".kBBBgggBBBggBk.",
-      "kBBBBBggBBggggBk",
-      "kBBBBBBgBgggggbk",
-      "kbBBBBBBBggggbbk",
-      "kbbBBBBBBBgggbbk",
-      ".kbbBBggBBBggbk.",
-      ".kbbbbgggBBbbbk.",
-      "..kbbbbggbbbbk..",
-      "...kkbbbbbbkk...",
-      ".....kkkkkk.....",
-      "................",
-    ],
-  },
-  settings: {
-    palette: {k: "#000000", w: "#ffffff", s: "#808080"},
-    rows: [
-      "......kkkk......",
-      "...kk.kwwk.kk...",
-      "..kwwkkwwkkwwk..",
-      "..kwwwwwwwwwsk..",
-      "...kwwwkkwwsk...",
-      "kkkwwwk..kwsskkk",
-      "kwwwwk....kssssk",
-      "kwwwwk....kssssk",
-      "kwwwsk....kssssk",
-      "kkkwssk..kssskkk",
-      "...kwsskkssssk..",
-      "..kwssssssssk...",
-      "..ksskksskkssk..",
-      "...kk.kssk.kk...",
-      "......kkkk......",
-      "................",
-    ],
-  },
-  logo: {
-    palette: {k: "#000000", w: "#ffffff", b: "#2a2a2a", c: "#c8c8c8"},
-    rows: [
-      "................",
-      "................",
-      ".kkkkkkkkkkkkk..",
-      ".kwwwwwwwwwwwk..",
-      ".kwbbbbbbbbbwk..",
-      ".kwbcbbbbbbbwk..",
-      ".kwbbcbbbbbbwk..",
-      ".kwbbbbbbbbbwk..",
-      ".kwbbbbbbbbbwk..",
-      ".kwwwwwwwwwwwk..",
-      ".kkkkkkkkkkkkk..",
-      "......kwk.......",
-      "....kkkkkkk.....",
-      "................",
-      "................",
-      "................",
-    ],
-  },
+// 16×16 のドット絵を SVG で持つ(./icons/。マス目に沿った四角だけで描き、shape-rendering="crispEdges" でぼかさない)
+const SOURCES: Record<PaintableIcon, string> = {
+  terminal: terminalSvg,
+  settings: settingsSvg,
+  start: startSvg,
+};
+
+const images = new Map<PaintableIcon, HTMLImageElement>();
+let loading: Promise<void> | null = null;
+
+/**
+ * アイコンの SVG を画像として読み込む(一度だけ)。読み込み終わるまで paintIcon は何も描かないので、
+ * 描く側は終わったら描き直す(DesktopScreen)
+ */
+export const loadIcons = (): Promise<void> => {
+  loading ??= Promise.all(
+    (Object.keys(SOURCES) as PaintableIcon[]).map(async (name) => {
+      const image = new Image();
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SOURCES[name])}`;
+      await image.decode();
+      images.set(name, image);
+    }),
+  ).then(() => undefined);
+  return loading;
 };
 
 const cache = new Map<string, HTMLCanvasElement>();
 
 const render = (
-  name: IconName | "logo",
-  scale: number,
+  name: PaintableIcon,
+  size: number,
   tint: string | null,
-): HTMLCanvasElement => {
-  const key = `${name}@${scale}:${tint ?? ""}`;
+): HTMLCanvasElement | null => {
+  const key = `${name}@${size}:${tint ?? ""}`;
   const hit = cache.get(key);
   if (hit) {
     return hit;
   }
-  const {palette, rows} = ICONS[name];
+  const image = images.get(name);
+  const base = tint ? render(name, size, null) : null;
+  if (!image || (tint && !base)) {
+    return null;
+  }
   const canvas = document.createElement("canvas");
-  canvas.width = 16 * scale;
-  canvas.height = 16 * scale;
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext("2d");
-  if (ctx && tint) {
+  if (ctx && base && tint) {
     // アイコンの画素にだけ色を半分かぶせる(デスクトップで選んだアイコン)
-    ctx.drawImage(render(name, scale, null), 0, 0);
+    ctx.drawImage(base, 0, 0);
     ctx.globalCompositeOperation = "source-atop";
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = tint;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, size, size);
   } else if (ctx) {
-    rows.forEach((row, y) => {
-      for (let x = 0; x < row.length; x++) {
-        const color = palette[row[x] ?? "."];
-        if (color) {
-          ctx.fillStyle = color;
-          ctx.fillRect(x * scale, y * scale, scale, scale);
-        }
-      }
-    });
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, 0, 0, size, size);
   }
   cache.set(key, canvas);
   return canvas;
 };
 
-/** アイコンを描く。size は 16 か 32。tint を渡すと、アイコンの画素にだけその色を半分かぶせる */
+/**
+ * アイコンを描く。size は 16 か 32。tint を渡すと、アイコンの画素にだけその色を半分かぶせる。
+ * SVG を読み込み終わる前(loadIcons)は何も描かない
+ */
 export const paintIcon = (
   ctx: CanvasRenderingContext2D,
-  name: IconName | "logo",
+  name: PaintableIcon,
   x: number,
   y: number,
   size: 16 | 32 = 32,
   tint: string | null = null,
 ): void => {
-  ctx.drawImage(render(name, size / 16, tint), x, y);
+  const icon = render(name, size, tint);
+  if (icon) {
+    ctx.drawImage(icon, x, y);
+  }
 };

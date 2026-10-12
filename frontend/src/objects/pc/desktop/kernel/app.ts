@@ -25,7 +25,7 @@ export type AppContext = {
   close(): void;
 };
 
-export type IconName = "matchmaking" | "settings";
+export type IconName = "terminal" | "settings";
 
 /** デスクトップに置くアプリ。同じアプリの窓は 1 つだけ開く */
 export type DesktopApp = {

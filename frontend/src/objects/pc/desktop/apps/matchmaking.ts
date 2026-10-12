@@ -70,31 +70,32 @@ export const matchmakingLines = (
       return [
         state.notice
           ? noticeLabels[state.notice]
-          : "「開始」を押すと、一緒に遊ぶ相手を探します。",
+          : "「待機」を押すと、セッションへの接続を待ちます。",
       ];
     case "issuing":
       return ["サーバーに接続しています…"];
     case "queued":
       return [
-        "対戦相手を探しています…",
-        `待ち時間 ${formatElapsed(elapsedMs ?? 0)}`,
+        "接続を待っています…",
+        `待機時間 ${formatElapsed(elapsedMs ?? 0)}`,
       ];
     case "matched":
     case "entering":
-      return ["見つかりました。セッションに入ります…"];
+      return ["接続先が決まりました。セッションへ移ります…"];
     case "inSession":
       return ["セッションに参加しています。"];
     case "error":
       return [
-        "うまくいきませんでした。「開始」でやり直せます。",
+        "うまくいきませんでした。「待機」でやり直せます。",
         state.message,
       ];
   }
 };
 
 /**
- * マッチングの窓。開始・キャンセルをゲームの流れへ伝え、待っている間は流れるバーと待ち時間を出す。
- * 見つかったら、そのまま画面へ飛び込む(シーンの切り替えが PC の画面を入口にする)
+ * 接続の窓(中身はマッチング。プレイヤーは相手を探すのではなく、セッションへつながれるのを待つ側なので、画面ではそう呼ぶ)。
+ * 待機・取り下げをゲームの流れへ伝え、待っている間は流れるバーと待機時間を出す。
+ * 接続先が決まったら、そのまま画面へ飛び込む(シーンの切り替えが PC の画面を入口にする)
  */
 export const createMatchmakingApp = ({
   flow,
@@ -106,8 +107,8 @@ export const createMatchmakingApp = ({
   schedule?: Schedule;
 }): DesktopApp => ({
   id: "matchmaking",
-  title: "マッチング",
-  icon: "matchmaking",
+  title: "接続",
+  icon: "terminal",
   size: SIZE,
   open: (): AppView => {
     const listeners = new Set<() => void>();
@@ -169,10 +170,10 @@ export const createMatchmakingApp = ({
 
     return {
       paint: (ctx, {width}) => {
-        paintIcon(ctx, "matchmaking", 12, 12);
+        paintIcon(ctx, "terminal", 12, 12);
         ctx.font = FONT_BOLD;
         ctx.fillStyle = COLORS.text;
-        ctx.fillText("対戦相手を探す", 56, 20);
+        ctx.fillText("セッションへの接続", 56, 20);
 
         ctx.font = FONT;
         const [body = "", extra = ""] = matchmakingLines(state, elapsed());
@@ -200,7 +201,7 @@ export const createMatchmakingApp = ({
           );
         }
         const label =
-          phase === "connecting" || phase === "waiting" ? "キャンセル" : "開始";
+          phase === "connecting" || phase === "waiting" ? "取り下げ" : "待機";
         paintButton(ctx, button, label, {isDefault: true});
       },
       pointer: (event) => {

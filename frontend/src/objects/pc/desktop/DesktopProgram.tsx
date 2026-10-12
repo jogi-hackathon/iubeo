@@ -18,7 +18,7 @@ export const desktopScreen = (): DesktopScreen => {
 };
 
 /**
- * 部屋の PC で動く 2000 風のデスクトップ(マッチングと設定のアプリを開く)。
+ * 部屋の PC で動く 2000 風のデスクトップ(接続と設定のアプリを開く)。
  * pointer lock のまま仮想カーソルで操作し、画面が視界のほとんどを占めるまで寄る
  */
 function DesktopProgram({using}: PcProgramProps) {

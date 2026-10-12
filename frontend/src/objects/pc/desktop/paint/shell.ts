@@ -173,7 +173,7 @@ const paintTaskbar = (
   const startDown = state.startOpen || state.pressed?.kind === "start";
   raised(ctx, START_BUTTON, startDown);
   const o = startDown ? 1 : 0;
-  paintIcon(ctx, "logo", START_BUTTON.x + 4 + o, START_BUTTON.y + 3 + o, 16);
+  paintIcon(ctx, "start", START_BUTTON.x + 4 + o, START_BUTTON.y + 3 + o, 16);
   ctx.font = FONT_BOLD;
   ctx.fillStyle = COLORS.text;
   ctx.fillText(

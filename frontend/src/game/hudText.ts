@@ -1,4 +1,4 @@
-import type {FlowNotice, GameFlowState} from "../flow";
+import type {FlowNotice} from "../flow";
 import type {GameResult, GameTask, TaskType} from "../net";
 import {remainingMs, type GameState} from "./gameStore";
 
@@ -22,38 +22,6 @@ export const taskLine = (task: GameTask, color?: string): HudLine => ({
   text: `${task.status === "completed" ? "☑" : "☐"} ${taskLabels[task.type]}`,
   ...(color === undefined ? {} : {color}),
 });
-
-export const matchingLine = (
-  flow: GameFlowState,
-  game: GameState,
-  now: number,
-): string | null => {
-  switch (flow.status) {
-    case "issuing":
-      return "マッチングを始めています…";
-    case "queued": {
-      if (!flow.queuedAt) {
-        return "マッチング中…";
-      }
-      const sec = Math.max(
-        0,
-        Math.floor((now - Date.parse(flow.queuedAt)) / 1000),
-      );
-      return `マッチング中… ${sec}秒`;
-    }
-    case "matched":
-    case "entering":
-      return "セッションに入ります…";
-    case "inSession":
-      return game.phase === null && game.sessionStatus === "waiting"
-        ? "他のプレイヤーを待っています…"
-        : null;
-    case "error":
-      return `エラー: ${flow.message}`;
-    default:
-      return null;
-  }
-};
 
 export const phaseLine = (game: GameState, now: number): string | null => {
   if (game.intermission || game.phase?.status === "intermission") {

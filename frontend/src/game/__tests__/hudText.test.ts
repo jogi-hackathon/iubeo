@@ -2,13 +2,7 @@ import {describe, expect, it} from "vitest";
 
 import type {GamePhase, GameTask} from "../../net";
 import type {GameState} from "../gameStore";
-import {
-  matchingLine,
-  noticeLabels,
-  phaseLine,
-  resultLine,
-  taskLine,
-} from "../hudText";
+import {noticeLabels, phaseLine, resultLine, taskLine} from "../hudText";
 
 const at = (ms: number) => new Date(ms).toISOString();
 
@@ -59,37 +53,6 @@ describe("hudText", () => {
         }),
       ),
     ).toEqual({text: "☑ 画像生成"});
-  });
-
-  it("マッチングと待機の状態を出す", () => {
-    expect(matchingLine({status: "issuing"}, game(), 0)).toBe(
-      "マッチングを始めています…",
-    );
-    expect(
-      matchingLine(
-        {status: "queued", playerId: "p1", queuedAt: at(0)},
-        game(),
-        12_000,
-      ),
-    ).toBe("マッチング中… 12秒");
-    expect(matchingLine({status: "idle"}, game(), 0)).toBeNull();
-  });
-
-  it("待機は、最初のフェーズが来るまで出す", () => {
-    expect(
-      matchingLine(
-        {status: "inSession", playerId: "p1", sessionId: "s1"},
-        game({sessionStatus: "waiting"}),
-        0,
-      ),
-    ).toBe("他のプレイヤーを待っています…");
-    expect(
-      matchingLine(
-        {status: "inSession", playerId: "p1", sessionId: "s1"},
-        game({sessionStatus: "playing", phase: phase()}),
-        0,
-      ),
-    ).toBeNull();
   });
 
   it("フェーズ番号と残り秒数をサーバー時刻から出す", () => {

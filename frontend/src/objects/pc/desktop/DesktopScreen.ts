@@ -14,6 +14,7 @@ import {SCREEN} from "./kernel/layout";
 import {createShell, type Shell} from "./kernel/shell";
 import {paintCursor} from "./paint/cursor";
 import {paintShell} from "./paint/shell";
+import {loadIcons} from "./theme/icons";
 
 /**
  * 2000 風のデスクトップを映す画面のソース。シェルの絵を下地(base)に描いておき、
@@ -51,6 +52,14 @@ export class DesktopScreen implements ScreenSource {
     this.texture.anisotropy = 4;
     // 一度も描いていない canvas を GPU へ上げると Chrome が転送を飛ばすので、先に 1 回描く(BrowserScreen と同じ)
     this.tick();
+    // アイコンの SVG は読み込みを待つ。読めたら下地を描き直す
+    loadIcons().then(
+      () => {
+        this.paintedVersion = -1;
+      },
+      (error: unknown) =>
+        console.error("[desktop] アイコンを読み込めません", error),
+    );
   }
 
   get width(): number {

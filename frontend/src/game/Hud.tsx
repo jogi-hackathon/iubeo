@@ -7,7 +7,6 @@ import {useObjectsState} from "../objects";
 import {useGameState} from "./gameStore";
 import {
   type HudLine,
-  matchingLine,
   noticeLabels,
   phaseLine,
   resultLine,
@@ -74,10 +73,6 @@ export function Hud() {
   );
 
   const lines: HudLine[] = [];
-  const matching = matchingLine(flow, game, now);
-  if (matching !== null) {
-    lines.push({text: matching});
-  }
   const phase = phaseLine(game, now);
   if (phase !== null) {
     lines.push({text: phase});

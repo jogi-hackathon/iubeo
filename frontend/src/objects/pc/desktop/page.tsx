@@ -73,16 +73,16 @@ const STATES: Array<[string, GameFlowState]> = [
   ["待機", {status: "idle"}],
   ["接続中", {status: "issuing"}],
   [
-    "探している",
+    "待っている",
     {status: "queued", playerId: "dev", queuedAt: new Date().toISOString()},
   ],
-  ["成立", {status: "matched", playerId: "dev", sessionId: "s"}],
+  ["接続先が決まった", {status: "matched", playerId: "dev", sessionId: "s"}],
   ["エラー", {status: "error", message: "502 Bad Gateway"}],
   ["解散の通知", {status: "idle", notice: "dissolved"}],
 ];
 for (const [label, next] of STATES) {
   const button = document.createElement("button");
-  button.textContent = `マッチング: ${label}`;
+  button.textContent = `接続: ${label}`;
   button.addEventListener("click", () => flow.set(next));
   panel.appendChild(button);
 }

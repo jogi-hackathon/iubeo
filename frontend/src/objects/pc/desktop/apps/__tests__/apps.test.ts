@@ -51,7 +51,7 @@ const fakeSchedule = () => {
   return {schedule, running, tick: () => running.forEach((fn) => fn())};
 };
 
-describe("マッチングのアプリ", () => {
+describe("接続(マッチング)のアプリ", () => {
   const open = (initial?: GameFlowState) => {
     const flow = fakeFlow(initial);
     const timers = fakeSchedule();
@@ -141,10 +141,10 @@ describe("マッチングのアプリ", () => {
       matchmakingLines({status: "idle", notice: "dissolved"}, null)[0],
     ).toBe("人数がそろわず、セッションは解散しました");
     expect(matchmakingLines({status: "queued", playerId: "p"}, 65_000)).toEqual(
-      ["対戦相手を探しています…", "待ち時間 1:05"],
+      ["接続を待っています…", "待機時間 1:05"],
     );
     expect(matchmakingLines({status: "error", message: "502"}, null)).toEqual([
-      "うまくいきませんでした。「開始」でやり直せます。",
+      "うまくいきませんでした。「待機」でやり直せます。",
       "502",
     ]);
   });
