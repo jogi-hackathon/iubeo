@@ -51,6 +51,8 @@ export const FROSTED_GLASS: FrostedGlassParams = {
   gridOpacity: 0,
 };
 
+export const FROSTED_GLASS_RENDER_ORDER = 1;
+
 const DETAIL_SCALE = 2.7;
 const DETAIL_OFFSET = [5.2, 1.3] as const;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
