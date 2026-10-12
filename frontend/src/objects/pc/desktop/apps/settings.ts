@@ -32,7 +32,7 @@ export const SETTINGS_LAYOUT = {
 } as const satisfies Record<string, Rect>;
 
 /**
- * 設定の窓。今はマウスの感度(一人称で見回す速さ)だけ。動かしたらすぐ効かせて保存する
+ * 設定の窓。今はマウスの感度(見回す速さとカーソルの速さ)だけ。動かしたらすぐ効かせて保存する
  */
 export const createSettingsApp = ({
   mouse,
@@ -81,7 +81,7 @@ export const createSettingsApp = ({
         paintGroup(ctx, group, "マウス");
         ctx.font = FONT;
         ctx.fillStyle = COLORS.text;
-        ctx.fillText("見回す速さ", group.x + 14, group.y + 26);
+        ctx.fillText("マウスの速さ", group.x + 14, group.y + 26);
         ctx.textAlign = "right";
         ctx.fillText(
           `× ${sensitivity().toFixed(1)}`,
