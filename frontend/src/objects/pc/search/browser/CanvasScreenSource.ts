@@ -225,7 +225,7 @@ const noticeLines = (status: ScreenStatus, detail: string): string[] => {
     case "unavailable":
       return [
         "NO ENGINE",
-        detail || "pnpm engine:link でエンジンを取り込んでください",
+        detail || "pnpm engine:setup でエンジンを取り込んでください",
       ];
     case "error":
       return ["ENGINE ERROR", detail];
