@@ -1,17 +1,14 @@
 import {useThree} from "@react-three/fiber";
 import {useEffect} from "react";
 
-import {useAppContext} from "../boot/context";
+import {graphicsStore} from "./graphics";
+import {useStore} from "./storage";
 
 export function FrameLimiter() {
   const advance = useThree((s) => s.advance);
-  const {settings} = useAppContext();
+  const {fpsLimit} = useStore(graphicsStore);
   useEffect(() => {
-    const {fpsLimit} = settings;
-    if (fpsLimit === null) {
-      return;
-    }
-    const interval = 1000 / fpsLimit;
+    const interval = fpsLimit === null ? 0 : 1000 / fpsLimit;
     let last = performance.now();
     let id = 0;
     advance(last / 1000);
@@ -21,12 +18,12 @@ export function FrameLimiter() {
       if (elapsed < interval) {
         return;
       }
-      last = t - (elapsed % interval);
+      last = interval === 0 ? t : t - (elapsed % interval);
       advance(t / 1000);
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, [advance, settings]);
+  }, [advance, fpsLimit]);
 
   return null;
 }
