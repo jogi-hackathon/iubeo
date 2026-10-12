@@ -36,6 +36,17 @@ const fakeContext = () => {
       });
       return node;
     },
+    listener: {
+      positionX: {value: 0},
+      positionY: {value: 0},
+      positionZ: {value: 0},
+      forwardX: {value: 0},
+      forwardY: {value: 0},
+      forwardZ: {value: 0},
+      upX: {value: 0},
+      upY: {value: 0},
+      upZ: {value: 0},
+    },
     createMediaStreamSource: vi.fn(() => fakeNode()),
     setSinkId: vi.fn(async (id: string) => {
       sinkCalls.push(id);
@@ -234,6 +245,25 @@ describe("audioManager", () => {
     await flush();
     manager.unlock();
     expect(context.ctx.resume).toHaveBeenCalledTimes(1);
+  });
+
+  it("setListener は聞き手の位置と向きを AudioListener へ書く", () => {
+    const {manager, context, created} = make();
+    const pos = {x: 1, y: 2, z: 3};
+    const fwd = {x: 0, y: 0, z: -1};
+    const up = {x: 0, y: 1, z: 0};
+    manager.setListener(pos, fwd, up);
+    expect(created).not.toHaveBeenCalled();
+    manager.context();
+    manager.setListener(pos, fwd, up);
+    const l = context.ctx.listener;
+    expect([l.positionX.value, l.positionY.value, l.positionZ.value]).toEqual([
+      1, 2, 3,
+    ]);
+    expect([l.forwardX.value, l.forwardY.value, l.forwardZ.value]).toEqual([
+      0, 0, -1,
+    ]);
+    expect([l.upX.value, l.upY.value, l.upZ.value]).toEqual([0, 1, 0]);
   });
 
   it("micMeter は start でマイクを取り、返り値で放す(取得前に止めても放す)", async () => {

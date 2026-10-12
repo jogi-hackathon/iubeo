@@ -3,6 +3,7 @@ import type {ReactNode} from "react";
 import {PCFShadowMap} from "three/webgpu";
 
 import {CAMERA_FOV} from "../camera/constants";
+import {AudioListenerSync} from "./audio/AudioListenerSync";
 import {DebugOverlay} from "./debug/DebugOverlay";
 import {FrameLimiter} from "./FrameLimiter";
 import {getDpr, graphicsStore} from "./graphics";
@@ -34,6 +35,7 @@ export function GameCanvas({children}: {children?: ReactNode}) {
       shadows={NO_SHADOWS}
     >
       {children}
+      <AudioListenerSync />
       <FrameLimiter />
       <PointerLockInput />
       <DebugOverlay />

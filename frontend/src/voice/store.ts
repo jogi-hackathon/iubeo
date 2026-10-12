@@ -1,5 +1,5 @@
 import {useSyncExternalStore} from "react";
-import {Vector3, type Camera} from "three";
+import type {Vector3} from "three";
 
 import {audioManager} from "../core/audio/audioManager";
 import {isEliminated, subscribeSpectate} from "../core/spectate";
@@ -8,8 +8,6 @@ import type {PlayerState} from "../player";
 import {createVoiceAudio, type VoiceAudio} from "./audio";
 import {MoqVoice} from "./moq";
 import {Signaling} from "./signaling";
-
-const tmpForward = new Vector3();
 
 export type VoiceStatus = "idle" | "connecting" | "ready" | "unavailable";
 
@@ -362,14 +360,10 @@ export const createVoiceEngine = () => {
       set({muted, transmitting: transmitting()});
     },
 
-    updateFrame: (camera: Camera, now: number): void => {
+    updateFrame: (now: number): void => {
       if (!audio || !myPlayerId) {
         return;
       }
-      const forward = camera.getWorldDirection(tmpForward);
-      const e = camera.matrixWorld.elements;
-      const up = {x: e[4]!, y: e[5]!, z: e[6]!};
-      audio.setListener(vectorOf(camera.position), vectorOf(forward), up);
       for (const p of playerManager.getState().players) {
         if (p.playerId === myPlayerId || !roster.has(p.playerId)) {
           continue;

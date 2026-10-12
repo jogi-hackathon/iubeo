@@ -1,5 +1,6 @@
 import {type AudioSettings, audioSettingsStore} from "../audioSettings";
 import {createAudioDevices} from "./devices";
+import type {Vec3} from "./sfx/types";
 
 const SAMPLE_RATE = 48000;
 const LEVEL_FFT_SIZE = 1024;
@@ -195,6 +196,27 @@ export const createAudioManager = ({
     }
   };
 
+  const setListener = (pos: Vec3, forward: Vec3, up: Vec3): void => {
+    if (!graph) {
+      return;
+    }
+    const l = graph.ctx.listener;
+    if (l.positionX) {
+      l.positionX.value = pos.x;
+      l.positionY.value = pos.y;
+      l.positionZ.value = pos.z;
+      l.forwardX.value = forward.x;
+      l.forwardY.value = forward.y;
+      l.forwardZ.value = forward.z;
+      l.upX.value = up.x;
+      l.upY.value = up.y;
+      l.upZ.value = up.z;
+      return;
+    }
+    l.setPosition(pos.x, pos.y, pos.z);
+    l.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+  };
+
   const acquireMic = async (): Promise<MicHandle> => {
     const g = ensure();
     unlock();
@@ -263,6 +285,7 @@ export const createAudioManager = ({
     gameBus: (): GainNode => ensure().gameBus,
     voiceBus: (): GainNode => ensure().voiceBus,
     unlock,
+    setListener,
     acquireMic,
     micLevel,
     micMeter,
