@@ -17,6 +17,7 @@ import {createGridFloorMaterial} from "../../props/gridFloorMaterial";
 import {buildSlabGeometry, type SlabSpec} from "../../props/slabGeometry";
 import {PROP_COLOR, type Vec3} from "../../props/types";
 import {getSkybox, SKY_HORIZON} from "../../scenes/environment/skybox";
+import {WORLD_LIGHT} from "../../scenes/environment/worldLight";
 import {
   CHAIR_POSITION,
   ROOM_FLOOR,
@@ -125,9 +126,16 @@ export const createProxyScene = (name: ProxySceneName): ProxyScene => {
 
   scene.fog = new Fog(SKY_HORIZON, 15, 90);
   scene.backgroundNode = getSkybox().node;
-  scene.add(new HemisphereLight("#ffffff", "#efefef", 2.2));
-  const sun = new DirectionalLight("#ffffff", 0.7);
-  sun.position.set(8, 20, 6);
+  const {hemisphere, sun: sunLight} = WORLD_LIGHT;
+  scene.add(
+    new HemisphereLight(
+      hemisphere.sky,
+      hemisphere.ground,
+      hemisphere.intensity,
+    ),
+  );
+  const sun = new DirectionalLight(sunLight.color, sunLight.intensity);
+  sun.position.set(...sunLight.position);
   scene.add(sun);
 
   return {
