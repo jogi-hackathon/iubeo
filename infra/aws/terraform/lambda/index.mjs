@@ -160,9 +160,14 @@ const setBackendTarget = async (target) => {
 };
 
 const scheduleAutoStop = async (hours) => {
-  // 同じ名前が残っていると ConflictException になるので、先に消してから作る
+  // 同じ名前が残っていると ConflictException になるので、先に消してから作る。
+  // 0 以下(つけっぱなし運用)や不正な値のときは予約を作らず、残っている予約を消すだけにする
   await cancelAutoStop();
-  const at = new Date(Date.now() + Number(hours) * 3600 * 1000);
+  const h = Number(hours);
+  if (!Number.isFinite(h) || h <= 0) {
+    return null;
+  }
+  const at = new Date(Date.now() + h * 3600 * 1000);
   await sched.send(
     new CreateScheduleCommand({
       Name: SCHEDULE_NAME,
@@ -246,7 +251,9 @@ const runAction = async (action) => {
     const switched = healthy ? await setBackendTarget("ec2") : false;
 
     const lines = [
-      `🚀 EC2 を起動しました。${AUTO_STOP_HOURS} 時間後（${at.toISOString()}）に自動で停止します。`,
+      at
+        ? `🚀 EC2 を起動しました。${AUTO_STOP_HOURS} 時間後（${at.toISOString()}）に自動で停止します。`
+        : "🚀 EC2 を起動しました。自動停止は無効なので、止めるまで動き続けます。",
     ];
     if (healthy) {
       lines.push(
