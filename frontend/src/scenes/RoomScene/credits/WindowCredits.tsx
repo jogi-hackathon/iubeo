@@ -1,4 +1,4 @@
-import {useFrame} from "@react-three/fiber";
+import {useFrame, useThree} from "@react-three/fiber";
 import {useEffect, useMemo, useRef} from "react";
 import {Euler, type Mesh, Quaternion, Vector3} from "three";
 
@@ -52,7 +52,8 @@ const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 /**
  * 最初の部屋の窓の前に立ち、窓の外を GAZE_SECONDS 見続けると、空にスタッフクレジットを流す。
  * 流れている間はプレイヤーを預かり、カメラは窓のほうへ向き直ってから窓をくぐって外へ寄り、窓枠の映らない空だけを見る。
- * 寄り切ったらグリッチでクレジットを出す。Esc(pointer lock が外れる)ならグリッチで消してから、流し切ったら(何も映らなくなったら)そのまま、同じ道を戻って一人称の目に返す
+ * 寄り切ったらグリッチでクレジットを出す。Esc(pointer lock が外れる)ならグリッチで消してから、流し切ったら(何も映らなくなったら)そのまま、同じ道を戻って一人称の目に返す。
+ * シーンの遷移(マッチング成立など)で打ち切られたときは、グリッチでその場で一人称の目に戻す
  */
 export function WindowCredits({windowVisible}: {windowVisible: boolean}) {
   const phase = useCreditsPhase();
@@ -119,6 +120,30 @@ function CreditsShow() {
   const mesh = useRef<Mesh>(null);
   const sequence = useRef(INITIAL_SEQUENCE);
   const duration = rollSeconds(layout);
+
+  // reset(シーンの遷移など)で打ち切られたら、その場でカメラを一人称の目へ戻す。
+  // 遷移(ダイブ)は始まるときのカメラを出発点にするので、次のフレームを待たずに戻しておく
+  const camera = useThree((s) => s.camera);
+  useEffect(
+    () =>
+      credits.subscribe(() => {
+        if (credits.getPhase() !== "idle") {
+          return;
+        }
+        if (boardVisible(sequence.current)) {
+          cameraGlitch.pulse(GLITCH_MS);
+        }
+        sequence.current = INITIAL_SEQUENCE;
+        if (mesh.current) {
+          mesh.current.visible = false;
+        }
+        getEyePosition(localPlayer, camera.position);
+        camera.quaternion.setFromEuler(
+          euler.set(localPlayer.pitch, localPlayer.yaw, 0),
+        );
+      }),
+    [camera],
+  );
 
   useFrame(({camera}, delta) => {
     const phase = credits.getPhase();
