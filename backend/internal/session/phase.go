@@ -92,7 +92,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		DeadlineAt: now.Add(st.Phases.Duration),
 		Tasks:      tasks,
 	}
-	st.resetCPUAgents()
+	st.resetCPUAgents(now)
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
