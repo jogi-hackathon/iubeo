@@ -172,6 +172,60 @@ func TestPollingKeepsPlayerQueued(t *testing.T) {
 	}
 }
 
+func TestEnrolledReportsQueuedAndMatched(t *testing.T) {
+	m, _, c := newFixture(2)
+	if m.Enrolled("p1") {
+		t.Fatal("enrolled before joining")
+	}
+	mustJoin(t, m, "p1")
+	if !m.Enrolled("p1") {
+		t.Fatal("want enrolled while queued")
+	}
+
+	c.advance(StaleAfter + time.Second)
+	if m.Enrolled("p1") {
+		t.Fatal("want not enrolled once the queue entry went stale")
+	}
+
+	matched, _, _ := newFixture(1)
+	mustJoin(t, matched, "p1")
+	if !matched.Enrolled("p1") {
+		t.Fatal("want enrolled after matching")
+	}
+}
+
+func TestEnrolledDoesNotAdvanceMatchmaking(t *testing.T) {
+	m, s, c := newFixtureWithFill(3, 5*time.Second)
+	mustJoin(t, m, "p1")
+
+	c.advance(6 * time.Second)
+	for range 3 {
+		if !m.Enrolled("p1") {
+			t.Fatal("want enrolled while queued")
+		}
+	}
+	if len(s.created) != 0 {
+		t.Fatalf("created = %v, want Enrolled to leave the queue alone", s.created)
+	}
+
+	if st, err := m.Get("p1"); err != nil || st.SessionID != "sess-1" {
+		t.Fatalf("Get(p1) = %+v, %v; want matched", st, err)
+	}
+}
+
+func TestEnrolledDoesNotKeepTheQueueEntryAlive(t *testing.T) {
+	m, _, c := newFixture(2)
+	mustJoin(t, m, "p1")
+
+	for range 3 {
+		c.advance(StaleAfter / 2)
+		m.Enrolled("p1")
+	}
+	if m.Enrolled("p1") {
+		t.Fatal("want the queue entry to go stale while only Enrolled is called")
+	}
+}
+
 func poll(t *testing.T, m *Matchmaker, c *clock, id string, seconds int) State {
 	t.Helper()
 	var st State

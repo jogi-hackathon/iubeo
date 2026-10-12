@@ -1,6 +1,6 @@
-export const WISP_TOKEN_PATH = "/api/v1/wisp/token";
+import {withPlayerCookie} from "../net/player";
 
-const PLAYER_PATH = "/api/v1/players";
+export const WISP_TOKEN_PATH = "/api/v1/wisp/token";
 
 export const wispOverrideFrom = (
   search: string,
@@ -13,33 +13,39 @@ export const wispOverrideFrom = (
   return envUrl?.trim() || undefined;
 };
 
+export type ResolvedWisp = {
+  url: string;
+  expiresAt?: string;
+};
+
 export const resolveWispUrl = async (
   override: string | undefined,
   fetchFn: typeof fetch = fetch,
-): Promise<string | undefined> => {
+): Promise<ResolvedWisp | undefined> => {
   if (override !== undefined) {
-    return override.trim() || undefined;
+    const url = override.trim();
+    return url ? {url} : undefined;
   }
   const tokenInit: RequestInit = {credentials: "same-origin"};
   try {
-    let response = await fetchFn(WISP_TOKEN_PATH, tokenInit);
-    if (response.status === 401) {
-      const created = await fetchFn(PLAYER_PATH, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!created.ok) {
-        return undefined;
-      }
-      response = await fetchFn(WISP_TOKEN_PATH, tokenInit);
-    }
-    if (!response.ok) {
+    const response = await withPlayerCookie(fetchFn, () =>
+      fetchFn(WISP_TOKEN_PATH, tokenInit),
+    );
+    if (!response?.ok) {
       return undefined;
     }
-    const body = (await response.json()) as {url?: unknown};
-    return typeof body.url === "string" && body.url !== ""
-      ? body.url
-      : undefined;
+    const body = (await response.json()) as {
+      url?: unknown;
+      expiresAt?: unknown;
+    };
+    if (typeof body.url !== "string" || body.url === "") {
+      return undefined;
+    }
+    return {
+      url: body.url,
+      expiresAt:
+        typeof body.expiresAt === "string" ? body.expiresAt : undefined,
+    };
   } catch {
     return undefined;
   }
@@ -69,6 +75,79 @@ export const replaceWispToken = (target: string, fresh: string): string => {
     return target;
   }
   return target.endsWith("/") && !fresh.endsWith("/") ? `${fresh}/` : fresh;
+};
+
+export const WISP_RETRY_MS = 15_000;
+
+export const WISP_REFRESH_MARGIN_MS = 60_000;
+
+export const refreshDelayMs = (
+  expiresAt: string | undefined,
+  now = Date.now(),
+): number | undefined => {
+  if (!expiresAt) {
+    return undefined;
+  }
+  const expiry = Date.parse(expiresAt);
+  if (Number.isNaN(expiry)) {
+    return undefined;
+  }
+  return Math.max(0, expiry - WISP_REFRESH_MARGIN_MS - now);
+};
+
+export interface WispWatcher {
+  stop(): void;
+}
+
+export interface WispWatchOptions {
+  expiresAt?: string;
+  onUrl: (url: string) => void;
+  fetchFn?: typeof fetch;
+  retryMs?: number;
+}
+
+export const watchWispUrl = ({
+  expiresAt,
+  onUrl,
+  fetchFn = fetch,
+  retryMs = WISP_RETRY_MS,
+}: WispWatchOptions): WispWatcher => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+
+  const schedule = (delayMs: number): void => {
+    timer = setTimeout(() => {
+      void check();
+    }, delayMs);
+  };
+
+  const check = async (): Promise<void> => {
+    if (stopped) {
+      return;
+    }
+    const resolved = await resolveWispUrl(undefined, fetchFn);
+    if (stopped) {
+      return;
+    }
+    if (!resolved) {
+      schedule(retryMs);
+      return;
+    }
+    onUrl(resolved.url);
+    schedule(refreshDelayMs(resolved.expiresAt) ?? retryMs);
+  };
+
+  schedule(refreshDelayMs(expiresAt) ?? retryMs);
+
+  return {
+    stop: (): void => {
+      stopped = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    },
+  };
 };
 
 let freshWispUrl: string | undefined;

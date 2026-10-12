@@ -21,6 +21,8 @@ import {
   describeWispHost,
   resolveWispUrl,
   setFreshWispUrl,
+  type WispWatcher,
+  watchWispUrl,
   wispOverrideFrom,
 } from "./wispUrl";
 
@@ -41,16 +43,17 @@ import {
 const PROGRESS_INTERVAL_MS = 1000;
 const WISP_TIMEOUT_MS = 8000;
 const WISP_COLD_START_TIMEOUT_MS = 90_000;
-const WISP_TOKEN_REFRESH_MS = 4 * 60 * 1000;
 
 export class GeckoSource extends CanvasScreenSource {
   private engine: GeckoInstance | null = null;
   private ready = false;
   private gpuMode = false;
   private progressTimer?: number;
-  private tokenTimer?: number;
+  private wispWatcher?: WispWatcher;
+  private bootGeneration = 0;
   private readonly wispOverride: string | undefined;
   private wispUrl?: string;
+  private wispExpiresAt?: string;
 
   constructor(width: number, height: number, search: string) {
     super(width, height, "screen");
@@ -65,9 +68,14 @@ export class GeckoSource extends CanvasScreenSource {
     if (this.status === "booting" || this.status === "ready") {
       return;
     }
+    const generation = ++this.bootGeneration;
+    const stale = (): boolean => generation !== this.bootGeneration;
     this.setStatus("booting", "エンジンを探しています");
 
     const resolved = await resolveEngine(location.search);
+    if (stale()) {
+      return;
+    }
     if (!resolved) {
       this.setStatus(
         "unavailable",
@@ -81,10 +89,16 @@ export class GeckoSource extends CanvasScreenSource {
       const module = await importEngine(resolved.entry);
       Gecko = module.Gecko ?? module.default;
     } catch (error) {
+      if (stale()) {
+        return;
+      }
       this.setStatus(
         "error",
         `エンジンの読み込みに失敗しました: ${describe(error)}`,
       );
+      return;
+    }
+    if (stale()) {
       return;
     }
     if (!Gecko) {
@@ -104,18 +118,25 @@ export class GeckoSource extends CanvasScreenSource {
 
     const sizeMb = resolved.wasm.compressed ? "34MB" : "150MB";
     const startedAt = performance.now();
-    this.progressTimer = window.setInterval(() => {
+    const progressTimer = window.setInterval(() => {
       const seconds = Math.round((performance.now() - startedAt) / 1000);
       this.setDetail(
         `エンジンを起動中… ${seconds} 秒（${sizeMb} の wasm を読み込んでいます）`,
       );
     }, PROGRESS_INTERVAL_MS);
+    this.progressTimer = progressTimer;
     this.setStatus(
       "booting",
       `エンジンを起動中… 0 秒（${sizeMb} の wasm を読み込んでいます）`,
     );
 
-    this.wispUrl = await resolveWispUrl(this.wispOverride, fetch);
+    const wisp = await resolveWispUrl(this.wispOverride, fetch);
+    if (stale()) {
+      window.clearInterval(progressTimer);
+      return;
+    }
+    this.wispUrl = wisp?.url;
+    this.wispExpiresAt = wisp?.expiresAt;
     const usesToken = this.wispOverride === undefined && !!this.wispUrl;
     const wispCheck = this.wispUrl
       ? checkWisp(
@@ -123,12 +144,15 @@ export class GeckoSource extends CanvasScreenSource {
           usesToken ? WISP_COLD_START_TIMEOUT_MS : WISP_TIMEOUT_MS,
         )
       : Promise.resolve(false);
-    if (usesToken) {
-      this.keepWispTokenFresh();
+    if (this.wispOverride === undefined) {
+      this.watchWisp();
     }
 
     try {
       const prewarmed = await prewarmedWasmUrl(resolved.wasm.url);
+      if (stale()) {
+        return;
+      }
       const engine = new Gecko({
         canvas: this.canvas,
         width: this.width,
@@ -143,13 +167,19 @@ export class GeckoSource extends CanvasScreenSource {
       this.engine = engine;
 
       await engine.init();
+      if (stale()) {
+        return;
+      }
       if (prewarmed) {
         releasePrewarmedWasm();
       }
       await engine.resize(this.width, this.height);
-      this.stopProgress();
+      window.clearInterval(progressTimer);
 
       const wispOk = await wispCheck;
+      if (stale()) {
+        return;
+      }
       const wispState: WispState = !this.wispUrl
         ? "none"
         : wispOk
@@ -158,6 +188,9 @@ export class GeckoSource extends CanvasScreenSource {
       await engine.load(
         pageToDataUrl(searchStartPage(wispState, import.meta.env.DEV)),
       );
+      if (stale()) {
+        return;
+      }
 
       this.ready = true;
       const versionTag = resolved.version ? ` v${resolved.version}` : "";
@@ -168,15 +201,18 @@ export class GeckoSource extends CanvasScreenSource {
         : "オフライン（検索結果は WISP が必要）";
       this.setStatus("ready", `Gecko エンジン${versionTag} · ${network}`);
     } catch (error) {
+      if (stale()) {
+        return;
+      }
       this.engine?.destroy();
       this.engine = null;
-      this.stopTokenRefresh();
+      this.stopWispWatch();
       this.setStatus(
         "error",
         `エンジンの起動に失敗しました: ${describe(error)}`,
       );
     } finally {
-      this.stopProgress();
+      window.clearInterval(progressTimer);
     }
   }
 
@@ -187,24 +223,53 @@ export class GeckoSource extends CanvasScreenSource {
     }
   }
 
-  private keepWispTokenFresh(): void {
-    setFreshWispUrl(this.wispUrl);
-    this.stopTokenRefresh();
-    this.tokenTimer = window.setInterval(() => {
-      void resolveWispUrl(undefined, fetch).then((url) => {
-        if (url && this.tokenTimer !== undefined) {
-          this.wispUrl = url;
-          setFreshWispUrl(url);
-        }
-      });
-    }, WISP_TOKEN_REFRESH_MS);
+  private watchWisp(): void {
+    this.stopWispWatch();
+    if (this.wispUrl) {
+      setFreshWispUrl(this.wispUrl);
+    }
+    this.wispWatcher = watchWispUrl({
+      expiresAt: this.wispExpiresAt,
+      onUrl: (url) => {
+        this.applyWispUrl(url);
+      },
+    });
   }
 
-  private stopTokenRefresh(): void {
-    if (this.tokenTimer !== undefined) {
-      window.clearInterval(this.tokenTimer);
-      this.tokenTimer = undefined;
+  private stopWispWatch(): void {
+    this.wispWatcher?.stop();
+    this.wispWatcher = undefined;
+  }
+
+  private applyWispUrl(url: string): void {
+    const gained = this.wispUrl === undefined;
+    this.wispUrl = url;
+    setFreshWispUrl(url);
+    if (gained) {
+      this.rebootWithWisp();
     }
+  }
+
+  private rebootWithWisp(): void {
+    if (this.status !== "booting" && this.status !== "ready") {
+      return;
+    }
+    this.cancelBoot();
+    this.status = "idle";
+    this.boot().catch((error: unknown) => {
+      this.setStatus(
+        "error",
+        `エンジンの再起動に失敗しました: ${describe(error)}`,
+      );
+    });
+  }
+
+  private cancelBoot(): void {
+    this.bootGeneration++;
+    this.stopProgress();
+    this.engine?.destroy();
+    this.engine = null;
+    this.ready = false;
   }
 
   private setDetail(detail: string): void {
@@ -326,10 +391,8 @@ export class GeckoSource extends CanvasScreenSource {
   }
 
   override dispose(): void {
-    this.stopProgress();
-    this.stopTokenRefresh();
-    this.engine?.destroy();
-    this.engine = null;
+    this.cancelBoot();
+    this.stopWispWatch();
     super.dispose();
   }
 }

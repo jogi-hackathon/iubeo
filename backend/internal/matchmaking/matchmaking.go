@@ -152,6 +152,17 @@ func (m *Matchmaker) Get(playerID string) (State, error) {
 	return m.status(playerID)
 }
 
+func (m *Matchmaker) Enrolled(playerID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.evictStale(m.now())
+	if _, matched := m.matchedState(playerID); matched {
+		return true
+	}
+	return m.find(playerID) >= 0
+}
+
 func (m *Matchmaker) status(playerID string) (State, error) {
 	if st, ok := m.matchedState(playerID); ok {
 		return st, nil

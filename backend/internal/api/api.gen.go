@@ -2005,6 +2005,9 @@ type ServerInterface interface {
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
+	// TouchTutorialPresence 遊んでいる最中であることをサーバーに知らせる
+	// (POST /api/v1/tutorial/presence)
+	TouchTutorialPresence(w http.ResponseWriter, r *http.Request)
 	// GetVoiceToken Voice Chat に繋ぐためのトークンと接続先を返す
 	// (GET /api/v1/voice/token)
 	GetVoiceToken(w http.ResponseWriter, r *http.Request)
@@ -2138,6 +2141,20 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ConnectSession(w, r, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TouchTutorialPresence operation middleware
+func (siw *ServerInterfaceWrapper) TouchTutorialPresence(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TouchTutorialPresence(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2313,6 +2330,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/tutorial/presence", wrapper.TouchTutorialPresence)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/voice/token", wrapper.GetVoiceToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)

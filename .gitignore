@@ -10,4 +10,4 @@ devenv.local.yaml
 
 backend/tmp
 
-frontend/engine-local/
+frontend/engine-local
