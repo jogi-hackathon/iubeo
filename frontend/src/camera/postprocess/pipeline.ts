@@ -97,6 +97,7 @@ export const createPostProcessPipeline = (
   // 後処理の中で TSL の cameraNear / cameraFar を読むと quad のカメラの値になるので、シーンのカメラの値を毎フレーム渡す
   const cameraPlanes = {near: uniform(0.1), far: uniform(100)};
   let renderScale = 1;
+  let pixelRatio = 0;
 
   const occlusion = createAmbientOcclusion(scene, camera);
 
@@ -148,7 +149,6 @@ export const createPostProcessPipeline = (
     occlusion.apply(s, renderScale);
     bloomNode.setResolutionScale(BLOOM_RESOLUTION_SCALE * renderScale);
     selection.setRenderScale(renderScale);
-    powerOutline.setRenderScale(renderScale);
     lowRes?.setResolutionScale(renderScale);
   };
 
@@ -179,15 +179,9 @@ export const createPostProcessPipeline = (
 
     const sceneWeight = proxyView.blend.oneMinus();
     const base = glitch.scene(sampleScene);
-    let color: Node<"vec4"> = s.bloom.enabled
+    const color: Node<"vec4"> = s.bloom.enabled
       ? base.add(bloomNode.mul(sceneWeight))
       : base;
-
-    if (s.contour.enabled) {
-      color = contour.composite(color, sceneWeight);
-    }
-    color = powerOutline.composite(color, sceneWeight);
-    color = aimOutline.composite(color, sceneWeight);
 
     const mapped =
       s.toneMapping === "none"
@@ -202,6 +196,14 @@ export const createPostProcessPipeline = (
       upscaled = node;
       full = node;
     }
+
+    // 輪郭線と縁取りは引き伸ばしの後に画面の解像度で重ねる。内部解像度で描くと線が 1/renderScale 倍に太り、
+    // FSR1 の補間で滲む。読むマスク・深度・法線は内部解像度のまま、線の幅を画面のピクセルで決める
+    if (s.contour.enabled) {
+      full = contour.composite(full, sceneWeight);
+    }
+    full = powerOutline.composite(full, sceneWeight);
+    full = aimOutline.composite(full, sceneWeight);
 
     if (s.pixelate.enabled) {
       pixelated = rtt(full, null, null, {
@@ -230,6 +232,13 @@ export const createPostProcessPipeline = (
       const planes = camera as {near?: number; far?: number};
       cameraPlanes.near.value = planes.near ?? cameraPlanes.near.value;
       cameraPlanes.far.value = planes.far ?? cameraPlanes.far.value;
+      // 縁取りの幅は CSS ピクセルで決めるので、Canvas の DPR(画質設定・ウィンドウの移動で変わる)に合わせる
+      const nextPixelRatio = renderer.getPixelRatio();
+      if (nextPixelRatio !== pixelRatio) {
+        pixelRatio = nextPixelRatio;
+        aimOutline.setPixelRatio(pixelRatio);
+        powerOutline.setPixelRatio(pixelRatio);
+      }
       pipeline.render();
     },
     apply(s) {
