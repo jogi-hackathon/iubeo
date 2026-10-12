@@ -1,4 +1,4 @@
-# iubeo frontend
+# IUBEO frontend
 
 React 19 + React Three Fiber + Three.js(WebGPU)+ three-mesh-bvh。Vite で開発・ビルドする。
 
