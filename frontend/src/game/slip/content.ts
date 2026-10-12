@@ -22,8 +22,6 @@ export type SlipContent = {
 };
 
 const NUMBER_LENGTH = 8;
-/** 紙に収まる項目の数。それ以上は切る */
-export const SLIP_MAX_ITEMS = 4;
 
 const limitOf = (phase: GamePhase): number | null => {
   const started = Date.parse(phase.startedAt);
@@ -114,7 +112,7 @@ export const slipContent = (
 ): SlipContent => ({
   number: numberOf(phase, tasks),
   phase: phase.number,
-  items: tasks.slice(0, SLIP_MAX_ITEMS).map((task) => itemOf(task, fileColors)),
+  items: tasks.map((task) => itemOf(task, fileColors)),
   limitSeconds: limitOf(phase),
 });
 
@@ -143,6 +141,8 @@ const EDGE = 3;
 /** 上下の端のギザギザ(千切った跡)。山の幅と高さ */
 const TOOTH = {width: 12, height: 7} as const;
 const MARGIN = 26;
+/** 項目 1 行の高さの上限。件数が少なくても行を間延びさせない */
+const ITEM_MAX_SLOT = 40;
 
 /** 紙の形(ギザギザの上下端)を path にする。外側は透明にする */
 const paperPath = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
@@ -224,6 +224,31 @@ const fitFontSize = (
   return min;
 };
 
+const itemLine = (item: SlipItem, i: number) =>
+  item.detail === null
+    ? `${i + 1}. ${item.kind}`
+    : `${i + 1}. ${item.kind} / ${item.detail}`;
+
+/** 行ごとに大きさが違うと読みにくいので、いちばん長い行に合わせてそろえる */
+const paintItems = (
+  ctx: CanvasRenderingContext2D,
+  items: readonly SlipItem[],
+  top: number,
+  slot: number,
+  w: number,
+) => {
+  const lines = items.map(itemLine);
+  const size = Math.min(
+    ...lines.map((line) =>
+      fitFontSize(ctx, line, w - 2 * MARGIN, Math.round(slot * 0.6), 10),
+    ),
+  );
+  ctx.font = `bold ${size}px ${FONT}`;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, MARGIN, top + slot * i + (slot + size) / 2 - 2);
+  });
+};
+
 /** 伝票の表を描く(透明な canvas に紙の形で塗る) */
 export const paintSlip = (
   canvas: HTMLCanvasElement,
@@ -259,26 +284,11 @@ export const paintSlip = (
   // 項目は紙の残り(制限の行とバーコードの上)に収める。多いほど詰める
   const top = 212;
   const bottom = h - 170;
-  const slot = Math.min(72, (bottom - top) / Math.max(1, content.items.length));
-  const kindSize = Math.min(26, Math.round(slot * 0.36));
-  const detailSize = Math.min(32, Math.round(slot * 0.42));
-  content.items.forEach((item, i) => {
-    const y = top + slot * i;
-    ctx.font = `bold ${kindSize}px ${FONT}`;
-    const label = `${i + 1}. ${item.kind}`;
-    ctx.fillText(label, MARGIN, y + kindSize, w - 2 * MARGIN);
-    if (item.detail !== null) {
-      const size = fitFontSize(
-        ctx,
-        item.detail,
-        w - 2 * MARGIN - 24,
-        detailSize,
-        14,
-      );
-      ctx.font = `bold ${size}px ${FONT}`;
-      ctx.fillText(item.detail, MARGIN + 24, y + kindSize + 6 + size);
-    }
-  });
+  const slot = Math.min(
+    ITEM_MAX_SLOT,
+    (bottom - top) / Math.max(1, content.items.length),
+  );
+  paintItems(ctx, content.items, top, slot, w);
 
   const y = bottom + 6;
   dashed(ctx, y, w);
