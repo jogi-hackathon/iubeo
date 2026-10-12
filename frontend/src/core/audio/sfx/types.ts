@@ -1,6 +1,22 @@
 export type Vec3 = {x: number; y: number; z: number};
 
-export type SfxId = "pcFan" | "writing" | "shatter";
+export type SfxId =
+  | "pcFan"
+  | "writing"
+  | "shatter"
+  | "key"
+  | "window"
+  | "filePick"
+  | "save"
+  | "clefOk"
+  | "clefNo"
+  | "canvas"
+  | "slip"
+  | "done"
+  | "deadline"
+  | "match"
+  | "dive"
+  | "corrupt";
 
 export type WritingBeat = {at: number; line: number; x: number};
 export type WritingLine = {height: number; shaded: boolean};
@@ -15,6 +31,19 @@ export type PlayOptions = {
   pcFan: undefined;
   writing: WritingCue;
   shatter: undefined;
+  key: undefined;
+  window: undefined;
+  filePick: undefined;
+  save: undefined;
+  clefOk: undefined;
+  clefNo: undefined;
+  canvas: undefined;
+  slip: undefined;
+  done: undefined;
+  deadline: undefined;
+  match: undefined;
+  dive: undefined;
+  corrupt: undefined;
 };
 
 export type Voice<Id extends SfxId = SfxId> = {
@@ -42,5 +71,8 @@ export type OptionArgs<Id extends SfxId> = PlayOptions[Id] extends undefined
 export type SfxEngine = {
   emitter(recipes: readonly SfxId[], position?: Vec3): Emitter;
   them<Id extends SfxId>(id: Id, ...options: OptionArgs<Id>): void;
+  stopThem(id: SfxId): void;
+  setTrim(id: SfxId, db: number): void;
+  trim(id: SfxId): number;
   now(): number;
 };
