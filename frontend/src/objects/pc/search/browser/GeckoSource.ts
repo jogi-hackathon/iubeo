@@ -201,7 +201,6 @@ export class GeckoSource extends CanvasScreenSource {
           ? "ok"
           : "unreachable";
       this.wispState = wispState;
-      // 落ちる前に開いていたページがあれば、スタートページの代わりにそこを読み直す
       const resume = wispState === "ok" ? this.resumeUrl : null;
       await engine.load(resume ?? this.homeUrl());
       if (stale()) {
@@ -424,7 +423,6 @@ export class GeckoSource extends CanvasScreenSource {
     );
   }
 
-  /** 最初の検索画面へ戻す。起動前なら、起動したときに開くページを検索画面にしておく */
   goHome(): void {
     this.resumeUrl = null;
     this.navigate(this.homeUrl());

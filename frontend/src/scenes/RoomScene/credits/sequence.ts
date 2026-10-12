@@ -55,7 +55,6 @@ const enter = (s: CreditsSequence, stage: CreditsStage): CreditsSequence => ({
   stageTime: 0,
 });
 
-/** 板を見せる段階か */
 export const boardVisible = (s: CreditsSequence): boolean =>
   s.stage === "rolling" ||
   (s.stage === "glitchOut" && s.stageTime < GLITCH_SWAP_SECONDS);

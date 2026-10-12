@@ -193,7 +193,6 @@ export const createPostProcessPipeline = (
         ? vec4(color.rgb.mul(exposure).clamp(), color.a)
         : toneMapping(TONE_MAPPING[s.toneMapping], exposure, color);
 
-    // ここまでを内部解像度の 1 枚に落とし、FSR1 で画面の解像度へ上げる。off のときはバイリニアで伸ばす(比較用)
     lowRes = rtt(mapped, null, null, {resolutionScale: renderScale});
     let full: Node<"vec4"> = lowRes;
     if (s.upscale.enabled) {

@@ -19,7 +19,6 @@ export function LocalPlayerSkeleton() {
   const {held: item} = useItemState();
   const held = useWorkingAtWorkspace(useMyPlayerId()) ? null : item;
   const {playing: slip} = useOrderSlip();
-  // 依頼の伝票を再生している間は、持ち物の代わりにハンディーターミナルを手に出す
   const handItem = slip ? (
     <HandheldTerminal
       key={slip.startedAt}

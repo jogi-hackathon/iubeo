@@ -133,7 +133,6 @@ export function ShaderWarmup() {
     device.queue.onSubmittedWorkDone().then(finish, finish);
   }, FRAME_PRIORITY.warmup);
 
-  // 描画(PostProcess)のあと、同じフレームの内に表示とカリングを戻す
   useFrame(() => {
     const s = state.current;
     s.restoreExposure?.();

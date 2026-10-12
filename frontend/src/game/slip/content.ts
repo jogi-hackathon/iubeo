@@ -144,7 +144,6 @@ const MARGIN = 26;
 /** 項目 1 行の高さの上限。件数が少なくても行を間延びさせない */
 const ITEM_MAX_SLOT = 40;
 
-/** 紙の形(ギザギザの上下端)を path にする。外側は透明にする */
 const paperPath = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
   ctx.beginPath();
   ctx.moveTo(0, TOOTH.height);
@@ -185,7 +184,6 @@ const dashed = (ctx: CanvasRenderingContext2D, y: number, w: number) => {
   ctx.restore();
 };
 
-/** 伝票番号から決まるバーコード風の縞 */
 const barcode = (
   ctx: CanvasRenderingContext2D,
   number: string,
@@ -249,7 +247,6 @@ const paintItems = (
   });
 };
 
-/** 伝票の表を描く(透明な canvas に紙の形で塗る) */
 export const paintSlip = (
   canvas: HTMLCanvasElement,
   content: SlipContent,
@@ -307,7 +304,6 @@ export const paintSlip = (
   ctx.fillText("IUBEO", w / 2, h - 56);
 };
 
-/** 伝票の裏(白い紙の形だけ) */
 export const paintSlipBack = (canvas: HTMLCanvasElement): void => {
   const ctx = canvas.getContext("2d");
   if (!ctx) {

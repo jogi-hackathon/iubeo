@@ -302,7 +302,6 @@ export function WorkspaceMemo({workspaceId}: Props) {
     };
   }, [interactive, targetId, workspaceId]);
 
-  // 照準が合っている間は破線を止めて、黒の実線にする
   const aimed = useIsAimed(targetId);
   useLayoutEffect(() => {
     const group = root.current;
@@ -344,7 +343,6 @@ export function WorkspaceMemo({workspaceId}: Props) {
       s.scale.setScalar(MEMO_SCALE);
       return;
     }
-    // 飛び始めの世界座標を机の座標系へ
     r.updateWorldMatrix(true, false);
     inverse.copy(r.matrixWorld).invert();
     fromMatrix.fromArray(mine.from).premultiply(inverse);

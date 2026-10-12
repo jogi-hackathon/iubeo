@@ -20,7 +20,6 @@ const WINDOW_TOP = WINDOW_SILL_HEIGHT + WINDOW_SIZE;
 const WINDOW_NORTH = WINDOW_CENTER_Z - WINDOW_SIZE / 2;
 const WINDOW_SOUTH = WINDOW_CENTER_Z + WINDOW_SIZE / 2;
 
-/** 足もと(x, z)が窓の前の範囲に入っているか */
 export const inWindowZone = (x: number, z: number): boolean =>
   x >= WINDOW_X &&
   x <= WINDOW_X + ZONE_DEPTH &&
@@ -48,7 +47,6 @@ export const gazesAtWindow = (origin: Vector3, direction: Vector3): boolean => {
   );
 };
 
-/** 見続けている秒数を進める。条件が一度でも外れたら 0 から数え直す */
 export const stepGaze = (
   elapsed: number,
   gazing: boolean,

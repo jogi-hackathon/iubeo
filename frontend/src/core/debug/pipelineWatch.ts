@@ -62,12 +62,10 @@ const note = (ro: RenderObjectLike): void => {
   pending.push(description);
   if (!flushScheduled) {
     flushScheduled = true;
-    // 同じフレームでまとめて作られる分を 1 つの警告にする
     setTimeout(flush, 0);
   }
 };
 
-/** レンダラーのバックエンドに監視を仕掛ける(1 回だけ。開発時だけ呼ぶ) */
 export const installPipelineWatch = (renderer: {backend: object}): void => {
   const backend = renderer.backend as BackendLike & {[PATCHED]?: true};
   if (backend[PATCHED]) {

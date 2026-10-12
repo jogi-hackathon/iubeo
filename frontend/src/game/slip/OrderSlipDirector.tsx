@@ -63,7 +63,6 @@ export function OrderSlipDirector() {
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
 
-  // 伝票の飛んでいく先(自分のワークスペース)
   useEffect(() => {
     orderSlip.setTarget(myWorkspaceId(objects, myPlayerId));
   }, [objects, myPlayerId]);

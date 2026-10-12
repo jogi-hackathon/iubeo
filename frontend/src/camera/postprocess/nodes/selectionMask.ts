@@ -113,7 +113,6 @@ class SelectionMaskNode extends TempNode<"vec4"> {
     const {scene, camera, renderTarget} = this;
     const count = this.collect();
     if (count === 0) {
-      // 選択が空になった直後に 1 回だけ消す。以後は描かない(OutlineNode と同じ)
       if (this.lastCount > 0) {
         this.lastCount = 0;
         this.rendererState = RendererUtils.resetRendererState(
@@ -183,7 +182,6 @@ class SelectionMaskNode extends TempNode<"vec4"> {
       const mask = this.maskNode.sample(screenUV);
       const maskDepth = this.depthNode.sample(screenUV).r;
       const sceneDepth = this.sceneDepth.sample(screenUV).r;
-      // マスクの深度がシーンの深度と同じかそれより手前なら見えている
       const visible = reversed
         ? step(sceneDepth.sub(DEPTH_EPSILON), maskDepth)
         : step(maskDepth, sceneDepth.add(DEPTH_EPSILON));

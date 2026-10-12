@@ -90,7 +90,6 @@ export const createOrderSlipStore = ({
         set({...state, target: workspaceId});
       }
     },
-    /** 伝票が手を離れた。飛ぶ先があれば、そこへ向かう伝票として覚える */
     launch: (slipWorld: Matrix4): void => {
       const {playing, target} = state;
       if (!playing || !target || state.flight) {
@@ -106,7 +105,6 @@ export const createOrderSlipStore = ({
         },
       });
     },
-    /** 飛んでいた伝票がメモ置きに着いた。そこに残す */
     land: (): void => {
       const {flight} = state;
       if (!flight) {
@@ -115,7 +113,6 @@ export const createOrderSlipStore = ({
       memoStore.place(flight.workspaceId, flight.content);
       set({...state, flight: null});
     },
-    /** 再生を終える。まだ飛んでいた伝票はメモ置きに残し、待っている分があり操作が空いていれば続けて始める */
     finish: (): void => {
       if (!state.playing) {
         return;
@@ -131,7 +128,6 @@ export const createOrderSlipStore = ({
       }
       set({...state, pending});
     },
-    /** 操作が空いたときに呼ぶ。待っている分があれば始める */
     resume: (): void => {
       if (state.playing || !state.pending || isBusy()) {
         return;

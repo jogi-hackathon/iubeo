@@ -293,7 +293,6 @@ export class BrowserScreen implements ScreenSource {
     return {x, y: r.y + r.height / 2 - 11, height: 22};
   }
 
-  /** キーやクリックのあと、ページで文字を入れる位置を読み直す(続けて来たら最後の 1 回だけ) */
   private refreshPageCaret(): void {
     window.clearTimeout(this.caretTimer);
     this.caretTimer = window.setTimeout(() => {
@@ -306,10 +305,6 @@ export class BrowserScreen implements ScreenSource {
     this.pageCaret = json ? toScreenCaret(json) : null;
   }
 
-  /**
-   * 新しい検索タスクが来たら、最初の検索画面へ戻す。同じタスクのあいだは、開いているページを残す。
-   * 戻る・進むの履歴も、そのタスクの分から始め直す
-   */
   startTask(taskId: string): void {
     if (taskId === this.taskId) {
       return;
@@ -409,7 +404,6 @@ export class BrowserScreen implements ScreenSource {
     }
   }
 
-  /** 初めのクリックで全体を選ぶ(ブラウザと同じ)。入力中のクリックはカーソルを置き、ドラッグで選ぶ */
   private pressAddress(event: ScreenPointerEvent): void {
     if (!this.addressFocused) {
       this.focusAddress();
@@ -428,11 +422,6 @@ export class BrowserScreen implements ScreenSource {
     this.addressDragging = true;
   }
 
-  /**
-   * アドレス欄の外でも効くショートカット。
-   *  - ⌘/Ctrl+L アドレス欄を選ぶ
-   *  - ⌘/Ctrl+[ ] 戻る・進む(アドレス欄の入力中は除く)
-   */
   private browserShortcut(event: ScreenKeyEvent): boolean {
     const {ctrl, meta, alt, shift} = event.modifiers;
     if (!(ctrl || meta) || alt || shift) {
@@ -476,7 +465,6 @@ export class BrowserScreen implements ScreenSource {
     }
   }
 
-  /** アドレス欄の x 座標に一番近い文字の境目 */
   private addressIndexAt(x: number): number {
     const ctx = this.canvas.getContext("2d");
     const chars = Array.from(this.address.text);
@@ -767,7 +755,6 @@ export class BrowserScreen implements ScreenSource {
   }
 }
 
-/** エンジンの表示の座標を、ツールバーを含めた画面の座標に直す */
 const toScreenCaret = (json: string): ScreenCaret | null => {
   try {
     const {x, y, height} = JSON.parse(json) as Record<string, unknown>;

@@ -240,7 +240,6 @@ const stageAt = (
   return {stage: "done", progress: 1};
 };
 
-/** 行送り: 1 行ごとに素早く送って止まる、を PRINT_STEPS 回。全体では 0 → 1 */
 export const steppedFeed = (progress: number): number => {
   const p = clamp01(progress) * PRINT_STEPS;
   const line = Math.floor(p);

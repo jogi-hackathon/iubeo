@@ -85,7 +85,6 @@ export const createPowerOutline = (selection: SelectionMask) => {
   const powerEdge = Fn(() => {
     const edge = float(0).toVar();
     If(powerOutlineFade.greaterThan(0), () => {
-      // 広げた範囲から、選択物のシルエット全体(隠れた部分も)を除いて外側だけ残す
       const silhouette = visible.sample(screenUV).level(float(0)).a;
       edge.assign(
         coverXY.sample(screenUV).level(float(0)).r.mul(silhouette.oneMinus()),
@@ -123,7 +122,6 @@ export const createPowerOutline = (selection: SelectionMask) => {
         ),
         color.a,
       ),
-    /** 広げるパスの解像度を、シーンの内部解像度(pipeline の renderScale)に合わせる */
     setRenderScale: (renderScale: number): void => {
       coverX.setResolutionScale(DILATE_RESOLUTION_SCALE * renderScale);
       coverXY.setResolutionScale(DILATE_RESOLUTION_SCALE * renderScale);

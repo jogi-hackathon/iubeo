@@ -49,12 +49,6 @@ const viewQuaternion = new Quaternion().setFromEuler(
 
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
-/**
- * 最初の部屋の窓の前に立ち、窓の外を GAZE_SECONDS 見続けると、空にスタッフクレジットを流す。
- * 流れている間はプレイヤーを預かり、カメラは窓のほうへ向き直ってから窓をくぐって外へ寄り、窓枠の映らない空だけを見る。
- * 寄り切ったらグリッチでクレジットを出す。Esc(pointer lock が外れる)ならグリッチで消してから、流し切ったら(何も映らなくなったら)そのまま、同じ道を戻って一人称の目に返す。
- * シーンの遷移(マッチング成立など)で打ち切られたときは、グリッチでその場で一人称の目に戻す
- */
 export function WindowCredits({windowVisible}: {windowVisible: boolean}) {
   const phase = useCreditsPhase();
   useGazeTrigger(windowVisible);
@@ -103,7 +97,6 @@ const useLeaveOnUnlock = (): void => {
 
 /**
  * 流している間だけマウントする(入るたびに寄るところから始め直す)。
- * カメラの寄り引きと板の出し入れ・流れを ./sequence の段階に合わせて毎フレーム動かす
  */
 function CreditsShow() {
   const layout = useMemo(() => layoutCredits(CREDIT_LINES), []);

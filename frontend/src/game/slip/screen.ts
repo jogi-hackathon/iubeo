@@ -41,7 +41,6 @@ export const screenKey = ({status, progress, tick}: ScreenFrame): string => {
 
 type Span = {text: string; color?: string};
 type Line = readonly Span[];
-/** 枠で囲む行は box にする(角丸の枠を線で描く) */
 type Row = {spans: Line; box?: boolean};
 
 const row = (spans: Line, box = false): Row => ({spans, box});
