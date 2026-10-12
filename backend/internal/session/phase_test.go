@@ -256,9 +256,9 @@ func TestPhaseDrawsAreStableForSeed(t *testing.T) {
 	st.startPhase(1, t0)
 
 	wantTasks := []TaskState{
-		{ID: "task-1-1", Type: api.WebSearch, Assignee: "p1", Topic: "React Three Fiber"},
-		{ID: "task-1-2", Type: api.WebSearch, Assignee: "p2", Topic: "Vite"},
-		{ID: "task-1-3", Type: api.WebSearch, Assignee: "cpu-1", Topic: "WISP protocol"},
+		{ID: "task-1-1", Type: api.WebSearch, Assignee: "p1", Topic: "WebGPU"},
+		{ID: "task-1-2", Type: api.WebSearch, Assignee: "p2", Topic: "アドテク"},
+		{ID: "task-1-3", Type: api.WebSearch, Assignee: "cpu-1", Topic: "WebAssembly"},
 		{ID: "task-1-4", Type: api.Write, Assignee: "cpu-2"},
 	}
 	if !reflect.DeepEqual(st.Phase.Tasks, wantTasks) {
