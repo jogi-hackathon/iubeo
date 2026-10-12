@@ -1,3 +1,7 @@
+import type {
+  AudioDevice,
+  AudioDeviceList,
+} from "../../../../core/audio/devices";
 import {
   type AudioSettings,
   MAX_MIC_VOLUME,
@@ -13,7 +17,6 @@ import {
   MIN_SENSITIVITY,
   type MouseSettings,
 } from "../../../../core/input/mouseSettings";
-import type {AudioDevice, AudioDeviceList} from "../../../../voice/devices";
 import type {AppView, DesktopApp} from "../kernel/app";
 import type {Rect, Size} from "../kernel/geometry";
 import {

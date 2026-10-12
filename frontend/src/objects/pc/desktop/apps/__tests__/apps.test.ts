@@ -1,12 +1,12 @@
 import {describe, expect, it, vi} from "vitest";
 
+import type {AudioDeviceList} from "../../../../../core/audio/devices";
 import {
   type AudioSettings,
   DEFAULT_AUDIO_SETTINGS,
 } from "../../../../../core/audioSettings";
 import type {GraphicsSettings} from "../../../../../core/graphics";
 import type {GameFlowState} from "../../../../../flow";
-import type {AudioDeviceList} from "../../../../../voice/devices";
 import type {AppView} from "../../kernel/app";
 import type {Rect} from "../../kernel/geometry";
 import {DROPDOWN_ITEM_HEIGHT} from "../../toolkit/controls";

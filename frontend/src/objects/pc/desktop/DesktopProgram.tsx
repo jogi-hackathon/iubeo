@@ -1,10 +1,10 @@
 import {useEffect} from "react";
 
+import {audioManager} from "../../../core/audio/audioManager";
 import {audioSettingsStore} from "../../../core/audioSettings";
 import {graphicsStore} from "../../../core/graphics";
 import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import {gameFlow} from "../../../flow";
-import {audioDevices} from "../../../voice/devices";
 import type {PcProgram, PcProgramProps} from "../program";
 import {searchProgram} from "../search/SearchProgram";
 import {createDesktopApps} from "./apps";
@@ -20,7 +20,7 @@ export const desktopScreen = (): DesktopScreen => {
       mouse: mouseSettingsStore,
       graphics: graphicsStore,
       audio: audioSettingsStore,
-      devices: audioDevices,
+      devices: audioManager.devices,
     }),
   );
   return screen;

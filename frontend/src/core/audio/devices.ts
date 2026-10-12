@@ -33,34 +33,42 @@ export const toAudioDeviceList = (
   };
 };
 
-export const createAudioDevices = () => {
+export type AudioDevicesDeps = {
+  mediaDevices?: () => MediaDevices | undefined;
+  canSelectOutput?: () => boolean;
+};
+
+export const createAudioDevices = ({
+  mediaDevices = () => globalThis.navigator?.mediaDevices,
+  canSelectOutput = canSelectOutputDevice,
+}: AudioDevicesDeps = {}) => {
   let state: AudioDeviceList = {
     inputs: [],
     outputs: [],
-    canSelectOutput: canSelectOutputDevice(),
+    canSelectOutput: canSelectOutput(),
     needsPermission: false,
   };
   const listeners = new Set<() => void>();
   let watching = false;
 
   const refresh = (): void => {
-    const media = globalThis.navigator?.mediaDevices;
+    const media = mediaDevices();
     if (!media?.enumerateDevices) {
       return;
     }
     media.enumerateDevices().then(
       (infos) => {
-        state = toAudioDeviceList(infos, canSelectOutputDevice());
+        state = toAudioDeviceList(infos, canSelectOutput());
         for (const l of Array.from(listeners)) {
           l();
         }
       },
-      (e: unknown) => console.warn("[voice] enumerateDevices failed", e),
+      (e: unknown) => console.warn("[audio] enumerateDevices failed", e),
     );
   };
 
   const requestPermission = (): void => {
-    const media = globalThis.navigator?.mediaDevices;
+    const media = mediaDevices();
     if (!media?.getUserMedia) {
       return;
     }
@@ -69,7 +77,7 @@ export const createAudioDevices = () => {
         stream.getTracks().forEach((t) => t.stop());
         refresh();
       },
-      (e: unknown) => console.warn("[voice] mic permission denied", e),
+      (e: unknown) => console.warn("[audio] mic permission denied", e),
     );
   };
 
@@ -81,10 +89,7 @@ export const createAudioDevices = () => {
       listeners.add(listener);
       if (!watching) {
         watching = true;
-        globalThis.navigator?.mediaDevices?.addEventListener?.(
-          "devicechange",
-          refresh,
-        );
+        mediaDevices()?.addEventListener?.("devicechange", refresh);
       }
       return () => {
         listeners.delete(listener);
@@ -94,5 +99,3 @@ export const createAudioDevices = () => {
 };
 
 export type AudioDevices = ReturnType<typeof createAudioDevices>;
-
-export const audioDevices = createAudioDevices();

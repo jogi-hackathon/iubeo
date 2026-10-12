@@ -1,8 +1,8 @@
+import {audioManager} from "../../../core/audio/audioManager";
 import {audioSettingsStore} from "../../../core/audioSettings";
 import {graphicsStore} from "../../../core/graphics";
 import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import type {GameFlowState} from "../../../flow";
-import {audioDevices} from "../../../voice/devices";
 import {NO_MODIFIERS} from "../display/types";
 import {createDesktopApps} from "./apps";
 import type {MatchmakingPort} from "./apps/matchmaking";
@@ -58,7 +58,7 @@ const screen = new DesktopScreen(
     mouse: mouseSettingsStore,
     graphics: graphicsStore,
     audio: audioSettingsStore,
-    devices: audioDevices,
+    devices: audioManager.devices,
   }),
 );
 const surface = screen.surface;
