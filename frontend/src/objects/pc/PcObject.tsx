@@ -1,5 +1,5 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   type Camera,
   Euler,
@@ -51,6 +51,8 @@ const eye = new Vector3();
 const pcPosition = new Vector3();
 const euler = new Euler(0, 0, 0, "YXZ");
 
+const SWIPE_FULL_PX = 30;
+
 export function PcObject({object}: {object: GameObject}) {
   const {item} = useLayoutSlot();
   const program = useMemo(() => programOf(item.program), [item.program]);
@@ -66,7 +68,7 @@ export function PcObject({object}: {object: GameObject}) {
 
   const power = usePcPower();
   const root = useRef<Group>(null);
-  const sfx = useSfxEmitter(["pcFan", "key"], root);
+  const sfx = useSfxEmitter(["pcFan", "key", "click", "swipe"], root);
   const {visible} = useObjectState();
   useEffect(() => {
     if (power !== "off" && visible) {
@@ -114,12 +116,23 @@ export function PcObject({object}: {object: GameObject}) {
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
 
+  const onPress = useCallback(
+    (phase: "down" | "up") => sfx.play("click", phase),
+    [sfx],
+  );
+  const onMove = useCallback(
+    (distance: number) =>
+      sfx.play("swipe", Math.min(1, distance / SWIPE_FULL_PX)),
+    [sfx],
+  );
   const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   useNativePointer({
     enabled: using && powered && session.pointer === "native",
     screen,
     screenRef,
     cursor: nativeCursor,
+    onPress,
+    onMove,
   });
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
@@ -131,6 +144,8 @@ export function PcObject({object}: {object: GameObject}) {
     screenRef,
     cursor: virtualCursor,
     onLeave: pcSession.leave,
+    onPress,
+    onMove,
   });
 
   const drive = useMemo(
