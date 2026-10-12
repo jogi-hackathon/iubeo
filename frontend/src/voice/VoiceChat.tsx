@@ -39,29 +39,15 @@ export function VoiceChat({
       if (pcSession.getState().phase !== "idle") {
         return;
       }
-      if (e.code === "KeyV") {
-        voiceEngine.unlock();
-        voiceEngine.setPTT(true);
-      } else if (e.code === "KeyM") {
+      if (e.code === "KeyM") {
         voiceEngine.toggleMute();
       }
     };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "KeyV") {
-        voiceEngine.setPTT(false);
-      }
-    };
-    const blur = () => voiceEngine.setPTT(false);
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-      voiceEngine.setPTT(false);
     };
   }, []);
 

@@ -2,7 +2,6 @@ package session
 
 import (
 	"math/rand/v2"
-	"slices"
 	"strconv"
 	"time"
 
@@ -35,9 +34,25 @@ type TaskState struct {
 	CompletedAt  time.Time
 }
 
-var taskTypes = []api.TaskType{api.ReadEdit, api.Write, api.WebSearch, api.ImageGeneration}
-
 var creationTaskTypes = []api.TaskType{api.Write, api.WebSearch, api.ImageGeneration}
+
+// 同じプレイヤーに同じファイルの read_edit を出してよい回数
+const sameFileLimit = 2
+
+// 1 人あたりのタスク数。フェーズ 1 から 1, 2, 2, 3, 3, ...
+func tasksPerPlayer(number int) int {
+	return number/2 + 1
+}
+
+// read_edit を引く確率。後半ほど上げて、ファイルを取り合わせる
+func readEditRate(number int) float64 {
+	return min(0.25+0.1*float64(number-1), 0.6)
+}
+
+// read_edit の対象を、他のプレイヤーが既に対象にしたファイルから選ぶ確率
+func conflictRate(number int) float64 {
+	return min(0.15*float64(number-1), 0.6)
+}
 
 func taskID(phase, n int) string {
 	return "task-" + strconv.Itoa(phase) + "-" + strconv.Itoa(n)
@@ -56,7 +71,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 			alive = append(alive, p.ID)
 		}
 	}
-	total := number * len(st.Players)
+	total := tasksPerPlayer(number) * len(st.Players)
 	quota := make([]int, len(alive))
 	for i := range quota {
 		quota[i] = total / len(alive)
@@ -66,22 +81,44 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 	}
 
 	stock := st.stockFileIDs()
+	claimed := map[string]bool{}
 
 	var tasks []TaskState
 	for i, pid := range alive {
-		left := slices.Clone(stock)
+		used := map[string]int{}
+		var mine []string
 		for range quota[i] {
-			t := TaskState{ID: taskID(number, len(tasks)+1), Type: taskTypes[r.IntN(len(taskTypes))], Assignee: pid}
-			if t.Type == api.ReadEdit {
-				if len(left) == 0 {
-					t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
-				} else {
-					j := r.IntN(len(left))
-					t.TargetFileID = left[j]
-					left = slices.Delete(left, j, j+1)
+			t := TaskState{ID: taskID(number, len(tasks)+1), Assignee: pid}
+			if r.Float64() < readEditRate(number) {
+				t.Type = api.ReadEdit
+				var left, contested []string
+				for _, id := range stock {
+					if used[id] < sameFileLimit {
+						left = append(left, id)
+						if claimed[id] {
+							contested = append(contested, id)
+						}
+					}
 				}
+				switch {
+				case len(left) == 0:
+					t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
+				case len(contested) > 0 && r.Float64() < conflictRate(number):
+					t.TargetFileID = contested[r.IntN(len(contested))]
+				default:
+					t.TargetFileID = left[r.IntN(len(left))]
+				}
+				if t.TargetFileID != "" {
+					used[t.TargetFileID]++
+					mine = append(mine, t.TargetFileID)
+				}
+			} else {
+				t.Type = creationTaskTypes[r.IntN(len(creationTaskTypes))]
 			}
 			tasks = append(tasks, t)
+		}
+		for _, id := range mine {
+			claimed[id] = true
 		}
 	}
 

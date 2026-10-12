@@ -19,7 +19,9 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ENGINE_DIR = join(projectRoot, "engine-local");
 const DIR_PATTERN = /^[\w.-]+$/;
 
-const USAGE = `使い方: pnpm engine:link -- --from <gecko.js/dist | firefox-wasm のリポジトリ | *.tar.gz> [--name <dir>] [--no-default]`;
+const USAGE = `使い方:
+  pnpm engine:setup              GitHub Releases から最新版を取得して取り込む(推奨)
+  pnpm engine:link -- --from <gecko.js/dist | firefox-wasm のリポジトリ | *.tar.gz> [--name <dir>] [--no-default]`;
 
 const fail = (message) => {
   console.error(`\n  ✗ ${message}\n`);
@@ -106,9 +108,8 @@ const dist = resolveDist(expandIfArchive(fromPath));
 if (!dist) {
   fail(
     `${fromPath} に gecko.js が見つかりません。\n` +
-      "    フォークのビルド済みリリースを使うのが最短です(最新のタグは releases ページで確認):\n" +
-      "    curl -LO https://github.com/thirdlf03/firefox-wasm/releases/download/v0.0.9/gecko.js-v0.0.9.tar.gz\n" +
-      "    pnpm engine:link -- --from gecko.js-v0.0.9.tar.gz",
+      "    GitHub から取り込む: pnpm engine:setup\n" +
+      "    手動で tar.gz を取った場合: pnpm engine:link -- --from gecko.js-v*.tar.gz",
   );
 }
 
