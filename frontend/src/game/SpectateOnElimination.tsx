@@ -1,6 +1,7 @@
 import {useEffect} from "react";
 
 import {useMyPlayerId} from "../authority/useMyPlayerId";
+import {sfxEngine} from "../core/audio/sfx/engine";
 import {beginElimination} from "../core/spectate";
 import {usePlayersState} from "../player";
 
@@ -13,6 +14,7 @@ export function SpectateOnElimination() {
   useEffect(() => {
     if (eliminated) {
       beginElimination();
+      sfxEngine.them("shatter");
     }
   }, [eliminated]);
 

@@ -4,17 +4,20 @@ import {
   type Camera,
   Euler,
   Matrix4,
+  type Group,
   type Mesh,
   Quaternion,
   Vector3,
 } from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
+import {useSfxEmitter} from "../../core/audio/sfx/useSfxEmitter";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {createVirtualCursor} from "../../core/input/virtualCursor";
 import {getEyePosition, localPlayer} from "../../player";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
+import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
 import {BootScreen} from "./bootScreen";
 import {type CrtControls, createCrtMaterial} from "./crtMaterial";
@@ -61,6 +64,16 @@ export function PcObject({object}: {object: GameObject}) {
   }, [crt]);
 
   const power = usePcPower();
+  const root = useRef<Group>(null);
+  const sfx = useSfxEmitter(["pcFan"], root);
+  const {visible} = useObjectState();
+  useEffect(() => {
+    if (power !== "off" && visible) {
+      sfx.play("pcFan");
+    } else {
+      sfx.stop("pcFan");
+    }
+  }, [power, visible, sfx]);
   const boot = useBootDisplay(power === "booting");
   const powered = power === "on";
 
@@ -190,7 +203,7 @@ export function PcObject({object}: {object: GameObject}) {
   }, FRAME_PRIORITY.camera);
 
   return (
-    <>
+    <group ref={root}>
       <program.Runner
         object={object}
         screen={screen}
@@ -208,7 +221,7 @@ export function PcObject({object}: {object: GameObject}) {
         }
         screenRef={screenRef}
       />
-    </>
+    </group>
   );
 }
 
