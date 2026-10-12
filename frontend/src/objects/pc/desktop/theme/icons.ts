@@ -5,7 +5,7 @@ type PixelIcon = {palette: Record<string, string>; rows: readonly string[]};
 // 16×16 のドット絵。"." は透明
 const ICONS: Record<IconName | "logo", PixelIcon> = {
   matchmaking: {
-    palette: {k: "#000000", B: "#4a90e2", b: "#1c4fa0", g: "#2e8b3a"},
+    palette: {k: "#000000", B: "#9a9a9a", b: "#5a5a5a", g: "#e0e0e0"},
     rows: [
       "................",
       ".....kkkkkk.....",
@@ -47,7 +47,7 @@ const ICONS: Record<IconName | "logo", PixelIcon> = {
     ],
   },
   logo: {
-    palette: {k: "#000000", w: "#ffffff", b: "#0a246a", c: "#7fd0ff"},
+    palette: {k: "#000000", w: "#ffffff", b: "#2a2a2a", c: "#c8c8c8"},
     rows: [
       "................",
       "................",

@@ -50,16 +50,3 @@ export const sunken = (ctx: CanvasRenderingContext2D, r: Rect): void => {
   edge(ctx, r, COLORS.shadow, COLORS.highlight);
   edge(ctx, inset(r), COLORS.darkShadow, COLORS.face);
 };
-
-/** 彫った区切り線(横) */
-export const etchedLine = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-): void => {
-  ctx.fillStyle = COLORS.shadow;
-  ctx.fillRect(x, y, width, 1);
-  ctx.fillStyle = COLORS.highlight;
-  ctx.fillRect(x, y + 1, width, 1);
-};

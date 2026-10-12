@@ -18,7 +18,7 @@ import {paintShell} from "./paint/shell";
 /**
  * 2000 風のデスクトップを映す画面のソース。シェルの絵を下地(base)に描いておき、
  * カーソルが動いただけのときは下地を写してカーソルを重ねるだけにする。
- * キーボードは使わない(PC から離れるのは、右クリック・Esc・スタートメニューのシャットダウン)
+ * キーボードは使わない(PC から離れるのは、右クリックか Esc)
  */
 export class DesktopScreen implements ScreenSource {
   readonly texture: CanvasTexture;

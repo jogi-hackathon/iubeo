@@ -4,7 +4,6 @@ import {mouseSettingsStore} from "../../../core/input/mouseSettings";
 import {gameFlow} from "../../../flow";
 import type {PcProgram, PcProgramProps} from "../program";
 import {searchProgram} from "../search/SearchProgram";
-import {pcSession} from "../session";
 import {createDesktopApps} from "./apps";
 import {DesktopScreen} from "./DesktopScreen";
 
@@ -25,8 +24,6 @@ export const desktopScreen = (): DesktopScreen => {
 function DesktopProgram({using}: PcProgramProps) {
   const {shell} = desktopScreen();
 
-  useEffect(() => shell.onLeave(() => pcSession.leave()), [shell]);
-
   useEffect(() => {
     if (!using) {
       shell.settle();
@@ -39,6 +36,8 @@ function DesktopProgram({using}: PcProgramProps) {
 export const desktopProgram: PcProgram = {
   pointer: "virtual",
   view: {fill: 0.9},
+  // 部屋の PC は電源を落とさない。離れても、開いた窓や時計が映ったまま
+  alwaysOn: true,
   screen: desktopScreen,
   // 部屋で待っている間に、試合の PC で使う検索のエンジンを先に取っておく(PC に近づいたとき)
   prewarm: searchProgram.prewarm,

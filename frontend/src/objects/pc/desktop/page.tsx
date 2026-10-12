@@ -87,12 +87,6 @@ for (const [label, next] of STATES) {
   panel.appendChild(button);
 }
 root.appendChild(panel);
-const log = document.createElement("pre");
-log.style.cssText = "color:#ccc;font:12px monospace";
-root.appendChild(log);
-screen.shell.onLeave(() => {
-  log.textContent = `${new Date().toLocaleTimeString()} シャットダウン(PC から離れる)\n${log.textContent}`;
-});
 
 const send = (type: "move" | "down" | "up", event: MouseEvent) => {
   const rect = surface.getBoundingClientRect();

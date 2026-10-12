@@ -6,8 +6,8 @@ export type TutorialZone = "chair";
 export type TutorialEvent =
   | {type: "zone"; zone: TutorialZone}
   | {type: "held"; file: FileStatus | null}
-  /** 部屋の PC を使い始めた */
-  | {type: "usePc"};
+  /** 部屋の PC が起動し終えた(触ると起動が始まる) */
+  | {type: "pcBooted"};
 
 export type TutorialStepId =
   | "chair"
@@ -18,7 +18,7 @@ export type TutorialStepId =
   | "directoryStoreEdited"
   | "canvasCreate"
   | "directoryStoreImage"
-  | "usePc";
+  | "bootPc";
 
 const enterZone =
   (zone: TutorialZone) =>
@@ -41,5 +41,5 @@ export const TUTORIAL_STEPS: readonly Step[] = [
   {id: "directoryStoreEdited", advanceOn: holdFile(null)},
   {id: "canvasCreate", advanceOn: holdFile("image_created")},
   {id: "directoryStoreImage", advanceOn: holdFile(null)},
-  {id: "usePc", advanceOn: (event) => event.type === "usePc"},
+  {id: "bootPc", advanceOn: (event) => event.type === "pcBooted"},
 ];

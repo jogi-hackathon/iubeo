@@ -127,25 +127,17 @@ export const iconCellRect = (index: number): Rect => ({
   ...ICON_CELL,
 });
 
-export type StartMenuEntry =
-  | {kind: "app"; appId: string}
-  | {kind: "separator"}
-  | {kind: "shutdown"};
+export type StartMenuEntry = {appId: string};
 
 const START_MENU_WIDTH = 176;
 export const START_MENU_BANNER = 22;
-const START_ITEM_HEIGHT = 26;
-const START_SEPARATOR_HEIGHT = 8;
+/** 左の帯の「IUBEO」が、項目 2 つでも収まる高さ */
+const START_ITEM_HEIGHT = 34;
 const START_MENU_PADDING = 3;
-
-const entryHeight = (entry: StartMenuEntry): number =>
-  entry.kind === "separator" ? START_SEPARATOR_HEIGHT : START_ITEM_HEIGHT;
 
 /** スタートメニューの外枠(タスクバーの上に、スタートボタンの左端から開く) */
 export const startMenuRect = (entries: readonly StartMenuEntry[]): Rect => {
-  const height =
-    entries.reduce((sum, e) => sum + entryHeight(e), 0) +
-    START_MENU_PADDING * 2;
+  const height = entries.length * START_ITEM_HEIGHT + START_MENU_PADDING * 2;
   return {
     x: START_BUTTON.x,
     y: TASKBAR.y - height + 2,
@@ -156,15 +148,10 @@ export const startMenuRect = (entries: readonly StartMenuEntry[]): Rect => {
 
 export const startEntryRects = (entries: readonly StartMenuEntry[]): Rect[] => {
   const menu = startMenuRect(entries);
-  let y = menu.y + START_MENU_PADDING;
-  return entries.map((entry) => {
-    const rect = {
-      x: menu.x + START_MENU_BANNER + START_MENU_PADDING,
-      y,
-      width: menu.width - START_MENU_BANNER - START_MENU_PADDING * 2,
-      height: entryHeight(entry),
-    };
-    y += rect.height;
-    return rect;
-  });
+  return entries.map((_, i) => ({
+    x: menu.x + START_MENU_BANNER + START_MENU_PADDING,
+    y: menu.y + START_MENU_PADDING + i * START_ITEM_HEIGHT,
+    width: menu.width - START_MENU_BANNER - START_MENU_PADDING * 2,
+    height: START_ITEM_HEIGHT,
+  }));
 };

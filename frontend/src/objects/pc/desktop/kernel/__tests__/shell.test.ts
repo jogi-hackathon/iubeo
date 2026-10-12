@@ -267,42 +267,24 @@ describe("スタートメニュー", () => {
     expect(shell.getState().startOpen).toBe(false);
   });
 
-  it("区切りは押せず、上に乗った項目を覚える", () => {
+  it("上に乗った項目を覚え、外れたら忘れる", () => {
     const {shell, click} = make();
     click(center(START_BUTTON));
     const rects = startEntryRects(shell.entries);
-    const separator = shell.entries.findIndex((e) => e.kind === "separator");
     shell.pointer({type: "move", ...center(rects[0]!), button: -1});
     expect(shell.getState().hoveredEntry).toBe(0);
-    shell.pointer({type: "move", ...center(rects[separator]!), button: -1});
+    shell.pointer({type: "move", x: 600, y: 100, button: -1});
     expect(shell.getState().hoveredEntry).toBeNull();
-    click(center(rects[separator]!));
-    expect(shell.getState().startOpen).toBe(true);
-  });
-
-  it("シャットダウンで onLeave へ知らせる", () => {
-    const {shell, click} = make();
-    const leave = vi.fn();
-    shell.onLeave(leave);
-    click(center(START_BUTTON));
-    const index = shell.entries.findIndex((e) => e.kind === "shutdown");
-    click(center(startEntryRects(shell.entries)[index]!));
-    expect(leave).toHaveBeenCalledTimes(1);
-    expect(shell.getState().startOpen).toBe(false);
   });
 });
 
 describe("settle", () => {
-  it("開いたメニューと押しかけを片付け、窓は残す", () => {
+  it("押しかけだけ片付け、窓や開いたメニューは残す", () => {
     const {shell} = make();
     shell.launch("a");
     shell.pointer({type: "down", ...center(START_BUTTON), button: 0});
     shell.settle();
-    expect(shell.getState()).toMatchObject({
-      startOpen: false,
-      pressed: null,
-      hoveredEntry: null,
-    });
+    expect(shell.getState()).toMatchObject({startOpen: true, pressed: null});
     expect(shell.getState().windows).toHaveLength(1);
   });
 

@@ -18,7 +18,7 @@ import {
 import type {Shell, ShellWindow} from "../kernel/shell";
 import {COLORS, FONT, FONT_BANNER, FONT_BOLD} from "../theme/classic";
 import {paintIcon} from "../theme/icons";
-import {etchedLine, raised, sunkenThin} from "./bevel";
+import {raised, sunkenThin} from "./bevel";
 
 /** シェルの今の状態を、画面いっぱいに描く(カーソルは描かない) */
 export const paintShell = (
@@ -78,7 +78,7 @@ const paintDesktopIcon = (
     ctx.fillStyle = COLORS.selection;
     ctx.fillRect(labelRect.x, labelRect.y, labelRect.width, labelRect.height);
   }
-  ctx.fillStyle = COLORS.desktopText;
+  ctx.fillStyle = selected ? COLORS.selectionText : COLORS.desktopText;
   ctx.textAlign = "center";
   ctx.fillText(
     label,
@@ -271,28 +271,26 @@ const paintStartMenu = (ctx: CanvasRenderingContext2D, shell: Shell): void => {
     if (!rect) {
       return;
     }
-    if (entry.kind === "separator") {
-      etchedLine(ctx, rect.x + 1, rect.y + rect.height / 2 - 1, rect.width - 2);
-      return;
-    }
     const hovered = state.hoveredEntry === i;
     if (hovered) {
       ctx.fillStyle = COLORS.selection;
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     }
-    const app =
-      entry.kind === "app"
-        ? shell.apps.find((a) => a.id === entry.appId)
-        : undefined;
-    if (app) {
-      paintIcon(ctx, app.icon, rect.x + 4, rect.y + 5, 16);
-    } else {
-      paintIcon(ctx, "logo", rect.x + 4, rect.y + 5, 16);
+    const app = shell.apps.find((a) => a.id === entry.appId);
+    if (!app) {
+      return;
     }
+    paintIcon(
+      ctx,
+      app.icon,
+      rect.x + 4,
+      rect.y + Math.round((rect.height - 16) / 2),
+      16,
+    );
     ctx.font = FONT;
     ctx.fillStyle = hovered ? COLORS.selectionText : COLORS.text;
     ctx.fillText(
-      app ? app.title : "シャットダウン...",
+      app.title,
       rect.x + 28,
       rect.y + rect.height / 2 + 1,
       rect.width - 32,

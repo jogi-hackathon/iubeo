@@ -16,19 +16,19 @@ import {getEyePosition, localPlayer} from "../../player";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
 import type {GameObject} from "../types";
+import {BootScreen} from "./bootScreen";
 import {createCrtMaterial} from "./crtMaterial";
 import {SCREEN} from "./dimensions";
 import {type PcCursor, useNativePointer} from "./display/useNativePointer";
 import {useVirtualPointer} from "./display/useVirtualPointer";
 import {pcInteraction} from "./interaction";
-import {createLogoTexture} from "./logoScreen";
-import {usePcLogo} from "./pcLogo";
 import {PcModel} from "./PcModel";
 import {
   getPortalMaterial,
   registerPcScreen,
   usePortalScreenId,
 } from "./pcScreenRegistry";
+import {pcPower, usePcPower} from "./power";
 import type {PcProgram} from "./program";
 import {programOf} from "./programs";
 import {type PcPhase, pcSession, usePcSession} from "./session";
@@ -37,6 +37,9 @@ const VIEW_SECONDS = 0.5;
 const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
+/** 電源を入れたとき(起動画面)の管の点き方。ふだんより、ゆっくり */
+const POWER_ON_RATE = 1.6;
+const POWER_ON_BOOT_RATE = 1.2;
 const PREWARM_DISTANCE = 4;
 
 const UP = new Vector3(0, 1, 0);
@@ -57,24 +60,25 @@ export function PcObject({object}: {object: GameObject}) {
     return () => crt.material.dispose();
   }, [crt]);
 
-  const logoOn = usePcLogo();
-  const logoTexture = useMemo(() => createLogoTexture(), []);
-  const logoCrt = useMemo(
+  const power = usePcPower();
+  const bootScreen = useMemo(() => new BootScreen(), []);
+  const bootCrt = useMemo(
     () =>
       createCrtMaterial(
-        logoTexture,
-        logoTexture.image.width,
-        logoTexture.image.height,
+        bootScreen.texture,
+        bootScreen.width,
+        bootScreen.height,
       ),
-    [logoTexture],
+    [bootScreen],
   );
   useEffect(() => {
-    setSkipGTAO(logoCrt.material, true);
+    setSkipGTAO(bootCrt.material, true);
     return () => {
-      logoCrt.material.dispose();
-      logoTexture.dispose();
+      bootCrt.material.dispose();
+      bootScreen.dispose();
     };
-  }, [logoCrt, logoTexture]);
+  }, [bootCrt, bootScreen]);
+  const powered = power === "on";
 
   useEffect(
     () => () => {
@@ -91,7 +95,9 @@ export function PcObject({object}: {object: GameObject}) {
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
   const mine = session.objectId === object.id;
-  const showing = mine && session.phase !== "idle";
+  const showing =
+    powered &&
+    (program.alwaysOn === true || (mine && session.phase !== "idle"));
 
   const screenRef = useRef<Mesh>(null);
   const portalId = usePortalScreenId();
@@ -102,7 +108,7 @@ export function PcObject({object}: {object: GameObject}) {
 
   const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   useNativePointer({
-    enabled: using && !logoOn && session.pointer === "native",
+    enabled: using && powered && session.pointer === "native",
     screen,
     screenRef,
     cursor: nativeCursor,
@@ -110,8 +116,8 @@ export function PcObject({object}: {object: GameObject}) {
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
     enabled: mine && session.pointer === "virtual",
-    // ロゴ(起動画面)を出している間は、画面へ入力を送らない
-    active: using && !logoOn && session.pointer === "virtual",
+    // 電源が落ちている間・起動している間は、画面へ入力を送らない
+    active: using && powered && session.pointer === "virtual",
     screen,
     screenRef,
     cursor: virtualCursor,
@@ -161,19 +167,23 @@ export function PcObject({object}: {object: GameObject}) {
       BOOT_RATE,
       dt,
     );
-    logoCrt.time.value += dt;
-    logoCrt.on.value = approach(
-      logoCrt.on.value,
-      logoOn ? 1 : 0,
-      POWER_RATE,
+    const booting = pcPower.get() === "booting";
+    bootCrt.time.value += dt;
+    bootCrt.on.value = approach(
+      bootCrt.on.value,
+      booting ? 1 : 0,
+      POWER_ON_RATE,
       dt,
     );
-    logoCrt.boot.value = approach(
-      logoCrt.boot.value,
-      logoOn ? 1 : 0,
-      BOOT_RATE,
+    bootCrt.boot.value = approach(
+      bootCrt.boot.value,
+      booting ? 1 : 0,
+      POWER_ON_BOOT_RATE,
       dt,
     );
+    if (booting) {
+      bootScreen.paint(pcPower.elapsed());
+    }
     if (
       getEyePosition(localPlayer, eye).distanceTo(
         pcPosition.set(...item.position),
@@ -182,7 +192,7 @@ export function PcObject({object}: {object: GameObject}) {
       program.prewarm?.();
     }
 
-    if (phase === "idle") {
+    if (phase === "idle" && !program.alwaysOn) {
       return;
     }
     screen.tick();
@@ -205,8 +215,8 @@ export function PcObject({object}: {object: GameObject}) {
         screen={
           portalId === object.id
             ? getPortalMaterial()
-            : logoOn
-              ? logoCrt.material
+            : power === "booting"
+              ? bootCrt.material
               : crt.material
         }
         screenRef={screenRef}

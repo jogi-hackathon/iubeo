@@ -81,7 +81,7 @@ const STEP_LOOKS: Record<TutorialStepId, TutorialLook> = {
     highlighted: ["directory"],
     pickupFile: false,
   },
-  usePc: {
+  bootPc: {
     visible: TUTORIAL_OBJECT_KEYS,
     enabled: ["pc"],
     highlighted: ["pc"],

@@ -1,21 +1,21 @@
-/** Windows 2000 の「クラシック」配色 */
+/** Windows 2000 の「クラシック」の形を、部屋に合わせてモノクロにした配色 */
 export const COLORS = {
-  desktop: "#3a6ea5",
-  face: "#d4d0c8",
+  desktop: "#a4a4a4",
+  face: "#d0d0d0",
   highlight: "#ffffff",
   shadow: "#808080",
   darkShadow: "#404040",
   text: "#000000",
   grayText: "#808080",
   window: "#ffffff",
-  selection: "#0a246a",
+  selection: "#202020",
   selectionText: "#ffffff",
-  activeTitle: ["#0a246a", "#a6caf0"],
+  activeTitle: ["#1a1a1a", "#9a9a9a"],
   inactiveTitle: ["#808080", "#c0c0c0"],
   activeTitleText: "#ffffff",
-  inactiveTitleText: "#d4d0c8",
-  desktopText: "#ffffff",
-  banner: ["#000080", "#1084d0"],
+  inactiveTitleText: "#d0d0d0",
+  desktopText: "#000000",
+  banner: ["#000000", "#707070"],
 } as const;
 
 const FAMILY =

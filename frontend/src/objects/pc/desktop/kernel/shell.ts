@@ -65,16 +65,12 @@ type Options = {
  * - アイコン: クリックで選び、ダブルクリックでアプリを開く(同じアプリの窓は 1 つだけ)
  * - 窓: 押すと手前へ。タイトルバーでつかんで動かし、_ で最小化、× で閉じる。中身の入力はアプリへ渡す
  * - タスクバー: スタートでメニューを開く。窓のボタンは、最小化なら戻し、手前なら最小化し、それ以外は手前へ
- * - スタートメニュー: アプリを開く。シャットダウンは onLeave へ知らせる(PC から離れる)
+ * - スタートメニュー: アプリを開く
  *
  * ダブルクリックは自分で数える(pointer lock の間は、ブラウザのクリック回数がカーソルの位置と合わないため)
  */
 export const createShell = ({apps, now = () => performance.now()}: Options) => {
-  const entries: StartMenuEntry[] = [
-    ...apps.map((app) => ({kind: "app", appId: app.id}) as const),
-    {kind: "separator"},
-    {kind: "shutdown"},
-  ];
+  const entries: StartMenuEntry[] = apps.map((app) => ({appId: app.id}));
 
   let state: ShellState = {
     windows: [],
@@ -93,7 +89,6 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     null;
   const unsubscribes = new Map<number, () => void>();
   const listeners = new Set<() => void>();
-  const leaveListeners = new Set<() => void>();
 
   const set = (patch: Partial<ShellState>) => {
     state = {...state, ...patch};
@@ -190,18 +185,14 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
   const activateEntry = (index: number) => {
     const entry = entries[index];
     set({startOpen: false, hoveredEntry: null});
-    if (entry?.kind === "app") {
+    if (entry) {
       launch(entry.appId);
-    } else if (entry?.kind === "shutdown") {
-      for (const l of Array.from(leaveListeners)) {
-        l();
-      }
     }
   };
 
   const entryAt = (x: number, y: number): number | null => {
     const index = startEntryRects(entries).findIndex((r) => contains(r, x, y));
-    return index >= 0 && entries[index]?.kind !== "separator" ? index : null;
+    return index >= 0 ? index : null;
   };
 
   const pressedHits = (pressed: Pressed, x: number, y: number): boolean => {
@@ -413,13 +404,6 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
         listeners.delete(listener);
       };
     },
-    /** スタートメニューのシャットダウン */
-    onLeave: (listener: () => void): (() => void) => {
-      leaveListeners.add(listener);
-      return () => {
-        leaveListeners.delete(listener);
-      };
-    },
     pointer: (event: ShellPointerEvent): void => {
       if (event.type === "move") {
         move(event.x, event.y);
@@ -433,13 +417,13 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     },
     launch,
     close,
-    /** PC から離れるとき。押しかけ・つかみかけ・開いたメニューを片付ける(窓はそのまま残す) */
+    /** PC から離れるとき。押しかけ・つかみかけだけ片付ける(窓や開いたメニューはそのまま残す) */
     settle: (): void => {
       drag = null;
       captured = null;
       lastIconClick = null;
-      if (state.startOpen || state.pressed || state.hoveredEntry !== null) {
-        set({startOpen: false, pressed: null, hoveredEntry: null});
+      if (state.pressed) {
+        set({pressed: null});
       }
     },
   };
