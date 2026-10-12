@@ -1,8 +1,8 @@
 import {addAfterEffect, useThree} from "@react-three/fiber";
 import {useEffect} from "react";
 
-import {useAppContext} from "../../boot/context";
-import {getRenderScale} from "../graphics";
+import {getRenderScale, graphicsStore} from "../graphics";
+import {useStore} from "../storage";
 
 const INTERVAL_MS = 500;
 
@@ -67,7 +67,7 @@ const fmtMB = (bytes: number | undefined): string =>
 
 export function DebugInfo() {
   const gl = useThree((s) => s.gl);
-  const {settings} = useAppContext();
+  const settings = useStore(graphicsStore);
 
   useEffect(() => {
     const r = gl as unknown as RendererLike;
