@@ -22,6 +22,8 @@ const (
 	cpuCalm         = 0.3
 	cpuGroundY      = 0.05
 	cpuGravity      = 9.8
+	// フェーズが 1 つ進むごとに下がる生存率。後半ほど CPU も落ちやすくする
+	cpuSurvivalDecay = 0.01
 )
 
 type CPUPersona struct {
@@ -38,11 +40,11 @@ type CPUPersona struct {
 }
 
 var cpuPersonas = []CPUPersona{
-	{Name: "せっかち", WalkSpeed: 3.2, TurnSpeed: 9, JitterMax: 300 * time.Millisecond, ThinkPause: 250 * time.Millisecond, Survival: 0.95, Slip: 0.25, Hurry: 0.3, Dawdle: 0.25, Playful: 0.6},
-	{Name: "丁寧", WalkSpeed: 2.1, TurnSpeed: 5, JitterMax: 900 * time.Millisecond, ThinkPause: 900 * time.Millisecond, Survival: 0.99, Slip: 0.03, Hurry: 0.35, Dawdle: 0.3, Playful: 0.2},
-	{Name: "マイペース", WalkSpeed: 2.2, TurnSpeed: 4.5, JitterMax: 1200 * time.Millisecond, ThinkPause: 1400 * time.Millisecond, Survival: 0.95, Slip: 0.1, Hurry: 0.1, Dawdle: 0.85, Playful: 0.8},
-	{Name: "不器用", WalkSpeed: 2.5, TurnSpeed: 6, JitterMax: 600 * time.Millisecond, ThinkPause: 600 * time.Millisecond, Survival: 0.92, Slip: 0.35, Hurry: 0.35, Dawdle: 0.5, Playful: 0.6},
-	{Name: "仕事人", WalkSpeed: 2.9, TurnSpeed: 7.5, JitterMax: 400 * time.Millisecond, ThinkPause: 350 * time.Millisecond, Survival: 0.99, Slip: 0.05, Hurry: 0.3, Dawdle: 0.15, Playful: 0.15},
+	{Name: "せっかち", WalkSpeed: 3.2, TurnSpeed: 9, JitterMax: 300 * time.Millisecond, ThinkPause: 250 * time.Millisecond, Survival: 0.9, Slip: 0.35, Hurry: 0.3, Dawdle: 0.25, Playful: 0.6},
+	{Name: "丁寧", WalkSpeed: 2.1, TurnSpeed: 5, JitterMax: 900 * time.Millisecond, ThinkPause: 900 * time.Millisecond, Survival: 0.95, Slip: 0.08, Hurry: 0.35, Dawdle: 0.3, Playful: 0.2},
+	{Name: "マイペース", WalkSpeed: 2.2, TurnSpeed: 4.5, JitterMax: 1200 * time.Millisecond, ThinkPause: 1400 * time.Millisecond, Survival: 0.88, Slip: 0.2, Hurry: 0.1, Dawdle: 0.85, Playful: 0.8},
+	{Name: "不器用", WalkSpeed: 2.5, TurnSpeed: 6, JitterMax: 600 * time.Millisecond, ThinkPause: 600 * time.Millisecond, Survival: 0.84, Slip: 0.5, Hurry: 0.35, Dawdle: 0.5, Playful: 0.6},
+	{Name: "仕事人", WalkSpeed: 2.9, TurnSpeed: 7.5, JitterMax: 400 * time.Millisecond, ThinkPause: 350 * time.Millisecond, Survival: 0.94, Slip: 0.1, Hurry: 0.3, Dawdle: 0.15, Playful: 0.15},
 }
 
 type cpuStage int
@@ -118,7 +120,7 @@ func (st *State) resetCPUAgents(now time.Time) {
 			Stage:   cpuStageWait,
 			Resume:  cpuStageIdle,
 			Until:   now.Add(time.Duration(r.Int64N(int64(persona.ThinkPause)+int64(400*time.Millisecond))) + 200*time.Millisecond),
-			Doomed:  r.Float64() > persona.Survival,
+			Doomed:  r.Float64() > persona.Survival-cpuSurvivalDecay*float64(st.Phase.Number-1),
 			Play:    now.Add(time.Duration(r.Int64N(int64(8 * time.Second)))),
 		}
 		if t := st.cpuPendingTask(p.ID, ""); t != nil {
