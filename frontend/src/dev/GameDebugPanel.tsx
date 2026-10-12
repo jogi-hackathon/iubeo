@@ -77,6 +77,9 @@ export function GameDebugPanel() {
         >
           revive
         </button>
+        <button type="button" onClick={() => getSkybox().previewCountdown()}>
+          countdown
+        </button>
       </div>
       <div style={rowStyle}>
         <span style={{flex: 1}}>
