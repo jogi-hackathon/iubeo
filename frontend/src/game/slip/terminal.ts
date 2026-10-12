@@ -138,9 +138,7 @@ export const SLIP_LOOK = {
   center: [0, 0.05, 0.13] as Vector3Tuple,
   tilt: -0.37,
 } as const;
-/** 伝票を見ている間に端末を下げる位置と傾き */
-export const TERMINAL_LOWERED = {y: -0.07, z: -0.02, tilt: -0.75} as const;
-/** 持ち上げる前と、しまったあと(視界の下)の位置と傾き */
+/** 持ち上げる前(視界の下)の位置と傾き */
 export const TERMINAL_BELOW = {y: -0.3, tilt: -0.9} as const;
 
 /** 印刷の行送りの回数。1 行ずつ送るので動きがコマ送りになる */
@@ -176,7 +174,7 @@ export const STAGE_MS: Readonly<
   look: 2700,
   fly: 900,
 };
-/** 飛ぶ段のうち、端末を視界の下へしまうのにかける時間(ms)。残りは伝票が飛んでいる */
+/** 飛ぶ段のうち、視線を元へ戻し終えるまでの時間(ms)。残りは伝票が飛んでいる */
 export const STOW_MS = 400;
 
 const STAGE_START = (() => {
@@ -209,8 +207,6 @@ export type TerminalPose = {
     toLook: number;
     /** 千切るときに手前へ折る角度 */
     tearTilt: number;
-    /** 見終えて端末を視界の下へしまう進み(0..1) */
-    stow: number;
     /** 伝票が手を離れてワークスペースへ飛んでいるか(手元の伝票は隠す) */
     launched: boolean;
   };
@@ -288,40 +284,16 @@ const screenOf = (
 
 /**
  * 依頼が届いてからの経過時間(ms)で、端末と紙の姿勢を返す。
- * 持ち上げ → 受信 → 印刷(行送り) → 送り出し → 千切る → 見る → 飛ぶ(端末はしまう)、の順に自動で進む
+ * 持ち上げ → 受信 → 印刷(行送り) → 送り出し → 千切る → 見る → 飛ぶ、の順に自動で進む
  */
 export const terminalPose = (elapsedMs: number): TerminalPose => {
   const {stage, progress} = stageAt(elapsedMs);
 
   const raise = easeOutCubic(clamp01(elapsedMs / STAGE_MS.raise));
-  const lower =
-    stage === "look"
-      ? easeInOut(clamp01(progress * 2.5))
-      : stage === "fly" || stage === "done"
-        ? 1
-        : 0;
-  const stow =
-    stage === "fly"
-      ? easeInOut(clamp01((progress * STAGE_MS.fly) / STOW_MS))
-      : stage === "done"
-        ? 1
-        : 0;
   const device = {
-    y: lerp(
-      lerp(lerp(TERMINAL_BELOW.y, 0, raise), TERMINAL_LOWERED.y, lower),
-      TERMINAL_BELOW.y,
-      stow,
-    ),
-    z: lerp(0, TERMINAL_LOWERED.z, lower),
-    tilt: lerp(
-      lerp(
-        lerp(TERMINAL_BELOW.tilt, TERMINAL_HELD_TILT, raise),
-        TERMINAL_LOWERED.tilt,
-        lower,
-      ),
-      TERMINAL_BELOW.tilt,
-      stow,
-    ),
+    y: lerp(TERMINAL_BELOW.y, 0, raise),
+    z: 0,
+    tilt: lerp(TERMINAL_BELOW.tilt, TERMINAL_HELD_TILT, raise),
     jitter: stage === "print" ? PRINT_JITTER : 0,
   };
 
@@ -340,7 +312,6 @@ export const terminalPose = (elapsedMs: number): TerminalPose => {
     torn,
     toLook: easeInOut(tear),
     tearTilt: TEAR_TILT * Math.sin(Math.PI * clamp01(tear / 0.55)),
-    stow,
     launched: stage === "fly" || stage === "done",
   };
 
