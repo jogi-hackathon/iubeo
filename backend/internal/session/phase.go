@@ -46,20 +46,16 @@ func pickCreationType(r *rand.Rand, searched bool) api.TaskType {
 	return types[r.IntN(len(types))]
 }
 
-// 同じプレイヤーに同じファイルの read_edit を出してよい回数
 const sameFileLimit = 2
 
-// 1 人あたりのタスク数。フェーズ 1 から 1, 2, 2, 3, 3, ...
 func tasksPerPlayer(number int) int {
 	return number/2 + 1
 }
 
-// read_edit を引く確率。後半ほど上げて、ファイルを取り合わせる
 func readEditRate(number int) float64 {
 	return min(0.25+0.1*float64(number-1), 0.6)
 }
 
-// read_edit の対象を、他のプレイヤーが既に対象にしたファイルから選ぶ確率
 func conflictRate(number int) float64 {
 	return min(0.15*float64(number-1), 0.6)
 }

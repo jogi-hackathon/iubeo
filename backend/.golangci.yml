@@ -1,6 +1,3 @@
-# Google Go Style Guide (https://google.github.io/styleguide/go/)
-# の Style Decisions / Best Practices のうち、バグや設計に効くものだけを選んでいる。
-# doc コメントの書き方や名前の長さなど、機械で白黒つけにくい読みやすさの話はレビューに任せる。
 version: "2"
 
 linters:
@@ -18,16 +15,13 @@ linters:
     staticcheck:
       checks:
         - all
-        # パッケージ・exported 識別子の doc コメントの形式はレビューに任せる (Doc comments)
         - -ST1000
         - -ST1020
         - -ST1021
         - -ST1022
-        # 命名は revive の var-naming で見る(重複して報告されるのを避ける)
         - -ST1003
 
     errcheck:
-      # `_ = f()` で明示的に捨てるのは許す。黙って捨てるのだけ禁止 (Handle errors)
       check-blank: false
 
     depguard:

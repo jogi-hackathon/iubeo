@@ -187,7 +187,6 @@ func TestPhaseTaskCountGrowsSlowly(t *testing.T) {
 	}
 }
 
-// 後半のフェーズほど read_edit が増え、他のプレイヤーと同じファイルを取り合いやすい
 func TestPhaseConflictsRiseInLaterPhases(t *testing.T) {
 	stats := func(number int) (readEdit, contested float64) {
 		var total, re, shared int

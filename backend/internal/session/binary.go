@@ -8,13 +8,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// 位置のメッセージ(transform / transforms)のバイナリ形式(docs/backend/state-schema.md §7.5)。
-// WebSocket の URL に enc=bin を付けた接続だけが使う(フロントは常に付ける。frontend/src/net/binary.ts と同じ形式)。
-// すべてリトルエンディアン。小数は float32。
-//
-//	transform  (クライアント → サーバー, 25B): type=1 u8 | seq u32 | x y z f32 | yaw f32 | pitch f32
-//	transforms (サーバー → クライアント, 10+25n B): type=2 u8 | serverTime f64(Unix ミリ秒) | n u8 |
-//	           n × (seat u8 | seq u32 | x y z f32 | yaw f32 | pitch f32)
 const (
 	binTransform  byte = 1
 	binTransforms byte = 2

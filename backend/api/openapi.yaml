@@ -1,4 +1,4 @@
-# oapi-codegen が 3.1 に未対応のため 3.0.3 で書く(null は nullable、固定値は単一要素の enum で表す)。
+# oapi-codegen が 3.1 に未対応のため 3.0.3 で書く。
 openapi: 3.0.3
 info:
   title: IUBEO Backend API
