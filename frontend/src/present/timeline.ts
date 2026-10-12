@@ -40,10 +40,21 @@ export const LID_KEYS: readonly LidKey[] = [
   {ms: 3600, open: 2.4, blur: 0},
 ];
 
+/** 目を閉じる動き: 重くなって下がり、一度こらえて少し開き、そのまま閉じる */
+export const CLOSE_LID_KEYS: readonly LidKey[] = [
+  {ms: 0, open: 2.4, blur: 0},
+  {ms: 900, open: 0.9, blur: 3},
+  {ms: 1500, open: 0.45, blur: 6},
+  {ms: 1850, open: 0.65, blur: 7},
+  {ms: 2500, open: 0.15, blur: 11},
+  {ms: 3000, open: 0, blur: 14},
+];
+
 export const durationOf = (keys: readonly LidKey[]): number =>
   keys[keys.length - 1]!.ms;
 
 export const LID_DURATION_MS = durationOf(LID_KEYS);
+export const CLOSE_LID_DURATION_MS = durationOf(CLOSE_LID_KEYS);
 
 export const lidAt = (
   ms: number,

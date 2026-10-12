@@ -1,5 +1,6 @@
 /**
- * プレゼンの台本。デッキごとに、手順をプレゼンターのキー操作で 1 つずつ進める。
+ * プレゼンの台本。冒頭のイントロと、デモのあとの技術パートの 2 つのデッキがあり、
+ * どちらも手順をプレゼンターのキー操作で 1 つずつ進める。
  * line はプレゼンターが話す台詞(の案)で、画面には出さない(dev パネルの台本表示に使う)
  */
 export const DECKS = {
@@ -17,6 +18,60 @@ export const DECKS = {
       line: "AIと人間との立場が入れかわった世界。それがIUBEOです",
     },
     {id: "wake", line: "(目を開ける → チュートリアルへ)"},
+  ],
+  tech: [
+    {
+      id: "close",
+      line: "(目を閉じる)ここからは、この世界の裏側を紹介します",
+    },
+    {
+      id: "arch",
+      line: "全体の構成です。プレイヤーのブラウザから、Cloudflare と東京の AWS につながっています",
+    },
+    {
+      id: "arch-play",
+      line: "ゲームの通信は /api から iubeo-backend を通り、東京の EC2 の Go サーバーへ WebSocket でつながります",
+    },
+    {
+      id: "arch-browser",
+      line: "PC のブラウザの通信は /wisp から WISP を通って外のサイトへ出ます。検索結果は Brave Search API から取ります",
+    },
+    {
+      id: "arch-judge",
+      line: "開いたページがお題に合っているかは、フロントの Worker が Workers AI で判定します",
+    },
+    {
+      id: "arch-vc",
+      line: "ボイスチャットは別ホストの MoQ リレーに直接つなぎ、ゲームの中の距離で聞こえ方が変わります",
+    },
+    {
+      id: "arch-ops",
+      line: "EC2 は Discord のコマンドで必要なときだけ起動し、KV の target で向き先を切り替えます。それ以外のときは Cloudflare Containers に流れます",
+    },
+    {
+      id: "browser",
+      line: "ゲーム内の PC のブラウザは、iframe でもモックでもなく Firefox のエンジンそのものです。firefox-wasm をフォークして、JIT の改善や日本語の表示に取り組みました",
+    },
+    {
+      id: "engine",
+      line: "ゲームエンジンは使わず、Three.js の上に、エンジンが受け持つ部分を自分たちで組みました",
+    },
+    {
+      id: "server",
+      line: "3 人の取り合いや締切は、Go のサーバーが 1 本のチャネルで順番に処理して判定します。通信は計測してから直し、受信量を 86% 減らしました",
+    },
+    {
+      id: "infra",
+      line: "インフラは Cloudflare の新しい CLI cf で、TypeScript 1 ファイルに書いています。遊ばれていない間はほぼ 0 円です",
+    },
+    {
+      id: "closing",
+      line: "AI エージェントの Tool Call を、人間が身体を使って実行する。それを、ハリボテではなく本物の技術で作りました",
+    },
+    {
+      id: "wake",
+      line: "(目を開ける → 部屋へ。窓の外を見続けるとクレジットが流れる)",
+    },
   ],
 } as const;
 

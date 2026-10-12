@@ -1,14 +1,23 @@
 import {useEffect, useReducer} from "react";
 
+import {DEBUG_AVAILABLE} from "../core/debug/flags";
 import {IntroStage} from "./IntroStage";
 import {DECKS, type DeckId, stepIdOf} from "./script";
 import {
   advancePresentation,
   backPresentation,
   endPresentation,
+  startPresentation,
 } from "./session";
-import {usePresent} from "./store";
-import {LID_DURATION_MS, LID_KEYS, lidAt} from "./timeline";
+import {presentStore, usePresent} from "./store";
+import {TechStage} from "./TechStage";
+import {
+  CLOSE_LID_DURATION_MS,
+  CLOSE_LID_KEYS,
+  LID_DURATION_MS,
+  LID_KEYS,
+  lidAt,
+} from "./timeline";
 
 const NEXT_KEYS = new Set([
   "ArrowRight",
@@ -39,12 +48,29 @@ const useElapsed = (since: number): number => {
   return performance.now() - since;
 };
 
+/** 技術パートを始めるキー(デモの画面で dev パネルを開かずに済むように) */
+const TECH_KEY = "F9";
+
 /**
- * プレゼンの演出。dev パネルの Present タブから始める。
+ * プレゼンの演出。dev パネルの Present タブ(技術パートは F9 でも)から始める。
  * → / Space / PageDown / Enter / クリックで次へ、← / PageUp / Backspace で戻る、Esc でやめる
  */
 export function PresentOverlay() {
   const state = usePresent();
+
+  useEffect(() => {
+    if (!DEBUG_AVAILABLE) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === TECH_KEY && !presentStore.getState().active) {
+        e.preventDefault();
+        startPresentation("tech");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!state.active) {
     return null;
@@ -131,10 +157,18 @@ function PresentStage({
   if (waking) {
     return <Lid elapsed={elapsed} keys={LID_KEYS} />;
   }
+  // 技術パートはデモの画面のまま始め、目を閉じきってから黒い世界に入る
+  if (id === "close" && elapsed < CLOSE_LID_DURATION_MS) {
+    return <Lid elapsed={elapsed} keys={CLOSE_LID_KEYS} />;
+  }
 
   return (
     <div className="present">
-      <IntroStage step={step} elapsed={elapsed} />
+      {deck === "intro" ? (
+        <IntroStage step={step} elapsed={elapsed} />
+      ) : (
+        <TechStage step={step} elapsed={elapsed} />
+      )}
       <div className="present-step" aria-hidden>
         {step + 1} / {DECKS[deck].length}
       </div>

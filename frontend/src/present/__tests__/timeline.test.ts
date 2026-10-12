@@ -1,6 +1,12 @@
 import {describe, expect, it} from "vitest";
 
-import {LID_DURATION_MS, lidAt, typedText} from "../timeline";
+import {
+  CLOSE_LID_DURATION_MS,
+  CLOSE_LID_KEYS,
+  LID_DURATION_MS,
+  lidAt,
+  typedText,
+} from "../timeline";
 
 describe("typedText", () => {
   it("delay までは空で、そのあと 1 文字ずつ増え、全文で止まる", () => {
@@ -17,5 +23,14 @@ describe("lidAt", () => {
     expect(end.open).toBeGreaterThan(2);
     expect(end.blur).toBe(0);
     expect(lidAt(LID_DURATION_MS + 1000)).toEqual(end);
+  });
+});
+
+describe("lidAt(目を閉じる)", () => {
+  it("開いた目から始まり、最後は閉じきってぼやける", () => {
+    expect(lidAt(0, CLOSE_LID_KEYS).open).toBeGreaterThan(2);
+    const end = lidAt(CLOSE_LID_DURATION_MS, CLOSE_LID_KEYS);
+    expect(end.open).toBe(0);
+    expect(end.blur).toBeGreaterThan(0);
   });
 });

@@ -11,7 +11,7 @@ import {credits} from "../scenes/RoomScene/credits/store";
 import {tutorialManager} from "../scenes/RoomScene/tutorial/manager";
 import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
 import {applySpawn} from "../scenes/spawn";
-import {type DeckId, lastStepOf} from "./script";
+import {type DeckId, lastStepOf, stepIdOf} from "./script";
 import {presentStore} from "./store";
 
 let releaseControl: (() => void) | null = null;
@@ -37,9 +37,24 @@ const resetGame = (): void => {
   applySpawn(localPlayer, spawnOf("room"));
 };
 
+/** 技術パートの終わりに目を開けると最初の部屋にいるようにする(窓の外のクレジットで締めるため)。目を閉じきってから呼ぶ */
+const enterRoomBehind = (): void => {
+  if (sceneManager.getState().current !== "room") {
+    void sceneTransitionManager.goTo("room");
+  }
+};
+
+/** 黒い画面になった手順で、裏のゲームを整える */
+const prepareBehind = (deck: DeckId, step: number): void => {
+  if (deck === "tech" && stepIdOf(deck, step) !== "close") {
+    enterRoomBehind();
+  }
+};
+
 /**
- * dev パネルから呼ぶ。プレイヤーの操作とポインターロックを止めて始める。
- * イントロは黒い画面から始め、裏でゲームを最初の部屋・チュートリアルの始めに戻す
+ * dev パネル(または F9)から呼ぶ。プレイヤーの操作とポインターロックを止めて始める。
+ * イントロは黒い画面から始め、裏でゲームを最初の部屋・チュートリアルの始めに戻す。
+ * 技術パートはデモの画面のまま目を閉じるところから始める
  */
 export const startPresentation = (deck: DeckId, step = 0): void => {
   if (presentStore.getState().active) {
@@ -55,6 +70,7 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
     resetGame();
   }
   presentStore.start(deck, step);
+  prepareBehind(deck, step);
 };
 
 /**
@@ -67,6 +83,7 @@ export const advancePresentation = (): void => {
     return;
   }
   presentStore.next();
+  prepareBehind(state.deck, state.step + 1);
   if (state.step + 1 === lastStepOf(state.deck)) {
     releasePointer?.();
     releasePointer = null;
