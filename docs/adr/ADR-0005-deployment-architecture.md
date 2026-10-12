@@ -27,7 +27,7 @@
    - コンテナを持つ Worker は Worker Previews に対応していないため。フロントだけをプレビューできるようにする(プレビューは本番のバックエンドを向く)
 1. **転送先は KV の `target` で切り替える**
    - `ec2` なら EC2(東京)へ、それ以外なら Cloudflare Containers へ流す(`frontend/worker/backend.ts`)
-   - 転送先が落ちていても、黙って他方へは流さない。セッションはメモリ上にしか無く、2 つのバックエンドは状態を共有しないので、切り替わるとプレイヤーが別々のゲームに分裂するため
+   - 転送先が落ちていても、勝手に他方へは流さない。セッションはメモリ上にしか無く、2 つのバックエンドは状態を共有しないので、切り替わるとプレイヤーが別々のゲームに分裂するため
 1. **開発用・フォールバックのバックエンドは Cloudflare Containers に置く(Go のコンテナをそのまま載せる)**
    - `schedulingPolicy: "durable-object"`、`standard-1`。Durable Object は名前を固定した 1 つ(`getByName("game")`)なので、コンテナも 1 つ
    - 5 分アクセスが無ければコンテナが眠るので、**触っていない間は $0**
@@ -39,7 +39,7 @@
    - 起動・停止は Lambda が行う(Discord の `/ec2start` `/ec2stop`)。起動したら `/healthz` が返るのを待って KV の `target` を `ec2` にし、停止するときは先に KV を消してから止める。自動停止は EventBridge Scheduler に「N 時間後(既定 3 時間)の 1 回」を登録して行う
 1. **AWS 側は EC2 + EIP と、その起動・停止とデプロイの仕組みだけにする(ALB / ECS / NAT / ACM は使わない)**
    - `infra/aws/terraform/` がその実体。VPC / 公開サブネット 1 / IGW / SG / EC2 / EIP / ECR(backend・wisp)/ IAM、起動・停止の Lambda と Function URL・EventBridge Scheduler、デプロイ用の GitHub OIDC と SSM パラメータ
-   - ALB を置かないので ACM 証明書も不要。TLS は Cloudflare で終わり、Worker から EC2 へは HTTP(8080)で流す
+   - ALB を置かないので ACM 証明書も不要。TLS は Cloudflare で終端し、Worker から EC2 へは HTTP(8080)で流す
    - セキュリティグループは 8080(backend)と 8081(WISP)を **Cloudflare の IP 帯のみ**許可し、SSH は開けず SSM Session Manager で操作する
    - 署名鍵は初回起動時にインスタンス上で生成する。Secrets Manager を使わないので state に秘密が入らない
 1. **WISP(PC の画面が実サイトへ出るプロキシ)も同じ形にする**
@@ -57,10 +57,10 @@
 
 理由:
 
-- **固定費が 1 桁安い。** AWS(ECS/Fargate + ALB)はアクセスが無くても $47.28/月かかるのに対し、Cloudflare は Workers Paid の $5/月 + コンテナの起動時間だけで済む。開発用に常設しても、遊ばれていない間は眠るのでほぼ $0
+- **固定費が 1 桁安い。** AWS(ECS/Fargate + ALB)はアクセスが無くても約 $47/月かかるのに対し、Cloudflare は Workers Paid の $5/月 + コンテナの起動時間だけで済む。開発用に常設しても、遊ばれていない間は眠るのでほぼ $0
 - フロントは既に `cf` で動いており、Go サーバーはコンテナなのでそのまま載る
 - 1 セッション = 1 プロセスという ADR-0004 の制約は、名前を固定した Durable Object 1 つでそのまま表現できる
-- ただし**コンテナは東京に固定できない。** 実測では大阪(kix06)に配置された。Cloudflare の配置制約は `APAC` のような広い単位しか無く、しかも DO ポリシーでは `constraints` 自体が使えない(Durable Object の `locationHint` は `apac-ne` にしてある)。**レイテンシを詰めたいときは東京に置ける EC2 へ逃がす**
+- ただし**コンテナは東京に固定できない。** 実測では大阪(kix06)に配置された。Cloudflare の配置制約は `APAC` のような広い単位しか無く、しかも DO ポリシーでは `constraints` 自体が使えない(Durable Object の `locationHint` は `apac-ne` にしてある)。**レイテンシを詰めたいときは東京に置ける EC2 を使う**
 
 ## 実測(2026-10-07、実際にデプロイして計測)
 
@@ -88,7 +88,7 @@
 
 - 概要: 東京リージョンに Fargate のタスクを 1 つ置き、ALB の背後に出す。Terraform で一元管理する
 - 利点: 常時起動なのでコールドスタートが無い。リージョンとネットワーク経路を完全に制御できる。マネージドな TLS 終端とヘルスチェックが付く
-- 欠点 / リスク: **アクセスが無くても $47.14/月かかる。** ALB とそのパブリック IPv4 だけで $25.04 を占め、これは止められない(消すしかない)
+- 欠点 / リスク: **アクセスが無くても約 $47/月かかる。** ALB とそのパブリック IPv4 だけで $25.04 を占め、これは止められない(消すしかない)
 - 却下理由: 固定費が Cloudflare の 7 倍近い。ADR-0004 でタスクを 1 つに固定する以上、ECS の本来の価値(複数タスクのオーケストレーション)も使えない。ECS 用の Terraform は EC2 の構成に置き換えたので、常時起動が必要になって戻すなら書き直しになる
 
 ### 案C: AWS Lightsail
