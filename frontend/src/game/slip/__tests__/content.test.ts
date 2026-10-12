@@ -1,13 +1,7 @@
 import {describe, expect, it} from "vitest";
 
 import type {GamePhase, GameTask} from "../../../net";
-import {
-  colorName,
-  SAMPLE_SLIP,
-  SLIP_CANVAS,
-  SLIP_MAX_ITEMS,
-  slipContent,
-} from "../content";
+import {colorName, SAMPLE_SLIP, SLIP_CANVAS, slipContent} from "../content";
 import {SLIP_LENGTH, SLIP_WIDTH} from "../strip";
 
 const phase: GamePhase = {
@@ -41,14 +35,14 @@ describe("slipContent", () => {
     const {items} = slipContent(
       phase,
       [
-        task({type: "web_search", topic: "三葉虫"}),
+        task({type: "web_search", topic: "React Three Fiber"}),
         task({type: "read_edit", targetFileId: "file-7"}),
         task({type: "image_generation"}),
       ],
       new Map([["file-7", "#1d6fe0"]]),
     );
     expect(items.map((item) => item.detail)).toEqual([
-      "三葉虫",
+      "React Three Fiber",
       "青のファイル",
       null,
     ]);
@@ -66,9 +60,9 @@ describe("slipContent", () => {
     expect(items[0]?.detail).toBeNull();
   });
 
-  it("紙に収まらない分の項目は切る", () => {
-    const many = Array.from({length: SLIP_MAX_ITEMS + 2}, () => task({}));
-    expect(slipContent(phase, many).items).toHaveLength(SLIP_MAX_ITEMS);
+  it("項目が多くても切らずに全部載せる", () => {
+    const many = Array.from({length: 9}, () => task({}));
+    expect(slipContent(phase, many).items).toHaveLength(9);
   });
 
   it("日時が読めなければ制限は無し", () => {
