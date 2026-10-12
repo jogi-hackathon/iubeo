@@ -9,6 +9,8 @@ import {
   resetSpectate,
   useSpectatePhase,
 } from "../core/spectate";
+import {SAMPLE_SLIP} from "../game/slip/content";
+import {orderSlip, useOrderSlip} from "../game/slip/store";
 import {useItemState} from "../items";
 import type {Team} from "../net/types";
 import {objectManager, useObjectsState} from "../objects";
@@ -41,6 +43,7 @@ export function GameDebugPanel() {
   const {current: sceneName} = useSceneState();
   const rejected = useSyncExternalStore(subscribeRejected, () => lastRejected);
   const spectate = useSpectatePhase();
+  const slip = useOrderSlip();
   const authority = useSyncExternalStore(
     authorityRegistry.subscribe,
     authorityRegistry.current,
@@ -73,6 +76,14 @@ export function GameDebugPanel() {
           onClick={resetSpectate}
         >
           revive
+        </button>
+      </div>
+      <div style={rowStyle}>
+        <span style={{flex: 1}}>
+          slip: {slip.playing ? "playing" : slip.pending ? "pending" : "-"}
+        </span>
+        <button type="button" onClick={() => orderSlip.deliver(SAMPLE_SLIP)}>
+          deliver slip
         </button>
       </div>
       {hasSpares && (
