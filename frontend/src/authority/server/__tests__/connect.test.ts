@@ -115,7 +115,6 @@ const setup = (playerId = "me") => {
   const game = createGameStore({now: () => 0});
   const onFirstSnapshot = vi.fn();
   const onFinished = vi.fn();
-  const onPhaseStarted = vi.fn();
   const off = connectSession({
     connection: connection as never,
     objects,
@@ -128,7 +127,6 @@ const setup = (playerId = "me") => {
     spawnOf,
     onFirstSnapshot,
     onFinished,
-    onPhaseStarted,
   });
   const receive = (m: ServerMessage) => handlers.get(m.type)?.(m);
   return {
@@ -140,7 +138,6 @@ const setup = (playerId = "me") => {
     sender,
     onFirstSnapshot,
     onFinished,
-    onPhaseStarted,
     receive,
     off,
     handlers,
@@ -397,23 +394,6 @@ describe("connectSession", () => {
     });
     expect(t.game.getState().intermission).toBe(true);
     expect(t.game.getState().phase?.status).toBe("intermission");
-  });
-
-  it("phase.started のたびに onPhaseStarted を呼ぶ", () => {
-    const t = setup();
-    t.receive({
-      type: "phase.started",
-      seq: 2,
-      serverTime: "2026-10-01T00:00:10Z",
-      phase: gamePhase(),
-    });
-    t.receive({
-      type: "phase.started",
-      seq: 3,
-      serverTime: "2026-10-01T00:00:20Z",
-      phase: gamePhase({number: 2}),
-    });
-    expect(t.onPhaseStarted).toHaveBeenCalledTimes(2);
   });
 
   it("session.finished は結果を入れて onFinished を呼ぶ", () => {

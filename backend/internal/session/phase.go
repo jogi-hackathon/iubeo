@@ -31,6 +31,7 @@ type TaskState struct {
 	Type         api.TaskType
 	Assignee     string
 	TargetFileID string
+	Topic        string
 	CompletedAt  time.Time
 }
 
@@ -93,6 +94,8 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 		Tasks:      tasks,
 	}
 	st.resetCPUAgents(now)
+	// お題は他の抽選(タスクの種類・CPU の性格)の後に引く。先に引くと、同じ seed の結果が変わってしまうため
+	st.assignTopics(r)
 	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
 }
 
@@ -272,6 +275,9 @@ func (st *State) apiPhase() api.Phase {
 		task := api.Task{TaskId: t.ID, Type: t.Type, AssigneePlayerId: t.Assignee, Status: api.TaskStatusPending}
 		if t.TargetFileID != "" {
 			task.TargetFileId = &t.TargetFileID
+		}
+		if t.Topic != "" {
+			task.Topic = &t.Topic
 		}
 		if !t.CompletedAt.IsZero() {
 			task.Status = api.TaskStatusCompleted

@@ -31,12 +31,12 @@ type Vec3 = [number, number, number];
 export function PcModel({
   screen,
   screenRef,
-  memoRef,
+  topic = null,
   showMemo = true,
 }: {
   screen: MeshBasicNodeMaterial;
   screenRef?: Ref<Mesh>;
-  memoRef?: Ref<Mesh>;
+  topic?: string | null;
   showMemo?: boolean;
 }) {
   return (
@@ -45,7 +45,7 @@ export function PcModel({
       <Lid screen={screen} screenRef={screenRef} />
       {showMemo && (
         <group position={[MEMO.x, 0, MEMO.z]} rotation={[MEMO.tilt, 0, 0]}>
-          <TaskMemo ref={memoRef} />
+          <TaskMemo topic={topic} />
         </group>
       )}
     </group>

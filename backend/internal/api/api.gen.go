@@ -1115,9 +1115,12 @@ type Task struct {
 	Status      TaskStatus `json:"status"`
 
 	// TargetFileId read_edit のときだけ。対象の在庫ファイルの id
-	TargetFileId *string  `json:"targetFileId"`
-	TaskId       string   `json:"taskId"`
-	Type         TaskType `json:"type"`
+	TargetFileId *string `json:"targetFileId"`
+	TaskId       string  `json:"taskId"`
+
+	// Topic web_search のときだけ。検索するお題の語。タスクごとにサーバーが決める
+	Topic *string  `json:"topic,omitempty"`
+	Type  TaskType `json:"type"`
 }
 
 // TaskCompletedMessage defines model for TaskCompletedMessage.
