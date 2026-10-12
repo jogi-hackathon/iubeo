@@ -10,17 +10,10 @@ interface ChairProps {
   position: Vec3;
   yaw?: number;
   visible?: boolean;
-  collidable?: boolean;
   ao?: AOMode;
 }
 
-export function Chair({
-  position,
-  yaw = 0,
-  visible = true,
-  collidable = true,
-  ao,
-}: ChairProps) {
+export function Chair({position, yaw = 0, visible = true, ao}: ChairProps) {
   const geometries = useMemo(
     () => CHAIR_PARTS.map((part) => new BoxGeometry(...part.size)),
     [],
@@ -36,7 +29,7 @@ export function Chair({
 
   return (
     <group position={position} rotation={[0, yaw, 0]} visible={visible}>
-      <BVHCollider enabled={visible && collidable}>
+      <BVHCollider enabled={visible}>
         {CHAIR_PARTS.map((part, i) => (
           <mesh
             key={i}
