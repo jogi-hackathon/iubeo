@@ -1,5 +1,3 @@
-// Package wisp は、実サイトへ出る WISP プロキシ(Cloudflare の Worker + Container)へ繋ぐための
-// 短い期限つきトークンを発行する。WISP 側は同じ鍵で検証する(frontend/worker/wispToken.ts と形式を揃えている)。
 package wisp
 
 import (
@@ -11,7 +9,6 @@ import (
 	"time"
 )
 
-// DefaultTTL はトークンの有効期間。接続を始めるまでの猶予として数分あれば足りる
 const DefaultTTL = 5 * time.Minute
 
 var b64 = base64.RawURLEncoding
@@ -21,14 +18,12 @@ type claims struct {
 	Exp int64  `json:"exp"`
 }
 
-// Issuer はトークンを発行・検証する。鍵は WISP 側と共有する
 type Issuer struct {
 	key []byte
 	ttl time.Duration
 	now func() time.Time
 }
 
-// NewIssuer は key で署名する Issuer を作る。ttl が 0 なら DefaultTTL
 func NewIssuer(key []byte, ttl time.Duration, now func() time.Time) *Issuer {
 	if ttl == 0 {
 		ttl = DefaultTTL
@@ -42,7 +37,6 @@ func (i *Issuer) mac(payload string) []byte {
 	return m.Sum(nil)
 }
 
-// Issue は playerID のトークンと、その期限を返す。トークンは `<base64url(JSON)>.<base64url(HMAC)>`
 func (i *Issuer) Issue(playerID string) (string, time.Time, error) {
 	expiresAt := i.now().Add(i.ttl)
 	body, err := json.Marshal(claims{Sub: playerID, Exp: expiresAt.Unix()})
@@ -53,7 +47,6 @@ func (i *Issuer) Issue(playerID string) (string, time.Time, error) {
 	return payload + "." + b64.EncodeToString(i.mac(payload)), expiresAt, nil
 }
 
-// Verify はトークンの署名と期限を検証し、プレイヤー ID を返す
 func (i *Issuer) Verify(token string) (string, bool) {
 	payload, sig, ok := strings.Cut(token, ".")
 	if !ok {

@@ -1,9 +1,5 @@
 import type {StockFile} from "../objects/directory/data";
 
-/**
- * 在庫の見本(はっきり見分けられる 6 色)。ディレクトリの初期の中身。
- * 実際の在庫は、ゲームの進行(サーバー)が決めるまでの仮の値。room と test が使う
- */
 export const SAMPLE_DIRECTORY_STOCK: readonly StockFile[] = [
   {
     id: "3f0c6a52-8d1e-4b7a-9c35-1a2e4f6b8d01",

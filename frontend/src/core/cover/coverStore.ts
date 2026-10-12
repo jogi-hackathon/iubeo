@@ -1,6 +1,5 @@
 import {useSyncExternalStore} from "react";
 
-/** 進捗バー。done は完了した段階の数(今は done 番目の段階の途中)。since は段階に入った時刻(performance.now) */
 export interface CoverBar {
   total: number;
   done: number;
@@ -8,11 +7,8 @@ export interface CoverBar {
 }
 
 export interface CoverState {
-  /** 白い覆いを被せているか(外すときはフェードアウトする) */
   covered: boolean;
-  /** 進捗バー。null なら出さない */
   bar: CoverBar | null;
-  /** 起動の覆いの間(起動のステップ・ウォームアップ・最初のシーンの準備)。この間はシーンの遷移を始めない */
   booting: boolean;
 }
 
@@ -26,7 +22,6 @@ const set = (next: CoverState) => {
   }
 };
 
-/** 白い覆いと進捗バーの状態。起動・シェーダーのウォームアップ・シーン遷移のすべてがここを動かす */
 export const coverStore = {
   getState: (): CoverState => state,
   subscribe: (l: () => void) => {

@@ -2,20 +2,12 @@ import {useSyncExternalStore} from "react";
 
 import {lockPlayerControl} from "../../core/playerControl";
 
-/**
- * - idle: 一人称。
- * - active: 俯瞰ビューに入っている(入る補間の途中を含む)。
- * - leaving: 一人称へ戻る補間の途中。終わるまで、プレイヤーは預かったままにする
- */
 export type OverviewPhase = "idle" | "active" | "leaving";
 
 export type OverviewState = {
   phase: OverviewPhase;
-  /** idle 以外のとき、俯瞰しているディレクトリの id */
   directoryId: string | null;
-  /** 今狙っているファイルの id(active で、入る補間が終わっているとき) */
   aimedFileId: string | null;
-  /** 取り出しの要求を送って、結果(ファイルの spawn / 拒否)を待っている間。二重に送らないための印 */
   pending: boolean;
 };
 
@@ -115,13 +107,11 @@ export const overview = createOverviewStore();
 export const useOverviewState = (): OverviewState =>
   useSyncExternalStore(overview.subscribe, overview.getState);
 
-/** このディレクトリが俯瞰されているか。ほかのディレクトリの状態変化では再レンダーしない */
 export const useIsOverviewing = (directoryId: string): boolean =>
   useSyncExternalStore(
     overview.subscribe,
     () => overview.getState().directoryId === directoryId,
   );
 
-/** 俯瞰の段階だけを購読する(狙いの変化では再レンダーしない) */
 export const useOverviewPhase = (): OverviewPhase =>
   useSyncExternalStore(overview.subscribe, () => overview.getState().phase);

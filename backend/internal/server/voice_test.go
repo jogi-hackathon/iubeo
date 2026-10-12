@@ -77,7 +77,11 @@ func TestVoiceTokenUnavailableWithoutConfig(t *testing.T) {
 	sessionID, players := matchPlayers(t, h, 1)
 	_ = sessionID
 	res := do(t, h, http.MethodGet, "/api/v1/voice/token", players[0].cookie)
-	if res.StatusCode != http.StatusServiceUnavailable {
-		t.Fatalf("status = %d, want 503", res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	body := decode[api.VoiceUnavailable](t, res)
+	if body.Available != false || body.Reason == nil || *body.Reason == "" {
+		t.Fatalf("body = %+v, want available=false with a reason", body)
 	}
 }

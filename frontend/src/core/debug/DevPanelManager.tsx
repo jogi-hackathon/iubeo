@@ -14,9 +14,6 @@ import {
 } from "./flags";
 import {Check} from "./ui";
 
-// パネルは Canvas の外の DOM なので、クリックが canvas(pointer lock の要求元)へ伝わらない。
-// pointer lock 中はカーソルが出ないため、操作するには Esc で解除してから使う。
-// stats(DebugInfo)は左上に出るので、重ならないよう右端に置く
 const dockStyle: CSSProperties = {
   position: "fixed",
   top: 0,

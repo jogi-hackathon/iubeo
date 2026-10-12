@@ -4,16 +4,11 @@ import {CLIPS} from "./clips";
 import {J} from "./joints";
 import {at, createPose, frameOf, lerpPose, type Pose, sampleClip} from "./pose";
 
-/** これ未満の水平速度は静止とみなす(m/s) */
 export const WALK_MIN_SPEED = 0.3;
-/** 歩行 1 周期(2 歩)で進む距離(m)。足が滑らないよう速度に合わせて再生する */
 export const STRIDE_LENGTH = 2.4;
-/** 表示ポーズが目標ポーズへ追従する速さ(1/秒)。状態の切り替わりで形が飛ばない程度に滑らかにする */
 export const POSE_SMOOTHING = 20;
 
-/** 1 体ぶんのアニメーション状態。pose が描画に使う現在のポーズ */
 export interface Animator {
-  /** 歩行の位相(0..1) */
   phase: number;
   pose: Pose;
   target: Pose;
@@ -44,13 +39,6 @@ const applyHoldArms = (target: Pose): void => {
   }
 };
 
-/**
- * 状態からポーズを決めて a.pose を更新する。
- * - 空中: 上下方向の速度でジャンプの上昇→頂点→落下を引く(時間ではなく物理に同期)
- * - 接地して動いている: 速度に比例して歩行の位相を進める。後ろ向きに動くときは逆再生
- * - それ以外: 待機
- * - holding: 腕だけ上書き
- */
 export const updateAnimator = (
   a: Animator,
   state: AnimatedState,

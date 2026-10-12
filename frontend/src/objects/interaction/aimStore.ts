@@ -5,7 +5,6 @@ const listeners = new Set<() => void>();
 
 export const getAimedObjectId = (): string | null => aimed;
 
-/** 変わったときだけ通知する(毎フレーム呼んでも再描画は起きない) */
 export const setAimedObjectId = (id: string | null): void => {
   if (aimed === id) {
     return;
@@ -25,3 +24,7 @@ const subscribe = (l: () => void) => {
 
 export const useAimedObjectId = (): string | null =>
   useSyncExternalStore(subscribe, getAimedObjectId);
+
+/** id の物だけを見る。ほかの物の照準が動いても再描画されない */
+export const useIsAimed = (id: string): boolean =>
+  useSyncExternalStore(subscribe, () => aimed === id);

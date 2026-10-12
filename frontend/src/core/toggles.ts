@@ -1,33 +1,17 @@
 import {createContext, useContext, useSyncExternalStore} from "react";
 
 export type ToggleState = {
-  /** 非表示のキー。ここに無いキーは表示(初期状態は全部表示) */
   hidden: ReadonlySet<string>;
-  /** 機能 OFF のキー。ここに無いキーは機能 ON(初期状態は全部 ON) */
   disabled: ReadonlySet<string>;
   highlighted: ReadonlySet<string>;
 };
 
-/** ストアの初期状態。ここに挙げたキーだけ、最初から非表示・機能 OFF にする(省略は全部表示・全部機能 ON) */
 export type ToggleInitial = {
   hidden?: readonly string[];
   disabled?: readonly string[];
   highlighted?: readonly string[];
 };
 
-/**
- * キーごとの「表示・非表示」と「機能の ON・OFF」。クライアント内部だけの状態で、サーバーのオブジェクトの状態(users・data など)は変えない。
- * チュートリアルが、進行に応じて各オブジェクトの出し入れ・使えるかどうかを切り替えるために使う
- * (オブジェクト本来の挙動はそのままで、チュートリアルは「使い方を教える」だけ)。
- * キーは、オブジェクトならシーンのレイアウトの項目名(ManagedObjects が見る。機能は `<項目名>:<機能>`)、プロップなら名前(各シーンが見る)。
- *
- * - 非表示: 見た目を消し、当たり判定・インタラクトも無効にする(機能も OFF として扱う)
- * - 機能 OFF: 見た目と当たり判定は残し、狙い・インタラクトだけ無効にする
- *
- * 非表示でも mesh はマウントしたままにする(外すとベイク AO の mesh 構成が変わって、AO が無効になるため)
- *
- * ストアはシーンが所有する(シーンのマウントで作り、TogglesProvider で配下に配る)。シーンを出ればストアごと捨てられるので、リセット処理は要らない
- */
 export const createToggleStore = (initial: ToggleInitial = {}) => {
   // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ToggleState = {
@@ -102,10 +86,8 @@ export const createToggleStore = (initial: ToggleInitial = {}) => {
 
 export type ToggleStore = ReturnType<typeof createToggleStore>;
 
-/** 配下のシーンのストア。Provider が無い場所(トグルを持たないシーン)は null で、全部表示・全部機能 ON として振る舞う */
 export const TogglesContext = createContext<ToggleStore | null>(null);
 
-/** 配下のシーンのトグルのストア。トグルを持たないシーンでは null */
 export const useToggles = (): ToggleStore | null => useContext(TogglesContext);
 
 const ALL_ON: ToggleState = {
@@ -115,7 +97,6 @@ const ALL_ON: ToggleState = {
 };
 const noSubscribe = () => () => {};
 
-/** store のトグルの状態を購読する。store が null なら、全部表示・全部機能 ON で変わらない */
 export const useToggleStoreState = (store: ToggleStore | null): ToggleState =>
   useSyncExternalStore(
     store ? store.subscribe : noSubscribe,
@@ -125,7 +106,6 @@ export const useToggleStoreState = (store: ToggleStore | null): ToggleState =>
 export const useToggleState = (): ToggleState =>
   useToggleStoreState(useToggles());
 
-/** key が表示中か。値(boolean)で購読するので、他のキーの切り替えでは再描画しない */
 export const useIsVisible = (key: string): boolean => {
   const store = useToggles();
   return useSyncExternalStore(store ? store.subscribe : noSubscribe, () =>
@@ -133,7 +113,6 @@ export const useIsVisible = (key: string): boolean => {
   );
 };
 
-/** key の機能が ON か(非表示なら OFF) */
 export const useIsEnabled = (key: string): boolean => {
   const store = useToggles();
   return useSyncExternalStore(store ? store.subscribe : noSubscribe, () =>
@@ -161,7 +140,6 @@ const notifyActive = () => {
   }
 };
 
-/** store を、今のシーンのトグルとして登録する。解除関数を返す(複数あれば、最後に登録された物が今のシーン) */
 export const registerActiveToggles = (store: ToggleStore): (() => void) => {
   active.push(store);
   notifyActive();
@@ -174,7 +152,6 @@ export const registerActiveToggles = (store: ToggleStore): (() => void) => {
   };
 };
 
-/** 今マウントされているシーンのトグル。トグルを持つシーンが無ければ null */
 export const getActiveToggles = (): ToggleStore | null =>
   active[active.length - 1] ?? null;
 
@@ -185,6 +162,5 @@ export const subscribeActiveToggles = (listener: () => void) => {
   };
 };
 
-/** 今マウントされているシーンのトグル(getActiveToggles)を購読する。Canvas の外から使う */
 export const useActiveToggles = (): ToggleStore | null =>
   useSyncExternalStore(subscribeActiveToggles, getActiveToggles);

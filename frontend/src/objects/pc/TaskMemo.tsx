@@ -8,11 +8,6 @@ const PIXELS = {width: 512, height: 358} as const;
 
 const JA_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif';
 
-/**
- * お題のメモ（机の上の紙）。HUD を使わず、画面の外（3D の机）にお題を出す。
- * 文字はこのメモの表面に描く。クリック（PC を使っている間）で別のお題に引き直す（pcControls）。
- * 表面に描くのは、お題の語・見出し・操作の一言の 3 つだけ。
- */
 export function TaskMemo({
   ref,
   store = taskStore,

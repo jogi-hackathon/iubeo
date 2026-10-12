@@ -33,8 +33,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.BypassDuration != 30*time.Second || cfg.FireDuration != 10*time.Second {
 		t.Errorf("bypass = %s, fire = %s, want 30s, 10s", cfg.BypassDuration, cfg.FireDuration)
 	}
-	if cfg.CpuFillAfter != 30*time.Second {
-		t.Errorf("CpuFillAfter = %s, want 30s(待機が長いときは CPU とマッチする)", cfg.CpuFillAfter)
+	if cfg.CPUFillAfter != 30*time.Second {
+		t.Errorf("CPUFillAfter = %s, want 30s(待機が長いときは CPU とマッチする)", cfg.CPUFillAfter)
 	}
 	if string(cfg.SigningKey) != validKey {
 		t.Errorf("SigningKey = %q", cfg.SigningKey)
@@ -72,8 +72,8 @@ func TestLoadAll(t *testing.T) {
 	if cfg.BypassDuration != 45*time.Second || cfg.FireDuration != 3*time.Second {
 		t.Errorf("bypass = %s, fire = %s", cfg.BypassDuration, cfg.FireDuration)
 	}
-	if cfg.CpuFillAfter != 5*time.Second {
-		t.Errorf("CpuFillAfter = %s, want 5s", cfg.CpuFillAfter)
+	if cfg.CPUFillAfter != 5*time.Second {
+		t.Errorf("CPUFillAfter = %s, want 5s", cfg.CPUFillAfter)
 	}
 }
 

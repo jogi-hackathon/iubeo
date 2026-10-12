@@ -20,15 +20,6 @@ registerShaderSwatch("directoryFire", () => {
 const AO_ERASE_REACH = 1.3;
 const FIRE_FADE_RATIO = 0.25;
 
-/**
- * ディレクトリが燃える演出。マウントした時点から、炎の粒(fire.ts)が IGNITE_SECONDS かけて回り、
- * 山の侵食(corruption.ts)が CORRUPT_SECONDS かけて進んで、山が抜けていく。山が抜けきる終わりの方では、炎の粒も減らして消す。
- * 床などに焼いた山の影(ベイク AO)も、侵食に合わせて山の足元の円の中だけ消す(焼け跡が残らないように)。
- * アンマウント(火が消えた。ローカルの開発用の切り替えなど)で、侵食と影の消し具合を 0 に戻す。
- *
- * シーンの直下にポータルで置く(ディレクトリの根の下に置かない)。根の下に置くと、山を狙ったときのアウトライン(OutlineNode)が
- * 炎の粒まで選択の子孫として描き直し、狙いの判定(レイキャスト)も粒に当たるため。位置は山の足元(レイアウトの位置)
- */
 export function DirectoryFire({
   position,
   size,
@@ -42,7 +33,6 @@ export function DirectoryFire({
     const {material, ignition} = createFireMaterial(params);
     const sprite = new Sprite(material);
     sprite.count = params.count;
-    // 粒はシェーダーで山じゅうに散らすので、Sprite 自体の境界(原点の 1 枚)で視錐台カリングしない
     sprite.frustumCulled = false;
     sprite.raycast = () => {};
     return {sprite, ignition};

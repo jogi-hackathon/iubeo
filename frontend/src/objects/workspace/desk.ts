@@ -1,12 +1,6 @@
 import type {Vector3Tuple} from "three";
 
-/**
- * 天板の上面の高さ。腰の高さ(身長 PLAYER_HEIGHT=1.7m の半分強 ≒ 0.94m)を目安に、立ち作業の机の高さ(1.0m 前後)との間で決めた。
- * 目の高さ EYE_HEIGHT=1.6m(player/constants.ts)からは 0.65m 下にあり、前縁から 0.6m 離れて立つと天板の中央(奥行き 0.4m)が
- * 約 33 度の見下ろしで視線の中央に入る。目から中央までは約 1.2m で、INTERACT_DISTANCE(2.5m)の内側
- */
 export const DESK_HEIGHT = 0.95;
-/** 天板。フットプリント(1.6m x 0.8m)は room の WORKSPACE_POSITION と test の配置の干渉計算が前提にしている */
 export const TOP_SIZE: Vector3Tuple = [1.6, 0.04, 0.8];
 const TOP_REVEAL_HEIGHT = 0.01;
 const TOP_REVEAL_INSET = 0.012;
@@ -37,9 +31,7 @@ export type PartLook = "top" | "frame" | "accent";
 export type DeskPart = {
   shape: PartShape;
   look: PartLook;
-  /** 部品の中心 */
   position: Vector3Tuple;
-  /** 単位の形(箱は一辺 1、円柱は半径 1・高さ 1)に掛ける大きさ */
   scale: Vector3Tuple;
   rotation?: Vector3Tuple;
   radius?: number;
@@ -135,5 +127,4 @@ export const DESK_FEET: readonly DeskPart[] = [-1, 1].flatMap((sx) =>
   })),
 );
 
-/** 机の部品すべて(描画の順) */
 export const DESK_PARTS: readonly DeskPart[] = [...DESK_BODY, ...DESK_FEET];

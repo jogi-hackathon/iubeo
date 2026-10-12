@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from "vitest";
 
 import {
+  CLOSE_NORMAL,
   CLOSE_REPLACED,
   CLOSE_SESSION_ENDED,
   CLOSE_SLOW,
@@ -233,7 +234,6 @@ describe("createSessionConnection", () => {
         ],
       } as SessionSnapshot,
     });
-    // 席 2 と、まだ知らない席 3
     const buf = new ArrayBuffer(10 + 2 * 25);
     const v = new DataView(buf);
     v.setUint8(0, 2);
@@ -372,6 +372,27 @@ describe("createSessionConnection", () => {
     socket.serverSend(snapshot(1));
     socket.serverClose(1000);
     expect(onSnapshot).not.toHaveBeenCalled();
+    expect(conn.getState().status).toBe("closed");
+  });
+
+  it("まだ繋がっていない接続を close() したら、開いてから閉じる", () => {
+    // 接続中に閉じると、ブラウザが「接続が確立する前に閉じた」とコンソールに警告を出す
+    const {conn, latest} = setup();
+    const socket = latest();
+    expect(socket.readyState).toBe(0);
+    conn.close();
+    expect(socket.closedWith).toBeNull();
+    expect(conn.getState().status).toBe("closed");
+
+    socket.serverOpen();
+    expect(socket.closedWith).toBe(CLOSE_NORMAL);
+  });
+
+  it("繋がらなかった接続を close() しても、そのまま放っておく", () => {
+    const {conn, sockets, latest} = setup();
+    conn.close();
+    latest().serverClose(1006);
+    expect(sockets).toHaveLength(1);
     expect(conn.getState().status).toBe("closed");
   });
 

@@ -8,7 +8,6 @@ import type {
   PlayerTransform,
 } from "./types";
 
-/** 描画をこれだけ遅らせて、前後に届いた位置の間を補間する(20Hz の配信 2 回分) */
 export const INTERPOLATION_DELAY_MS = 100;
 const MAX_SAMPLES = 8;
 const SEND_INTERVAL_MS = 50;
@@ -26,12 +25,7 @@ type Sample = {
 type Track = {seq: number; samples: Sample[]};
 
 export type PlayerManagerOptions = {
-  /** 今の時刻(ms)。テストで固定する用。既定は performance.now */
   now?: () => number;
-  /**
-   * 自分のプレイヤー ID(今の)。自分の位置と向きはクライアントで動かすので、届いても持たない。
-   * 既定は自分が無い(全員を他のプレイヤーとして持つ)。本番は playerStore.ts が、今のオーソリティの ID を引く
-   */
   myPlayerId?: () => PlayerId | null;
 };
 
@@ -51,15 +45,6 @@ const lerpAngle = (a: number, b: number, u: number): number => {
   return a + d * u;
 };
 
-/**
- * プレイヤーの写し。状態の正はサーバーで、ここはサーバーの通知(apply)を反映するだけ。
- *
- * - 位置と向き以外(接続・生死・手持ち)は state に持ち、変わったら subscribe に通知する
- * - 位置と向きは 20Hz で届くので state には入れず(再描画させない)、受け取った時刻付きで持つ。
- *   描画側は毎フレーム sample で、INTERPOLATION_DELAY_MS 前の位置を補間して読む
- * - 自分(myPlayerId)の位置と向きはクライアントで動かすので、届いても持たない。
- *   snapshot にある自分の transform.seq(送る側の seq を合わせる用)は、接続の側(authority/server/connect.ts)が読む
- */
 export const createPlayerManager = ({
   now = () => performance.now(),
   myPlayerId = () => null,

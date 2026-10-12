@@ -1,4 +1,3 @@
-// Package matchmaking は自動マッチングの待機列を扱う。
 package matchmaking
 
 import (
@@ -9,9 +8,6 @@ import (
 	"time"
 )
 
-// StaleAfter は、最後の POST / GET からこの時間たったプレイヤーを待機列から外す長さ。
-// ブラウザを閉じた人を組むと、そのセッションは開始できずに解散し、他の人も巻き込まれるため。
-// クライアントはこれより短い間隔(1〜2 秒)でポーリングする
 const StaleAfter = 10 * time.Second
 
 var (
@@ -20,27 +16,18 @@ var (
 	ErrMatched   = errors.New("matchmaking has already succeeded")
 )
 
-// State はプレイヤーのマッチング状況
 type State struct {
-	QueuedAt time.Time
-	// SessionID はマッチングが成立していればそのセッション。待機中は空
+	QueuedAt  time.Time
 	SessionID string
 }
 
-// Sessions はマッチングが参照・作成するセッション
 type Sessions interface {
 	SessionOf(playerID string) (string, bool)
-	// Create は人間と CPU でセッションを作る。CPU は接続しないので、人数がそろわなくても開始できる
 	Create(humanIDs []string, cpuIDs []string) string
 }
 
-// Options はマッチングの設定
 type Options struct {
-	// FillAfter は、この時間たっても size に届かないとき、足りない分を CPU で埋めてセッションを作る。
-	// 0 で無効(既定)。人数がそろう通常の経路には影響しない。
-	// デバッグ用: 1 戦の確認に 3 人分のブラウザと Cookie をそろえるのが大変なので、1 人でも遊べるようにする
-	FillAfter time.Duration
-	// NewCPUPlayerID は CPU の id を作る。既定は "cpu-" + ランダム
+	FillAfter      time.Duration
 	NewCPUPlayerID func() string
 }
 
@@ -50,7 +37,6 @@ type entry struct {
 	lastSeen time.Time
 }
 
-// Matchmaker は待機列。そろった順(先着)に size 人ずつ組んでセッションを作る
 type Matchmaker struct {
 	size           int
 	sessions       Sessions
@@ -63,7 +49,6 @@ type Matchmaker struct {
 	matched map[string]State
 }
 
-// New は size 人ずつ組む Matchmaker を作る
 func New(size int, sessions Sessions, now func() time.Time, opts Options) *Matchmaker {
 	if opts.NewCPUPlayerID == nil {
 		opts.NewCPUPlayerID = func() string { return "cpu-" + rand.Text() }
@@ -113,8 +98,6 @@ func (m *Matchmaker) match() {
 	}
 }
 
-// fillWithCPUs は、待機が FillAfter を超えた人がいるとき、足りない分を CPU で埋めてセッションを作る(デバッグ用)。
-// 人間が size 人そろう通常の経路(match)とは排他で、人数が足りないときだけ働く
 func (m *Matchmaker) fillWithCPUs(now time.Time) {
 	if m.fillAfter <= 0 || len(m.queue) == 0 || len(m.queue) >= m.size {
 		return
@@ -137,7 +120,6 @@ func (m *Matchmaker) fillWithCPUs(now time.Time) {
 	m.queue = nil
 }
 
-// Join は待機列に入る。既に待機中なら今の状況を返す。セッションに参加中なら ErrInSession
 func (m *Matchmaker) Join(playerID string) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -157,7 +139,6 @@ func (m *Matchmaker) Join(playerID string) (State, error) {
 	return m.status(playerID)
 }
 
-// Get は今の状況を返す(ポーリング用)。待機中なら最後に見た時刻を更新する
 func (m *Matchmaker) Get(playerID string) (State, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -171,6 +152,17 @@ func (m *Matchmaker) Get(playerID string) (State, error) {
 	return m.status(playerID)
 }
 
+func (m *Matchmaker) Enrolled(playerID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.evictStale(m.now())
+	if _, matched := m.matchedState(playerID); matched {
+		return true
+	}
+	return m.find(playerID) >= 0
+}
+
 func (m *Matchmaker) status(playerID string) (State, error) {
 	if st, ok := m.matchedState(playerID); ok {
 		return st, nil
@@ -181,7 +173,6 @@ func (m *Matchmaker) status(playerID string) (State, error) {
 	return State{}, ErrNotQueued
 }
 
-// Leave は待機をやめる。成立済みなら ErrMatched、待機していなければ ErrNotQueued
 func (m *Matchmaker) Leave(playerID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

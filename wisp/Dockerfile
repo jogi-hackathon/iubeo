@@ -1,5 +1,6 @@
 # ビルド段。bufferutil はネイティブ addon で、musl(alpine)向けの prebuilt が無いので
 # toolchain を入れてソースからビルドする。実行段には node_modules の成果物だけコピーする
+
 FROM node:24-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++

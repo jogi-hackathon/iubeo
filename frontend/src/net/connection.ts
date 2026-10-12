@@ -6,21 +6,14 @@ import type {
   ServerMessageType,
 } from "./types";
 
-/**
- * 接続の状態。プレイヤーの接続状態(スキーマの ConnectionStatus)とは別物なので、名前を分ける。
- * closed になったら再接続しない(作り直す)
- */
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 export type SocketState = {
   status: SocketStatus;
-  /** 最後に閉じたときの close code。まだ閉じていなければ null */
   closeCode: number | null;
-  /** そのときの close reason(サーバーの理由。無ければ空文字)。まだ閉じていなければ null */
   closeReason: string | null;
 };
 
-/** 使う分だけの WebSocket。テストで偽物に差し替える */
 export type SocketLike = {
   readonly readyState: number;
   send: (data: string | ArrayBuffer) => void;
@@ -32,8 +25,8 @@ export type SocketLike = {
 };
 
 const OPEN = 1;
+const CONNECTING = 0;
 
-// サーバーの close code(backend/internal/session/conn.go)
 export const CLOSE_NORMAL = 1000;
 export const CLOSE_SESSION_ENDED = 4000;
 export const CLOSE_REPLACED = 4001;
@@ -77,20 +70,14 @@ const seqOf = (message: ServerMessage): number | null => {
 
 export type SessionConnectionOptions = {
   sessionId: string;
-  /** 接続先。既定は同じオリジンの /api/v1/sessions/{sessionId}/ws */
   url?: string;
-  /** テストで偽物に差し替える用。既定は new WebSocket(url) */
   createSocket?: (url: string) => SocketLike;
-  /** ms 後に fn を呼び、取り消す関数を返す。テストで時間を進める用。既定は setTimeout */
   schedule?: (fn: () => void, ms: number) => () => void;
-  /** 再接続を試す回数の上限。超えたら closed にする */
   maxRetries?: number;
-  /** 再接続の待ち時間。n 回目(1 始まり)は min(baseDelayMs * 2^(n-1), maxDelayMs) */
   baseDelayMs?: number;
   maxDelayMs?: number;
 };
 
-// enc=bin: 位置のメッセージ(transform / transforms)をバイナリでやり取りする(binary.ts)。それ以外は JSON
 const defaultUrl = (sessionId: string): string => {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${location.host}/api/v1/sessions/${encodeURIComponent(sessionId)}/ws?enc=bin`;
@@ -98,7 +85,6 @@ const defaultUrl = (sessionId: string): string => {
 
 const defaultCreateSocket = (u: string): SocketLike => {
   const ws = new WebSocket(u);
-  // バイナリの transforms を同期的に読むため(既定の Blob だと非同期になる)
   ws.binaryType = "arraybuffer";
   return ws as unknown as SocketLike;
 };
@@ -108,17 +94,6 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
   return () => clearTimeout(id);
 };
 
-/**
- * セッションの WebSocket 接続。受け取ったメッセージを type ごとに配り、要求(ClientMessage)を送る。
- * 状態の正はサーバーで、ここは届いた物を順序の検査だけして渡す(反映は受け取る側が行う)
- *
- * - 順序: 接続(再接続)のたびに、サーバーはまず snapshot を送る。その seq を基準にし、seq を持つ
- *   メッセージは基準以下なら捨てる。snapshot より前に届いた seq を持つメッセージも捨てる。
- *   seq を持たない物(transforms・effect・interactRejected・error)はそのまま配る(state-schema.md §7.3)
- * - 再接続: NO_RETRY_CODES 以外で閉じられたら、待ち時間を延ばしながらつなぎ直す。snapshot が届いたら
- *   回数を戻す。上限を超えるか、close() を呼ぶと closed になる
- * - 送信: 開いている間だけ送る。閉じている間の要求は貯めずに捨てる(再接続後の状態と食い違うため)
- */
 export const createSessionConnection = ({
   sessionId,
   url = defaultUrl(sessionId),
@@ -142,7 +117,6 @@ export const createSessionConnection = ({
   let retries = 0;
   let cancelRetry: (() => void) | null = null;
   let closedByUser = false;
-  // 席 → playerId。バイナリの transforms はプレイヤーを席で表すので、snapshot と player.updated から覚えておく
   const playerOfSeat = new Map<number, string>();
 
   const set = (next: SocketState) => {
@@ -280,7 +254,6 @@ export const createSessionConnection = ({
       if (!socket || socket.readyState !== OPEN) {
         return false;
       }
-      // 位置(20Hz)はバイナリ、それ以外は JSON
       socket.send(
         message.type === "transform"
           ? encodeTransform(message)
@@ -297,7 +270,16 @@ export const createSessionConnection = ({
       cancelRetry = null;
       const s = socket;
       socket = null;
-      s?.close(CLOSE_NORMAL);
+      if (s !== null && s.readyState === CONNECTING) {
+        // まだ繋がっていないソケットを閉じると、ブラウザが「接続が確立する前に閉じた」とコンソールに警告を出す。
+        // 開くのを待ってから閉じる(繋がらなければブラウザ側が閉じる)。届いた物は socket を外してあるので捨てる
+        s.onmessage = null;
+        s.onopen = () => s.close(CLOSE_NORMAL);
+        s.onerror = () => {};
+        s.onclose = () => {};
+      } else {
+        s?.close(CLOSE_NORMAL);
+      }
       set({status: "closed", closeCode: CLOSE_NORMAL, closeReason: ""});
     },
   };

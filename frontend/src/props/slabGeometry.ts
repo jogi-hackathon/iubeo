@@ -2,7 +2,6 @@ import {BufferGeometry, Float32BufferAttribute, Vector3} from "three";
 
 import type {Vec3} from "./types";
 
-/** 多角形の板(柱)の仕様。polygon を offset だけ押し出した立体(buildSlabGeometry・Slab に渡す) */
 export type SlabSpec = {polygon: readonly Vec3[]; offset: Vec3};
 
 const fanNormal = (points: readonly Vector3[]): Vector3 => {
@@ -23,15 +22,6 @@ const mean = (points: readonly Vector3[]): Vector3 =>
     .reduce((sum, p) => sum.add(p), new Vector3())
     .divideScalar(points.length);
 
-/**
- * 凸多角形を offset だけ押し出した板(柱)のジオメトリ。箱(BoxGeometry)以外の、床・斜めの壁・屋根などに使う。
- * 多角形は同一平面上の凸で、offset はその平面に平行でないこと(頂点の並びは時計回りでも反時計回りでもよい)。
- * ベイク AO(bake/meshes.ts の assignCharts)に載せられるよう、BoxGeometry と同じ作りにする:
- * - index あり。面(多角形の上下 2 面と、辺ごとの側面の四角形)ごとに頂点を分け、面ごとに 1 つの group(= 1 チャート)。
- *   group の並びは、多角形の面(polygon)、押し出した先の面、辺 i(polygon[i]〜polygon[i+1])の側面
- * - 法線は面ごとのフラットで、立体の中心(全頂点の平均)から外へ向く。三角形の巻きも法線と同じ向き(表面カリングで消えない)
- * - uv は面ごとに、面内の 2D 基底(最初の辺の向きと、法線との外積)へ投影して [0,1] へ正規化する(BoxGeometry の面と同じく、面いっぱいに引き伸ばす)
- */
 export const buildSlabGeometry = (
   polygon: readonly Vec3[],
   offset: Vec3,

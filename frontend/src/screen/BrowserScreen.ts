@@ -44,13 +44,6 @@ const COLORS = {
   notice: "rgba(28, 28, 30, 0.86)",
 };
 
-/**
- * PC の画面（テクスチャに貼る 1 枚）。上にブラウザの枠（戻る・進む・アドレスバー）、下にエンジンの表示を
- * 合成する。枠は HUD ではなく、画面の一部として描く。
- *
- * 入力は、枠の上なら枠が受け取り、それ以外はエンジンへ（座標は枠の分だけずらす）。
- * アドレス欄にフォーカスがある間の文字入力は、アドレス欄へ入る（エンジンには送らない）。
- */
 export class BrowserScreen implements ScreenSource {
   readonly texture: CanvasTexture;
   private readonly canvas: HTMLCanvasElement;
@@ -70,7 +63,6 @@ export class BrowserScreen implements ScreenSource {
   private address: AddressEdit = {text: "", selectAll: false};
   private notice: readonly string[] | null = null;
   private tearUntil = 0;
-  /** 表示中のページが変わったときに呼ぶ（Web Search の常時判定のきっかけ） */
   onPageChange?: (url: string) => void;
   private readonly syncTimer: number;
 
@@ -89,6 +81,11 @@ export class BrowserScreen implements ScreenSource {
       CONTENT_HEIGHT,
       location.search,
     );
+    // 1 回だけ描いておく。canvas をまだ一度も描いていないうちに CanvasTexture が GPU へ上がると、
+    // Chrome が「Browser fails extracting valid resource from external image」を出して転送を飛ばす
+    // (テクスチャを作った時点で needsUpdate が立ち、最初の描画で上げられる)。
+    // 電源が入るまでは画面は暗いので、ここで描いた物は見えない
+    this.compose();
     this.syncTimer = window.setInterval(() => void this.syncUrl(), URL_SYNC_MS);
   }
 
@@ -194,7 +191,6 @@ export class BrowserScreen implements ScreenSource {
     this.markChrome();
   }
 
-  /** Escape は、アドレス欄を編集中なら編集を取り消すだけにする（PC から離れるのは、そのとき以外） */
   escapeIsLocal(): boolean {
     return this.addressFocused;
   }
@@ -209,10 +205,6 @@ export class BrowserScreen implements ScreenSource {
     return url || title || text ? {url, title, text} : null;
   }
 
-  /**
-   * 画面の中に通知を出す。同じ内容なら描き直さない（毎フレーム呼ばれても無駄に描かない）。
-   * tear を立てると、少しの間だけ走査が乱れる（彼らの介入）
-   */
   setNotice(lines: readonly string[] | null, tear = false): void {
     if (tear && lines) {
       this.tearUntil = performance.now() + TEAR_MS;

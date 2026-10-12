@@ -28,7 +28,6 @@ func writeMatchmakingError(w http.ResponseWriter, err error) {
 	}
 }
 
-// JoinMatchmaking は自動マッチングの待機列に入る
 func (s *Server) JoinMatchmaking(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.authenticate(w, r)
 	if !ok {
@@ -42,7 +41,6 @@ func (s *Server) JoinMatchmaking(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, matchmakingStatus(st))
 }
 
-// GetMatchmaking は自分のマッチング状況を返す(ポーリング用)
 func (s *Server) GetMatchmaking(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.authenticate(w, r)
 	if !ok {
@@ -56,7 +54,6 @@ func (s *Server) GetMatchmaking(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, matchmakingStatus(st))
 }
 
-// LeaveMatchmaking は待機をやめる
 func (s *Server) LeaveMatchmaking(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.authenticate(w, r)
 	if !ok {

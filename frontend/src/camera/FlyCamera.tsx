@@ -5,6 +5,7 @@ import {Euler, Vector3} from "three";
 import {useDebugFlags} from "../core/debug/flags";
 import {FRAME_PRIORITY} from "../core/frameOrder";
 import {consumeLookDelta, useKeys} from "../core/input";
+import {isPlayerControlLocked} from "../core/playerControl";
 import {useSpectatePhase} from "../core/spectate";
 import {MAX_DELTA} from "../core/time";
 import {applyLook, type Look} from "../player";
@@ -16,7 +17,6 @@ const right = new Vector3();
 const move = new Vector3();
 const UP = new Vector3(0, 1, 0);
 
-/** freeCamera 時、または観戦中に動く。自前の yaw/pitch を持ち、身体(PlayerState)には触れない */
 export function FlyCamera() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();
@@ -25,6 +25,10 @@ export function FlyCamera() {
   const active = useRef(false);
 
   useFrame(({camera}, delta) => {
+    if (isPlayerControlLocked()) {
+      active.current = false;
+      return;
+    }
     if (!freeCamera && spectate !== "spectating") {
       active.current = false;
       return;

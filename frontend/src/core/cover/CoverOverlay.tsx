@@ -5,11 +5,6 @@ import {useCoverState} from "./coverStore";
 
 const TICK_MS = 100;
 
-/**
- * 白い覆い(起動・シェーダーのウォームアップ・シーン遷移)。Canvas・照準・カーソルの上、開発パネルの下に出す。
- * 覆っている間は下の操作を受け付けない。進捗バーは細い灰色の線を中央に出す(文字は出さない)。
- * 同じ z-index の Reticle などより後に DOM を置くこと(App の後ろに置く)
- */
 export function CoverOverlay() {
   const {covered, bar} = useCoverState();
   const barShown = bar !== null;

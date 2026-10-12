@@ -20,9 +20,9 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 ## 1. 基本方針
 
 - ゲーム進行・勝敗・タスク達成・アイテムの所在など、共有される状態はすべてサーバーを正とする。
-- **クライアントは一切判定しない**。操作は要求として送るだけで、通るかどうかはサーバーが決め、結果を全員に配る。
+- **クライアントは一切判定しない**。操作は要求として送るだけで、通るかどうかはサーバーが決め、結果を全員に配る(例外は検索の成否だけ。§5.4.2)。
 - 同時に同じ操作が来た場合は、サーバーの処理上の**先着**で判定する。判定に負けた側には `object.interactRejected` を本人にだけ返すが、画面上は何も起きない(演出なし)。
-- `mode`(シングル/マルチ)と `status`(待機/進行中など)は別フィールドにする。
+- セッションは常にマルチプレイ(`mode: multiplayer`)。シングルプレイの動線は設けず、マッチングで人数がそろわないときは CPU で埋める(§6.1)。
 - ファイルの内容は保持せず、ID・由来・編集済みか・所在だけを持つ。
 - 残り時間は保存せず、`deadlineAt` とサーバー時刻(`serverTime`)から算出する。
 - 位置と向きは他プレイヤーへ同期する。姿勢・IK・カメラ・パーティクルなどの見た目は権威状態に含めない。
@@ -31,7 +31,7 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 
 | 名前 | 値 |
 |---|---|
-| `SessionMode` | `single` / `multiplayer` |
+| `SessionMode` | `multiplayer`(openapi.yaml には `single` も残っているが、使わない) |
 | `SessionStatus` | `waiting` / `playing` / `intermission` / `finished` |
 | `PlayerKind` | `human` / `cpu` |
 | `ConnectionStatus` | `connecting` / `connected` / `disconnected` |
@@ -144,13 +144,13 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
       "startedAt": "2026-10-01T12:02:00Z",
       "deadlineAt": "2026-10-01T12:04:00Z",
       "tasks": [
-        { "taskId": "task-201", "type": "read_edit", "assigneePlayerId": "p1", "targetFileId": "file-02",
+        { "taskId": "task-2-1", "type": "read_edit", "assigneePlayerId": "p1", "targetFileId": "file-02",
           "status": "pending", "completedAt": null },
-        { "taskId": "task-202", "type": "write", "assigneePlayerId": "p1", "targetFileId": null,
+        { "taskId": "task-2-2", "type": "write", "assigneePlayerId": "p1", "targetFileId": null,
           "status": "completed", "completedAt": "2026-10-01T12:02:34Z" },
-        { "taskId": "task-203", "type": "web_search", "assigneePlayerId": "p2", "targetFileId": null,
+        { "taskId": "task-2-3", "type": "web_search", "assigneePlayerId": "p2", "targetFileId": null,
           "status": "pending", "completedAt": null },
-        { "taskId": "task-204", "type": "image_generation", "assigneePlayerId": "p2", "targetFileId": null,
+        { "taskId": "task-2-4", "type": "image_generation", "assigneePlayerId": "p2", "targetFileId": null,
           "status": "pending", "completedAt": null }
       ]
     },
@@ -161,6 +161,8 @@ v0.1 案(個人メモ)を、フロントエンドの実装(`frontend/src/objects
 ```
 
 個人のノルマ数は `assigneePlayerId` が一致するタスク数から算出できるので、別のカウンターは持たない。
+
+例の `file-01` などは読みやすさのための仮の id。実際の在庫のファイルの id は、`backend/internal/session/layout.go` に固定した UUID。
 
 ## 5. ゲームルール
 
@@ -284,24 +286,28 @@ PC は各プレイヤーの区画にある personal のオブジェクト(`pc-{�
 
 ## 6. HTTP API(概要)
 
-詳細は openapi.yaml を参照。プレイヤーの識別は、サーバーが発行する匿名 ID を **HttpOnly Cookie** に入れて行う。ブラウザから見てフロントとバックエンドが同じオリジン(少なくとも同じサイト)であることを前提にする。開発時は Vite の proxy で揃え、本番の構成はデプロイ先が決まってから決める([ADR-0003](../adr/ADR-0003-backend-state-and-communication.md))。
+詳細は openapi.yaml を参照。プレイヤーの識別は、サーバーが発行する匿名 ID を **HttpOnly Cookie** に入れて行う。ブラウザから見てフロントとバックエンドが同じオリジン(少なくとも同じサイト)であることを前提にする([ADR-0003](../adr/ADR-0003-backend-state-and-communication.md))。開発時は Vite の proxy で揃え、本番はフロントの Worker が `/api/*` と `/healthz` をバックエンドへ中継して揃える([ADR-0005](../adr/ADR-0005-deployment-architecture.md))。
 
 | メソッド | パス | 用途 |
 |---|---|---|
 | `GET` | `/healthz` | ヘルスチェック |
 | `POST` | `/api/v1/players` | 匿名プレイヤーを作り Cookie を発行する(既にあれば今のものを返す) |
 | `GET` | `/api/v1/players/me` | 自分の ID と、参加中のセッション |
+| `GET` | `/api/v1/wisp/token` | PC の画面が使う WISP の、期限つき(5 分)トークン付きの URL。Cookie がある人に発行する。WISP を設定していないサーバーは 503 |
+| `GET` | `/api/v1/voice/token` | ボイスチャットの JWT と接続先(セッションの参加者のみ。居なければ 403)。VC を設定していないサーバーは 200 で `available: false`([voice-chat.md](../voice-chat.md)) |
 | `POST` | `/api/v1/matchmaking` | 自動マッチングの待機列に入る |
 | `GET` | `/api/v1/matchmaking` | 自分のマッチング状況(`queued` / `matched` + `sessionId`) |
 | `DELETE` | `/api/v1/matchmaking` | 待機をやめる |
-| `POST` | `/api/v1/sessions` | シングルモードのセッションを作る |
 | `GET` | `/api/v1/sessions/{sessionId}` | スナップショット(参加者のみ) |
 | `GET` | `/api/v1/sessions/{sessionId}/ws` | WebSocket に切り替える |
+
+openapi.yaml には `POST /api/v1/sessions`(シングルモードのセッションを作る)が残っているが、サーバーは 501 を返す。シングルプレイは設けないので使わない(§6.1)。
 
 マッチングの結果はまず HTTP のポーリングで受け取る。待ち時間の体感が悪ければ、後で WebSocket での通知に変える。
 
 - マッチングが成立すると、セッションは `waiting` で作られる。人間のプレイヤー全員が WebSocket で接続したら自動で `playing` にし、`session.started` を送って第1フェーズを始める。30 秒たってもそろわなければセッションを解散する。フロントはシーンの読み込みを済ませてから接続する。
-- 1セッションの人数は環境変数 `IUBEO_MATCH_SIZE` で変えられる(既定 3)。開発中は 1 にすれば1人で試せる。2人以上で試すときは、別のブラウザかシークレットウィンドウで Cookie を分ける。
+- 1セッションの人数は環境変数 `IUBEO_MATCH_SIZE` で変えられる(既定 3。1〜3)。開発中は 1 にすれば1人で試せる。2人以上で試すときは、別のブラウザかシークレットウィンドウで Cookie を分ける。
+- 待機列は、10 秒 `GET` が来ないプレイヤーを外す(`matchmaking.StaleAfter`)。フロントは 1 秒ごとに `GET` する。
 - **オブジェクトの位置とプレイヤーの初期位置はサーバーが持たない**。サーバーはオブジェクトの状態(`availability`・`users`・`data`)だけを持って配り、配置はフロントが決める。サーバーが配置を持つと、フロントのレイアウトがサーバーの定数に縛られるため。判定は位置を使わないので(§8)、ルールには影響しない。
 - ディレクトリの初期在庫(6色)はサーバーの定数(`backend/internal/session/layout.go`)。
 
@@ -314,6 +320,28 @@ PC は各プレイヤーの区画にある personal のオブジェクト(`pc-{�
 | `canvas-{席}` | `canvas` | personal | 席ごと(1〜3) |
 | `pc-{席}` | `pc` | personal | 席ごと(1〜3) |
 | `lighter_stand-{席}` | `lighter_stand` | personal | 席ごと(1〜3) |
+
+### 6.1 人数がそろわないとき(CPU で埋める)
+
+シングルプレイの動線は設けない(チュートリアルが終わったらマッチングに入る)。待機列に `IUBEO_CPU_FILL_AFTER`(既定 30s、0 で無効)たっても人数がそろわないと、足りない分を CPU で埋めてセッションを作る。一人で遊んでも、実質的に CPU 相手のゲームになる。
+「待たせすぎず、でも CPU 戦になる」ための待ち時間で、人数がそろう通常の経路には影響しない(§5.2 の「人間のプレイヤー全員」のまま)。
+
+- CPU は `kind: "cpu"` のプレイヤーで、接続しない(`connection` は `connected` で作る)。開始と解散の判定は人間だけを見る
+- CPU は人間と同じ段取りで動く: ディレクトリから取り出す → 作業台へ歩く → 作業する → ディレクトリへ戻す。web_search は PC の机まで行って作業し、image_generation はキャンバスへ行く
+- 人格(せっかち・丁寧・マイペース・不器用・仕事人。`backend/internal/session/cpu.go`)をセッション開始時に割り当て、歩く速さ・振り向く速さ・作業の揺らぎ・考える間・寄り道のしやすさ・締切前の焦り方・フェーズを越える確率が変わる。
+  歩き出しと止まりぎわは加減速し、着いたら作業する物の方を向いてから作業する。締切が近いと速く歩き、考える間が短くなる
+- たまに別の作業場所へ歩きかけて立ち止まり、振り向いて正しい場所へ行き直す(寄り道)。
+  フェーズの頭に一定の確率で「このフェーズは失敗する」と決まり、最後のタスクは作業場所まで行きかけてはやめる、をくり返す(ファイルは持たないので、ほかの人の邪魔はしない)
+- 取りたいファイルを誰かが持っているときは、持っている人の方を見て、取れるタスクを先に片づける
+- 効率よすぎると人間味がないので、時間に余裕があるうちはだらだらする(手を付けるまで・タスクの間に休む場所でぶらぶらする。
+  余り時間 = 残り − 未達成数 × 9 秒 − 15 秒のうち数割を使い、締切が近づいたら打ち切って急ぐ)。
+  休んでいる間や待っている間・届けた直後に、意味もなくぴょんぴょん跳ねたり、人間やほかのプレイヤーの方を眺めたりする。
+  紙の山の前では一瞬左右を見比べてから取り、作業中は小さくうなずく。だらだら・遊び具合は人格で変わり、急いでいるときはしない
+- タスクが無いあいだ(終わった後・インターミッション・最終フェーズの後)は、区画の中の休む場所へ歩いて、ときどき見回したり場所を変えたりする。
+  フェーズの頭で位置は戻さない(初回だけ区画のスポーンに置く)
+- CPU の位置はサーバーが持ち、他のプレイヤーと同じ `transforms` で配る(フロントは補間して描く)。
+  CPU はライターは使わない
+- CPU の人数は `IUBEO_MATCH_SIZE` までの不足分
 
 ## 7. WebSocket メッセージ
 
@@ -358,7 +386,8 @@ JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `c
 - 送信キューがあふれたら、`transforms` は古いものを捨てて最新だけを送り、確定状態のメッセージがあふれたら切断する(再接続すれば `snapshot` で復旧する)。
 - 接続時は Origin ヘッダーを検証する。
 - 終了したセッションは結果を送ってから破棄する。人間が全員切断したセッションは、一定時間(例: 60 秒)誰も戻らなければ破棄する。個人の切断には期限を設けない。
-- WebSocket の ping で死活を確認する(間隔は実装時に決める)。
+- WebSocket の ping で死活を確認する(15 秒ごと。10 秒以内に応答が無ければ切る。`backend/internal/session/conn.go`)。
+- close のコードは、セッションの終了が `4000`(reason は `finished` / `dissolved` / `abandoned`)、同じプレイヤーの別の接続に置き換えられたときが `4001`、送信キューがあふれたときが `4002`。ping のタイムアウトとサーバーの停止は `1001`(Going Away)。
 
 ### 7.5 位置のバイナリ形式(`?enc=bin`)
 
@@ -380,7 +409,7 @@ JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `c
 
 - `position` は**足元**のワールド座標 `[x, y, z]`(Y-up)。
 - 初期位置はサーバーが持たない。フロントが `seat` から決める。サーバーは最初の `transform` を受け取るまで、そのプレイヤーの `transform` を `null` で配る(snapshot)。
-  **CPU(`kind: "cpu"`)だけは例外**で、サーバーが区画のスポーンに置いて自分で歩かせる(§9 の「CPU の行動」)。
+  **CPU(`kind: "cpu"`)だけは例外**で、サーバーが区画のスポーンに置いて自分で歩かせる(§6.1)。
 - `yaw` / `pitch` はラジアン。`yaw = 0` で -Z を向き、`pitch` は上向きが正(フロントの `Look` と同じ規約)。
 - `transform.seq` はそのプレイヤーの更新ごとに増やし、古い更新で巻き戻らないようにする(サーバーは `seq` が増えない更新を捨てる)。
 - 送信の目安は 20Hz。描画側で補間する。
@@ -391,16 +420,7 @@ JSON で、`type` で種類を見分ける。型の定義は openapi.yaml の `c
 
 ## 9. 未確定の項目
 
-- 検索の成否をサーバー側でも確かめるか(今はクライアントの判定に任せている。IDEA.md の Cloudflare Browser Run をサーバーに置く案)
-- シングルモードでの CPU の参加・行動ルール
-- 自動マッチングで人数がそろわないときの扱い。待機列に `IUBEO_CPU_FILL_AFTER`(既定 30s、0 で無効)たつと足りない分を CPU で埋める。
-  「待たせすぎず、でも CPU 戦になる」ための待ち時間で、人数がそろう通常の経路には影響しない(`§5.2` の「人間のプレイヤー全員」のまま)
-  - CPU は `kind: "cpu"` のプレイヤーで、接続しない(`connection` は `connected` で作る)。開始と解散の判定は人間だけを見る
-  - CPU は人間と同じ段取りで動く: ディレクトリから取り出す → 作業台へ歩く → 作業する → ディレクトリへ戻す。web_search は PC の机まで行って作業し、image_generation はキャンバスへ行く
-  - 人格(`CpuPersona`。せっかち・丁寧・マイペース・不器用・仕事人)をセッション開始時に割り当て、歩く速さ・作業の揺らぎ・成功率・考える間が変わる。
-    たまに最後まで戻さず失敗する(全員が毎フェーズ成功するわけではない)
-  - CPU の位置はサーバーが持ち、他のプレイヤーと同じ `transforms` で配る(フロントは補間して描く)。
-    CPU はライターは使わない
-  - CPU の人数は `IUBEO_MATCH_SIZE` までの不足分
-- ボイスチャットは [voice-chat.md](../voice-chat.md) の方式で実装した(別ホストの VC サービスと MoQ リレーを使い、ゲームのバックエンドがセッションに紐づいた JWT を発行する)。ゲーム状態のスキーマには含めない
+- 検索の成否をサーバー側でも確かめるか(今はクライアントの判定に任せている。バックエンドからも Clef を呼ぶ、ヘッドレスブラウザで確かめる、などの案)
 - `ObjectKind` の正式な名前(canvas・pc)
+
+ボイスチャットは [voice-chat.md](../voice-chat.md) の方式で実装した(別ホストの VC サービスと MoQ リレーを使い、ゲームのバックエンドがセッションに紐づいた JWT を発行する)。ゲーム状態のスキーマには含めない。

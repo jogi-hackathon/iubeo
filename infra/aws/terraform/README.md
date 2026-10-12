@@ -11,10 +11,10 @@ ALB・ECS・NAT・ACM は使いません。
 | ネットワーク | VPC、公開サブネット 1 つ、IGW、ルートテーブル | `main.tf` |
 | 入口 | セキュリティグループ（8080 と 8081 を **Cloudflare の IP 帯だけ**に許可。SSH は開けない） | `main.tf` |
 | バックエンド | EC2（既定 `t4g.small`、ARM64）、EIP、SSM Session Manager で操作 | `main.tf` |
-| WISP | 同じ EC2 で動くプロキシ（8081）。出口が EIP になるので、Cloudflare の共有 IP で出るより検索エンジンに通りやすい | `main.tf`、`wisp/` |
+| WISP | 同じ EC2 で動くプロキシ（8081）。出口が EIP になるので、Cloudflare の共有 IP で出るより検索エンジンに通りやすい | `main.tf`、リポジトリ直下の `wisp/` |
 | イメージ | ECR(backend / wisp。tag は immutable、30 世代を残す lifecycle) | `main.tf`、`ecr-lifecycle.tf` |
 | デプロイ | GitHub OIDC のロール、デプロイ対象タグの SSM パラメータ(backend / wisp) | `ci.tf` |
-| 起動・停止 | Lambda（Discord の interactions 受付と EC2 の起動・停止）、Function URL | `lambda.tf`、`lambda/index.mjs` |
+| 起動・停止 | Lambda（Discord の interactions 受付、EC2 の起動・停止、Cloudflare KV の `target` の切り替え）、Function URL | `lambda.tf`、`lambda/index.mjs` |
 | 自動停止 | EventBridge Scheduler（既定 3 時間後に 1 回だけ停止） | `lambda.tf` |
 
 起動時の設定は `templates/user_data.sh.tftpl` が行います。署名鍵と WISP 用の鍵は**初回起動時にインスタンス上で生成**し、
@@ -22,7 +22,7 @@ ALB・ECS・NAT・ACM は使いません。
 
 ## WISP（実サイトへ出るプロキシ）
 
-同じインスタンスで `iubeo-wisp`（`wisp/` のイメージ、8081）が動きます。
+同じインスタンスで `iubeo-wisp`（リポジトリ直下の `wisp/` のイメージ、8081）が動きます。
 
 - ブラウザ → `wss://<公開オリジン>/wisp/` → WISP Worker → `target` が `ec2` ならこの 8081 へ流す。
   それ以外は Cloudflare のコンテナ（iubeo-wisp）へ流すフォールバックになる
@@ -31,8 +31,13 @@ ALB・ECS・NAT・ACM は使いません。
 - トークンの発行は EC2 の backend が行う（`/etc/iubeo/env` の `IUBEO_WISP_*`）。
   `wisp_enabled = true` で有効にすると、プレイヤーの Cookie がある人（ルームに入った人）に発行する。
   false だと backend はトークンを発行しない（WISP は動くが全て拒否する）
-- Cloudflare 側の `IUBEO_WISP_KEY`（Workers の secret）とは別物。
+- Cloudflare 側の鍵（Workers の secret。`iubeo-backend` の `IUBEO_WISP_KEY` と `iubeo-wisp` の `WISP_KEY`）とは別物。
   経路ごとに鍵が違うので、Worker は EC2 経路では検証しない（検証は必ず出口側が行う）
+
+## 転送先の切り替え
+
+Cloudflare の Worker（`iubeo-backend` / `iubeo-wisp`）は、KV の `target` が `ec2` のときだけ EC2 へ流し、それ以外は Cloudflare のコンテナへ流します。
+切り替えは Lambda が行います。起動したら `/healthz` が返るのを待って `target` を `ec2` にし、停止するときは先に `target` を消してから EC2 を止めます。
 
 ## デプロイの流れ
 
@@ -88,5 +93,5 @@ Discord の interactions エンドポイントには `control_function_url` を�
       --parameters commands='printf "IUBEO_VC_PRIVATE_KEY=%s\nIUBEO_VC_SIGNALING_URL=%s\nIUBEO_VC_MEDIA_URL=%s\n" "<VC ホストの private.jwk の d>" "wss://vc.thirdlf03.com/v1/signaling" "https://media.thirdlf03.com:4443" >> /etc/iubeo/env; systemctl restart iubeo'
     ```
 
-  反映できたかは、セッション中に `GET /api/v1/voice/token` が 200（未設定なら 503 `voice_unavailable`）
-  になることで確かめます（[voice-chat.md](../../../docs/voice-chat.md)）。
+  反映できたかは、セッション中に `GET /api/v1/voice/token` が `available: true` を返すことで確かめます
+  （未設定なら 200 で `available: false`。[voice-chat.md](../../../docs/voice-chat.md)）。

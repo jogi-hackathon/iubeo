@@ -58,10 +58,6 @@ const COMMANDS = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Discord の公開鍵(32 バイトの hex)を Ed25519 の SPKI に包む。
- * node:crypto は Ed25519 をそのまま扱えるので、外部ライブラリは要らない。
- */
 const discordPublicKey = (() => {
   if (!DISCORD_PUBLIC_KEY) {
     return null;
@@ -376,5 +372,4 @@ export const handler = async (event, context) => {
   return json(200, {type: RESPONSE_DEFERRED});
 };
 
-// 検証用
 export const _internal = {verifyDiscordSignature, setBackendTarget};

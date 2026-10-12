@@ -1,10 +1,7 @@
-/** 画面（合成 canvas）の大きさ。ブラウン管と同じ 4:3 */
 export const SCREEN_CANVAS = {width: 960, height: 720} as const;
 
-/** 上の枠の高さ。この下がエンジンの表示 */
 export const TOOLBAR_HEIGHT = 56;
 
-/** エンジンの表示の大きさ（画面から枠の分を引いたもの） */
 export const CONTENT_HEIGHT = SCREEN_CANVAS.height - TOOLBAR_HEIGHT;
 
 export type ToolbarPart = "back" | "forward" | "address";
@@ -17,7 +14,6 @@ export const TOOLBAR_LAYOUT: Record<ToolbarPart, Rect> = {
   address: {x: 110, y: 10, width: SCREEN_CANVAS.width - 110 - 12, height: 36},
 };
 
-/** 枠の上の点が、どの部品に当たるか。枠の外（エンジンの表示）なら null */
 export const hitToolbar = (x: number, y: number): ToolbarPart | null => {
   if (y < 0 || y >= TOOLBAR_HEIGHT) {
     return null;
@@ -31,16 +27,8 @@ export const hitToolbar = (x: number, y: number): ToolbarPart | null => {
   return null;
 };
 
-/**
- * アドレス欄とスタートページが使う検索。
- * Google は共有の出口 IP（Cloudflare のコンテナ）からの通信に reCAPTCHA を出すので、
- * 本番では WISP を EC2 の Elastic IP 経由にしている（worker/wisp.ts）。その経路が
- * 生きている限り Google が使える。ダメなときはアドレス欄に
- * lite.duckduckgo.com と打てば DuckDuckGo lite が使える
- */
 export const SEARCH_PAGE_URL = "https://www.google.com/search";
 
-/** 検索語を、検索結果ページの URL にする */
 export const searchUrlFor = (query: string): string =>
   `${SEARCH_PAGE_URL}?q=${encodeURIComponent(query)}`;
 
@@ -69,10 +57,6 @@ export const isSearchResultsUrl = (url: string): boolean => {
   }
 };
 
-/**
- * アドレス欄に入った文字を、移動先の URL にする。スキームがあればそのまま、ドメインらしければ https、
- * それ以外は検索にする。空なら null（何もしない）
- */
 export const normalizeAddress = (input: string): string | null => {
   const value = input.trim();
   if (!value) {
@@ -89,30 +73,17 @@ export const normalizeAddress = (input: string): string | null => {
   return searchUrlFor(value);
 };
 
-/** 枠に表示する URL。最初のページ（data: の検索画面）は about:home と出す */
 export const displayUrl = (url: string): string =>
   url.startsWith("data:") ? "about:home" : url;
 
-/** アドレス欄の編集の初期値。最初のページなら空にして、打ち始めやすくする */
 export const addressDraftFor = (url: string): string =>
   url.startsWith("data:") ? "" : url;
 
-/** 末尾の 1 文字（コードポイント）を消す */
 export const removeLastChar = (text: string): string =>
   Array.from(text).slice(0, -1).join("");
 
-/**
- * アドレス欄の編集状態。selectAll は「入力全体が選ばれている」こと。次の 1 文字や消去で
- * 全体が置き換わる（実ブラウザの ⌘A と同じ）
- */
 export type AddressEdit = {text: string; selectAll: boolean};
 
-/**
- * アドレス欄の編集中のキー入力を編集状態へ反映する。Enter / Escape はここでは捌かない
- * （移動・取り消しは呼び出し側）。
- * ⌘A / Ctrl+A は全選択、⌘⌫ / Ctrl+Backspace は全消去。カーソルは末尾にしか置けないので、
- * Delete 単体では消えない（全選択中か修飾付きのときだけ消す）
- */
 export const applyAddressKey = (
   edit: AddressEdit,
   event: {
@@ -141,9 +112,6 @@ export const applyAddressKey = (
   return edit;
 };
 
-/**
- * アドレス欄への文字列入力（IME の確定・貼り付け）。改行は入らず、全選択中は置き換わる
- */
 export const applyAddressText = (
   edit: AddressEdit,
   text: string,

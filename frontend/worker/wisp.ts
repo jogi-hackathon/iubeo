@@ -1,16 +1,3 @@
-/**
- * WISP の Worker。実サイトへ出るプロキシへの入口。
- *
- * - フロントの Worker が `/wisp/*` をこの Worker へ転送する（同じオリジンになり、Cookie の心配が要らない）
- * - 転送先は KV の "target" で切り替わる(backend.ts と同じ仕組み):
- *   - "ec2" なら EC2 上の WISP(8081)へ流す。出口は EIP になるので、
- *     Cloudflare のコンテナ(共有の出口IP)で出る Google の reCAPTCHA を避けられる
- *   - それ以外は `?token=` を検証してから Cloudflare のコンテナへ流す
- *     （トークンは backend が発行する。api の /api/v1/wisp/token）
- * - Container は外へ出るため `enableInternet: true`。wisp-js の既定で、ローカル・私設の宛先は拒否される
- *
- * トークンが無い・壊れている・期限切れは 401。鍵が未設定なら検証できないので 503。
- */
 import {DurableObject} from "cloudflare:workers";
 
 import {tokenFromUrl, verifyWispToken} from "./wispToken";
@@ -20,12 +7,10 @@ interface Env {
   TARGET: KVNamespace;
 }
 
-/** Container の中で wisp-js が待ち受けるポート（wisp/server.mjs） */
 const CONTAINER_PORT = 8080;
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 const INSTANCE = "standard-1";
 const START_TIMEOUT_MS = 90_000;
-/** 転送先の状態を見る用（wisp-js の server は GET / に 200 を返す） */
 const HEALTH_PATH = "/";
 
 const CONTAINER_NAME = "wisp";
@@ -34,9 +19,6 @@ const TARGET_KEY = "target";
 const TARGET_EC2 = "ec2";
 const EC2_WISP_ORIGIN = "http://iubeo-origin.thirdlf03.com:8081";
 
-/**
- * Container を起動し、WISP の接続を転送する Durable Object。
- */
 export class Wisp extends DurableObject<Env> {
   private starting: Promise<void> | undefined;
 

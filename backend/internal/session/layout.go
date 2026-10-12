@@ -9,21 +9,28 @@ import (
 
 const directoryID = "directory-1"
 
-// CPU が歩く場所(区画ローカルの足元の位置)。フロントの SandboxScene/layout.ts の値を写したもので、
-// 見た目のためだけに使う(判定に距離は使わない)。ディレクトリは全員の区画が接する中心にある
+type cpuSpot struct {
+	At    [3]float64
+	Look  [3]float64
+	Pitch float64
+}
+
 var (
 	cpuLocalSpawn     = [3]float64{0, 0.05, 4.93}
-	cpuLocalDirectory = [3]float64{0, 0.05, 1.1}
-	cpuLocalDesk      = [3]float64{3.5, 0.05, 5.43}
-	cpuLocalCanvas    = [3]float64{-4, 0.05, 3.0}
+	cpuLocalDirectory = cpuSpot{At: [3]float64{0, 0.05, 4.05}, Look: [3]float64{0, 0.05, 0}, Pitch: -0.3}
+	cpuLocalDesk      = cpuSpot{At: [3]float64{2.85, 0.05, 5.5}, Look: [3]float64{3.05, 0.05, 6.5}, Pitch: -0.35}
+	cpuLocalCanvas    = cpuSpot{At: [3]float64{-3.05, 0.05, 4.15}, Look: [3]float64{-4, 0.05, 3.93}, Pitch: 0}
+	cpuLocalRests     = []cpuSpot{
+		{At: [3]float64{0, 0.05, 5.9}, Look: [3]float64{0, 0.05, 8}},
+		{At: [3]float64{-1.6, 0.05, 4.8}, Look: [3]float64{0, 0.05, 0}},
+		{At: [3]float64{1.4, 0.05, 4.6}, Look: [3]float64{2.85, 0.05, 6}},
+	}
 )
 
-// cpuSeatYaw は区画 seat の、ローカルからワールドへの回転(Y 軸まわり)
 func cpuSeatYaw(seat int) float64 {
 	return float64(seat-1) * 2 * math.Pi / 3
 }
 
-// cpuWaypoint は区画ローカルの位置を、座席 seat の分だけ回してワールドへ置く(frontend の toWorld と同じ規約)
 func cpuWaypoint(seat int, local [3]float64) [3]float64 {
 	yaw := cpuSeatYaw(seat)
 	cos, sin := math.Cos(yaw), math.Sin(yaw)
@@ -34,13 +41,15 @@ func cpuWaypoint(seat int, local [3]float64) [3]float64 {
 	}
 }
 
-// cpuStation はタスク種別ごとの作業台(の手前)への区画ローカルの位置
-func cpuStation(t api.TaskType) [3]float64 {
+func cpuSpotOf(seat int, local cpuSpot) cpuSpot {
+	return cpuSpot{At: cpuWaypoint(seat, local.At), Look: cpuWaypoint(seat, local.Look), Pitch: local.Pitch}
+}
+
+func cpuStation(t api.TaskType) cpuSpot {
 	switch t {
 	case api.ImageGeneration:
 		return cpuLocalCanvas
 	default:
-		// write・read_edit・web_search は机(PC は机の上)で作業する
 		return cpuLocalDesk
 	}
 }

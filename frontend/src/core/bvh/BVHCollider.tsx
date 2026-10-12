@@ -14,7 +14,6 @@ interface BVHColliderProps {
   children?: ReactNode;
 }
 
-/** 子孫の mesh をマウント時に BVH 化してコライダー登録する。マウント後に追加された mesh は対象外 */
 export function BVHCollider({enabled = true, children}: BVHColliderProps) {
   const group = useRef<Group>(null);
   const colliders = useRef<Collider[]>([]);

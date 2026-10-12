@@ -14,7 +14,6 @@ interface SlabProps {
   ao?: AOMode;
 }
 
-/** 凸多角形を押し出した板(床・斜めの壁・屋根など。箱は Wall)。BVH コライダー込み */
 export function Slab({
   polygon,
   offset,

@@ -83,7 +83,6 @@ describe("hudText", () => {
         0,
       ),
     ).toBe("他のプレイヤーを待っています…");
-    // 始まっていれば出さない
     expect(
       matchingLine(
         {status: "inSession", playerId: "p1", sessionId: "s1"},
@@ -97,7 +96,6 @@ describe("hudText", () => {
     expect(phaseLine(game({phase: phase()}), 1_000)).toBe(
       "フェーズ 2　残り 5秒",
     );
-    // 端末の時計がサーバーより 1 秒遅れていても、サーバー時刻で数える(5 秒ではなく 4 秒)
     expect(
       phaseLine(game({phase: phase(), serverOffsetMs: 1_000}), 1_000),
     ).toBe("フェーズ 2　残り 4秒");
@@ -105,7 +103,6 @@ describe("hudText", () => {
 
   it("intermission の間は残り時間を出さず、最後のフェーズは完了と出す", () => {
     expect(phaseLine(game({intermission: true}), 0)).toBe("インターミッション");
-    // フラグが無くても、フェーズの状態から出す(intermission 中の再接続の snapshot)
     expect(phaseLine(game({phase: phase({status: "intermission"})}), 0)).toBe(
       "インターミッション",
     );

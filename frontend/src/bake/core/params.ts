@@ -16,19 +16,11 @@ export const HIDDEN_STEP = 0.1;
 export const HIDDEN_GRID_MAX = 128;
 export const HIDDEN_RAYS = 32;
 export const HIDDEN_AO_EPS = 0.02;
-// 距離無制限のレイの、この割合以上が裏面に当たる点は「ほかの物体に埋まっている」とみなす
-// (MAX_DIST より厚い床に密着した面など。AO の距離では裏面まで届かず判定できない)
 export const HIDDEN_BURIED_RATIO = 0.5;
-// 下向き(法線の y がこれ以下)で、距離無制限のレイのこの割合以上が何にも当たらない点は、
-// ワールドの下の虚空を向いていて見えないとみなす(床の底面など)
 export const HIDDEN_VOID_MAX_NY = -0.5;
 export const HIDDEN_VOID_RATIO = 0.9;
 export const HIDDEN_TEXELS = 2;
 
-/**
- * 隠れチャート判定の、1 辺のサンプル位置(uv の 0..1)。size はその辺の物理的な長さ(m)。
- * 小さいチャートは HIDDEN_UV の 3 点。大きいチャートは、間隔が HIDDEN_STEP 以下になる数(上限 HIDDEN_GRID_MAX)の、等間隔のセル中心
- */
 export const hiddenProbeUVs = (size: number): number[] => {
   const n = Math.min(HIDDEN_GRID_MAX, Math.ceil(size / HIDDEN_STEP - 1e-9));
   if (!(n > HIDDEN_UV.length)) {
@@ -39,7 +31,6 @@ export const hiddenProbeUVs = (size: number): number[] => {
 
 export type Dir = {x: number; y: number; z: number};
 
-// 半球上のコサイン重み付きサンプル(z軸が法線方向)
 export const hemisphereSamples = (n: number): Dir[] => {
   const dirs: Dir[] = [];
   const golden = Math.PI * (3 - Math.sqrt(5));

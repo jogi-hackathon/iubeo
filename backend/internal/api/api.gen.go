@@ -36,21 +36,6 @@ func (e ConnectionStatus) Valid() bool {
 	}
 }
 
-// Defines values for CreateSessionRequestMode.
-const (
-	CreateSessionRequestModeSingle CreateSessionRequestMode = "single"
-)
-
-// Valid indicates whether the value is a known member of the CreateSessionRequestMode enum.
-func (e CreateSessionRequestMode) Valid() bool {
-	switch e {
-	case CreateSessionRequestModeSingle:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EffectMessageName.
 const (
 	EffectMessageNameConflict EffectMessageName = "conflict"
@@ -470,16 +455,13 @@ func (e SessionFinishedMessageType) Valid() bool {
 
 // Defines values for SessionMode.
 const (
-	SessionModeMultiplayer SessionMode = "multiplayer"
-	SessionModeSingle      SessionMode = "single"
+	Multiplayer SessionMode = "multiplayer"
 )
 
 // Valid indicates whether the value is a known member of the SessionMode enum.
 func (e SessionMode) Valid() bool {
 	switch e {
-	case SessionModeMultiplayer:
-		return true
-	case SessionModeSingle:
+	case Multiplayer:
 		return true
 	default:
 		return false
@@ -675,6 +657,36 @@ func (e TransformsMessageType) Valid() bool {
 	}
 }
 
+// Defines values for VoiceTokenAvailable.
+const (
+	True VoiceTokenAvailable = true
+)
+
+// Valid indicates whether the value is a known member of the VoiceTokenAvailable enum.
+func (e VoiceTokenAvailable) Valid() bool {
+	switch e {
+	case True:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceUnavailableAvailable.
+const (
+	False VoiceUnavailableAvailable = false
+)
+
+// Valid indicates whether the value is a known member of the VoiceUnavailableAvailable enum.
+func (e VoiceUnavailableAvailable) Valid() bool {
+	switch e {
+	case False:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetHealth200JSONResponseBodyStatus.
 const (
 	Ok GetHealth200JSONResponseBodyStatus = "ok"
@@ -697,14 +709,6 @@ type ClientMessage struct {
 
 // ConnectionStatus defines model for ConnectionStatus.
 type ConnectionStatus string
-
-// CreateSessionRequest defines model for CreateSessionRequest.
-type CreateSessionRequest struct {
-	Mode CreateSessionRequestMode `json:"mode"`
-}
-
-// CreateSessionRequestMode defines model for CreateSessionRequest.Mode.
-type CreateSessionRequestMode string
 
 // DirectoryData defines model for DirectoryData.
 type DirectoryData struct {
@@ -1206,6 +1210,9 @@ type Vec3 = []float64
 
 // VoiceToken defines model for VoiceToken.
 type VoiceToken struct {
+	// Available VC が使える
+	Available VoiceTokenAvailable `json:"available"`
+
 	// ExpiresAt トークンの期限
 	ExpiresAt time.Time `json:"expiresAt"`
 
@@ -1227,6 +1234,23 @@ type VoiceToken struct {
 	// Token VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
 	Token string `json:"token"`
 }
+
+// VoiceTokenAvailable VC が使える
+type VoiceTokenAvailable bool
+
+// VoiceUnavailable このサーバーでは VC を使えない(設定が無い)
+type VoiceUnavailable struct {
+	// Available VC が使えない
+	Available VoiceUnavailableAvailable `json:"available"`
+
+	// Reason 使えない理由
+	//
+	// Example: voice chat is not configured
+	Reason *string `json:"reason,omitempty"`
+}
+
+// VoiceUnavailableAvailable VC が使えない
+type VoiceUnavailableAvailable bool
 
 // WispToken defines model for WispToken.
 type WispToken struct {
@@ -1254,11 +1278,13 @@ type Unauthorized = Error
 // Unavailable defines model for Unavailable.
 type Unavailable = Error
 
+// GetVoiceToken200JSONResponseBody defines parameters for GetVoiceToken.
+type GetVoiceToken200JSONResponseBody struct {
+	union json.RawMessage
+}
+
 // GetHealth200JSONResponseBodyStatus defines parameters for GetHealth.
 type GetHealth200JSONResponseBodyStatus string
-
-// CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
-type CreateSessionJSONRequestBody = CreateSessionRequest
 
 // AsTransformMessage returns the union data inside the ClientMessage as a TransformMessage
 func (t ClientMessage) AsTransformMessage() (TransformMessage, error) {
@@ -1894,6 +1920,68 @@ func (t *ServerMessage) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsVoiceToken returns the union data inside the GetVoiceToken200JSONResponseBody as a VoiceToken
+func (t GetVoiceToken200JSONResponseBody) AsVoiceToken() (VoiceToken, error) {
+	var body VoiceToken
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceToken overwrites any union data inside the GetVoiceToken200JSONResponseBody as the provided VoiceToken
+func (t *GetVoiceToken200JSONResponseBody) FromVoiceToken(v VoiceToken) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceToken performs a merge with any union data inside the GetVoiceToken200JSONResponseBody, using the provided VoiceToken
+func (t *GetVoiceToken200JSONResponseBody) MergeVoiceToken(v VoiceToken) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceUnavailable returns the union data inside the GetVoiceToken200JSONResponseBody as a VoiceUnavailable
+func (t GetVoiceToken200JSONResponseBody) AsVoiceUnavailable() (VoiceUnavailable, error) {
+	var body VoiceUnavailable
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceUnavailable overwrites any union data inside the GetVoiceToken200JSONResponseBody as the provided VoiceUnavailable
+func (t *GetVoiceToken200JSONResponseBody) FromVoiceUnavailable(v VoiceUnavailable) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceUnavailable performs a merge with any union data inside the GetVoiceToken200JSONResponseBody, using the provided VoiceUnavailable
+func (t *GetVoiceToken200JSONResponseBody) MergeVoiceUnavailable(v VoiceUnavailable) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t GetVoiceToken200JSONResponseBody) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *GetVoiceToken200JSONResponseBody) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// LeaveMatchmaking 待機をやめる
@@ -1911,15 +1999,15 @@ type ServerInterface interface {
 	// GetMe 自分の ID と、参加中のセッション
 	// (GET /api/v1/players/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
-	// CreateSession シングルモードのセッションを作る
-	// (POST /api/v1/sessions)
-	CreateSession(w http.ResponseWriter, r *http.Request)
 	// GetSession セッションのスナップショット(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId})
 	GetSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
 	// ConnectSession WebSocket に切り替える(参加者のみ)
 	// (GET /api/v1/sessions/{sessionId}/ws)
 	ConnectSession(w http.ResponseWriter, r *http.Request, sessionId SessionId)
+	// TouchTutorialPresence 遊んでいる最中であることをサーバーに知らせる
+	// (POST /api/v1/tutorial/presence)
+	TouchTutorialPresence(w http.ResponseWriter, r *http.Request)
 	// GetVoiceToken Voice Chat に繋ぐためのトークンと接続先を返す
 	// (GET /api/v1/voice/token)
 	GetVoiceToken(w http.ResponseWriter, r *http.Request)
@@ -2010,20 +2098,6 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
-// CreateSession operation middleware
-func (siw *ServerInterfaceWrapper) CreateSession(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateSession(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetSession operation middleware
 func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
 
@@ -2067,6 +2141,20 @@ func (siw *ServerInterfaceWrapper) ConnectSession(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ConnectSession(w, r, sessionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TouchTutorialPresence operation middleware
+func (siw *ServerInterfaceWrapper) TouchTutorialPresence(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TouchTutorialPresence(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2242,11 +2330,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/players", wrapper.CreatePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/players/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/wisp/token", wrapper.GetWispToken)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/tutorial/presence", wrapper.TouchTutorialPresence)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/voice/token", wrapper.GetVoiceToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.LeaveMatchmaking)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.GetMatchmaking)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/matchmaking", wrapper.JoinMatchmaking)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/sessions", wrapper.CreateSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sessions/{sessionId}", wrapper.GetSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/sessions/{sessionId}/ws", wrapper.ConnectSession)
 

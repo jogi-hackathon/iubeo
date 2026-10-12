@@ -1,5 +1,3 @@
-# IUBEO バックエンド API 定義
-# 背景・ルール・内部状態は docs/backend/state-schema.md を参照。
 # oapi-codegen が 3.1 に未対応のため 3.0.3 で書く(null は nullable、固定値は単一要素の enum で表す)。
 openapi: 3.0.3
 info:
@@ -26,6 +24,8 @@ tags:
   - name: players
   - name: matchmaking
   - name: sessions
+  - name: tutorial
+  - name: wisp
 
 paths:
   /healthz:
@@ -94,10 +94,10 @@ paths:
       operationId: getWispToken
       summary: 実サイトへ出る WISP プロキシに繋ぐための、短い期限つきの URL を発行する
       description: |
-        WISP は誰でも使えると、オープンプロキシになる。プレイヤーの Cookie がある人(= ルームに入った人)だけに、
-        期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを検証してから流す。
-        合言葉(X-Iubeo-Wisp-Pass)は廃止した。チュートリアルを入れたら「セッション中・マッチング中・
-        チュートリアル中」だけに絞る(TODO)。
+        WISP は誰でも使えると、オープンプロキシになる。セッション参加中・マッチング待機/成立後・
+        アプリを開いて遊んでいる間(クライアントが `POST /api/v1/tutorial/presence` で heartbeat している間)の
+        プレイヤーにだけ、期限つきの署名トークンを付けた WebSocket の URL を返す。WISP 側はトークンを
+        検証してから流す。合言葉(X-Iubeo-Wisp-Pass)は廃止した。
       responses:
         "200":
           description: 接続先の URL(トークンを含む)
@@ -112,6 +112,22 @@ paths:
         "503":
           $ref: "#/components/responses/Unavailable"
 
+  /api/v1/tutorial/presence:
+    post:
+      tags: [tutorial]
+      operationId: touchTutorialPresence
+      summary: 遊んでいる最中であることをサーバーに知らせる
+      description: |
+        アプリを開いて遊んでいる間、クライアントが定期的にこのエンドポイントを叩く。チュートリアルの
+        進行状態はクライアント(localStorage)側にあり、サーバーは直接は知らないので、
+        「PC を使う場面に居るか」の判定(WISP トークンの発行対象か)にこれを使う。
+        最後の heartbeat から一定時間経過すると、WISP トークン発行の対象外になる。
+      responses:
+        "204":
+          description: 記録した
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/voice/token:
     get:
       tags: [voice]
@@ -123,17 +139,20 @@ paths:
         セッションに居ない場合は 403。
       responses:
         "200":
-          description: 接続情報
+          description: |
+            接続情報。VC を設定していないサーバーでは `available: false` だけを返す。
+            「このサーバーでは使えない」はクライアントの異常ではないので、200 で返す
+            (4xx/5xx にすると、ブラウザが毎回コンソールにエラーを出す)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoiceToken"
+                oneOf:
+                  - $ref: "#/components/schemas/VoiceToken"
+                  - $ref: "#/components/schemas/VoiceUnavailable"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "503":
-          $ref: "#/components/responses/Unavailable"
 
   /api/v1/matchmaking:
     post:
@@ -184,30 +203,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
-  /api/v1/sessions:
-    post:
-      tags: [sessions]
-      operationId: createSession
-      summary: シングルモードのセッションを作る
-      description: マルチプレイのセッションは自動マッチングでのみ作られる。
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateSessionRequest"
-      responses:
-        "201":
-          description: 作ったセッション
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SessionSnapshot"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          $ref: "#/components/responses/Conflict"
 
   /api/v1/sessions/{sessionId}:
     parameters:
@@ -335,7 +330,7 @@ components:
 
     SessionMode:
       type: string
-      enum: [single, multiplayer]
+      enum: [multiplayer]
     SessionStatus:
       type: string
       enum: [waiting, playing, intermission, finished]
@@ -412,8 +407,12 @@ components:
           format: date-time
     VoiceToken:
       type: object
-      required: [token, room, signalingUrl, mediaUrl, expiresAt]
+      required: [available, token, room, signalingUrl, mediaUrl, expiresAt]
       properties:
+        available:
+          description: VC が使える
+          type: boolean
+          enum: [true]
         token:
           description: VC の JWT(EdDSA)。シグナリングの `?token=` と、moq の `?jwt=` に使う
           type: string
@@ -433,6 +432,19 @@ components:
           description: トークンの期限
           type: string
           format: date-time
+    VoiceUnavailable:
+      description: このサーバーでは VC を使えない(設定が無い)
+      type: object
+      required: [available]
+      properties:
+        available:
+          description: VC が使えない
+          type: boolean
+          enum: [false]
+        reason:
+          description: 使えない理由
+          type: string
+          example: voice chat is not configured
     MatchmakingStatus:
       type: object
       required: [status, queuedAt]
@@ -446,14 +458,6 @@ components:
         sessionId:
           description: status が matched のときだけ
           type: string
-    CreateSessionRequest:
-      type: object
-      required: [mode]
-      properties:
-        mode:
-          type: string
-          enum: [single]
-
     Item:
       description: 手に持つ物。手は 1 つなので、プレイヤーが持てるのは 1 個
       type: object

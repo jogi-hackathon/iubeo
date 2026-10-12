@@ -34,7 +34,6 @@ export const serveEnginePlugin = (): Plugin => {
     name: "iubeo:serve-engine",
     apply: "serve",
     configureServer(server) {
-      // configureServer の中で直接 use() すると、Vite 内部のミドルウェアより先に走る
       server.middlewares.use((req, res, next) => {
         const path = (req.url ?? "").split("?")[0] ?? "";
         if (!path.startsWith("/engine/")) {

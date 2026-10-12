@@ -11,10 +11,6 @@ import {
 } from "../src/bake/paths.ts";
 import {encodePNGGray8} from "./png.ts";
 
-/**
- * dev サーバー専用。ベイクページから POST された結果を public/ao/<scene>.png / .bin に書き出す。
- * body = アトラスのバイト列(atlasW*atlasH、グレースケール) + レイアウト
- */
 export const bakeSavePlugin = (): Plugin => ({
   name: "iubeo-bake-save",
   apply: "serve",
