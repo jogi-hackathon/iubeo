@@ -87,12 +87,7 @@ export const WINDOW_PLUG: WallSpec = {
   size: [WALL_THICKNESS, WINDOW_SIZE, WINDOW_SIZE],
 };
 
-const DIRECTORY_SINK = 0.5;
-export const DIRECTORY_POSITION: Vec3 = [
-  0,
-  0,
-  ROOM_INNER_Z_NORTH - DIRECTORY_SINK,
-];
+export const DIRECTORY_POSITION: Vec3 = [0, 0, ROOM_INNER_Z_NORTH];
 export const WORKSPACE_POSITION: Vec3 = [0, 0, ROOM_CENTER_Z];
 export const CANVAS_POSITION: Vec3 = [2.1, 0, -3.2];
 export const ROOM_SPAWN_POSITION: Vec3 = [0, 0.05, 0];
