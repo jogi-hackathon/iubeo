@@ -98,6 +98,33 @@ export const paintMarquee = (
   ctx.restore();
 };
 
+export const paintLevelMeter = (
+  ctx: CanvasRenderingContext2D,
+  r: Rect,
+  segments: number,
+  lit: number,
+): void => {
+  sunken(ctx, r);
+  const inner = {
+    x: r.x + 3,
+    y: r.y + 3,
+    width: r.width - 6,
+    height: r.height - 6,
+  };
+  ctx.fillStyle = COLORS.window;
+  ctx.fillRect(inner.x, inner.y, inner.width, inner.height);
+  const pitch = inner.width / segments;
+  ctx.fillStyle = COLORS.selection;
+  for (let i = 0; i < Math.min(lit, segments); i++) {
+    ctx.fillRect(
+      Math.round(inner.x + i * pitch),
+      inner.y,
+      Math.max(1, Math.floor(pitch) - 1),
+      inner.height,
+    );
+  }
+};
+
 /** 見出し付きの彫った枠(グループボックス) */
 export const paintGroup = (
   ctx: CanvasRenderingContext2D,

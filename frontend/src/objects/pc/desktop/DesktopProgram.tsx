@@ -21,6 +21,7 @@ export const desktopScreen = (): DesktopScreen => {
       graphics: graphicsStore,
       audio: audioSettingsStore,
       devices: audioManager.devices,
+      micMeter: audioManager.micMeter,
     }),
   );
   return screen;

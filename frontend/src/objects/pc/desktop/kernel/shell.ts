@@ -1,4 +1,4 @@
-import type {AppView, DesktopApp} from "./app";
+import type {AppView, DesktopApp, LaunchOptions} from "./app";
 import {contains, type Rect} from "./geometry";
 import {
   cascadePosition,
@@ -130,10 +130,11 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     });
   };
 
-  const launch = (appId: string) => {
+  const launch = (appId: string, options: LaunchOptions = {}) => {
     const open = state.windows.find((w) => w.app.id === appId);
     if (open) {
       focus(open.id);
+      open.view.reveal?.(options);
       return;
     }
     const app = apps.find((a) => a.id === appId);
@@ -142,7 +143,7 @@ export const createShell = ({apps, now = () => performance.now()}: Options) => {
     }
     const id = nextId++;
     const size = windowSizeFor(app.size);
-    const view = app.open({close: () => close(id)});
+    const view = app.open({close: () => close(id), launch}, options);
     const off = view.subscribe?.(bump);
     if (off) {
       unsubscribes.set(id, off);

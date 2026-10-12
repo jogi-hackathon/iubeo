@@ -67,9 +67,16 @@ describe("接続(マッチング)のアプリ", () => {
       now: () => 10_000,
       schedule: timers.schedule,
     });
-    const view = app.open({close: () => {}});
-    return {flow, timers, view};
+    const launch = vi.fn();
+    const view = app.open({close: () => {}, launch});
+    return {flow, timers, view, launch};
   };
+
+  it("「VC の設定…」は、設定のサウンドのタブを開くよう頼む", () => {
+    const {view, launch} = open();
+    clickAt(view, MATCHMAKING_LAYOUT.voice);
+    expect(launch).toHaveBeenCalledWith("settings", {tab: "sound"});
+  });
 
   it("待っているときのボタンは開始を、探している間はキャンセルを伝える", () => {
     const {flow, view} = open();
@@ -157,6 +164,17 @@ describe("接続(マッチング)のアプリ", () => {
   });
 });
 
+const fakeFrames = () => {
+  const running = new Set<() => void>();
+  const frames = vi.fn((fn: () => void) => {
+    running.add(fn);
+    return () => {
+      running.delete(fn);
+    };
+  });
+  return {frames, running, tick: () => running.forEach((fn) => fn())};
+};
+
 const fakePort = <T>(initial: T) => {
   let state = initial;
   const listeners = new Set<() => void>();
@@ -183,10 +201,12 @@ describe("設定のアプリ", () => {
     sensitivity = 1,
     canSelectOutput = true,
     needsPermission = false,
+    tab,
   }: {
     sensitivity?: number;
     canSelectOutput?: boolean;
     needsPermission?: boolean;
+    tab?: string;
   } = {}) => {
     const mouse = fakePort({sensitivity});
     const graphics = fakePort<GraphicsSettings>({
@@ -205,11 +225,33 @@ describe("設定のアプリ", () => {
       refresh: vi.fn(),
       requestPermission: vi.fn(),
     };
+    let level = 0;
+    const stopMeter = vi.fn();
+    const micMeter = {
+      start: vi.fn(() => stopMeter),
+      level: () => level,
+    };
+    const timers = fakeFrames();
     const close = vi.fn();
-    const view = createSettingsApp({mouse, graphics, audio, devices}).open({
+    const app = createSettingsApp(
+      {mouse, graphics, audio, devices, micMeter},
+      timers.frames,
+    );
+    const view = app.open({close, launch: vi.fn()}, {tab});
+    return {
+      mouse,
+      graphics,
+      audio,
+      devices,
       close,
-    });
-    return {mouse, graphics, audio, devices, close, view};
+      view,
+      micMeter,
+      stopMeter,
+      timers,
+      setLevel: (v: number) => {
+        level = v;
+      },
+    };
   };
 
   const selectTab = (view: AppView, index: number) => {
@@ -306,6 +348,68 @@ describe("設定のアプリ", () => {
       inputDeviceId: "mic-a",
       micVolume: 0,
     });
+  });
+
+  it("サウンドのタブを表示している間だけ、マイクのメーターを動かす", () => {
+    const {view, micMeter, stopMeter, timers} = open();
+    expect(micMeter.start).not.toHaveBeenCalled();
+    selectTab(view, SETTINGS_TAB.sound);
+    expect(micMeter.start).toHaveBeenCalledTimes(1);
+    expect(timers.running.size).toBe(1);
+    selectTab(view, SETTINGS_TAB.graphics);
+    expect(stopMeter).toHaveBeenCalledTimes(1);
+    expect(timers.running.size).toBe(0);
+  });
+
+  it("マイクの許可を待つ間はメーターを始めず、許可されたら始める", () => {
+    const {view, devices, micMeter} = open({needsPermission: true});
+    selectTab(view, SETTINGS_TAB.sound);
+    expect(micMeter.start).not.toHaveBeenCalled();
+    devices.set({...devices.getState(), needsPermission: false});
+    expect(micMeter.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("レベルが変わったときだけ描き直させ、窓を閉じたらメーターを止める", () => {
+    const {view, setLevel, timers, stopMeter} = open({tab: "sound"});
+    const listener = vi.fn();
+    view.subscribe?.(listener);
+    const step = () => {
+      timers.tick();
+      timers.tick();
+    };
+    step();
+    expect(listener).not.toHaveBeenCalled();
+    setLevel(0.5);
+    timers.tick();
+    expect(listener).not.toHaveBeenCalled();
+    timers.tick();
+    expect(listener).toHaveBeenCalledTimes(1);
+    setLevel(0);
+    step();
+    expect(listener).toHaveBeenCalledTimes(2);
+    view.dispose?.();
+    expect(stopMeter).toHaveBeenCalledTimes(1);
+    expect(timers.running.size).toBe(0);
+  });
+
+  it("PC から離れたらメーターを止め、戻って触ったら再開する", () => {
+    const {view, micMeter, stopMeter} = open({tab: "sound"});
+    view.cancel?.();
+    expect(stopMeter).toHaveBeenCalledTimes(1);
+    view.pointer?.({type: "move", x: 1, y: 1, button: -1});
+    expect(micMeter.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("開くときと、開いた後の reveal でタブを指定できる", () => {
+    const sound = open({tab: "sound"});
+    expect(sound.micMeter.start).toHaveBeenCalledTimes(1);
+
+    const {view, micMeter} = open();
+    expect(micMeter.start).not.toHaveBeenCalled();
+    view.reveal?.({tab: "sound"});
+    expect(micMeter.start).toHaveBeenCalledTimes(1);
+    view.reveal?.({});
+    expect(micMeter.start).toHaveBeenCalledTimes(1);
   });
 
   it("スピーカーを選べないブラウザでは、スピーカーの一覧を開けない", () => {

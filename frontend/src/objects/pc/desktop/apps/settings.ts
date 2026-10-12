@@ -17,13 +17,14 @@ import {
   MIN_SENSITIVITY,
   type MouseSettings,
 } from "../../../../core/input/mouseSettings";
-import type {AppView, DesktopApp} from "../kernel/app";
+import type {AppView, DesktopApp, LaunchOptions} from "../kernel/app";
 import type {Rect, Size} from "../kernel/geometry";
 import {
   paintButton,
   paintDropdown,
   paintDropdownList,
   paintGroup,
+  paintLevelMeter,
   paintSlider,
   paintTabs,
 } from "../paint/controls";
@@ -55,11 +56,29 @@ export type AudioDevicePort = {
   subscribe(listener: () => void): () => void;
 };
 
+export type MicMeterPort = {
+  start(): () => void;
+  level(): number;
+};
+
+type FrameSchedule = (fn: () => void) => () => void;
+
+const defaultFrames: FrameSchedule = (fn) => {
+  let id = 0;
+  const loop = () => {
+    fn();
+    id = requestAnimationFrame(loop);
+  };
+  id = requestAnimationFrame(loop);
+  return () => cancelAnimationFrame(id);
+};
+
 export type SettingsPorts = {
   mouse: MouseSettingsPort;
   graphics: SettingsPort<GraphicsSettings>;
   audio: SettingsPort<AudioSettings>;
   devices: AudioDevicePort;
+  micMeter: MicMeterPort;
 };
 
 type Draft = {
@@ -68,7 +87,7 @@ type Draft = {
   audio: AudioSettings;
 };
 
-const SIZE: Size = {width: 340, height: 330};
+const SIZE: Size = {width: 340, height: 360};
 const SENSITIVITY_STEP = 0.1;
 const VOLUME_STEP = 0.05;
 const DEFAULT_SENSITIVITY = 1;
@@ -77,16 +96,20 @@ export const SETTINGS_TAB = {mouse: 0, graphics: 1, sound: 2} as const;
 
 const BUTTON = {y: SIZE.height - 31, width: 75, height: 23};
 const VOLUME_GROUP_HEIGHT = 100;
+const METER_ROW_HEIGHT = 24;
+const METER_FRAME_STRIDE = 2;
+const METER_SEGMENTS = 28;
 
-const volumeRows = (top: number) => ({
-  group: {x: 16, y: top, width: 308, height: VOLUME_GROUP_HEIGHT},
+const volumeRows = (top: number, extra = 0) => ({
+  group: {x: 16, y: top, width: 308, height: VOLUME_GROUP_HEIGHT + extra},
   device: {x: 90, y: top + 18, width: 220, height: 21},
-  volume: {x: 30, y: top + 66, width: 280, height: 30},
+  meter: {x: 90, y: top + 48, width: 220, height: 12},
+  volume: {x: 30, y: top + 66 + extra, width: 280, height: 30},
 });
 
 export const SETTINGS_LAYOUT = {
   tabs: {x: 8, y: 8, width: 324, height: 18},
-  panel: {x: 6, y: 25, width: 328, height: 262},
+  panel: {x: 6, y: 25, width: 328, height: 292},
   ok: {x: SIZE.width - 8 - BUTTON.width * 3 - 12, ...BUTTON},
   cancel: {x: SIZE.width - 8 - BUTTON.width * 2 - 6, ...BUTTON},
   apply: {x: SIZE.width - 8 - BUTTON.width, ...BUTTON},
@@ -101,8 +124,8 @@ export const SETTINGS_LAYOUT = {
     fps: {x: 166, y: 86, width: 144, height: 21},
   },
   speaker: volumeRows(36),
-  mic: volumeRows(36 + VOLUME_GROUP_HEIGHT + 8),
-  loadDevices: {x: 194, y: 252, width: 130, height: 23},
+  mic: volumeRows(36 + VOLUME_GROUP_HEIGHT + 8, METER_ROW_HEIGHT),
+  loadDevices: {x: 194, y: 280, width: 130, height: 23},
 } as const satisfies Record<string, Rect | Record<string, Rect>>;
 
 const TAB_WIDTHS = [56, 48, 64];
@@ -159,17 +182,15 @@ const text = (
  * 設定の窓(マウス・画面・サウンド)。窓の中で変えた値は下書きに持ち、「適用」か「OK」で保存して反映する。
  * 「キャンセル」と × は下書きを捨てる
  */
-export const createSettingsApp = ({
-  mouse,
-  graphics,
-  audio,
-  devices,
-}: SettingsPorts): DesktopApp => ({
+export const createSettingsApp = (
+  {mouse, graphics, audio, devices, micMeter}: SettingsPorts,
+  frames: FrameSchedule = defaultFrames,
+): DesktopApp => ({
   id: "settings",
   title: "設定",
   icon: "settings",
   size: SIZE,
-  open: (context): AppView => {
+  open: (context, options?: LaunchOptions): AppView => {
     const listeners = new Set<() => void>();
     const notify = () => {
       for (const l of Array.from(listeners)) {
@@ -184,7 +205,55 @@ export const createSettingsApp = ({
     });
     let draft = saved();
     const touched = new Set<keyof Draft>();
-    let tab: number = SETTINGS_TAB.mouse;
+    const tabIndex = (name: string | undefined): number | undefined =>
+      name !== undefined && Object.hasOwn(SETTINGS_TAB, name)
+        ? SETTINGS_TAB[name as keyof typeof SETTINGS_TAB]
+        : undefined;
+    let tab: number = tabIndex(options?.tab) ?? SETTINGS_TAB.mouse;
+
+    let away = false;
+    let stopMeter: (() => void) | null = null;
+    let stopFrames: (() => void) | null = null;
+    let shownLevel = 0;
+    const syncMeter = (disposed = false) => {
+      const wanted =
+        !disposed &&
+        !away &&
+        tab === SETTINGS_TAB.sound &&
+        !devices.getState().needsPermission;
+      if (wanted && !stopMeter) {
+        shownLevel = 0;
+        stopMeter = micMeter.start();
+        let frame = 0;
+        stopFrames = frames(() => {
+          frame += 1;
+          if (frame % METER_FRAME_STRIDE !== 0) {
+            return;
+          }
+          const next = Math.max(
+            Math.ceil(micMeter.level() * METER_SEGMENTS),
+            shownLevel - 1,
+          );
+          if (next !== shownLevel) {
+            shownLevel = next;
+            notify();
+          }
+        });
+      } else if (!wanted && stopMeter) {
+        stopFrames?.();
+        stopMeter();
+        stopFrames = null;
+        stopMeter = null;
+        shownLevel = 0;
+      }
+    };
+    const selectTab = (index: number) => {
+      tab = index;
+      if (index === SETTINGS_TAB.sound) {
+        devices.refresh();
+      }
+      syncMeter();
+    };
 
     const edit = <K extends keyof Draft>(key: K, patch: Partial<Draft[K]>) => {
       draft = {...draft, [key]: {...draft[key], ...patch}};
@@ -216,12 +285,7 @@ export const createSettingsApp = ({
       rect: SETTINGS_LAYOUT.tabs,
       widths: TAB_WIDTHS,
       selected: () => tab,
-      onSelect: (index) => {
-        tab = index;
-        if (index === SETTINGS_TAB.sound) {
-          devices.refresh();
-        }
-      },
+      onSelect: selectTab,
     });
     const ok = createButton({
       rect: SETTINGS_LAYOUT.ok,
@@ -337,9 +401,13 @@ export const createSettingsApp = ({
       mouse.subscribe(notify),
       graphics.subscribe(notify),
       audio.subscribe(notify),
-      devices.subscribe(notify),
+      devices.subscribe(() => {
+        syncMeter();
+        notify();
+      }),
     ];
     devices.refresh();
+    syncMeter();
 
     const paintVolume = (
       ctx: CanvasRenderingContext2D,
@@ -348,11 +416,16 @@ export const createSettingsApp = ({
       device: Dropdown<string | null>,
       slider: Slider,
       label: string,
+      meter = false,
     ) => {
       const {group} = rows;
       paintGroup(ctx, group, title);
       text(ctx, "デバイス", group.x + 14, rows.device.y + 11, "left");
       paintDropdown(ctx, device);
+      if (meter) {
+        text(ctx, "入力レベル", group.x + 14, rows.meter.y + 7, "left");
+        paintLevelMeter(ctx, rows.meter, METER_SEGMENTS, shownLevel);
+      }
       text(ctx, label, group.x + 14, rows.volume.y - 10, "left");
       text(
         ctx,
@@ -412,6 +485,7 @@ export const createSettingsApp = ({
         input,
         micVolume,
         "マイクの音量",
+        true,
       );
       paintButton(ctx, loadDevices, "デバイスを読み込む");
     };
@@ -428,6 +502,10 @@ export const createSettingsApp = ({
         }
       },
       pointer: (event) => {
+        if (away) {
+          away = false;
+          syncMeter();
+        }
         if (controls.pointer(event)) {
           notify();
         }
@@ -438,11 +516,24 @@ export const createSettingsApp = ({
           listeners.delete(listener);
         };
       },
+      reveal: (next) => {
+        away = false;
+        const index = tabIndex(next.tab);
+        if (index !== undefined) {
+          selectTab(index);
+        } else {
+          syncMeter();
+        }
+        notify();
+      },
       cancel: () => {
         controls.cancel();
+        away = true;
+        syncMeter();
         notify();
       },
       dispose: () => {
+        syncMeter(true);
         for (const off of offs) {
           off();
         }

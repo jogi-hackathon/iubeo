@@ -59,6 +59,7 @@ const screen = new DesktopScreen(
     graphics: graphicsStore,
     audio: audioSettingsStore,
     devices: audioManager.devices,
+    micMeter: audioManager.micMeter,
   }),
 );
 const surface = screen.surface;

@@ -14,13 +14,17 @@ export interface AppView {
   pointer?(event: AppPointerEvent): void;
   /** 中身が変わって描き直しが要るときに呼ぶ */
   subscribe?(listener: () => void): () => void;
+  reveal?(options: LaunchOptions): void;
   /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたとき) */
   cancel?(): void;
   dispose?(): void;
 }
 
+export type LaunchOptions = {tab?: string};
+
 /** アプリがシェルへ頼めること */
 export type AppContext = {
+  launch(appId: string, options?: LaunchOptions): void;
   /** 自分の窓を閉じる */
   close(): void;
 };
@@ -34,5 +38,5 @@ export type DesktopApp = {
   icon: IconName;
   /** 窓の中身の大きさ(枠とタイトルバーを除く) */
   size: Size;
-  open(context: AppContext): AppView;
+  open(context: AppContext, options?: LaunchOptions): AppView;
 };
