@@ -19,16 +19,21 @@ export function DirectoryObject({object}: {object: GameObject}) {
 
   const root = useRef<Group>(null);
   const sfx = useSfxEmitter(["filePick", "save", "corrupt"], root);
-  const stockCount = parseDirectoryData(object.data).stock.length;
-  const lastCount = useRef(stockCount);
+  const directory = parseDirectoryData(object.data);
+  const stockCount = directory.stock.length;
+  const outputs = directory.outputs;
+  const last = useRef({stockCount, outputs});
   useEffect(() => {
-    if (stockCount < lastCount.current) {
+    if (stockCount < last.current.stockCount) {
       sfx.play("filePick");
-    } else if (stockCount > lastCount.current) {
+    } else if (
+      stockCount > last.current.stockCount ||
+      outputs > last.current.outputs
+    ) {
       sfx.play("save");
     }
-    lastCount.current = stockCount;
-  }, [stockCount, sfx]);
+    last.current = {stockCount, outputs};
+  }, [stockCount, outputs, sfx]);
   useEffect(() => {
     if (fireStarted) {
       sfx.play("corrupt");
