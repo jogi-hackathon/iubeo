@@ -1,38 +1,44 @@
 import * as Tone from "../tone";
 import type {Recipe} from "../types";
 import {createBurstPool} from "./burst";
-import {createReverb} from "./reverb";
 
-const LEVEL = -10;
-const PITCH_HZ = 110;
-const GAP = 0.28;
-const WET = 0.35;
-const ROOM = 0.7;
+const LEVEL = -16;
+const PITCH_HZ = 1046;
+const BEEPS = 3;
+const BEEP_SECONDS = 0.06;
+const GAP = 0.11;
+const CUT_HZ = 3000;
 
 export const match: Recipe<"match"> = {
   id: "match",
   make(out) {
     const vol = new Tone.Volume(LEVEL).connect(out);
-    const reverb = createReverb(vol, WET, ROOM);
-    const pool = createBurstPool(reverb.input);
+    const pool = createBurstPool(vol);
 
     return {
       play(time) {
         pool.spawn(
           ({output, own}) => {
-            const lowpass = own(new Tone.Filter(300, "lowpass")).connect(
+            const lowpass = own(new Tone.Filter(CUT_HZ, "lowpass")).connect(
               output,
             );
-            const tone = own(
+            const beep = own(
               new Tone.Synth({
-                oscillator: {type: "sine"},
-                envelope: {attack: 0.04, decay: 0.35, sustain: 0, release: 0.1},
+                oscillator: {type: "square"},
+                envelope: {
+                  attack: 0.002,
+                  decay: 0,
+                  sustain: 1,
+                  release: 0.01,
+                },
+                volume: -6,
               }),
             ).connect(lowpass);
-            tone.triggerAttackRelease(PITCH_HZ, 0.1, time);
-            tone.triggerAttackRelease(PITCH_HZ, 0.1, time + GAP);
+            for (let k = 0; k < BEEPS; k++) {
+              beep.triggerAttackRelease(PITCH_HZ, BEEP_SECONDS, time + k * GAP);
+            }
           },
-          time + GAP + 1.4,
+          time + BEEPS * GAP + 0.2,
         );
       },
       stop(time) {
@@ -40,7 +46,6 @@ export const match: Recipe<"match"> = {
       },
       dispose() {
         pool.dispose();
-        reverb.dispose();
         vol.dispose();
       },
     };

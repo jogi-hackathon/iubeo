@@ -51,7 +51,7 @@ describe("useSfxEmitter", () => {
     const emitter = useSfxEmitter(["pcFan"], {current: object});
     const cleanup = hooks.effects[0]!();
     expect(fake.create).toHaveBeenCalledTimes(1);
-    expect(fake.create).toHaveBeenCalledWith(["pcFan"]);
+    expect(fake.create).toHaveBeenCalledWith(["pcFan"], undefined, undefined);
     expect(fake.setPosition).toHaveBeenCalledWith(
       expect.objectContaining({x: 1, y: 2, z: 3}),
     );

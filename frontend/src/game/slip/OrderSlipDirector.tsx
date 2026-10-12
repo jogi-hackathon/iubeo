@@ -18,7 +18,7 @@ import {useGameState} from "../gameStore";
 import {stockColorsOf} from "../stockColors";
 import {memos} from "./memos";
 import {myWorkspaceId, orderSlip, slipForPhase, useOrderSlip} from "./store";
-import {stageStart, STOW_MS, TERMINAL_SEQUENCE_MS} from "./terminal";
+import {STAGE_MS, stageStart, STOW_MS, TERMINAL_SEQUENCE_MS} from "./terminal";
 import {heldSlipWorld, slipZoomBlend, slipZoomPose} from "./zoom";
 
 /** 再生中に視線を向ける手元の角度(下向き)。端末と千切った伝票が視界に収まる */
@@ -43,6 +43,12 @@ const viewQuaternion = new Quaternion();
 const zoomPosition = new Vector3();
 const zoomQuaternion = new Quaternion();
 
+const SLIP_CUE = {
+  printSeconds: STAGE_MS.print / 1000,
+  feedSeconds: STAGE_MS.feed / 1000,
+  tearSeconds: STAGE_MS.tear / 1000,
+};
+
 /**
  * 依頼の伝票の進行役。
  * - フェーズが始まって自分のタスクがあれば、伝票を届ける(store)。接続し直しで同じフェーズを受けても二度は出さない
@@ -52,6 +58,7 @@ const zoomQuaternion = new Quaternion();
  * - 見終えた伝票は自分のワークスペースへ飛ばし、メモ置きに残す(WorkspaceMemo)
  * - 脱落したら、再生も待ちも捨てる
  */
+
 export function OrderSlipDirector() {
   const game = useGameState();
   const myPlayerId = useMyPlayerId();
@@ -106,7 +113,10 @@ export function OrderSlipDirector() {
 
   useFrame(({camera}) => {
     if (!playing) {
-      printed.current = null;
+      if (printed.current !== null) {
+        sfxEngine.stopThem("slip");
+        printed.current = null;
+      }
       return;
     }
     consumeLookDelta();
@@ -116,7 +126,7 @@ export function OrderSlipDirector() {
       printed.current !== playing.startedAt
     ) {
       printed.current = playing.startedAt;
-      sfxEngine.them("slip");
+      sfxEngine.them("slip", SLIP_CUE);
     }
     if (elapsed >= TERMINAL_SEQUENCE_MS) {
       orderSlip.finish();

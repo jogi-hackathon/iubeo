@@ -5,7 +5,7 @@ import {RECIPES} from "../audio/sfx/recipes";
 import type {SfxId, WritingCue} from "../audio/sfx/types";
 import {controlStyle, rowStyle, Slider} from "./ui";
 
-const SUSTAINED: readonly SfxId[] = ["pcFan", "window", "corrupt"];
+const SUSTAINED: readonly SfxId[] = ["pcFan", "window", "corrupt", "flame"];
 
 const DEMO_CUE: WritingCue = {
   beats: Array.from({length: 8}, (_, i) => ({at: i * 0.12, line: 0, x: i / 8})),

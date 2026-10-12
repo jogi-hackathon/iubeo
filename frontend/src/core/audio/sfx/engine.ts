@@ -7,6 +7,7 @@ import type {
   Recipe,
   SfxEngine,
   SfxId,
+  Spatial,
   Vec3,
   Voice,
 } from "./types";
@@ -27,6 +28,7 @@ export type SfxEngineDeps = {
 type AnyVoice = Voice<SfxId>;
 type PlayAny = (id: SfxId, options?: unknown) => void;
 
+const DEFAULT_SPATIAL: Spatial = {ref: 5, rolloff: 1};
 const FADE_SECONDS = 0.03;
 const RELEASE_MS = 50;
 
@@ -89,15 +91,18 @@ export const createSfxEngine = ({
     };
   };
 
-  const emitter = (ids: readonly SfxId[], position?: Vec3): Emitter => {
+  const emitter = (
+    ids: readonly SfxId[],
+    position?: Vec3,
+    spatial: Spatial = DEFAULT_SPATIAL,
+  ): Emitter => {
     const ctx = audio.context();
     const input = ctx.createGain();
     const panner = ctx.createPanner();
     panner.panningModel = "HRTF";
     panner.distanceModel = "inverse";
-    panner.refDistance = 5;
-    panner.maxDistance = 40;
-    panner.rolloffFactor = 1;
+    panner.refDistance = spatial.ref;
+    panner.rolloffFactor = spatial.rolloff;
     const output = ctx.createGain();
     input.connect(panner);
     panner.connect(output);

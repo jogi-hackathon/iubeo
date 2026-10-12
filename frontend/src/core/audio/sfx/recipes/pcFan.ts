@@ -1,7 +1,7 @@
 import * as Tone from "../tone";
 import type {Recipe} from "../types";
 
-const LEVEL = -34;
+const LEVEL = -28;
 const WHINE_HZ = 1500;
 const WHINE_AMOUNT = 0.3;
 const BLADE_HZ = 150;

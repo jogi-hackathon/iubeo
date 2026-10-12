@@ -3,7 +3,7 @@ import {type RefObject, useEffect, useMemo, useRef} from "react";
 import {type Object3D, Vector3} from "three";
 
 import {sfxEngine} from "./engine";
-import type {Emitter, OptionArgs, SfxId} from "./types";
+import type {Emitter, OptionArgs, SfxId, Spatial} from "./types";
 
 const world = new Vector3();
 
@@ -16,13 +16,19 @@ const placeAtTarget = (emitter: Emitter, target: Object3D) => {
 export const useSfxEmitter = (
   recipes: readonly SfxId[],
   target: RefObject<Object3D | null>,
+  spatial?: Spatial,
 ): Emitter => {
   const current = useRef<Emitter | null>(null);
   const placed = useRef(false);
   const initial = useRef(recipes);
+  const spatialRef = useRef(spatial);
 
   useEffect(() => {
-    const emitter = sfxEngine.emitter(initial.current);
+    const emitter = sfxEngine.emitter(
+      initial.current,
+      undefined,
+      spatialRef.current,
+    );
     current.current = emitter;
     placed.current = false;
     if (target.current) {

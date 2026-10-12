@@ -5,6 +5,14 @@ export type SfxId =
   | "writing"
   | "shatter"
   | "key"
+  | "click"
+  | "swipe"
+  | "step"
+  | "jump"
+  | "land"
+  | "ignite"
+  | "flame"
+  | "glitch"
   | "window"
   | "filePick"
   | "save"
@@ -27,18 +35,32 @@ export type WritingCue = {
   startIn: number;
 };
 
+export type SlipCue = {
+  printSeconds: number;
+  feedSeconds: number;
+  tearSeconds: number;
+};
+
 export type PlayOptions = {
   pcFan: undefined;
   writing: WritingCue;
   shatter: undefined;
   key: undefined;
+  click: "down" | "up";
+  swipe: number;
+  step: undefined;
+  jump: undefined;
+  land: number;
+  ignite: undefined;
+  flame: undefined;
+  glitch: number;
   window: undefined;
   filePick: undefined;
   save: undefined;
   clefOk: undefined;
   clefNo: undefined;
   canvas: undefined;
-  slip: undefined;
+  slip: SlipCue;
   done: undefined;
   deadline: undefined;
   match: undefined;
@@ -57,6 +79,8 @@ export type Recipe<Id extends SfxId = SfxId> = {
   make(out: AudioNode): Voice<Id>;
 };
 
+export type Spatial = {ref: number; rolloff: number};
+
 export type Emitter = {
   setPosition(pos: Vec3): void;
   play<Id extends SfxId>(id: Id, ...options: OptionArgs<Id>): void;
@@ -69,7 +93,11 @@ export type OptionArgs<Id extends SfxId> = PlayOptions[Id] extends undefined
   : [options: PlayOptions[Id]];
 
 export type SfxEngine = {
-  emitter(recipes: readonly SfxId[], position?: Vec3): Emitter;
+  emitter(
+    recipes: readonly SfxId[],
+    position?: Vec3,
+    spatial?: Spatial,
+  ): Emitter;
   them<Id extends SfxId>(id: Id, ...options: OptionArgs<Id>): void;
   stopThem(id: SfxId): void;
   setTrim(id: SfxId, db: number): void;

@@ -27,7 +27,6 @@ const fakeAudio = () => {
     panningModel: "",
     distanceModel: "",
     refDistance: 0,
-    maxDistance: 0,
     rolloffFactor: 0,
     positionX: param(),
     positionY: param(),
@@ -121,7 +120,6 @@ describe("sfxEngine", () => {
     expect(panner.panningModel).toBe("HRTF");
     expect(panner.distanceModel).toBe("inverse");
     expect(panner.refDistance).toBe(5);
-    expect(panner.maxDistance).toBe(40);
     const trim = t.gains[2]!;
     expect(input!.connect).toHaveBeenCalledWith(panner);
     expect(panner.connect).toHaveBeenCalledWith(output);

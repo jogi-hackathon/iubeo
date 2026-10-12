@@ -1,10 +1,42 @@
 import * as Tone from "../tone";
 import type {Recipe} from "../types";
 import {createBurstPool} from "./burst";
+import {
+  type PaperHit,
+  type PaperSlide,
+  type PaperSnap,
+  spawnHit,
+  spawnSlide,
+  spawnSnap,
+} from "./filePick";
 
-const LEVEL = -10;
-const PITCH_HZ = 85;
-const DECAY = 0.18;
+const LEVEL = -8;
+const SETTLE_AFTER_STOP = 0.004;
+
+const ENTRY: PaperSnap = {fromHz: 1600, toHz: 600, db: -16};
+const SLIDE: PaperSlide = {
+  seconds: 0.17,
+  fromHz: 1300,
+  toHz: 600,
+  q: 0.8,
+  peakAt: 0.2,
+  level: 0.55,
+  sparse: 0.3,
+  fiberHz: 2200,
+  fiberLevel: 0.15,
+};
+const STOP: PaperHit = {hz: 110, db: -8, decay: 0.09, cutHz: 400};
+const SETTLE: PaperSlide = {
+  seconds: 0.08,
+  fromHz: 900,
+  toHz: 600,
+  q: 0.8,
+  peakAt: 0.2,
+  level: 0.22,
+  sparse: 0.25,
+  fiberHz: 2000,
+  fiberLevel: 0.06,
+};
 
 export const save: Recipe<"save"> = {
   id: "save",
@@ -15,36 +47,13 @@ export const save: Recipe<"save"> = {
     return {
       play(time) {
         pool.spawn(
-          ({output, own}) => {
-            const lowpass = own(new Tone.Filter(500, "lowpass")).connect(
-              output,
-            );
-            const thud = own(
-              new Tone.MembraneSynth({
-                pitchDecay: 0.03,
-                octaves: 1.5,
-                envelope: {
-                  attack: 0.001,
-                  decay: DECAY,
-                  sustain: 0,
-                  release: 0.05,
-                },
-              }),
-            ).connect(lowpass);
-            const band = own(
-              new Tone.Filter({type: "bandpass", frequency: 400, Q: 1}),
-            ).connect(output);
-            const rustle = own(
-              new Tone.NoiseSynth({
-                noise: {type: "pink"},
-                envelope: {attack: 0.005, decay: 0.06, sustain: 0},
-                volume: -8,
-              }),
-            ).connect(band);
-            thud.triggerAttackRelease(PITCH_HZ, DECAY, time);
-            rustle.triggerAttackRelease(0.06, time);
+          (burst) => {
+            spawnSnap(burst, time, ENTRY);
+            const landed = spawnSlide(burst, time, SLIDE);
+            spawnHit(burst, landed, STOP);
+            spawnSlide(burst, landed + SETTLE_AFTER_STOP, SETTLE);
           },
-          time + DECAY + 0.3,
+          time + SLIDE.seconds + Math.max(STOP.decay, SETTLE.seconds),
         );
       },
       stop(time) {
