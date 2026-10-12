@@ -1,6 +1,6 @@
 import {storageManager} from "../storage";
 
-/** マウスの設定。sensitivity は見回す速さの倍率(1 が既定) */
+/** マウスの設定。sensitivity はマウスの速さの倍率。一人称で見回すときと、PC・俯瞰ビューのカーソルに掛かる(1 が既定) */
 export interface MouseSettings {
   sensitivity: number;
 }
