@@ -21,7 +21,7 @@ const WISP_NAME = `iubeo-wisp${STACK}`;
 
 // PR プレビューの origin を許可する(backend の IUBEO_ALLOWED_ORIGIN_PATTERNS)。
 // 展示用 backend は 1 つしか無いので、どの PR のプレビューからも接続できるようにする
-const PREVIEW_ORIGIN_PATTERN = String.raw`https://pr-[0-9]+-iubeo-frontend\.naokimiura15\.workers\.dev`;
+const PREVIEW_ORIGIN_PATTERN = String.raw`https://pr-[0-9]+-iubeo-frontend-presentation\.naokimiura15\.workers\.dev`;
 
 const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
 

@@ -59,7 +59,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           marker='<!-- iubeo-preview -->'
-          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1 || true)
+          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend[a-z0-9-]*\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1 || true)
           if [ -n "$url" ]; then
             text="🔍 Preview: $url"
           else
