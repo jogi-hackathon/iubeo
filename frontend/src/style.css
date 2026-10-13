@@ -595,8 +595,8 @@ body,
   margin-top: 0.4em;
 }
 
-/* 1 手順ごとに足す項目(小見出し)は、そのこだわりの立方体の縁の色にする。補足は白のまま */
-.present-kodawari-points > li {
+/* その手順で新しく出た項目(最後の小見出し)だけを、こだわりの立方体の縁の色にする。前の項目と補足は白 */
+.present-kodawari-points > li:last-child {
   color: var(--kodawari-color, #fff);
 }
 
