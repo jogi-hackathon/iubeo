@@ -23,7 +23,8 @@ const WISP_NAME = `iubeo-wisp${STACK}`;
 // 展示用 backend は 1 つしか無いので、どの PR のプレビューからも接続できるようにする
 const PREVIEW_ORIGIN_PATTERN = String.raw`https://pr-[0-9]+-iubeo-frontend-presentation\.naokimiura15\.workers\.dev`;
 
-const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
+// 展示用スタックは常に WISP を載せる(PR プレビューも同じ)
+const WISP_ENABLED = true;
 
 const backendContainer = defineContainer({
   name: `iubeo-backend-app${STACK}`,
@@ -82,7 +83,7 @@ const wispWorker = defineWorker({
   },
   env: {
     WISP_KEY: bindings.secret(),
-    TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
+    TARGET: bindings.kv({id: PRESENTATION_KV_ID}),
   },
 });
 
@@ -95,16 +96,17 @@ const frontendWorker = defineWorker({
     notFoundHandling: "single-page-application",
     runWorkerFirst: ["/api/*", "/healthz", "/wisp/*", "/judge"],
   },
+  // rate limit の namespace は本番(1001/1002)と分ける。同じ ID だと Worker をまたいでカウンタを共有する
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
     ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
     AI: bindings.ai(),
     JUDGE_IP_LIMIT: bindings.rateLimit({
-      namespace: "1001",
+      namespace: "2001",
       simple: {limit: 20, period: 60},
     }),
     JUDGE_GLOBAL_LIMIT: bindings.rateLimit({
-      namespace: "1002",
+      namespace: "2002",
       simple: {limit: 300, period: 60},
     }),
   },

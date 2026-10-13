@@ -13,6 +13,32 @@ export const wispOverrideFrom = (
   return envUrl?.trim() || undefined;
 };
 
+/**
+ * backend が返す WISP の URL の host は、backend のコンテナを起動した最初のリクエストの origin になる。
+ * 展示用スタックでは複数の PR プレビューが同じ backend を使うので、同じオリジン配下(/wisp/)を指す URL は
+ * 今のページの host に付け直す。別ホストの WISP(パスが /wisp/ でないもの)はそのまま返す
+ */
+export const rebaseWispUrl = (
+  url: string,
+  pageHref: string | undefined,
+): string => {
+  if (!pageHref) {
+    return url;
+  }
+  try {
+    const u = new URL(url);
+    if (!u.pathname.startsWith("/wisp/")) {
+      return url;
+    }
+    const page = new URL(pageHref);
+    u.protocol = page.protocol === "https:" ? "wss:" : "ws:";
+    u.host = page.host;
+    return u.toString();
+  } catch {
+    return url;
+  }
+};
+
 export type ResolvedWisp = {
   url: string;
   expiresAt?: string;
@@ -42,7 +68,7 @@ export const resolveWispUrl = async (
       return undefined;
     }
     return {
-      url: body.url,
+      url: rebaseWispUrl(body.url, globalThis.location?.href),
       expiresAt:
         typeof body.expiresAt === "string" ? body.expiresAt : undefined,
     };
