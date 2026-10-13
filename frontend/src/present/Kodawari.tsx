@@ -1,5 +1,5 @@
 import {Canvas, useFrame, useThree} from "@react-three/fiber";
-import {memo, useLayoutEffect, useRef} from "react";
+import {type CSSProperties, memo, useLayoutEffect, useRef} from "react";
 import {Box3, type Group, Matrix4, Mesh, type Object3D, Vector3} from "three";
 
 import {createRenderer} from "../core/renderer";
@@ -7,6 +7,7 @@ import {FILE_KIND} from "../items/file";
 import {HeldItem} from "../items/HeldItem";
 import type {Item} from "../items/types";
 import {KODAWARI_CONTENT} from "./kodawariContent";
+import {WorldShowcase} from "./WorldShowcase";
 
 /**
  * 技術パートの「6 つのこだわり」。ゲームに出てくるファイル(立方体)を 2 × 3 に浮かべ、
@@ -163,6 +164,8 @@ export const KodawariStage = memo(function KodawariStage({
   count: number;
 }) {
   const current = focus === null || !shown ? null : KODAWARI[focus]!;
+  // 世界観の項目は、いま出している最後の項目の実物を右側に描く
+  const worldScene = current?.points.slice(0, count).at(-1)?.scene ?? null;
   return (
     <div
       className="present-layer present-kodawari"
@@ -179,6 +182,7 @@ export const KodawariStage = memo(function KodawariStage({
           <FloatingFile key={k.key} item={k.item} index={i} focus={focus} />
         ))}
       </Canvas>
+      <WorldShowcase scene={worldScene} />
       {!shown ? null : current === null ? (
         <>
           <h2 className="present-kodawari-heading">6 つのこだわり</h2>
@@ -200,7 +204,11 @@ export const KodawariStage = memo(function KodawariStage({
           <h2 className="present-kodawari-heading" data-beside="true">
             {current.title}
           </h2>
-          <ul className="present-outline present-kodawari-points">
+          <ul
+            className="present-outline present-kodawari-points"
+            data-beside={worldScene !== null}
+            style={{"--kodawari-color": current.color} as CSSProperties}
+          >
             {current.points.slice(0, count).map(({text, sub}) => (
               <li key={text}>
                 {text}

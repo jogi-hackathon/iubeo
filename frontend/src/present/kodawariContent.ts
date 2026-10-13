@@ -3,9 +3,14 @@
  * こだわりごとに、箇条書きの 1 項目(と、その下の補足)を 1 手順で 1 つずつ出す
  */
 
+/** 世界観のこだわりで、項目ごとに右側へ実物を描くもの(WorldShowcase.tsx) */
+export type WorldScene = "light" | "pc" | "canvas" | "ragdoll" | "directory";
+
 export interface KodawariPoint {
   text: string;
   sub?: readonly string[];
+  /** この項目を出している間、右側に描く実物(世界観の項目はゲームの流れの順に並べる) */
+  scene?: WorldScene;
 }
 
 export interface KodawariContent {
@@ -137,12 +142,23 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     title: "世界観へのこだわり",
     color: "#e8e8e8",
     points: [
-      {text: "窓の外に 0 と 1 で描いたデータの海を作った"},
-      {text: "脱落すると体がラグドールになって燃えて欠けていくようにした"},
-      {text: "画像生成はノイズから絵が現れるようにした"},
-      {text: "ライターで火をつけるとディレクトリが侵食されて消えるようにした"},
-      {text: "部屋の PC で Windows 2000 風のデスクトップを動かした"},
-      {text: "WebGPU 専用にし、影を使わず半球光と AO だけで陰影を付けた"},
+      {
+        text: "WebGPU 専用にし、影を使わず半球光と AO だけで陰影を付けた",
+        scene: "light",
+      },
+      {
+        text: "部屋の PC で Windows 2000 風のデスクトップを動かした",
+        scene: "pc",
+      },
+      {text: "画像生成はノイズから絵が現れるようにした", scene: "canvas"},
+      {
+        text: "脱落すると体がラグドールになって燃えて欠けていくようにした",
+        scene: "ragdoll",
+      },
+      {
+        text: "ライターで火をつけるとディレクトリが侵食されて消えるようにした",
+        scene: "directory",
+      },
     ],
   },
 ];

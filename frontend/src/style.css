@@ -575,6 +575,35 @@ body,
   font-size: clamp(16px, 2vw, 38px);
 }
 
+/* 世界観の項目で右側に描く実物(src/present/WorldShowcase)。枠は付けず、見切れてもよいので右端まで使う */
+.present-world-showcase {
+  position: absolute;
+  top: 26vh;
+  right: 0;
+  bottom: 0;
+  width: 36vw;
+  overflow: hidden;
+}
+
+/* 右側に実物を描くときは、箇条書きの右端を実物の手前で止める */
+.present-outline.present-kodawari-points[data-beside="true"] {
+  right: 36vw;
+  font-size: clamp(14px, 1.7vw, 32px);
+}
+
+.present-outline.present-kodawari-points[data-beside="true"] > li + li {
+  margin-top: 0.4em;
+}
+
+/* 1 手順ごとに足す項目(小見出し)は、そのこだわりの立方体の縁の色にする。補足は白のまま */
+.present-kodawari-points > li {
+  color: var(--kodawari-color, #fff);
+}
+
+.present-kodawari-points ul {
+  color: #fff;
+}
+
 /* こだわりの縦の箇条書き(項目の下に補足を入れ子にする) */
 .present-outline {
   align-self: center;
