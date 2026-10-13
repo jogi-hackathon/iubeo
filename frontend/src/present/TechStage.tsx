@@ -13,7 +13,11 @@ export function TechStage({step, elapsed}: {step: number; elapsed: number}) {
   return (
     <>
       {/* こだわりの Canvas は技術パートの間ずっと置いておき、こだわりの手順でだけ見せる */}
-      <KodawariStage shown={focus !== undefined} focus={focus ?? null} />
+      <KodawariStage
+        shown={focus !== undefined}
+        focus={focus?.index ?? null}
+        count={focus?.count ?? 0}
+      />
       {focus === undefined && <Slide id={id} elapsed={elapsed} />}
     </>
   );
