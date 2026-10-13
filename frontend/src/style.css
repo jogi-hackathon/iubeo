@@ -541,19 +541,21 @@ body,
   inset: 0;
 }
 
+/* 見出しの縦の中心を、こだわりの手順で横に置くファイル(Kodawari の HEADING)とそろえる */
 .present-kodawari-heading {
   position: absolute;
-  top: 6vh;
+  top: 14vh;
   left: 7vw;
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 52px);
-  font-weight: 500;
+  transform: translateY(-50%);
+  font-size: clamp(32px, 4.4vw, 84px);
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 /* こだわりの手順では、左にファイルが来るので空ける */
 .present-kodawari-heading[data-beside="true"] {
-  left: 12vw;
+  left: 17vw;
 }
 
 .present-kodawari-label {
@@ -566,7 +568,7 @@ body,
 
 .present-outline.present-kodawari-points {
   position: absolute;
-  top: 24vh;
+  top: 28vh;
   left: 7vw;
   right: 7vw;
   width: auto;

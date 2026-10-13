@@ -9,7 +9,7 @@ import type {Item} from "../items/types";
 
 /**
  * 技術パートの「6 つのこだわり」。ゲームに出てくるファイル(立方体)を 2 × 3 に浮かべ、
- * こだわりの手順に入ると、そのファイルが見出しの横へ移り、前のファイルは縮んで消える。
+ * こだわりの手順に入ると、全部のファイルが見出しの横へ集まり、そのこだわりのファイルだけが大きくなる。
  * どの手順でも同じ Canvas を使い続け(マウントし直さない)、ファイルの位置と大きさだけを追わせる
  */
 
@@ -177,11 +177,11 @@ const gridOf = (i: number): ScreenPoint =>
 /** 一覧で、ファイルの下に名前を置く距離 */
 const LABEL_BELOW = 0.16;
 /** こだわりの手順で、ファイルを置く見出しの横 */
-const HEADING: ScreenPoint = [0.075, 0.12];
+const HEADING: ScreenPoint = [0.1, 0.14];
 
 /** 立方体の大きさ(画面の高さに対する割合) */
 const GRID_SIZE = 0.13;
-const HEADING_SIZE = 0.08;
+const HEADING_SIZE = 0.12;
 /** 位置と大きさが目標へ寄る速さ(1/秒)。消えるときは箇条書きに重ならないよう速く縮める */
 const FOLLOW = 5;
 const VANISH = 14;
@@ -237,14 +237,13 @@ function FloatingFile({
       return;
     }
     const shown = focus === null || focus === index;
-    const [px, py] = focus === index ? HEADING : gridOf(index);
+    // こだわりの手順に入ったら全部を見出しの横に集め、見せる 1 つだけを大きくする(入れ替わりはその場で起きる)
+    const [px, py] = focus === null ? gridOf(index) : HEADING;
     const size = !shown ? 0 : focus === null ? GRID_SIZE : HEADING_SIZE;
     const k = 1 - Math.exp(-dt * (shown ? FOLLOW : VANISH));
-    // 消えるファイルはその場で縮む(位置は追わない)
-    if (shown) {
-      g.position.x += ((px - 0.5) * viewport.width - g.position.x) * k;
-      g.position.y += ((0.5 - py) * viewport.height - g.position.y) * k;
-    }
+    const move = 1 - Math.exp(-dt * FOLLOW);
+    g.position.x += ((px - 0.5) * viewport.width - g.position.x) * move;
+    g.position.y += ((0.5 - py) * viewport.height - g.position.y) * move;
     const scale = size * viewport.height;
     g.scale.setScalar(g.scale.x + (scale - g.scale.x) * k);
     const t = clock.elapsedTime + index * 0.7;
