@@ -57,12 +57,76 @@ body,
   height: 2px;
   transform: translate(-50%, -50%);
   background: #e5e5e5;
+  transition: opacity 0.3s ease;
+}
+
+.cover-bar[data-hidden="true"] {
+  opacity: 0;
 }
 
 .cover-bar-fill {
   height: 100%;
   background: #888;
   transition: width 0.4s ease-out;
+}
+
+.cover-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: min(480px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 32px 24px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  font:
+    18px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.5s ease,
+    visibility 0s 0.5s;
+}
+
+.cover-notice[data-shown="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.4s ease 0.3s,
+    visibility 0s 0.3s;
+}
+
+.cover-notice p {
+  margin: 0;
+}
+
+.cover-notice button {
+  font: inherit;
+  font-size: 16px;
+  color: #333;
+  background: #fff;
+  border: 1px solid #999;
+  padding: 12px 32px;
+  cursor: pointer;
+}
+
+.cover-notice button:hover:enabled {
+  border-color: #333;
+}
+
+.cover-notice button:disabled {
+  color: #bbb;
+  border-color: #ddd;
+  cursor: default;
 }
 
 .boot-error {

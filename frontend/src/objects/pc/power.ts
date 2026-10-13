@@ -1,6 +1,5 @@
 import {useSyncExternalStore} from "react";
 
-/** PC の電源。off は画面が真っ暗、booting は起動画面(ロゴと読み込み)、on は中で動くものを映す */
 export type PcPower = "off" | "booting" | "on";
 
 export type PcPowerOptions = {
@@ -13,10 +12,6 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
   return () => clearTimeout(id);
 };
 
-/**
- * PC の電源。部屋のチュートリアルの間は落としておき、最後に PC を触ると起動する(RoomScene/tutorial)。
- * 起動している間は、PC を使っていても画面へ入力を送らない(PcObject)
- */
 export const createPcPower = ({
   now = () => performance.now(),
   schedule = defaultSchedule,
@@ -50,12 +45,10 @@ export const createPcPower = ({
         listeners.delete(listener);
       };
     },
-    /** 起動を始めてからの時間(ms)。起動中でなければ 0 */
     elapsed: (): number =>
       power === "booting"
         ? Math.min(boot.ms, Math.max(0, now() - boot.startedAt))
         : 0,
-    /** 落ちているときだけ起動を始め、ms 後に点く */
     boot: (ms: number): void => {
       if (power !== "off") {
         return;

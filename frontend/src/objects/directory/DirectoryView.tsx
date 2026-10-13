@@ -70,10 +70,6 @@ function OutputSheets({sheets, count}: StackProps) {
   return <instancedMesh ref={ref} args={[geometry, material, sheets.length]} />;
 }
 
-/**
- * ディレクトリの見た目(山・成果物の板・俯瞰ビュー)。大きさ(look)ごとの SmallDirectory・LargeDirectory が、useDirectory の値を渡して描く。
- * 段々の芯はコライダー、束と紙はベイク対象(BakeTarget)、成果物の板は InstancedMesh(ベイクしない)
- */
 export function DirectoryView({
   objectId,
   position,

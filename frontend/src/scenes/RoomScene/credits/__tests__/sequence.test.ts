@@ -14,7 +14,6 @@ import type {CreditsPhase} from "../store";
 const DT = 1 / 60;
 const ROLL = 10;
 
-/** phase のまま seconds 秒進め、途中で起きた合図をまとめて返す */
 const run = (s: CreditsSequence, phase: CreditsPhase, seconds: number) => {
   const seen: SequenceEvents = {
     glitch: false,

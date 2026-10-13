@@ -1,17 +1,12 @@
 import type {AppPointerEvent} from "../kernel/app";
 import {clamp, contains, type Rect} from "../kernel/geometry";
 
-/**
- * 窓の中身に置く部品。押した部品が離すまで入力を受け取る(外へずらしても)。
- * 見た目は paint/controls.ts。ここは押す・つかむの解釈だけを持つ
- */
 export interface Control {
   readonly rect: Rect;
   enabled(): boolean;
   down(x: number, y: number): void;
   move(x: number, y: number): void;
   up(x: number, y: number): void;
-  /** 押しかけ・つかみかけを、何も起こさずにやめる(PC から離れたときなど) */
   cancel(): void;
   popup?(): Rect | null;
   hover?(x: number, y: number): void;
@@ -19,7 +14,6 @@ export interface Control {
 }
 
 export type Button = Control & {
-  /** 押していて、まだボタンの上にある(へこんで見せる) */
   pressed(): boolean;
 };
 
@@ -62,13 +56,11 @@ export const createButton = ({
 
 export type Slider = Control & {
   value(): number;
-  /** つまみの中心の x(rect の中) */
   thumbX(): number;
 };
 
 const SLIDER_MARGIN = 6;
 
-/** 横のスライダー。押した所へつまみを飛ばし、つかんだまま動かす。値は step に丸める */
 export const createSlider = ({
   rect,
   min,
@@ -289,7 +281,6 @@ const hits = (c: Control, x: number, y: number): boolean => {
   return contains(c.rect, x, y) || (popup != null && contains(popup, x, y));
 };
 
-/** 部品をまとめ、窓の中身への入力を、押した部品へ届ける */
 export const createControlSet = (
   source: readonly Control[] | (() => readonly Control[]),
 ) => {
@@ -306,11 +297,9 @@ export const createControlSet = (
       return current();
     },
     cancel,
-    /** 入力を部品へ渡す。どれかの部品が受け取ったら true(描き直しの目安) */
     pointer: (event: AppPointerEvent): boolean => {
       const {x, y} = event;
       if (event.type === "down") {
-        // 前の押しかけが残っていたら(up を受け取れなかったとき)、ここで手放す
         const released = captured !== null;
         captured?.cancel();
         captured = null;

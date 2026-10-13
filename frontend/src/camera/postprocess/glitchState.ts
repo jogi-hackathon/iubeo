@@ -1,5 +1,7 @@
 import {uniform} from "three/tsl";
 
+import {sfxEngine} from "../../core/audio/sfx/engine";
+
 export const GLITCH_PEAK = 0.25;
 
 export const glitchEnvelope = (t: number): number => {
@@ -21,21 +23,32 @@ const prefersReducedMotion = (): boolean =>
 export type GlitchPulseOptions = {
   now?: () => number;
   reducedMotion?: () => boolean;
+  onPulse?: (ms: number) => void;
 };
 
 export const createGlitchPulse = ({
   now = () => performance.now(),
   reducedMotion = prefersReducedMotion,
+  onPulse,
 }: GlitchPulseOptions = {}) => {
   let startedAt = 0;
   let duration = 0;
+  let soundUntil = Number.NEGATIVE_INFINITY;
 
   return {
     pulse: (ms: number): void => {
-      if (reducedMotion() || ms <= 0) {
+      if (ms <= 0) {
         return;
       }
-      startedAt = now();
+      const at = now();
+      if (at >= soundUntil) {
+        onPulse?.(ms);
+      }
+      soundUntil = at + ms;
+      if (reducedMotion()) {
+        return;
+      }
+      startedAt = at;
       duration = ms;
     },
     strength: (): number =>
@@ -43,7 +56,9 @@ export const createGlitchPulse = ({
   };
 };
 
-export const cameraGlitch = createGlitchPulse();
+export const cameraGlitch = createGlitchPulse({
+  onPulse: (ms) => sfxEngine.them("glitch", ms),
+});
 
 export const glitchStrength = uniform(0);
 

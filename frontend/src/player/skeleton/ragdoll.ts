@@ -11,16 +11,8 @@ import {
 import {BONES, J, JOINT_COUNT, NECK} from "./joints";
 import {at} from "./pose";
 
-/**
- * ラグドールの計算の刻み。プレイヤーの移動(PHYSICS_STEP)より粗くして軽くする。
- * 描くときは writeRagdollPose で直前の 2 ステップの間を補間する
- */
 export const RAGDOLL_STEP = 1 / 60;
 export const RAGDOLL_ITERATIONS = 8;
-/**
- * 衝突は反復の何回に 1 回解くか(最後の反復では必ず解く)。
- * 衝突がラグドールの計算のほとんどを占めるので、骨の長さを保つ反復より少なくする
- */
 export const RAGDOLL_COLLIDE_EVERY = 4;
 export const RAGDOLL_DAMPING = 0.995;
 export const RAGDOLL_FRICTION = 0.6;
@@ -85,7 +77,6 @@ export interface Ragdoll {
   still: number;
   carry: number;
   pos: Float32Array;
-  /** 最後のステップを進める前の pos(描くときの補間用) */
   last: Float32Array;
   prev: Float32Array;
   contact: Float32Array;
@@ -376,10 +367,6 @@ export const stepRagdoll = (
   }
 };
 
-/**
- * 描く姿勢を out に書く。計算の刻みは画面のフレームより粗いので、最後のステップの前後を余り時間(carry)で補間する
- * (1 ステップ遅れて描く代わりに、フレームごとのステップ数のばらつきでカクつかない)
- */
 export const writeRagdollPose = (r: Ragdoll, out: Float32Array): void => {
   const t = Math.min(1, r.carry / RAGDOLL_STEP);
   for (let i = 0; i < r.pos.length; i++) {

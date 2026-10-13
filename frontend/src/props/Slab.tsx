@@ -13,6 +13,7 @@ interface SlabProps {
   material?: Material;
   ao?: AOMode;
   blocksCamera?: boolean;
+  renderOrder?: number;
 }
 
 export function Slab({
@@ -22,6 +23,7 @@ export function Slab({
   material,
   ao,
   blocksCamera,
+  renderOrder,
 }: SlabProps) {
   const geometry = useMemo(
     () => buildSlabGeometry(polygon, offset),
@@ -34,6 +36,7 @@ export function Slab({
       <mesh
         geometry={geometry}
         userData={aoModeUserData(ao)}
+        {...(renderOrder === undefined ? {} : {renderOrder})}
         {...(material ? {material} : {})}
       >
         {material ? null : <meshStandardMaterial color={color} />}

@@ -7,7 +7,6 @@ import {COLORS, FONT, FONT_BOLD} from "../theme/classic";
 import {paintIcon} from "../theme/icons";
 import {createButton, createControlSet} from "../toolkit/controls";
 
-/** マッチングのアプリが使う、ゲームの流れ(flow/gameFlow)の口 */
 export type MatchmakingPort = {
   getState(): GameFlowState;
   subscribe(listener: () => void): () => void;
@@ -56,7 +55,6 @@ const phaseOf = (state: GameFlowState): Phase => {
   }
 };
 
-/** 流れるバーを出して時を刻む間(接続中・探している間・見つかってから試合に入るまで) */
 const busy = (state: GameFlowState): boolean =>
   state.status !== "inSession" &&
   ["connecting", "waiting", "found"].includes(phaseOf(state));
@@ -66,7 +64,6 @@ const formatElapsed = (ms: number): string => {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 };
 
-/** 今の状態で出す文(1 つ目が本文、2 つ目は待ち時間やエラーの中身などの補足) */
 export const matchmakingLines = (
   state: GameFlowState,
   elapsedMs: number | null,
@@ -98,11 +95,6 @@ export const matchmakingLines = (
   }
 };
 
-/**
- * 接続の窓(中身はマッチング。プレイヤーは相手を探すのではなく、セッションへつながれるのを待つ側なので、画面ではそう呼ぶ)。
- * 待機・取り下げをゲームの流れへ伝え、待っている間は流れるバーと待機時間を出す。
- * 接続先が決まったら、そのまま画面へ飛び込む(シーンの切り替えが PC の画面を入口にする)
- */
 export const createMatchmakingApp = ({
   flow,
   now = () => Date.now(),

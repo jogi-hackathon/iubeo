@@ -51,6 +51,8 @@ export const FROSTED_GLASS: FrostedGlassParams = {
   gridOpacity: 0,
 };
 
+export const FROSTED_GLASS_RENDER_ORDER = 1;
+
 const DETAIL_SCALE = 2.7;
 const DETAIL_OFFSET = [5.2, 1.3] as const;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -65,18 +67,6 @@ const diskOffsets = (count: number): Array<readonly [number, number]> =>
 
 const noiseVec2 = (q: Node<"vec2">): Node<"vec2"> => mx_noise_vec3(q).xy;
 
-/**
- * すりガラス(型板ガラス風)のマテリアル。背後(ビューポート)を、ガラスの面に固定したノイズでずらして見せる:
- * 1. 面内座標 (u, v) = (位置·uAxis, y)(mesh のローカル座標。ガラスに固定。向きが違う複数の mesh でも同じ模様になる)でノイズを引き、
- *    screenUV をずらす(ずれは深さに反比例)。そこへ少数の点でごく弱いぼかしをかける。反射・白寄せはしない(背後の明るさをそのまま見せる)
- * 2. 面内座標の細い格子の線を、同じノイズで波打たせて、背景に乗算する(薄いグレー。gridOpacity が 0 なら描かない)
- *
- * viewportMipTexture はこの 1 つのノードだけを作り、sample() で位置を変える(複製は同じフレームバッファを共有するので、
- * ビューポートのコピーは描画あたり 1 回)。マテリアルも複数の mesh で共有すること(マテリアルごとにコピーが走る)。
- * alpha は 1(背後の見え方は、サンプルしたビューポートの色で作る)。透明物なので、不透明物の後に描かれる。
- *
- * @param uAxis ガラスの面の水平方向の軸(mesh のローカル座標の単位ベクトル)。面内座標の横軸
- */
 export const createFrostedGlassMaterial = (
   uAxis: Vec3,
   params: FrostedGlassParams = FROSTED_GLASS,
@@ -113,7 +103,6 @@ export const createFrostedGlassMaterial = (
     noise.mul(aspect).mul(uvPerMeter.mul(distortion)),
   );
 
-  // 背後の色。弱いぼかし(円盤状の少数の点、mip レベル blurMipLevel の平均)
   // @types/three は viewportMipTexture を Node と型付けているが、実体は TextureNode(sample / level を持つ)
   const viewport = viewportMipTexture() as unknown as TextureNode;
   const spread = aspect.mul(blurRadius);

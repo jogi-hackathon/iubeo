@@ -2,7 +2,9 @@ import {Color} from "three";
 import {
   dot,
   float,
+  floor,
   Fn,
+  int,
   max,
   mix,
   perspectiveDepthToViewZ,
@@ -19,17 +21,9 @@ import type {PostProcessSettings} from "../settings";
 
 const LINE_COLOR = "#000000";
 
-/**
- * 物の縁に引く細い輪郭線。AO の pre-pass の法線・深度(内部解像度)を読み、
- * - 深度: 隣のテクセルが相対的に奥(手前の物の輪郭)
- * - 法線: 隣のテクセルと向きが違う(折れ目)
- * のどちらかを線にする。深度は奥側だけ見るので線は手前の物の側に 1 テクセル、法線は +x・+y だけ見て 1 テクセルに保つ。
- * 遠くは線が密になって汚れるので、距離で薄くする。空(深度 1)は距離で消える
- */
 export const createContour = (
   normal: TextureNode,
   depth: TextureNode,
-  /** シーンのカメラの near / far(pipeline が毎フレーム入れる。TSL の cameraNear は後処理の中では quad のカメラの値になる) */
   camera: {near: Node<"float">; far: Node<"float">},
 ) => {
   const strength = uniform(0);
@@ -41,19 +35,21 @@ export const createContour = (
 
   const edge = Fn(() => {
     const texel = vec2(1).div(screenSize);
+    const sourceSize = vec2(depth.size(int(0)) as Node<"ivec2">);
+    const snap = (offset: Node<"vec2">): Node<"vec2"> =>
+      floor(screenUV.add(offset).mul(sourceSize)).add(0.5).div(sourceSize);
     const distanceAt = (offset: Node<"vec2">): Node<"float"> =>
       perspectiveDepthToViewZ(
-        depth.sample(screenUV.add(offset)).level(float(0)).r,
+        depth.sample(snap(offset)).level(float(0)).r,
         camera.near,
         camera.far,
       ).negate();
     const normalAt = (offset: Node<"vec2">): Node<"vec3"> =>
-      normal.sample(screenUV.add(offset)).level(float(0)).xyz;
+      normal.sample(snap(offset)).level(float(0)).xyz;
 
     const z0 = distanceAt(vec2(0)).toVar();
     const n0 = normalAt(vec2(0)).toVar();
 
-    // 隣が奥にあるほど大きい(手前にあるときは 0)。z0 で割って距離によらない比にする
     const depthStep = float(0).toVar();
     for (const [dx, dy] of [
       [1, 0],

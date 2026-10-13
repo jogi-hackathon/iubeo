@@ -1,20 +1,23 @@
 import {useFrame} from "@react-three/fiber";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   type Camera,
   Euler,
   Matrix4,
+  type Group,
   type Mesh,
   Quaternion,
   Vector3,
 } from "three/webgpu";
 
 import {setSkipGTAO} from "../../camera/postprocess/skipGTAO";
+import {useSfxEmitter} from "../../core/audio/sfx/useSfxEmitter";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {createVirtualCursor} from "../../core/input/virtualCursor";
 import {getEyePosition, localPlayer} from "../../player";
 import {useInteraction} from "../interaction/useInteraction";
 import {useLayoutSlot} from "../layoutContext";
+import {useObjectState} from "../objectContext";
 import type {GameObject} from "../types";
 import {BootScreen} from "./bootScreen";
 import {type CrtControls, createCrtMaterial} from "./crtMaterial";
@@ -31,13 +34,13 @@ import {
 import {pcPower, usePcPower} from "./power";
 import type {PcProgram} from "./program";
 import {programOf} from "./programs";
+import {engineKeyboard} from "./search/browser/engineScreen";
 import {type PcPhase, pcSession, usePcSession} from "./session";
 
 const VIEW_SECONDS = 0.5;
 const VIEW_DISTANCE = 0.36;
 const POWER_RATE = 5;
 const BOOT_RATE = 2.4;
-/** 電源を入れたとき(起動画面)の管の点き方。ふだんより、ゆっくり */
 const POWER_ON_RATE = 1.6;
 const POWER_ON_BOOT_RATE = 1.2;
 const PREWARM_DISTANCE = 4;
@@ -46,6 +49,8 @@ const UP = new Vector3(0, 1, 0);
 const eye = new Vector3();
 const pcPosition = new Vector3();
 const euler = new Euler(0, 0, 0, "YXZ");
+
+const SWIPE_FULL_PX = 30;
 
 export function PcObject({object}: {object: GameObject}) {
   const {item} = useLayoutSlot();
@@ -61,6 +66,16 @@ export function PcObject({object}: {object: GameObject}) {
   }, [crt]);
 
   const power = usePcPower();
+  const root = useRef<Group>(null);
+  const sfx = useSfxEmitter(["pcFan", "key", "click", "swipe"], root);
+  const {visible} = useObjectState();
+  useEffect(() => {
+    if (power !== "off" && visible) {
+      sfx.play("pcFan");
+    } else {
+      sfx.stop("pcFan");
+    }
+  }, [power, visible, sfx]);
   const boot = useBootDisplay(power === "booting");
   const powered = power === "on";
 
@@ -79,6 +94,16 @@ export function PcObject({object}: {object: GameObject}) {
   const session = usePcSession();
   const using = session.objectId === object.id && session.phase === "active";
   const mine = session.objectId === object.id;
+  useEffect(() => {
+    if (!using) {
+      return;
+    }
+    const keyboard = engineKeyboard();
+    keyboard.onKey = () => sfx.play("key");
+    return () => {
+      keyboard.onKey = undefined;
+    };
+  }, [using, sfx]);
   const showing =
     powered &&
     (program.alwaysOn === true || (mine && session.phase !== "idle"));
@@ -90,23 +115,35 @@ export function PcObject({object}: {object: GameObject}) {
     return mesh ? registerPcScreen(object.id, mesh) : undefined;
   }, [object.id]);
 
+  const onPress = useCallback(
+    (phase: "down" | "up") => sfx.play("click", phase),
+    [sfx],
+  );
+  const onMove = useCallback(
+    (distance: number) =>
+      sfx.play("swipe", Math.min(1, distance / SWIPE_FULL_PX)),
+    [sfx],
+  );
   const nativeCursor = useMemo<PcCursor>(() => ({x: 0, y: 0}), []);
   useNativePointer({
     enabled: using && powered && session.pointer === "native",
     screen,
     screenRef,
     cursor: nativeCursor,
+    onPress,
+    onMove,
   });
   const virtualCursor = useMemo(() => createVirtualCursor(), []);
   useVirtualPointer({
     enabled: mine && session.pointer === "virtual",
-    // 電源が入っていない間(起動中も)は画面へ入力を送らないが、右クリックや Esc で離れることはできる
     using: using && session.pointer === "virtual",
     active: using && powered && session.pointer === "virtual",
     screen,
     screenRef,
     cursor: virtualCursor,
     onLeave: pcSession.leave,
+    onPress,
+    onMove,
   });
 
   const drive = useMemo(
@@ -190,7 +227,7 @@ export function PcObject({object}: {object: GameObject}) {
   }, FRAME_PRIORITY.camera);
 
   return (
-    <>
+    <group ref={root}>
       <program.Runner
         object={object}
         screen={screen}
@@ -208,13 +245,12 @@ export function PcObject({object}: {object: GameObject}) {
         }
         screenRef={screenRef}
       />
-    </>
+    </group>
   );
 }
 
 type BootDisplay = {screen: BootScreen; crt: CrtControls};
 
-/** 起動画面とその CRT。電源を入れる PC(部屋の PC)だけが要るので、起動している間だけ作る(作った effect の片付けで捨てる) */
 const useBootDisplay = (booting: boolean): BootDisplay | null => {
   const [boot, setBoot] = useState<BootDisplay | null>(null);
   useEffect(() => {
@@ -244,7 +280,6 @@ const approach = (
 const easeInOut = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
-/** 画面の正面に寄る距離。view.fill があれば、画面が視界のその割合を占める距離(縦と横のきつい方に合わせる) */
 const viewDistance = (
   program: PcProgram,
   camera: Camera,

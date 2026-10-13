@@ -56,13 +56,8 @@ import {OBJECT_ID_KEY, registerTarget} from "../interaction/targets";
 import {DESK_HEIGHT} from "./desk";
 
 const MEMO_POSITION: Vector3Tuple = [-0.5, DESK_HEIGHT, -0.2];
-/** 伝票の表を向ける先(机の座標系の x, z)。机の手前中央、プレイヤーが立つあたり */
 const MEMO_FACING = [0, 0.75] as const;
 
-/**
- * 机の左奥に置くメモ置き(クリップ)。伝票はクリップからまっすぐ下がり、柱は紙の後ろに立つ。
- * 表は机の手前中央へ向ける。寸法は紙(58mm × 120mm)に対するもので、机の上では全体を MEMO_SCALE 倍にして読みやすくする
- */
 export const MEMO_STAND = {
   position: MEMO_POSITION,
   yaw: Math.atan2(
@@ -73,12 +68,9 @@ export const MEMO_STAND = {
   baseHeight: 0.008,
   stemRadius: 0.003,
   stemHeight: 0.125,
-  /** クリップ。奥行きは、巻いて前へ出る紙の上端まで挟めるだけ取る */
   clip: [0.03, 0.012, 0.024] as Vector3Tuple,
-  /** 柱の位置(紙の後ろ) */
   stemZ: -0.008,
 } as const;
-/** 机の上での拡大率(紙も台も) */
 export const MEMO_SCALE = 1.5;
 
 const CYLINDER_SEGMENTS = 12;
@@ -96,7 +88,6 @@ const STEM_GEOMETRY = new CylinderGeometry(
   8,
 );
 
-/** 置かれた伝票の表と裏のマテリアル。表の絵は伝票ごとに違うので、そのたびに作る */
 const createSlipMaterials = (front: Texture) => ({
   frontMaterial: new MeshStandardMaterial({
     map: front,
@@ -112,8 +103,6 @@ const createSlipMaterials = (front: Texture) => ({
   }),
 });
 
-// 伝票が飛んでくるまで紙はマウントされないので、見本をウォームアップに描かせる(クリップは常に出ているので要らない)。
-// 表は絵が違うだけでシェーダーは同じなので、見本では裏の絵を使い回す
 registerShaderSwatch("workspaceMemo", () => {
   const {frontMaterial, backMaterial} = createSlipMaterials(slipBackTexture());
   const strip = createStripGeometry();
@@ -122,14 +111,12 @@ registerShaderSwatch("workspaceMemo", () => {
   return group;
 });
 
-/** 伝票の根元(帯の原点)の置き場(台の座標系)。クリップの下から紙の長さぶん下がったところ。巻きで上端が少し前へ出る */
 const SLIP_ROOT: Vector3Tuple = [
   0,
   MEMO_STAND.baseHeight + MEMO_STAND.stemHeight - SLIP_LENGTH * 0.985,
   0,
 ];
 
-/** 机の座標系での、置かれた伝票の姿勢 */
 const restQuaternion = new Quaternion().setFromAxisAngle(
   new Vector3(0, 1, 0),
   MEMO_STAND.yaw,
@@ -139,16 +126,12 @@ const restPosition = new Vector3(...SLIP_ROOT)
   .applyQuaternion(restQuaternion)
   .add(new Vector3(...MEMO_STAND.position));
 
-/** 拡大して見るときに寄る先: 置かれた伝票の真ん中(机の座標系)。カメラは表の正面から、伝票と同じ向きで見る */
 const viewCenter = new Vector3(0, (SLIP_LENGTH * MEMO_SCALE) / 2, 0)
   .applyQuaternion(restQuaternion)
   .add(restPosition);
-/** 拡大したときに伝票が画面の高さに占める割合 */
 const MEMO_VIEW_FILL = 0.85;
-/** 寄る(戻る)のにかける時間 */
 const MEMO_VIEW_SECONDS = 0.45;
 
-/** 縦の画角 fov(度)で、伝票が画面の高さの MEMO_VIEW_FILL を占める距離 */
 export const memoViewDistance = (fov: number): number =>
   (SLIP_LENGTH * MEMO_SCALE) /
   2 /
@@ -168,13 +151,8 @@ const fromPosition = new Vector3();
 const fromQuaternion = new Quaternion();
 const fromScale = new Vector3();
 
-/** メモ置きを狙うときの当たり(台の座標系)。細い紙と柱を狙いやすいよう、まとめて箱で受ける */
 const HIT_BOX: Vector3Tuple = [SLIP_WIDTH + 0.012, 0.145, 0.04];
 
-/**
- * 拡大して見ている間のカメラ。目の位置から伝票の正面へ寄り、クリックか Esc(ポインタの解放)で戻る。
- * 戻りきったら預かりを解く(memoView)
- */
 function MemoViewCamera({root}: {root: RefObject<Group | null>}) {
   const {phase} = useMemoView();
   const {freeCamera} = useDebugFlags();
@@ -246,11 +224,6 @@ function MemoViewCamera({root}: {root: RefObject<Group | null>}) {
 
 type Props = {workspaceId: string};
 
-/**
- * 机のメモ置き。常にクリップを出し、伝票が飛んできたら机の座標系で受け止めて、そのまま残す。
- * 飛び始め(手元の伝票の世界座標)は store の flight にあり、この group の世界行列の逆で机の座標系へ直す。
- * 伝票が置かれていて手が空いていれば、メモ置きを破線で示し(伝票のタスクが終わっていれば示さない)、クリックで寄って拡大して見る(MemoViewCamera)
- */
 export function WorkspaceMemo({workspaceId}: Props) {
   const placed = useMemoAt(workspaceId);
   const {flight} = useOrderSlip();
@@ -266,13 +239,11 @@ export function WorkspaceMemo({workspaceId}: Props) {
   const interactive =
     placed !== null && !mine && held === null && !controlLocked && alive;
   const targetId = `${workspaceId}.memo`;
-  // 伝票のタスクが終わっていれば破線で示さない(クリックで読み返すことはできる)
   const {phase} = useGameState();
   const myPlayerId = useMyPlayerId();
   const guide =
     interactive && placed !== null && !isMemoDone(placed, phase, myPlayerId);
 
-  // 見ている伝票が無くなった(セッションを離れた)・机ごと消えたら、その場で預かりを解く
   useEffect(() => {
     if (viewing && !placed) {
       memoView.reset();
@@ -302,7 +273,6 @@ export function WorkspaceMemo({workspaceId}: Props) {
     };
   }, [interactive, targetId, workspaceId]);
 
-  // 照準が合っている間は破線を止めて、黒の実線にする
   const aimed = useIsAimed(targetId);
   useLayoutEffect(() => {
     const group = root.current;
@@ -344,7 +314,6 @@ export function WorkspaceMemo({workspaceId}: Props) {
       s.scale.setScalar(MEMO_SCALE);
       return;
     }
-    // 飛び始めの世界座標を机の座標系へ
     r.updateWorldMatrix(true, false);
     inverse.copy(r.matrixWorld).invert();
     fromMatrix.fromArray(mine.from).premultiply(inverse);

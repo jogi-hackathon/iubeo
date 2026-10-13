@@ -24,7 +24,7 @@ import {sampleTexel} from "./texels";
 export {createBVHData} from "./rayKernel";
 
 // 1回の dispatch で処理するテクセル数。macOS の GPU ウォッチドッグ(数秒で強制終了)を避けるため、
-// 1 dispatch が長くなりすぎない大きさに抑える。重い/軽いに応じて調整する
+// 1 dispatch が長くなりすぎない大きさに抑える
 export const CHUNK_TEXELS = 131072;
 
 export type BakeStats = {sampleMs: number; gpuMs: number; chunks: number};

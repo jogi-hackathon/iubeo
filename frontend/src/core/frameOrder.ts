@@ -1,8 +1,4 @@
-/**
- * useFrame の実行順(昇順)。R3F v9 では priority が正だと自動レンダーが止まるため、更新系は負の値で並べ、
- * 描画を自前で行う PostProcess が正の値を使い、描画の後に戻す処理(warmupRestore)はさらに後ろに置く。
- * 入力消費と身体の更新 → カメラ反映 の順を保証する
- */
+// R3F v9 では useFrame の priority が正だと自動レンダーが止まるので、正の値は描画を自前で行う PostProcess とその後ろだけに使う
 export const FRAME_PRIORITY = {
   player: -2,
   camera: -1,

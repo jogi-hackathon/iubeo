@@ -31,7 +31,6 @@ const initialState = (): GameState => ({
 export const createGameStore = ({
   now = () => Date.now(),
 }: GameStoreOptions = {}) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: GameState = initialState();
   const listeners = new Set<() => void>();
 

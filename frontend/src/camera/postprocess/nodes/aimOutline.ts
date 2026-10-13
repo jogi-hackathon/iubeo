@@ -6,6 +6,7 @@ import {
   max,
   mix,
   screenSize,
+  smoothstep,
   screenUV,
   uniform,
   vec2,
@@ -16,10 +17,9 @@ import type {Node} from "three/webgpu";
 import type {SelectionMask} from "./selectionMask";
 
 const OUTLINE_COLOR = "#1a1a1a";
-/** アウトラインの太さ(マスクのテクセル。見えている部分をこの距離だけ外へ広げた輪が線になる。細めの線にするので 1.5) */
-const OUTLINE_THICKNESS = 1.5;
-const OUTLINE_STRENGTH = 4;
-/** 広げる方向(8 方向、長さ 1) */
+const OUTLINE_THICKNESS = 1;
+const EDGE_LOW = 0.3;
+const EDGE_HIGH = 0.7;
 const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
   [-1, 0],
@@ -31,11 +31,6 @@ const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
   [-Math.SQRT1_2, -Math.SQRT1_2],
 ];
 
-/**
- * 狙ったオブジェクトの外周(細い線)。選択は selectionMask の R(見えている部分)と B(全体のシルエット)を読む。
- * 見えている部分を 8 方向に OUTLINE_THICKNESS だけ広げ、シルエットの内側を除いた輪を線にする。
- * バイリニアで読むので輪の外側はなだらかに消える
- */
 export const createAimOutline = (selection: SelectionMask) => {
   const {visible} = selection;
   const thickness = uniform(OUTLINE_THICKNESS);
@@ -53,7 +48,9 @@ export const createAimOutline = (selection: SelectionMask) => {
       );
     }
     const silhouette = visible.sample(screenUV).level(float(0)).b;
-    return ring.mul(silhouette.oneMinus());
+    return smoothstep(EDGE_LOW, EDGE_HIGH, ring).mul(
+      smoothstep(EDGE_LOW, EDGE_HIGH, silhouette).oneMinus(),
+    );
   })();
 
   return {
@@ -62,13 +59,12 @@ export const createAimOutline = (selection: SelectionMask) => {
       weight: Node<"float"> = float(1),
     ): Node<"vec4"> =>
       vec4(
-        mix(
-          color.rgb,
-          outlineColor,
-          clamp(edge.mul(OUTLINE_STRENGTH), 0, 1).mul(weight),
-        ),
+        mix(color.rgb, outlineColor, clamp(edge, 0, 1).mul(weight)),
         color.a,
       ),
+    setPixelRatio: (pixelRatio: number): void => {
+      thickness.value = OUTLINE_THICKNESS * pixelRatio;
+    },
     dispose: (): void => {},
   };
 };

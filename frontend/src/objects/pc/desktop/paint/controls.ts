@@ -3,7 +3,6 @@ import {COLORS, FONT} from "../theme/classic";
 import type {Button, Dropdown, Slider, Tabs} from "../toolkit/controls";
 import {raised, sunken, sunkenThin} from "./bevel";
 
-/** 押しボタン。既定のボタン(Enter で押せるもの)は黒い枠で囲む */
 export const paintButton = (
   ctx: CanvasRenderingContext2D,
   button: Button,
@@ -30,7 +29,6 @@ export const paintButton = (
   ctx.font = FONT;
   ctx.textAlign = "center";
   if (!enabled) {
-    // 使えないボタンの文字は、白い影を付けた灰色(2000 と同じ)
     ctx.fillStyle = COLORS.highlight;
     ctx.fillText(label, cx + 1, cy + 1, r.width - 8);
     ctx.fillStyle = COLORS.grayText;
@@ -41,7 +39,6 @@ export const paintButton = (
   ctx.textAlign = "left";
 };
 
-/** 横のスライダー(溝・目盛り・つまみ) */
 export const paintSlider = (
   ctx: CanvasRenderingContext2D,
   slider: Slider,
@@ -68,7 +65,6 @@ export const paintSlider = (
   raised(ctx, thumb);
 };
 
-/** 進み具合のバー。終わりの見えない待ちは、ブロックの列を左から右へ流す(t は経過秒) */
 export const paintMarquee = (
   ctx: CanvasRenderingContext2D,
   r: Rect,
@@ -125,7 +121,6 @@ export const paintLevelMeter = (
   }
 };
 
-/** 見出し付きの彫った枠(グループボックス) */
 export const paintGroup = (
   ctx: CanvasRenderingContext2D,
   r: Rect,
@@ -250,10 +245,6 @@ export const paintDropdownList = <T>(
   });
 };
 
-/**
- * 幅に収まるように折り返す。日本語は 1 文字ずつ、英数字の続き(単語や URL)はまとめて送る。
- * 1 語だけで幅を超えるときは、その語も文字で切る
- */
 export const wrapText = (
   ctx: CanvasRenderingContext2D,
   text: string,

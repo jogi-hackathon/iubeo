@@ -10,13 +10,8 @@ import {useAimedObjectId} from "./aimStore";
 
 const SIZE = 4;
 const SIZE_AIMED = 8;
-// 輪は点より少し大きくしないと中の抜けが見えない
 const SIZE_HOLLOW = 7;
 
-/**
- * 照準の点。声が出ているときは塗りつぶし、ミュート中(声が届いていないとき)は
- * 中を抜いた輪にして、色を使わずに状態が分かるようにする
- */
 const dotStyle = (size: number, hollow: boolean): CSSProperties => ({
   position: "fixed",
   top: "50%",
@@ -67,7 +62,6 @@ export function Reticle() {
   if (!locked || freeCamera || spectate !== "alive" || taken) {
     return null;
   }
-  // VC につながっているのに声が届いていない(ミュート中・マイクが取れていない)ときだけ輪にする
   const hollow = voice.status === "ready" && !voice.transmitting;
   const size = hollow ? SIZE_HOLLOW : SIZE;
   return (

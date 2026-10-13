@@ -4,6 +4,7 @@ import type {
 } from "../../../../core/audio/devices";
 import {
   type AudioSettings,
+  MAX_GAME_VOLUME,
   MAX_MIC_VOLUME,
   MAX_VOICE_VOLUME,
 } from "../../../../core/audioSettings";
@@ -87,7 +88,7 @@ type Draft = {
   audio: AudioSettings;
 };
 
-const SIZE: Size = {width: 340, height: 360};
+const SIZE: Size = {width: 340, height: 400};
 const SENSITIVITY_STEP = 0.1;
 const VOLUME_STEP = 0.05;
 const DEFAULT_SENSITIVITY = 1;
@@ -97,6 +98,7 @@ export const SETTINGS_TAB = {mouse: 0, graphics: 1, sound: 2} as const;
 const BUTTON = {y: SIZE.height - 31, width: 75, height: 23};
 const VOLUME_GROUP_HEIGHT = 100;
 const METER_ROW_HEIGHT = 24;
+const GAME_ROW_HEIGHT = 40;
 const METER_FRAME_STRIDE = 2;
 const METER_SEGMENTS = 28;
 
@@ -109,7 +111,7 @@ const volumeRows = (top: number, extra = 0) => ({
 
 export const SETTINGS_LAYOUT = {
   tabs: {x: 8, y: 8, width: 324, height: 18},
-  panel: {x: 6, y: 25, width: 328, height: 292},
+  panel: {x: 6, y: 25, width: 328, height: 332},
   ok: {x: SIZE.width - 8 - BUTTON.width * 3 - 12, ...BUTTON},
   cancel: {x: SIZE.width - 8 - BUTTON.width * 2 - 6, ...BUTTON},
   apply: {x: SIZE.width - 8 - BUTTON.width, ...BUTTON},
@@ -123,9 +125,15 @@ export const SETTINGS_LAYOUT = {
     resolution: {x: 166, y: 54, width: 144, height: 21},
     fps: {x: 166, y: 86, width: 144, height: 21},
   },
-  speaker: volumeRows(36),
-  mic: volumeRows(36 + VOLUME_GROUP_HEIGHT + 8, METER_ROW_HEIGHT),
-  loadDevices: {x: 194, y: 280, width: 130, height: 23},
+  speaker: {
+    ...volumeRows(36, GAME_ROW_HEIGHT),
+    game: {x: 30, y: 36 + 66, width: 280, height: 30},
+  },
+  mic: volumeRows(
+    36 + VOLUME_GROUP_HEIGHT + GAME_ROW_HEIGHT + 8,
+    METER_ROW_HEIGHT,
+  ),
+  loadDevices: {x: 194, y: 320, width: 130, height: 23},
 } as const satisfies Record<string, Rect | Record<string, Rect>>;
 
 const TAB_WIDTHS = [56, 48, 64];
@@ -178,10 +186,6 @@ const text = (
   ctx.textAlign = "left";
 };
 
-/**
- * 設定の窓(マウス・画面・サウンド)。窓の中で変えた値は下書きに持ち、「適用」か「OK」で保存して反映する。
- * 「キャンセル」と × は下書きを捨てる
- */
 export const createSettingsApp = (
   {mouse, graphics, audio, devices, micMeter}: SettingsPorts,
   frames: FrameSchedule = defaultFrames,
@@ -348,6 +352,14 @@ export const createSettingsApp = (
       value: () => draft.audio.outputDeviceId,
       onChange: (value) => edit("audio", {outputDeviceId: value}),
     });
+    const gameVolume = createSlider({
+      rect: SETTINGS_LAYOUT.speaker.game,
+      min: 0,
+      max: MAX_GAME_VOLUME,
+      step: VOLUME_STEP,
+      value: () => draft.audio.gameVolume,
+      onChange: (value) => edit("audio", {gameVolume: value}),
+    });
     const voiceVolume = createSlider({
       rect: SETTINGS_LAYOUT.speaker.volume,
       min: 0,
@@ -381,7 +393,7 @@ export const createSettingsApp = (
     const pages: readonly (readonly Control[])[] = [
       [sensitivity, resetMouse],
       [resolution, fps],
-      [output, voiceVolume, input, micVolume, loadDevices],
+      [output, gameVolume, voiceVolume, input, micVolume, loadDevices],
     ];
     const pageDropdowns: readonly (readonly Dropdown<unknown>[])[] = [
       [],
@@ -470,6 +482,8 @@ export const createSettingsApp = (
     };
 
     const paintSound = (ctx: CanvasRenderingContext2D) => {
+      const {game} = SETTINGS_LAYOUT.speaker;
+      const speakerGroup = SETTINGS_LAYOUT.speaker.group;
       paintVolume(
         ctx,
         "スピーカー",
@@ -478,6 +492,15 @@ export const createSettingsApp = (
         voiceVolume,
         "ボイスチャットの音量",
       );
+      text(ctx, "ゲームの音量", speakerGroup.x + 14, game.y - 10, "left");
+      text(
+        ctx,
+        percent(gameVolume.value()),
+        speakerGroup.x + speakerGroup.width - 14,
+        game.y - 10,
+        "right",
+      );
+      paintSlider(ctx, gameVolume, 10);
       paintVolume(
         ctx,
         "マイク",

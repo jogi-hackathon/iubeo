@@ -62,7 +62,6 @@ styled.bind(sceneTransitionManager);
 
 sceneTransitionManager.onPrepare(({to}) => {
   resetSceneReady(to);
-  // 新しいシーンは覆いの下で描かれ、準備ができてからウォームアップし直す。それまでに作られるパイプラインは登録漏れではない
   disarmPipelineWatch();
 });
 
@@ -70,7 +69,6 @@ applySpawn(localPlayer, spawnOf(initial));
 
 sceneTransitionManager.onLeave(() => overview.reset());
 sceneTransitionManager.onLeave(() => pcSession.reset());
-// 窓の外のクレジットを流している途中でも、遷移(マッチング成立など)はプレイヤー自身の視点から始める
 sceneTransitionManager.onLeave(() => credits.reset());
 
 sceneTransitionManager.onEnter(({to}) => applySpawn(localPlayer, spawnOf(to)));

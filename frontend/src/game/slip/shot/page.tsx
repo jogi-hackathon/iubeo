@@ -7,9 +7,7 @@ import {SAMPLE_SLIP} from "../content";
 import {HandheldTerminal} from "../HandheldTerminal";
 import {stageStart, TERMINAL_SEQUENCE_MS} from "../terminal";
 
-/** 手首の中点(hold のポーズ)。端末はここに置く */
 const HAND: [number, number, number] = [0, 1.48, -0.51];
-/** 一人称の目。伝票を見る段で伝票が目の前に来るよう、少し下を向く */
 const EYE: [number, number, number] = [0, EYE_HEIGHT, -EYE_FORWARD];
 const AIM: [number, number, number] = [0, 1.5, -0.6];
 const FOV = 75;
@@ -106,7 +104,6 @@ function Label({children}: {children: string}) {
   );
 }
 
-/** 一連の動きを繰り返す(ブラウザで眺める用) */
 function LivePage() {
   const started = performance.now();
   const period = TERMINAL_SEQUENCE_MS + LOOP_REST_MS;
@@ -126,7 +123,6 @@ const ROWS = [
   {label: "寄り", fov: CLOSE_FOV},
 ] as const;
 
-/** 段ごとの 1 コマを、一人称と寄りの 2 列で並べる(撮影用) */
 function FramesPage() {
   return (
     <div id="shots" style={{background: "#eceae6"}}>
