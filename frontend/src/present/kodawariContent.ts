@@ -18,7 +18,7 @@ export interface KodawariContent {
   /** 一覧で立方体の下に出す名前 */
   label: string;
   title: string;
-  /** 立方体の縁の色 */
+  /** 立方体の縁の色。ゲームのファイルと同じ 6 色(backend/internal/session/layout.go の directoryStock) */
   color: string;
   /** 最初の項目を出す手順で話す台詞(以降の手順は項目そのもの) */
   line: string;
@@ -31,7 +31,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "ゲーム内の PC のブラウザは、iframe でもモックでもなく Firefox のエンジンそのものです。firefox-wasm をフォークして JIT と日本語の表示を改善しました",
     label: "ブラウザ",
     title: "ブラウザへのこだわり",
-    color: "#4f8cff",
+    color: "#1d6fe0",
     points: [
       {
         text: "本物の Firefox のエンジンを Wasm で動かした",
@@ -54,7 +54,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "インフラは wrangler ではなく、ベータ版の新しい CLI cf を使い、TypeScript 1 ファイルに書きました",
     label: "cf",
     title: "cf へのこだわり",
-    color: "#f38020",
+    color: "#f4a261",
     points: [
       {text: "wrangler ではなくベータ版の新しい CLI cf を使った"},
       {
@@ -80,7 +80,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "計測の仕組みを先に作り、20Hz の位置を 25 バイトのバイナリにして受信量を 86% 減らしました",
     label: "パフォーマンス",
     title: "パフォーマンスへのこだわり",
-    color: "#34c759",
+    color: "#2a9d5c",
     points: [
       {text: "計測の仕組みを作り、道具の誤りから先に直した"},
       {
@@ -102,7 +102,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "ボイスチャットは MoQ で Opus を送り、ゲームの座標で相手ごとに距離で聞こえ方を変えました",
     label: "立体音響",
     title: "立体音響へのこだわり",
-    color: "#ff5fa2",
+    color: "#9b5de5",
     points: [
       {text: "MoQ / WebTransport の datagram で Opus を送った"},
       {text: "ゲームサーバーの座標で相手ごとに距離減衰をかけた"},
@@ -115,7 +115,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "Babylon.js ではなく Three.js を選び、ゲームエンジンが受け持つ部分を自分たちで作りました",
     label: "Three.js",
     title: "Three.js へのこだわり",
-    color: "#a78bfa",
+    color: "#ffd60a",
     points: [
       {
         text: "Babylon.js ではなく Three.js + React Three Fiber を選んだ",
@@ -140,7 +140,7 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     line: "真っ白な世界観を伝えるため、勝敗に関係しない部分まで作り込みました",
     label: "世界観",
     title: "世界観へのこだわり",
-    color: "#e8e8e8",
+    color: "#e63946",
     points: [
       {
         text: "WebGPU 専用にし、影を使わず半球光と AO だけで陰影を付けた",
