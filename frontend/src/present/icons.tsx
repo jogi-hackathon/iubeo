@@ -1,15 +1,12 @@
-import {siBabylondotjs, siBrave, siDiscord, siThreedotjs} from "simple-icons";
+import {siBrave, siDiscord, siThreedotjs} from "simple-icons";
 
 import awsUrl from "./logos/aws.svg";
 import chromeUrl from "./logos/chrome.svg";
 import cloudflareUrl from "./logos/cloudflare.svg";
 import dockerUrl from "./logos/docker.svg";
 import ec2Url from "./logos/ec2.svg";
-import firefoxUrl from "./logos/firefox.svg";
 import goUrl from "./logos/go.svg";
 import lambdaUrl from "./logos/lambda.svg";
-import typescriptUrl from "./logos/typescript.svg";
-import wasmUrl from "./logos/wasm.svg";
 import workersUrl from "./logos/workers.svg";
 
 /**
@@ -23,17 +20,13 @@ const LOGOS = {
   cloudflare: cloudflareUrl,
   docker: dockerUrl,
   ec2: ec2Url,
-  firefox: firefoxUrl,
   go: goUrl,
   lambda: lambdaUrl,
-  typescript: typescriptUrl,
-  wasm: wasmUrl,
   workers: workersUrl,
 } as const;
 
 /** Three.js のロゴは黒一色なので、黒い背景では白にする */
 const BRANDS = {
-  babylon: {d: siBabylondotjs.path, color: `#${siBabylondotjs.hex}`},
   brave: {d: siBrave.path, color: `#${siBrave.hex}`},
   discord: {d: siDiscord.path, color: `#${siDiscord.hex}`},
   three: {d: siThreedotjs.path, color: "#fff"},
@@ -48,10 +41,6 @@ const GLYPHS = {
     d: "M12 3l1.8 7.2L21 12l-7.2 1.8L12 21l-1.8-7.2L3 12l7.2-1.8z",
     color: CLOUDFLARE,
   },
-  check: {
-    d: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0M8 12.5l3 3l5-6",
-    color: WHITE,
-  },
   db: {
     d: "M4 5.5c0 1.7 3.6 3 8 3s8-1.3 8-3s-3.6-3-8-3s-8 1.3-8 3v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
     color: CLOUDFLARE,
@@ -64,8 +53,6 @@ const GLYPHS = {
     d: "M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3",
     color: WHITE,
   },
-  page: {d: "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6", color: WHITE},
-  relay: {d: "M4 9h15l-3-3M20 15H5l3 3", color: WHITE},
 } as const;
 
 export type IconName =

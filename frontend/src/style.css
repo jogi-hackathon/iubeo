@@ -491,13 +491,6 @@ body,
   font-size: 17px;
 }
 
-/* 矢印の付いた線(src/present/svgParts の Edge) */
-.present-edge {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.8);
-  stroke-width: 1.5;
-}
-
 /* 技術パートの構成図(src/present/ArchDiagram)。光らせた経路以外は暗くする */
 .present-group {
   fill: none;
@@ -542,66 +535,45 @@ body,
   font-weight: 600;
 }
 
-/* 見どころ 2: Three.js と Babylon.js の比較表 */
-.present-compare {
-  align-self: center;
-  width: 100%;
+/* 6 つのこだわり(src/present/Kodawari)。3D のファイルの上に HTML の文字を重ねる */
+.present-kodawari-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.present-kodawari-heading {
+  position: absolute;
+  top: 6vh;
+  left: 7vw;
+  margin: 0;
+  font-size: clamp(26px, 3.2vw, 52px);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+/* こだわりの手順では、左にファイルが来るので空ける */
+.present-kodawari-heading[data-beside="true"] {
+  left: 12vw;
+}
+
+.present-kodawari-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: clamp(16px, 2vw, 36px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.present-outline.present-kodawari-points {
+  position: absolute;
+  top: 24vh;
+  left: 7vw;
+  right: 7vw;
+  width: auto;
   font-size: clamp(16px, 2vw, 38px);
 }
 
-.present-compare table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.present-compare th,
-.present-compare td {
-  padding: 0.45em 0.8em;
-  border-bottom: 1px solid rgb(255 255 255 / 0.2);
-  text-align: left;
-}
-
-.present-compare thead th {
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.present-compare thead th > span {
-  margin-left: 0.6em;
-  padding: 0.1em 0.5em;
-  border: 1px solid currentColor;
-  border-radius: 0.3em;
-  font-size: 0.6em;
-  vertical-align: middle;
-}
-
-.present-compare tbody th {
-  font-weight: 400;
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-.present-compare td[data-good="true"] {
-  font-weight: 700;
-}
-
-.present-compare td[data-good="false"] {
-  opacity: 0.5;
-}
-
-.present-compare-icon {
-  width: 1.2em;
-  height: 1.2em;
-  margin-right: 0.4em;
-  vertical-align: -0.2em;
-}
-
-.present-compare p {
-  margin: 1.2em 0 0;
-  font-size: 0.8em;
-}
-
-/* 見どころの縦の箇条書き(小見出しの下に項目を入れ子にする) */
+/* こだわりの縦の箇条書き(項目の下に補足を入れ子にする) */
 .present-outline {
   align-self: center;
   width: 100%;
@@ -628,82 +600,6 @@ body,
   margin-left: 0.6em;
   font-size: 1.25em;
   font-weight: 700;
-}
-
-.present-infra {
-  display: flex;
-  align-items: center;
-  gap: 4vw;
-  width: 100%;
-  height: 100%;
-}
-
-.present-code {
-  flex: 1.2;
-  min-width: 0;
-  border: 1px solid rgb(255 255 255 / 0.3);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.present-code-name {
-  display: flex;
-  align-items: center;
-  gap: 0.6em;
-  padding: 0.5em 1em;
-  border-bottom: 1px solid rgb(255 255 255 / 0.2);
-  font:
-    clamp(11px, 0.9vw, 15px) ui-monospace,
-    Menlo,
-    monospace;
-  opacity: 0.6;
-}
-
-.present-code pre {
-  margin: 0;
-  padding: 1em 1.2em;
-  font:
-    clamp(11px, 1vw, 17px) / 1.5 ui-monospace,
-    Menlo,
-    monospace;
-  white-space: pre;
-  overflow: hidden;
-}
-
-.present-infra-side {
-  flex: 1;
-  font-size: clamp(15px, 1.4vw, 23px);
-  line-height: 1.6;
-}
-
-.present-infra-side p {
-  margin: 0 0 1em;
-}
-
-.present-code-icon {
-  width: 1.4em;
-  height: 1.4em;
-}
-
-.present-infra-lead {
-  display: flex;
-  align-items: center;
-  gap: 0.6em;
-  font-weight: 600;
-}
-
-.present-infra-points {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8em;
-  margin: 0;
-  padding-left: 1.1em;
-}
-
-.present-infra-icon {
-  width: 1.4em;
-  height: 1.4em;
-  flex: none;
 }
 
 .present-closing {

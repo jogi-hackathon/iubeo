@@ -49,24 +49,32 @@ export const DECKS = {
       line: "EC2 は Discord のコマンドで必要なときだけ起動し、KV の target で向き先を切り替えます。それ以外のときは Cloudflare Containers に流れます",
     },
     {
-      id: "browser",
-      line: "ゲーム内の PC のブラウザは、iframe でもモックでもなく Firefox のエンジンそのものです。firefox-wasm をフォークして、JIT の改善や日本語の表示に取り組みました",
+      id: "kodawari",
+      line: "ここからは、6 つのこだわりを紹介します",
     },
     {
-      id: "engine",
-      line: "3D は Babylon.js と比べて Three.js を選びました。Babylon.js はゲームの機能が揃っていますが、今回には多すぎてバンドルも大きく、AI エージェントで書くと品質が落ちました。足りない機能は Three.js の上に自分たちで作りました",
+      id: "k-browser",
+      line: "ゲーム内の PC のブラウザは、iframe でもモックでもなく Firefox のエンジンそのものです。firefox-wasm をフォークして JIT と日本語の表示を改善しました",
     },
     {
-      id: "server",
-      line: "ロードと通信は計測してから直しました。4G だと PC のブラウザが使えるまで 93.7 秒かかっていたのを 1.3 秒にし、位置の通信はバイナリにして受信量を 86% 減らしました",
+      id: "k-cf",
+      line: "インフラは wrangler ではなく、ベータ版の新しい CLI cf を使い、TypeScript 1 ファイルに書きました",
     },
     {
-      id: "infra",
-      line: "インフラは Cloudflare の新しい CLI cf で、TypeScript 1 ファイルに書きました",
+      id: "k-perf",
+      line: "計測の仕組みを先に作り、20Hz の位置を 25 バイトのバイナリにして受信量を 86% 減らしました",
     },
     {
-      id: "cost",
-      line: "EC2 は必要なときだけ起動して 3 時間で止まるようにし、普段は眠るコンテナに流しました。常時起動なら月 $47 のところ、止めている間は $4.57、遊ばれていない間のコンテナは $0 です",
+      id: "k-voice",
+      line: "ボイスチャットは MoQ で Opus を送り、ゲームの座標で相手ごとに距離で聞こえ方を変えました",
+    },
+    {
+      id: "k-three",
+      line: "Babylon.js ではなく Three.js を選び、ゲームエンジンが受け持つ部分を自分たちで作りました",
+    },
+    {
+      id: "k-world",
+      line: "真っ白な世界観を伝えるため、勝敗に関係しない部分まで作り込みました",
     },
     {
       id: "closing",
