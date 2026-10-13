@@ -6,7 +6,7 @@ import {createRenderer} from "../core/renderer";
 import {FILE_KIND} from "../items/file";
 import {HeldItem} from "../items/HeldItem";
 import type {Item} from "../items/types";
-import {KODAWARI_CONTENT} from "./kodawariContent";
+import {KODAWARI_CONTENT, KODAWARI_TITLE} from "./kodawariContent";
 import {WorldShowcase} from "./WorldShowcase";
 
 /**
@@ -185,7 +185,7 @@ export const KodawariStage = memo(function KodawariStage({
       <WorldShowcase scene={worldScene} />
       {!shown ? null : current === null ? (
         <>
-          <h2 className="present-kodawari-heading">6 つのこだわり</h2>
+          <h2 className="present-kodawari-heading">{KODAWARI_TITLE}</h2>
           {KODAWARI.map((k, i) => {
             const [x, y] = gridOf(i);
             return (
