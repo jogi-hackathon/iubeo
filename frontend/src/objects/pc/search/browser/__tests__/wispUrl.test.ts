@@ -4,6 +4,7 @@ import {
   describeWispHost,
   installWispTokenRewrite,
   replaceWispToken,
+  rebaseWispUrl,
   resolveWispUrl,
   searchTokenFrom,
   setFreshWispUrl,
@@ -272,5 +273,34 @@ describe("installWispTokenRewrite", () => {
       setFreshWispUrl(undefined);
       globalThis.WebSocket = original;
     }
+  });
+});
+
+describe("rebaseWispUrl", () => {
+  it("同じオリジン配下(/wisp/)の URL は、今のページの host と ws/wss に付け直す", () => {
+    expect(
+      rebaseWispUrl(
+        "wss://pr-1-iubeo.example.dev/wisp/?token=abc",
+        "https://pr-2-iubeo.example.dev/some/page",
+      ),
+    ).toBe("wss://pr-2-iubeo.example.dev/wisp/?token=abc");
+    expect(
+      rebaseWispUrl(
+        "wss://iubeo.example.dev/wisp/?token=abc",
+        "http://localhost:5173/",
+      ),
+    ).toBe("ws://localhost:5173/wisp/?token=abc");
+  });
+
+  it("別ホストの WISP やページが無いとき、壊れた URL はそのまま返す", () => {
+    expect(
+      rebaseWispUrl("wss://wisp.test/?token=abc", "https://iubeo.example.dev/"),
+    ).toBe("wss://wisp.test/?token=abc");
+    expect(
+      rebaseWispUrl("wss://iubeo.example.dev/wisp/?token=abc", undefined),
+    ).toBe("wss://iubeo.example.dev/wisp/?token=abc");
+    expect(rebaseWispUrl("not a url", "https://iubeo.example.dev/")).toBe(
+      "not a url",
+    );
   });
 });

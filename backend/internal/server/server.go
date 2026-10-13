@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"slices"
 	"time"
 
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
@@ -21,6 +23,7 @@ type Server struct {
 	matchmaker        *matchmaking.Matchmaker
 	tutorialPresence  *tutorial.Presence
 	allowedOrigins    []string
+	originRegexps     []*regexp.Regexp
 	wisp              *wisp.Issuer
 	wispURL           string
 	voice             *voice.Issuer
@@ -45,6 +48,28 @@ func New(signer *player.Signer, sessions *session.Manager, matchmaker *matchmaki
 
 func (s *Server) Handler() http.Handler {
 	return api.Handler(s)
+}
+
+// WithOriginRegexps は、完全一致の許可リストに加えて正規表現で許可する Origin を足す
+func (s *Server) WithOriginRegexps(res []*regexp.Regexp) *Server {
+	s.originRegexps = res
+	return s
+}
+
+// originAllowed は WebSocket 接続の Origin を許可リストと照合する。空の Origin は許可しない
+func (s *Server) originAllowed(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	if slices.Contains(s.allowedOrigins, origin) {
+		return true
+	}
+	for _, re := range s.originRegexps {
+		if re.MatchString(origin) {
+			return true
+		}
+	}
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

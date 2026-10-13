@@ -10,14 +10,24 @@ import * as backendEntry from "./worker/backend.ts" with {type: "cf-worker"};
 import * as frontendEntry from "./worker/frontend.ts" with {type: "cf-worker"};
 import * as wispEntry from "./worker/wisp.ts" with {type: "cf-worker"};
 
-const FRONTEND_NAME = "iubeo-frontend";
-const BACKEND_NAME = "iubeo-backend";
-const WISP_NAME = "iubeo-wisp";
+// presentation ブランチ専用の展示用スタック。Worker 名を変えてあるので、本番の Worker は上書きしない。
+// このブランチを main にマージしないこと(main の本番 deploy がこちらの名前を使ってしまう)
+const STACK = "-presentation";
+// 展示用スタック専用の KV namespace ID(cf kv namespaces create で作る)
+const PRESENTATION_KV_ID = "e6cb7f15e82741eda1458f663df3750b";
+const FRONTEND_NAME = `iubeo-frontend${STACK}`;
+const BACKEND_NAME = `iubeo-backend${STACK}`;
+const WISP_NAME = `iubeo-wisp${STACK}`;
 
-const WISP_ENABLED = process.env.IUBEO_WISP_ENABLED === "1";
+// PR プレビューの origin を許可する(backend の IUBEO_ALLOWED_ORIGIN_PATTERNS)。
+// 展示用 backend は 1 つしか無いので、どの PR のプレビューからも接続できるようにする
+const PREVIEW_ORIGIN_PATTERN = String.raw`https://pr-[0-9]+-iubeo-frontend-presentation\.naokimiura15\.workers\.dev`;
+
+// 展示用スタックは常に WISP を載せる(PR プレビューも同じ)
+const WISP_ENABLED = true;
 
 const backendContainer = defineContainer({
-  name: "iubeo-backend-app",
+  name: `iubeo-backend-app${STACK}`,
   schedulingPolicy: "durable-object",
   images: {
     base: {dockerfile: "../backend/Dockerfile"},
@@ -25,7 +35,7 @@ const backendContainer = defineContainer({
 });
 
 const wispContainer = defineContainer({
-  name: "iubeo-wisp-app",
+  name: `iubeo-wisp-app${STACK}`,
   schedulingPolicy: "durable-object",
   images: {
     base: {dockerfile: "../wisp/Dockerfile"},
@@ -51,7 +61,9 @@ const backendWorker = defineWorker({
       "wss://vc.thirdlf03.com/v1/signaling",
     ),
     IUBEO_VC_MEDIA_URL: bindings.text("https://media.thirdlf03.com:4443"),
-    TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
+    IUBEO_ALLOWED_ORIGIN_PATTERNS: bindings.text(PREVIEW_ORIGIN_PATTERN),
+    // 展示用の KV(target は未設定 = コンテナ経路)。本番の KV(EC2 切り替え)とは分ける
+    TARGET: bindings.kv({id: PRESENTATION_KV_ID}),
   },
 });
 
@@ -68,7 +80,7 @@ const wispWorker = defineWorker({
   },
   env: {
     WISP_KEY: bindings.secret(),
-    TARGET: bindings.kv({id: "8361d5aab4a34661bc593816214bcab6"}),
+    TARGET: bindings.kv({id: PRESENTATION_KV_ID}),
   },
 });
 
@@ -81,16 +93,17 @@ const frontendWorker = defineWorker({
     notFoundHandling: "single-page-application",
     runWorkerFirst: ["/api/*", "/healthz", "/wisp/*", "/judge"],
   },
+  // rate limit の namespace は本番(1001/1002)と分ける。同じ ID だと Worker をまたいでカウンタを共有する
   env: {
     BACKEND: bindings.worker({worker: BACKEND_NAME}),
     ...(WISP_ENABLED ? {WISP: bindings.worker({worker: WISP_NAME})} : {}),
     AI: bindings.ai(),
     JUDGE_IP_LIMIT: bindings.rateLimit({
-      namespace: "1001",
+      namespace: "2001",
       simple: {limit: 20, period: 60},
     }),
     JUDGE_GLOBAL_LIMIT: bindings.rateLimit({
-      namespace: "1002",
+      namespace: "2002",
       simple: {limit: 300, period: 60},
     }),
   },
