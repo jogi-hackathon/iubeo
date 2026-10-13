@@ -1,8 +1,10 @@
 import {useEffect} from "react";
 
 import {useMyPlayerId} from "../authority/useMyPlayerId";
+import {sfxEngine} from "../core/audio/sfx/engine";
 import {beginElimination} from "../core/spectate";
 import {usePlayersState} from "../player";
+import {TaskSounds} from "./TaskSounds";
 
 export function SpectateOnElimination() {
   const myPlayerId = useMyPlayerId();
@@ -13,8 +15,9 @@ export function SpectateOnElimination() {
   useEffect(() => {
     if (eliminated) {
       beginElimination();
+      sfxEngine.them("shatter");
     }
   }, [eliminated]);
 
-  return null;
+  return <TaskSounds />;
 }

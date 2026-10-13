@@ -6,7 +6,6 @@ export type MemoViewPhase = "idle" | "active" | "leaving";
 
 export type MemoViewState = {
   phase: MemoViewPhase;
-  /** 寄って見ているメモ置きのワークスペースの id */
   workspaceId: string | null;
 };
 
@@ -16,11 +15,6 @@ type Options = {
   lock?: () => () => void;
 };
 
-/**
- * 机のメモ置きの伝票を拡大して見る状態(クライアントだけが持つ)。
- * idle 以外の間は、プレイヤーの移動・視点入力とカメラを預かる(core/playerControl)。
- * 寄る(active)→ 戻る(leaving)→ 戻りきったら finish で預かりを解く
- */
 export const createMemoViewStore = ({
   lock = lockPlayerControl,
 }: Options = {}) => {

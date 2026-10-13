@@ -92,10 +92,12 @@ describe("parseGraphicsSettings", () => {
     );
   });
 
-  it("fpsLimit が null・0以下・NaN なら既定値", () => {
-    expect(parseGraphicsSettings({fpsLimit: null}).fpsLimit).toBe(
-      DEFAULTS.fpsLimit,
-    );
+  it("fpsLimit の null は上限なしとして残す", () => {
+    expect(parseGraphicsSettings({fpsLimit: null}).fpsLimit).toBeNull();
+  });
+
+  it("fpsLimit が無い・0以下・NaN なら既定値", () => {
+    expect(parseGraphicsSettings({}).fpsLimit).toBe(DEFAULTS.fpsLimit);
     expect(parseGraphicsSettings({fpsLimit: 0}).fpsLimit).toBe(
       DEFAULTS.fpsLimit,
     );

@@ -260,7 +260,6 @@ describe("installWispTokenRewrite", () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
     try {
       installWispTokenRewrite();
-      // エンジン（wisp-js）は、評価時の WebSocket を持ち続ける。包んだ後に評価されたものとして取っておく
       const Captured = globalThis.WebSocket;
       setFreshWispUrl("wss://example.test/wisp/?token=new");
 

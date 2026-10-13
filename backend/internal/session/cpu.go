@@ -10,19 +10,18 @@ import (
 )
 
 const (
-	cpuAccel        = 5.0
-	cpuDecel        = 4.0
-	cpuMinSpeed     = 0.35
-	cpuReachEpsilon = 0.03
-	cpuFaceEpsilon  = 0.12
-	cpuTurnInPlace  = 1.3
-	cpuPitchSpeed   = 2.5
-	cpuTaskEstimate = 9 * time.Second
-	cpuSafetyMargin = 15 * time.Second
-	cpuCalm         = 0.3
-	cpuGroundY      = 0.05
-	cpuGravity      = 9.8
-	// フェーズが 1 つ進むごとに下がる生存率。後半ほど CPU も落ちやすくする
+	cpuAccel         = 5.0
+	cpuDecel         = 4.0
+	cpuMinSpeed      = 0.35
+	cpuReachEpsilon  = 0.03
+	cpuFaceEpsilon   = 0.12
+	cpuTurnInPlace   = 1.3
+	cpuPitchSpeed    = 2.5
+	cpuTaskEstimate  = 9 * time.Second
+	cpuSafetyMargin  = 15 * time.Second
+	cpuCalm          = 0.3
+	cpuGroundY       = 0.05
+	cpuGravity       = 9.8
 	cpuSurvivalDecay = 0.01
 )
 

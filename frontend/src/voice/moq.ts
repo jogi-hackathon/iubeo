@@ -133,7 +133,6 @@ export class MoqVoice {
     }
   }
 
-  /** 接続が閉じたら解決する（start の前は解決しない） */
   get closed(): Promise<unknown> {
     return this.conn?.closed ?? new Promise(() => {});
   }
@@ -148,7 +147,6 @@ export class MoqVoice {
     watch?.sub?.close();
   }
 
-  // 相手が roster に居る間は購読を保つ。購読が終わったら（相手の再接続など）張り直す
   private async watchPeer(peer: string): Promise<void> {
     if (this.subs.has(peer) || !this.origin) {
       return;
@@ -228,14 +226,10 @@ export class MoqVoice {
   close(): void {
     try {
       this.conn?.close();
-    } catch {
-      /* already closed */
-    }
+    } catch {}
     try {
       this.encoder?.close();
-    } catch {
-      /* already closed */
-    }
+    } catch {}
     for (const watch of this.subs.values()) {
       watch.sub?.close();
     }

@@ -1,14 +1,13 @@
 import {useSyncExternalStore} from "react";
-import {Vector3, type Camera} from "three";
+import type {Vector3} from "three";
 
+import {audioManager} from "../core/audio/audioManager";
 import {isEliminated, subscribeSpectate} from "../core/spectate";
 import {createPlayerState, playerManager} from "../player";
 import type {PlayerState} from "../player";
 import {createVoiceAudio, type VoiceAudio} from "./audio";
 import {MoqVoice} from "./moq";
 import {Signaling} from "./signaling";
-
-const tmpForward = new Vector3();
 
 export type VoiceStatus = "idle" | "connecting" | "ready" | "unavailable";
 
@@ -39,10 +38,8 @@ const IDLE: VoiceState = {
 };
 
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
-// 続けてこれだけ失敗したら諦めて unavailable にする
-const MAX_FAILURES = 8;
-// これより長く繋がっていたら、失敗の回数を数え直す
-const STABLE_MS = 30_000;
+const MAX_CONSECUTIVE_RECONNECT_FAILURES = 8;
+const STABLE_CONNECTION_RESET_MS = 30_000;
 
 const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
   const res = await fetch("/api/v1/voice/token", {credentials: "same-origin"});
@@ -54,7 +51,6 @@ const fetchVoiceToken = async (): Promise<VoiceToken | null> => {
 };
 
 export const createVoiceEngine = () => {
-  // state は変更のたびに新しいオブジェクトにする（useSyncExternalStore の参照同一性のため）
   let state: VoiceState = IDLE;
   const listeners = new Set<() => void>();
 
@@ -85,10 +81,8 @@ export const createVoiceEngine = () => {
     }
   };
 
-  // 常時送信。マイクが取れていて、ミュートされておらず、脱落していないときだけ送る
   const transmitting = () => state.micReady && !muted && !isEliminated();
 
-  // 脱落したプレイヤーの声は鳴らさない
   const isSilenced = (peer: string) =>
     playerManager.getState().players.find((p) => p.playerId === peer)?.life ===
     "eliminated";
@@ -114,7 +108,6 @@ export const createVoiceEngine = () => {
           data.close();
           audio?.feed(peer, pcm);
         },
-        // エラーで閉じたデコーダは使えないので捨て、次のフレームで作り直す
         error: () => {
           if (decoders.get(peer) === created) {
             decoders.delete(peer);
@@ -146,21 +139,25 @@ export const createVoiceEngine = () => {
     if (!audio || audio.hasMic() || micStarting) {
       return;
     }
+    const owner = audio;
     micStarting = audio
       .startMic((pcm) => moq?.publishPcm(pcm, transmitting()))
       .then(() => {
+        audioManager.devices.refresh();
         state = {...state, micReady: true};
         set({transmitting: transmitting()});
       })
       .catch((e: unknown) => {
+        if (owner !== audio) {
+          return;
+        }
         console.warn("[voice] mic unavailable", e);
         micStarting = null;
         set({micReady: false, transmitting: false});
       });
   };
 
-  // signaling と MoQ だけを畳む。再接続のあいだもマイクと AudioContext は残す
-  const dropLink = () => {
+  const closeLinkKeepingAudio = () => {
     signaling?.close();
     moq?.close();
     signaling = null;
@@ -179,7 +176,7 @@ export const createVoiceEngine = () => {
     clearTimeout(retryTimer);
     unwatchLife?.();
     unwatchLife = undefined;
-    dropLink();
+    closeLinkKeepingAudio();
     scratch.clear();
     audio?.close();
     audio = null;
@@ -195,13 +192,12 @@ export const createVoiceEngine = () => {
     set({status: "unavailable", detail});
   };
 
-  // 切れたら、トークンを取り直して繋ぎ直す（トークンの期限切れで切られた場合も含む）
-  const reconnect = (why: string) => {
-    dropLink();
+  const reconnectWithFreshToken = (why: string) => {
+    closeLinkKeepingAudio();
     generation += 1;
     const mine = generation;
     failures += 1;
-    if (failures > MAX_FAILURES) {
+    if (failures > MAX_CONSECUTIVE_RECONNECT_FAILURES) {
       giveUp(why);
       return;
     }
@@ -226,7 +222,7 @@ export const createVoiceEngine = () => {
         giveUp("この環境ではVCを使わない");
         return;
       }
-      audio ??= createVoiceAudio();
+      audio ??= createVoiceAudio(audioManager);
       ensureMic();
       const link = new MoqVoice();
       moq = link;
@@ -283,17 +279,17 @@ export const createVoiceEngine = () => {
         link.closed.then(() => "media closed"),
       ]).then((why) => {
         if (mine === generation) {
-          if (performance.now() - readyAt > STABLE_MS) {
+          if (performance.now() - readyAt > STABLE_CONNECTION_RESET_MS) {
             failures = 0;
           }
-          reconnect(why);
+          reconnectWithFreshToken(why);
         }
       });
     } catch (e) {
       if (mine !== generation) {
         return;
       }
-      reconnect(e instanceof Error ? e.message : String(e));
+      reconnectWithFreshToken(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -316,7 +312,6 @@ export const createVoiceEngine = () => {
     const offSpectate = subscribeSpectate(() =>
       set({transmitting: transmitting()}),
     );
-    // 脱落した瞬間に、もう鳴らす予定に積んである声も止める
     const offLife = playerManager.on("lifeChanged", ({playerId, life}) => {
       if (life === "eliminated" && playerId !== myPlayerId) {
         closeDecoder(playerId);
@@ -345,10 +340,9 @@ export const createVoiceEngine = () => {
     stop,
 
     // ブラウザは最初の操作があるまで AudioContext を止めるので、クリックのたびに起こす。
-    // マイクの取得に失敗していた場合も、ここで取り直す
     unlock: (): void => {
       ensureMic();
-      void audio?.resume();
+      audioManager.unlock();
     },
 
     toggleMute: (): void => {
@@ -356,14 +350,10 @@ export const createVoiceEngine = () => {
       set({muted, transmitting: transmitting()});
     },
 
-    updateFrame: (camera: Camera, now: number): void => {
+    updateFrame: (now: number): void => {
       if (!audio || !myPlayerId) {
         return;
       }
-      const forward = camera.getWorldDirection(tmpForward);
-      const e = camera.matrixWorld.elements;
-      const up = {x: e[4]!, y: e[5]!, z: e[6]!};
-      audio.setListener(vectorOf(camera.position), vectorOf(forward), up);
       for (const p of playerManager.getState().players) {
         if (p.playerId === myPlayerId || !roster.has(p.playerId)) {
           continue;

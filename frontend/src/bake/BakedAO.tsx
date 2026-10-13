@@ -151,15 +151,6 @@ export const syncIntensity = (materials: readonly AOMaterial[]) => {
   }
 };
 
-/**
- * 事前ベイクした AO(`pnpm bake:ao --scene=<name>` の出力)を、シーンの静的 mesh に aoMap として貼る。
- * aoMap は間接光だけを減衰させる。GTAO(ポストプロセス)との分担は mesh の AO モード(aoMode.ts)に従い、
- * baked のマテリアルには skipGTAO を立てて GTAO を掛けない。
- * パネルでベイク AO を無効にすると貼ったものを外す(baked の面も GTAO に戻る)。
- * ベイク結果が無い・シーンと合わない場合は警告だけ出して何もしない(GTAO だけで描画される)。
- * コライダー・ベイク対象(BakeTarget)の登録が変わるたびに(非同期に読み込む prop の追加、Fast Refresh での再マウントなど)
- * 貼り直すので、シーンが揃った時点でベイク結果と一致すれば AO が付く
- */
 export function BakedAO({scene}: {scene: string}) {
   const root = useThree((s) => s.scene);
 

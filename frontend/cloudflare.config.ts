@@ -56,9 +56,6 @@ const backendWorker = defineWorker({
   env: {
     IUBEO_SIGNING_KEY: bindings.secret(),
     IUBEO_WISP_KEY: bindings.secret(),
-    // VC の鍵は VC ホストの private.jwk の d(terraform.tfvars の vc_private_key と同じ)。
-    // Worker の env はコンテナへ自動で渡らないので、worker/backend.ts の voiceEnv が
-    // container.start の env へ載せる
     IUBEO_VC_PRIVATE_KEY: bindings.secret(),
     IUBEO_VC_SIGNALING_URL: bindings.text(
       "wss://vc.thirdlf03.com/v1/signaling",

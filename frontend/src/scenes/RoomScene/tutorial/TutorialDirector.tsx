@@ -32,14 +32,6 @@ const GLITCH_LEAD_MS = 110;
 
 type Flow = TutorialFlowState<TutorialEvent>;
 
-/**
- * 部屋のチュートリアルを進める。進行(./manager)へ合図を送り、手順に合わせて物の見せ方(./look)を切り替える。
- *
- * - 進行: シーンに入ったら始め、出たら中断する(dev パネルで reset されたら始め直す)
- * - 合図: 手に持ったファイルの状態、プレイヤーが立っている範囲(./zones)、部屋の PC が起動し終えたこと
- * - 見せ方: 次の手順へは少し間を置いて移り、新しい物が現れるときは画面を一瞬乱す
- * - PC の電源: 終えるまでは落としておき、最後の手順で PC を触ると起動する(ロゴと読み込み)。起動し終えたら完了
- */
 export function TutorialDirector() {
   const flow = useTutorialFlow();
   useTutorialRun(flow);
@@ -86,7 +78,6 @@ const useTutorialSignals = (): void => {
   });
 };
 
-/** 今の手順の見せ方を、トグル(表示・機能・強調)へ反映して返す。PC の起動が始まったら PC の強調は消す */
 const useTutorialLook = (flow: Flow): TutorialLook => {
   const toggles = useToggles();
   const pcBooting = usePcPower() === "booting";
@@ -135,7 +126,6 @@ const useTutorialLook = (flow: Flow): TutorialLook => {
   return look;
 };
 
-/** 終えるまでは PC の電源を落としておき、触ったら起動する。部屋を出たら点けて戻す(試合の PC のため) */
 const usePcBoot = (flow: Flow): void => {
   const link = useRef<ReturnType<typeof linkPcBoot> | null>(null);
   useEffect(() => {

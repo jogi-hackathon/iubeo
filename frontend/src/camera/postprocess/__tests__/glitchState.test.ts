@@ -18,12 +18,15 @@ describe("glitchEnvelope", () => {
 describe("createGlitchPulse", () => {
   const setup = (reducedMotion = false) => {
     let now = 1000;
+    const pulses: number[] = [];
     const glitch = createGlitchPulse({
       now: () => now,
       reducedMotion: () => reducedMotion,
+      onPulse: (ms) => pulses.push(ms),
     });
     return {
       glitch,
+      pulses,
       advance: (ms: number) => {
         now += ms;
       },
@@ -55,5 +58,20 @@ describe("createGlitchPulse", () => {
     glitch.pulse(400);
     advance(100);
     expect(glitch.strength()).toBe(0);
+  });
+
+  it("onPulse は新しいパルスで 1 回だけ呼び、パルス中の pulse では呼ばない。減らす設定でも呼ぶ", () => {
+    const {glitch, advance, pulses} = setup();
+    glitch.pulse(400);
+    advance(300);
+    glitch.pulse(400);
+    expect(pulses).toEqual([400]);
+    advance(400);
+    glitch.pulse(450);
+    expect(pulses).toEqual([400, 450]);
+
+    const reduced = setup(true);
+    reduced.glitch.pulse(400);
+    expect(reduced.pulses).toEqual([400]);
   });
 });

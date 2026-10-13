@@ -38,7 +38,6 @@ const SKY_BANDS = 28;
 const BAND_AMOUNT = 0.9;
 const BLOCK_SIZES = [8, 20, 44] as const;
 const LAYER_MAX = 6.2;
-/** 仰角の幅の下限(度)。start == end だと smoothstep の edge0 == edge1 になる */
 const MIN_ELEVATION_RANGE = 1;
 const ANOMALY_RED = "#b0101c";
 const ANOMALY_RED_AMOUNT = 0.8;
@@ -136,7 +135,6 @@ const createSkybox = (): Skybox => {
   let lastUpdateAt = performance.now();
 
   const sea = createSea();
-  // 画面のピクセル。scene pass が内部解像度でも、ノイズのブロックと海の文字は画面のピクセルで刻む
   const px = screenPixel;
   const dir = rayDirection(px);
   const layerAt = (dirY: Node<"float">): Node<"float"> =>

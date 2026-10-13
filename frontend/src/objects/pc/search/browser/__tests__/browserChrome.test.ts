@@ -166,7 +166,6 @@ const key = (k: string, modifiers: Modifiers = plain) => ({
   modifiers,
 });
 
-/** 文字・カーソル・選択の端だけを見る */
 const view = ({text, caret, anchor}: AddressEdit) => ({text, caret, anchor});
 const at = (text: string, caret: number, anchor = caret) => ({
   text,

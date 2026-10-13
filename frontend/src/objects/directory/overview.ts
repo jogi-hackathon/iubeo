@@ -22,11 +22,6 @@ type Options = {
   lock?: () => () => void;
 };
 
-/**
- * ディレクトリの俯瞰ビューの状態(クライアントだけが持つ。サーバーには送らない)。
- * idle 以外の間は、プレイヤーの移動・視点入力とカメラを預かる(core/playerControl)。
- * 状態は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
- */
 export const createOverviewStore = ({
   lock = lockPlayerControl,
 }: Options = {}) => {

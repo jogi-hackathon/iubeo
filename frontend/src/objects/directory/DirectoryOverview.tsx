@@ -51,8 +51,6 @@ export const FILE_PLATE_LIFT = 0.02;
 const FILL = new MeshBasicMaterial({color: "#ffffff"});
 setSkipGTAO(FILL, true);
 
-// 俯瞰(とチュートリアルのファイル)の板は、俯瞰を始めるまでマウントされないので見本をウォームアップに描かせる。
-// 色ごとの縁取り(FilePlateMesh)は FILL と同じシェーダー・設定(色は uniform)なので、見本は FILL だけで足りる
 registerShaderSwatch(
   "filePlate",
   () => new Mesh(new BoxGeometry(1, 1, 1), FILL),

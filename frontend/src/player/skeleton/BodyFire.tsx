@@ -69,7 +69,6 @@ const createBodyFire = () => {
   return {sprite, ignition, starts, ends};
 };
 
-// 死ぬまでマウントされないので、見本をウォームアップに描かせる。骨に沿わせる位置の計算が山の火と違うので、directoryFire の見本では足りない
 registerShaderSwatch("bodyFire", () => createBodyFire().sprite);
 
 export function BodyFire({points}: {points: Float32Array}) {

@@ -82,10 +82,6 @@ const WALKER = walkCircle(4, -3, 1.5, 2.4);
 const JUMPER = jumpInPlace(0, -3, 1.6);
 const HOLDER = stand(-3, -3);
 
-/**
- * 見た目確認用のダミープレイヤー(歩行+ホールド切替 / ジャンプ / 待機+ホールド)。
- * プレイヤー管理ができたら、そのレジストリから PlayerSkeleton を並べる形に置き換える
- */
 export function DummyPlayers() {
   return (
     <>

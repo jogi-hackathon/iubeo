@@ -40,7 +40,6 @@ export function PostProcess() {
   }, [gl, scene, camera]);
 
   useFrame(() => {
-    // scene pass の中でも画面のピクセルで模様を刻めるよう、描画バッファの大きさを渡す(core/screenPixel)
     updateDrawingBufferSize(gl);
     if (proxyView.active) {
       proxyView.render(

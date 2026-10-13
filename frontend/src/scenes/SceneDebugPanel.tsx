@@ -55,7 +55,6 @@ function ToggleRows({store}: {store: ToggleStore}) {
   );
 }
 
-/** dev パネルの Scene タブ。sceneTransitionManager を直接操作する */
 export function SceneDebugPanel() {
   const {current} = useSceneState();
   const transition = useTransitionState();

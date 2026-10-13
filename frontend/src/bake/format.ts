@@ -19,12 +19,6 @@ const HEADER_BYTES = 16;
 const MESH_BYTES = 20;
 const RECT_BYTES = 8;
 
-/**
- * レイアウト(リトルエンディアン):
- * [MAGIC 4B][u16 atlasW][u16 atlasH][u32 meshCount][u32 chartCount]
- * + mesh ごとに [u32 vertexCount][u32 chartCount][f32 cx][f32 cy][f32 cz]
- * + チャートごとに [u16 x][u16 y][u16 w][u16 h]
- */
 export const serializeLayout = (
   layout: BakedAOLayout,
 ): Uint8Array<ArrayBuffer> => {

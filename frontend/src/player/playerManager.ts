@@ -49,7 +49,6 @@ export const createPlayerManager = ({
   now = () => performance.now(),
   myPlayerId = () => null,
 }: PlayerManagerOptions = {}) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: PlayerManagerState = {players: []};
   const tracks = new Map<PlayerId, Track>();
   let interpolation = true;

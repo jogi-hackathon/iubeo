@@ -8,6 +8,7 @@ import {
   Vector3,
 } from "three";
 
+import {useSfxEmitter} from "../../core/audio/sfx/useSfxEmitter";
 import {listColliders} from "../../core/bvh";
 import {FRAME_PRIORITY} from "../../core/frameOrder";
 import {MAX_DELTA} from "../../core/time";
@@ -103,6 +104,8 @@ export function PlayerSkeleton({
   );
   useEffect(() => () => materials.dispose(), [materials]);
   const diedAt = useRef<number | null>(null);
+  const wasAlive = useRef(false);
+  const sfx = useSfxEmitter(["shatter"], group);
 
   useFrame(({clock}, delta) => {
     const g = group.current;
@@ -121,6 +124,8 @@ export function PlayerSkeleton({
       return;
     }
     const dt = Math.min(delta, MAX_DELTA);
+    const justDied = ragdoll && wasAlive.current;
+    wasAlive.current = !ragdoll;
     if (!ragdoll) {
       body.active = false;
       diedAt.current = null;
@@ -145,6 +150,14 @@ export function PlayerSkeleton({
       g.rotation.y = state.yaw;
       if (ragdoll) {
         startRagdoll(body, points, state.position, state.yaw, state.velocity);
+        if (justDied) {
+          sfx.setPosition({
+            x: body.pos[J.head * 3]!,
+            y: body.pos[J.head * 3 + 1]!,
+            z: body.pos[J.head * 3 + 2]!,
+          });
+          sfx.play("shatter");
+        }
       }
     }
     if (hand.current) {

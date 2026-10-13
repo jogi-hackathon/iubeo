@@ -9,6 +9,7 @@ import {
 import {authorityRegistry} from "../../authority/registry";
 import {cameraGlitch} from "../../camera/postprocess";
 import {getPostProcessSettings} from "../../camera/postprocess/settings";
+import {sfxEngine} from "../../core/audio/sfx/engine";
 import {resumePointerLock} from "../../core/input/pointerLock";
 import {warmupShaders} from "../../core/ShaderWarmup";
 import {getPcScreen, setPortalScreen} from "../../objects/pc/pcScreenRegistry";
@@ -49,11 +50,11 @@ type DiveSession = {
   fromPosition: Vector3;
   fromQuaternion: Quaternion;
   viewPose: Pose;
-  /** 飛び込み始める距離(divePath の entryDistance) */
   entry: number;
   restoreNear: number | null;
   ready: boolean;
   portalResolved: boolean;
+  sounded: boolean;
   resolvePortal: () => void;
   resolveFinish: () => void;
   finished: Promise<void>;
@@ -211,6 +212,7 @@ const startDive = (from: SceneName, to: ProxyName): Promise<void> => {
     restoreNear,
     ready: false,
     portalResolved: false,
+    sounded: false,
     resolvePortal,
     resolveFinish,
     finished,
@@ -235,6 +237,10 @@ export const tickDive = (dt: number): void => {
     returnDuration:
       s.machine.phase === "switch" ? returnDurationFor(s) : undefined,
   });
+  if (f.phase === "dive" && !s.sounded) {
+    s.sounded = true;
+    sfxEngine.them("dive");
+  }
   proxyView.blend.value = f.blend;
   portalCrt.on.value = f.on;
   portalCrt.boot.value = f.boot;

@@ -20,7 +20,6 @@ export type DirectoryLayoutItem = {
 
 export const directoryItem = (item: DirectoryLayoutItem): LayoutItem => item;
 
-/** PC の中で動くもの(objects/pc/programs.ts) */
 export type PcProgramName = "search" | "desktop";
 
 export type PcLayoutItem = {
@@ -36,7 +35,6 @@ export type WorkspaceLayoutItem = {
   id: string;
   position: Vec3;
   yaw?: number;
-  /** 依頼の伝票を残すメモ立てを置くか(既定は置く。伝票の届かない部屋では置かない) */
   memo?: boolean;
 };
 

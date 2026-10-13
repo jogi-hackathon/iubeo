@@ -20,7 +20,6 @@ import {COLORS, FONT, FONT_BANNER, FONT_BOLD} from "../theme/classic";
 import {paintIcon} from "../theme/icons";
 import {raised, sunkenThin} from "./bevel";
 
-/** シェルの今の状態を、画面いっぱいに描く(カーソルは描かない) */
 export const paintShell = (
   ctx: CanvasRenderingContext2D,
   shell: Shell,
@@ -145,7 +144,6 @@ const paintWindow = (
   ctx.restore();
 };
 
-/** タイトルバーの × */
 const paintCross = (
   ctx: CanvasRenderingContext2D,
   button: Rect,
@@ -194,7 +192,6 @@ const paintTaskbar = (
       (state.pressed?.kind === "task" && state.pressed.windowId === id);
     raised(ctx, rect, down);
     if (down && !win.minimized && state.focused === id) {
-      // 手前の窓のボタンは、へこませて市松模様を敷く(2000 と同じ)
       ctx.save();
       ctx.beginPath();
       ctx.rect(rect.x + 2, rect.y + 2, rect.width - 4, rect.height - 4);
