@@ -211,7 +211,7 @@ export const KodawariStage = memo(function KodawariStage({
           >
             {current.points.slice(0, count).map(({text, sub}) => (
               <li key={text}>
-                {text}
+                <span className="present-kodawari-point">{text}</span>
                 {sub && (
                   <ul>
                     {sub.map((line) => (

@@ -595,20 +595,13 @@ body,
   margin-top: 0.4em;
 }
 
-/* その手順で新しく出た項目(最後の小見出し)の左に、こだわりの立方体の縁の色の帯を付ける。文字は白のまま */
-.present-kodawari-points > li {
-  position: relative;
-}
-
-.present-kodawari-points > li:last-child::before {
-  content: "";
-  position: absolute;
-  top: 0.15em;
-  bottom: 0.15em;
-  left: -1.6em;
-  width: 0.22em;
-  border-radius: 0.11em;
-  background: var(--kodawari-color, #fff);
+/* その手順で新しく出た項目(最後の小見出し)に、こだわりの立方体の縁の色で下線を引く。文字は白のまま */
+.present-kodawari-points > li:last-child > .present-kodawari-point {
+  text-decoration: underline;
+  text-decoration-color: var(--kodawari-color, #fff);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.3em;
+  text-decoration-skip-ink: none;
 }
 
 /* こだわりの縦の箇条書き(項目の下に補足を入れ子にする) */
