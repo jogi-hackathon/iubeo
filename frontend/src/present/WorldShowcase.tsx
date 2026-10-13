@@ -1,6 +1,13 @@
 import {Canvas, useFrame, useThree} from "@react-three/fiber";
 import {memo, useEffect, useLayoutEffect, useMemo, useState} from "react";
-import type {Mesh} from "three";
+import {
+  BoxGeometry,
+  type BufferGeometry,
+  CylinderGeometry,
+  type Mesh,
+  MeshStandardMaterial,
+} from "three";
+import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
 import {color as colorNode} from "three/tsl";
 import {MeshStandardNodeMaterial} from "three/webgpu";
 
@@ -24,8 +31,14 @@ import {BOOT_MS, BootScreen} from "../objects/pc/bootScreen";
 import {createCrtMaterial} from "../objects/pc/crtMaterial";
 import {desktopScreen} from "../objects/pc/desktop/DesktopProgram";
 import {PcModel} from "../objects/pc/PcModel";
+import {
+  DESK_PARTS,
+  type DeskPart,
+  type PartLook,
+} from "../objects/workspace/desk";
 import {createPlayerState, PlayerSkeleton} from "../player";
-import {Ball, Chair} from "../props";
+import {CHAIR_PARTS} from "../props/chairParts";
+import {PROP_COLOR} from "../props/types";
 import {WORLD_LIGHT} from "../scenes/environment/worldLight";
 import type {WorldScene} from "./kodawariContent";
 
@@ -93,13 +106,73 @@ const useReplay = (periodMs: number): number => {
   return round;
 };
 
+/** ゲームの机と椅子と同じ部品を、当たり判定に登録せずに描く */
+const DESK_MATERIALS: Record<PartLook, MeshStandardMaterial> = {
+  top: new MeshStandardMaterial({color: "#ffffff"}),
+  frame: new MeshStandardMaterial({color: "#ffffff"}),
+  accent: new MeshStandardMaterial({color: "#3a3a3a"}),
+};
+const CHAIR_MATERIAL = new MeshStandardMaterial({color: PROP_COLOR});
+
+const deskGeometry = ({
+  shape,
+  scale: [x, y, z],
+  radius,
+  segments = 1,
+}: DeskPart): BufferGeometry =>
+  shape === "cylinder"
+    ? new CylinderGeometry(x, z, y, 10)
+    : radius
+      ? new RoundedBoxGeometry(x, y, z, segments, radius)
+      : new BoxGeometry(x, y, z);
+
+function DeskAndChair() {
+  const geometries = useMemo(
+    () => ({
+      desk: DESK_PARTS.map(deskGeometry),
+      chair: CHAIR_PARTS.map((part) => new BoxGeometry(...part.size)),
+    }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      for (const g of [...geometries.desk, ...geometries.chair]) {
+        g.dispose();
+      }
+    },
+    [geometries],
+  );
+  return (
+    <>
+      {DESK_PARTS.map((part, i) => (
+        <mesh
+          key={`desk-${i}`}
+          geometry={geometries.desk[i]}
+          material={DESK_MATERIALS[part.look]}
+          position={part.position}
+          {...(part.rotation && {rotation: part.rotation})}
+        />
+      ))}
+      <group position={[0.1, 0, 0.75]} rotation={[0, Math.PI + 0.35, 0]}>
+        {CHAIR_PARTS.map((part, i) => (
+          <mesh
+            key={`chair-${i}`}
+            geometry={geometries.chair[i]}
+            material={CHAIR_MATERIAL}
+            position={part.position}
+          />
+        ))}
+      </group>
+    </>
+  );
+}
+
 function LightScene() {
   return (
     <>
-      <View position={[2.4, 1.5, 2.8]} target={[0, 0.45, 0]} fov={40} />
+      <View position={[2.6, 2, 3]} target={[0, 0.55, 0.2]} fov={40} />
       <WorldLight />
-      <Chair position={[0, 0, 0]} yaw={0.5} />
-      <Ball position={[1.1, 0.3, 0.6]} radius={0.3} />
+      <DeskAndChair />
     </>
   );
 }
@@ -152,7 +225,7 @@ function PcScene() {
   const screenRef = useMemo(() => ({current: null as Mesh | null}), []);
   return (
     <>
-      <View position={[0.32, 0.34, 1.05]} target={[0, 0.16, 0]} fov={40} />
+      <View position={[0.14, 0.24, 0.55]} target={[0, 0.15, -0.08]} fov={40} />
       <WorldLight />
       <PcModel
         screen={booted ? desktop.material : boot.crt.material}
