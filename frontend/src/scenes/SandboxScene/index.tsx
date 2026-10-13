@@ -12,6 +12,7 @@ import {RemotePlayers} from "../../player";
 import {Chair, Slab, useGridFloorMaterial, Wall} from "../../props";
 import {VoiceChat} from "../../voice";
 import {WhiteWorld} from "../environment/WhiteWorld";
+import {WindowAmbience} from "../environment/WindowAmbience";
 import {
   FrostedPartition,
   useFrostedPartitionMaterial,
@@ -56,6 +57,7 @@ function SandboxZone({
       <FrostedPartition material={partitionMaterial} />
       <Slab {...ZONE_ROOF} blocksCamera />
       <Chair position={ZONE_CHAIR.position} yaw={ZONE_CHAIR.yaw} />
+      <WindowAmbience position={ZONE_WINDOW_BLOCKER.position} />
     </group>
   );
 }
@@ -90,11 +92,6 @@ export function SandboxScene() {
   );
 }
 
-/**
- * シーンを離れたら、ゲームの流れに知らせる(leftSession)。
- * StrictMode の開発時は、マウント直後に effect の後始末がいったん走って、また設定が走る。
- * その間に知らせると流れが idle に戻ってしまうので、後始末では 1 tick 待って、設定が走り直したら取り消す
- */
 const useLeaveSessionOnUnmount = () => {
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

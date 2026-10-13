@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from "react";
 
+import {sfxEngine} from "../../../core/audio/sfx/engine";
 import {itemManager} from "../../../items/itemStore";
 import {objectManager} from "../../objectStore";
 import {useImeCaret} from "../display/useImeCaret";
@@ -15,10 +16,6 @@ import {PcTaskMemo} from "./TaskMemo";
 
 const JUDGE_SETTLE_MS = 1200;
 
-/**
- * Web 検索の PC。Gecko を画面に出し、開いたページがお題に合うかを Clef に見てもらう。
- * 合えば検索を成果物として渡し、合図のあと PC を畳む。お題(サーバーが PC の持ち主のタスクごとに決める)のメモは PC の横に置く
- */
 function SearchProgram({
   object,
   screen,
@@ -96,7 +93,6 @@ function SearchProgram({
 
   useEffect(() => {
     if (mine && taskId) {
-      // 前のタスクで開いていたページを、新しいお題で判定し直さない
       currentUrl.current = "";
       screen.startTask?.(taskId);
     }
@@ -140,6 +136,13 @@ function SearchProgram({
     }
     const timer = window.setTimeout(() => pcSession.leave(), CONFIRM_MS);
     return () => window.clearTimeout(timer);
+  }, [using, judge]);
+
+  useEffect(() => {
+    if (!using || judge.status !== "done") {
+      return;
+    }
+    sfxEngine.them(judge.result.verdict === "match" ? "clefOk" : "clefNo");
   }, [using, judge]);
 
   useEffect(() => {

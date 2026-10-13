@@ -25,7 +25,6 @@ export type AuthorityHandle = {
 export type AuthorityRegistry = {
   register: (handle: AuthorityHandle) => () => void;
   current: () => AuthorityHandle | null;
-  /** 今の窓口が変わったら呼ばれる(useSyncExternalStore 用) */
   subscribe: (listener: () => void) => () => void;
 };
 

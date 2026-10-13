@@ -187,7 +187,6 @@ func TestPhaseTaskCountGrowsSlowly(t *testing.T) {
 	}
 }
 
-// 後半のフェーズほど read_edit が増え、他のプレイヤーと同じファイルを取り合いやすい
 func TestPhaseConflictsRiseInLaterPhases(t *testing.T) {
 	stats := func(number int) (readEdit, contested float64) {
 		var total, re, shared int
@@ -248,6 +247,36 @@ func TestPhaseIsDeterministicForSeed(t *testing.T) {
 	b, _ := startPhaseWith(t, 7, 3)
 	if !reflect.DeepEqual(a.Phase.Tasks, b.Phase.Tasks) {
 		t.Errorf("same seed gave different tasks:\n%+v\n%+v", a.Phase.Tasks, b.Phase.Tasks)
+	}
+}
+
+func TestPhaseDrawsAreStableForSeed(t *testing.T) {
+	st := NewMultiplayerState("sess-1", []string{"p1", "p2"}, []string{"cpu-1", "cpu-2"}, t0, Timeouts{Start: time.Minute, Abandon: time.Minute}, DefaultConfig.Phases, 1)
+	st.startPhase(1, t0)
+
+	wantTasks := []TaskState{
+		{ID: "task-1-1", Type: api.WebSearch, Assignee: "p1", Topic: "WebGPU"},
+		{ID: "task-1-2", Type: api.WebSearch, Assignee: "p2", Topic: "アドテク"},
+		{ID: "task-1-3", Type: api.WebSearch, Assignee: "cpu-1", Topic: "WebAssembly"},
+		{ID: "task-1-4", Type: api.Write, Assignee: "cpu-2"},
+	}
+	if !reflect.DeepEqual(st.Phase.Tasks, wantTasks) {
+		t.Errorf("tasks = %+v, want %+v", st.Phase.Tasks, wantTasks)
+	}
+	type draws struct {
+		Until  time.Duration
+		Doomed bool
+		Play   time.Duration
+	}
+	wantCPU := map[string]draws{
+		"cpu-1": {1314362137 * time.Nanosecond, false, 1246777634 * time.Nanosecond},
+		"cpu-2": {434095864 * time.Nanosecond, false, 2221366393 * time.Nanosecond},
+	}
+	for id, want := range wantCPU {
+		a := st.CPUAgents[id]
+		if got := (draws{a.Until.Sub(t0), a.Doomed, a.Play.Sub(t0)}); got != want {
+			t.Errorf("%s draws = %+v, want %+v", id, got, want)
+		}
 	}
 }
 

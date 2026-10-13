@@ -98,7 +98,6 @@ describe("VIEW_POSITION", () => {
   });
 
   it("窓の前の範囲のどこから寄っても、まっすぐ窓をくぐる(壁を抜けない)", () => {
-    // 目は足もとより EYE_FORWARD だけ前に出るので、範囲をその分だけ広げて確かめる
     const view = new Vector3(...VIEW_POSITION);
     for (const dx of [CAPSULE_RADIUS, 1.5 + EYE_FORWARD]) {
       for (const dz of [-1.2 - EYE_FORWARD, 0, 1.2 + EYE_FORWARD]) {

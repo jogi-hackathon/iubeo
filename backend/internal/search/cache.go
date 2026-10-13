@@ -12,7 +12,6 @@ const (
 	cacheMaxEntries = 500
 )
 
-// Cached は検索結果を一定時間メモリに残す。エラーの結果は残さない。
 type Cached struct {
 	next Client
 	now  func() time.Time

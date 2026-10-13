@@ -54,13 +54,11 @@ const TONE_MAPPING: Record<ToneMappingKind, ToneMapping> = {
   none: NoToneMapping,
 };
 
-/** BloomNode の既定と同じ。内部解像度に対する比率 */
 const BLOOM_RESOLUTION_SCALE = 0.5;
 
 export interface PostProcessPipeline {
   render(): void;
   apply(settings: PostProcessSettings): void;
-  /** シーン(と AO・ブルーム)を描く内部解像度の、画面に対する比率(0〜1。core/graphics の getRenderScale) */
   setRenderScale(scale: number): void;
   dispose(): void;
 }
@@ -97,13 +95,13 @@ export const createPostProcessPipeline = (
   // 後処理の中で TSL の cameraNear / cameraFar を読むと quad のカメラの値になるので、シーンのカメラの値を毎フレーム渡す
   const cameraPlanes = {near: uniform(0.1), far: uniform(100)};
   let renderScale = 1;
+  let pixelRatio = 0;
 
   const occlusion = createAmbientOcclusion(scene, camera);
 
   const scenePass = pass(scene, camera);
   const sceneColor = scenePass.getTextureNode("output");
-  // 使うグラフに含めたときだけ更新される。effect の on/off をまたいで使い回す。
-  // BloomNode.setup は再ビルドごとに NodeMaterial を積み増すが、dispose で解放される(upstream 起因)
+  // BloomNode.setup は再ビルドのたびに NodeMaterial を積み増す(dispose で解放)ので、build ごとに作らず使い回す
   const bloomNode = bloom(sceneColor);
   const glitch = createGlitch();
   const contour = createContour(
@@ -112,7 +110,6 @@ export const createPostProcessPipeline = (
     cameraPlanes,
   );
   const grain = createGrain();
-  // 2 つの縁取りの選択を 1 回のマスクで描き、隠れは pre-pass の深度と比べる(シーンの再描画なし)
   const selection = createSelectionMask(
     scene,
     camera,
@@ -148,7 +145,6 @@ export const createPostProcessPipeline = (
     occlusion.apply(s, renderScale);
     bloomNode.setResolutionScale(BLOOM_RESOLUTION_SCALE * renderScale);
     selection.setRenderScale(renderScale);
-    powerOutline.setRenderScale(renderScale);
     lowRes?.setResolutionScale(renderScale);
   };
 
@@ -179,22 +175,15 @@ export const createPostProcessPipeline = (
 
     const sceneWeight = proxyView.blend.oneMinus();
     const base = glitch.scene(sampleScene);
-    let color: Node<"vec4"> = s.bloom.enabled
+    const color: Node<"vec4"> = s.bloom.enabled
       ? base.add(bloomNode.mul(sceneWeight))
       : base;
-
-    if (s.contour.enabled) {
-      color = contour.composite(color, sceneWeight);
-    }
-    color = powerOutline.composite(color, sceneWeight);
-    color = aimOutline.composite(color, sceneWeight);
 
     const mapped =
       s.toneMapping === "none"
         ? vec4(color.rgb.mul(exposure).clamp(), color.a)
         : toneMapping(TONE_MAPPING[s.toneMapping], exposure, color);
 
-    // ここまでを内部解像度の 1 枚に落とし、FSR1 で画面の解像度へ上げる。off のときはバイリニアで伸ばす(比較用)
     lowRes = rtt(mapped, null, null, {resolutionScale: renderScale});
     let full: Node<"vec4"> = lowRes;
     if (s.upscale.enabled) {
@@ -202,6 +191,12 @@ export const createPostProcessPipeline = (
       upscaled = node;
       full = node;
     }
+
+    if (s.contour.enabled) {
+      full = contour.composite(full, sceneWeight);
+    }
+    full = powerOutline.composite(full, sceneWeight);
+    full = aimOutline.composite(full, sceneWeight);
 
     if (s.pixelate.enabled) {
       pixelated = rtt(full, null, null, {
@@ -230,6 +225,12 @@ export const createPostProcessPipeline = (
       const planes = camera as {near?: number; far?: number};
       cameraPlanes.near.value = planes.near ?? cameraPlanes.near.value;
       cameraPlanes.far.value = planes.far ?? cameraPlanes.far.value;
+      const nextPixelRatio = renderer.getPixelRatio();
+      if (nextPixelRatio !== pixelRatio) {
+        pixelRatio = nextPixelRatio;
+        aimOutline.setPixelRatio(pixelRatio);
+        powerOutline.setPixelRatio(pixelRatio);
+      }
       pipeline.render();
     },
     apply(s) {
@@ -240,7 +241,6 @@ export const createPostProcessPipeline = (
       bloomNode.threshold.value = s.bloom.threshold;
       pixelSize.value = s.pixelate.pixelSize;
       vignetteIntensity.value = s.vignette.intensity;
-      // smoothstep の edge0 == edge1 を避ける
       vignetteSmoothness.value = Math.max(
         s.vignette.smoothness,
         VIGNETTE_MIN_SMOOTHNESS,
@@ -255,7 +255,6 @@ export const createPostProcessPipeline = (
         return;
       }
       if (key !== "") {
-        // 構成の変更で全マテリアルのパイプラインが作り直されるので、ウォームアップ後の警告は次のウォームアップまで止める
         disarmPipelineWatch();
       }
       key = next;

@@ -10,7 +10,6 @@ import {
   stageStart,
   steppedFeed,
   STOW_MS,
-  TERMINAL_BELOW,
   TERMINAL_HELD_TILT,
   TERMINAL_SEQUENCE_MS,
   TERMINAL_STAGES,
@@ -87,19 +86,23 @@ describe("terminalPose", () => {
     expect(looking.paper.length).toBeCloseTo(SLIP_LENGTH);
   });
 
-  it("見ている間は端末が下がり、飛ぶ段で伝票は手を離れ、端末は前半で視界の下へしまう", () => {
+  it("持ち上げたあとは千切っても飛んでも端末を下げず、飛ぶ段で伝票は手を離れる", () => {
+    const held = terminalPose(stageStart("tear") - 1).device;
+    for (const at of [
+      stageStart("look") + STAGE_MS.look / 2,
+      stageStart("fly") + STOW_MS,
+      TERMINAL_SEQUENCE_MS + 1000,
+    ]) {
+      const {device} = terminalPose(at);
+      expect(device.y).toBeCloseTo(held.y);
+      expect(device.z).toBeCloseTo(held.z);
+      expect(device.tilt).toBeCloseTo(held.tilt);
+    }
     const looking = terminalPose(stageStart("look") + STAGE_MS.look - 1);
-    expect(looking.device.y).toBeLessThan(0);
-    expect(looking.paper.stow).toBe(0);
     expect(looking.paper.launched).toBe(false);
-    const stowing = terminalPose(stageStart("fly") + STOW_MS / 2);
-    expect(stowing.stage).toBe("fly");
-    expect(stowing.paper.launched).toBe(true);
-    expect(stowing.paper.stow).toBeGreaterThan(0);
-    expect(stowing.paper.stow).toBeLessThan(1);
-    const stowed = terminalPose(stageStart("fly") + STOW_MS);
-    expect(stowed.paper.stow).toBeCloseTo(1);
-    expect(stowed.device.y).toBeCloseTo(TERMINAL_BELOW.y);
+    const flying = terminalPose(stageStart("fly") + STOW_MS / 2);
+    expect(flying.stage).toBe("fly");
+    expect(flying.paper.launched).toBe(true);
     const done = terminalPose(TERMINAL_SEQUENCE_MS + 1000);
     expect(done.stage).toBe("done");
     expect(done.paper.launched).toBe(true);

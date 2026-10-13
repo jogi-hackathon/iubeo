@@ -376,7 +376,6 @@ describe("createSessionConnection", () => {
   });
 
   it("まだ繋がっていない接続を close() したら、開いてから閉じる", () => {
-    // 接続中に閉じると、ブラウザが「接続が確立する前に閉じた」とコンソールに警告を出す
     const {conn, latest} = setup();
     const socket = latest();
     expect(socket.readyState).toBe(0);

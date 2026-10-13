@@ -4,6 +4,8 @@ import {ApiError, CLOSE_REPLACED, CLOSE_SESSION_ENDED} from "../../net";
 import type {MatchmakingStatus, Me} from "../../net";
 import {createGameFlow, type FlowApi} from "../gameFlow";
 
+vi.mock("../../core/audio/sfx/engine", () => ({sfxEngine: {them: vi.fn()}}));
+
 const err = (status: number, code: string) =>
   new ApiError(status, {code, message: code});
 

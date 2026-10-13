@@ -12,6 +12,7 @@ import {localPlayer} from "./local";
 import {applyLook} from "./look";
 import {stepPlayer} from "./physics";
 import type {MoveInput} from "./types";
+import {useFootsteps} from "./useFootsteps";
 
 const input: MoveInput = {
   forward: false,
@@ -25,6 +26,7 @@ export function PlayerController() {
   const {freeCamera} = useDebugFlags();
   const spectate = useSpectatePhase();
   const keys = useKeys();
+  useFootsteps(localPlayer, true);
 
   useFrame((_, delta) => {
     if (freeCamera || spectate !== "alive" || isPlayerControlLocked()) {

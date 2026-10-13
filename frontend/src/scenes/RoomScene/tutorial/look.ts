@@ -29,7 +29,6 @@ export const HIDDEN_LOOK: TutorialLook = {
   pickupFile: false,
 };
 
-/** 終えたあとは全部見せ、PC(デスクトップの接続)だけ触れる */
 export const COMPLETED_LOOK: TutorialLook = {
   visible: TUTORIAL_OBJECT_KEYS,
   enabled: ["pc"],

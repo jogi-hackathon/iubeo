@@ -6,7 +6,6 @@ import {
   Vector2,
 } from "three/webgpu";
 
-/** 本物のマウスの位置から光線を飛ばし、target に当たって UV が取れればその交点を返す */
 export const createPointerPick = (
   canvas: HTMLCanvasElement,
   camera: Camera,

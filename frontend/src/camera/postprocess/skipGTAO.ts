@@ -1,9 +1,6 @@
 import type {Material} from "three";
 
 /**
- * GTAO を掛けないマテリアルの目印(マテリアル直下のプロパティ名)。
- * true のマテリアルには GTAO を掛けず、マテリアル自身の AO(ベイク AO の aoMap)だけを使う。
- *
  * userData ではなくマテリアル直下に置くのは、three が userData をシェーダのキャッシュキーから除外するため
  * (RenderObject.getMaterialCacheKey が userData / name / is* / _* などを飛ばす)。
  * userData だと、色だけ違う baked と both のマテリアルが同じシェーダを共有して片方のモードが逆になり、

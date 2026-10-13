@@ -10,7 +10,6 @@ import (
 
 func newCPUState(t *testing.T, humans, cpus []string) State {
 	t.Helper()
-	// CPU のテストは 1 分のフェーズと 15 秒のインターミッションを前提に時間を組んでいる
 	rules := DefaultConfig.Phases
 	rules.Duration = time.Minute
 	rules.Intermission = 15 * time.Second

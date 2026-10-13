@@ -25,6 +25,5 @@ const subscribe = (l: () => void) => {
 export const useAimedObjectId = (): string | null =>
   useSyncExternalStore(subscribe, getAimedObjectId);
 
-/** id の物だけを見る。ほかの物の照準が動いても再描画されない */
 export const useIsAimed = (id: string): boolean =>
   useSyncExternalStore(subscribe, () => aimed === id);

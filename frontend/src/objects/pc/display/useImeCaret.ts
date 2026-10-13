@@ -13,10 +13,6 @@ type Options = {
   keyboard: KeyboardCapture;
 };
 
-/**
- * 画面で文字を入れる位置を、毎フレーム ウィンドウの座標へ写して、キーボードの隠し欄をそこへ動かす。
- * IME の変換候補の窓が、3D の画面の上の入力位置のそばに出るようになる
- */
 export function useImeCaret({
   enabled,
   screen,
@@ -44,7 +40,6 @@ export function useImeCaret({
     }
     const rect = gl.domElement.getBoundingClientRect();
     camera.updateMatrixWorld();
-    // 画面は SCREEN の大きさの平面で、UV は左下が (0, 0)。画素の位置を平面の上の点に直してから写す
     const toClient = (x: number, y: number) => {
       point.set(
         (x / screen.width - 0.5) * SCREEN.width,

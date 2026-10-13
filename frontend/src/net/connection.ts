@@ -103,7 +103,6 @@ export const createSessionConnection = ({
   baseDelayMs = 500,
   maxDelayMs = 8000,
 }: SessionConnectionOptions) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: SocketState = {
     status: "connecting",
     closeCode: null,
@@ -272,7 +271,7 @@ export const createSessionConnection = ({
       socket = null;
       if (s !== null && s.readyState === CONNECTING) {
         // まだ繋がっていないソケットを閉じると、ブラウザが「接続が確立する前に閉じた」とコンソールに警告を出す。
-        // 開くのを待ってから閉じる(繋がらなければブラウザ側が閉じる)。届いた物は socket を外してあるので捨てる
+        // 開くのを待ってから閉じる(繋がらなければブラウザ側が閉じる)。
         s.onmessage = null;
         s.onopen = () => s.close(CLOSE_NORMAL);
         s.onerror = () => {};

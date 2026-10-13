@@ -2,7 +2,6 @@ import type {ServerMessageOf, TransformMessage} from "./types";
 
 /**
  * 位置のメッセージ(transform / transforms)のバイナリ形式。サーバーの backend/internal/session/binary.go と同じ。
- * 量のほとんどは 20Hz の位置なので、ここだけをバイナリにする(JSON の約 1/5。state-schema.md §7.5)。
  * すべてリトルエンディアン。小数は float32。
  *
  *   transform  (クライアント → サーバー, 25B): type=1 u8 | seq u32 | x y z f32 | yaw f32 | pitch f32

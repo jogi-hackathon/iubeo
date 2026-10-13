@@ -1,7 +1,6 @@
 import type {Rect} from "../kernel/geometry";
 import {COLORS} from "../theme/classic";
 
-/** 1px の線を、左上(tl)と右下(br)で色を変えて四角に引く */
 const edge = (
   ctx: CanvasRenderingContext2D,
   r: Rect,
@@ -23,7 +22,6 @@ const inset = (r: Rect, by = 1): Rect => ({
   height: r.height - by * 2,
 });
 
-/** 浮き出たボタン・窓の枠(押しているときはへこむ) */
 export const raised = (
   ctx: CanvasRenderingContext2D,
   r: Rect,
@@ -40,12 +38,10 @@ export const raised = (
   edge(ctx, inset(r), COLORS.face, COLORS.shadow);
 };
 
-/** へこんだ 1 段の枠(タスクバーの時計の欄など) */
 export const sunkenThin = (ctx: CanvasRenderingContext2D, r: Rect): void => {
   edge(ctx, r, COLORS.shadow, COLORS.highlight);
 };
 
-/** へこんだ 2 段の枠(入力欄・一覧など) */
 export const sunken = (ctx: CanvasRenderingContext2D, r: Rect): void => {
   edge(ctx, r, COLORS.shadow, COLORS.highlight);
   edge(ctx, inset(r), COLORS.darkShadow, COLORS.face);

@@ -47,10 +47,6 @@ const ENTRY_LATERAL_SLOP = 0.05;
 const scratchInverse = new Matrix4();
 const scratchCamera = new Vector3();
 
-/**
- * 飛び込み始める距離。カメラがもう画面の正面で normal より近くにいれば(PC を使っている最中など)、
- * いったん下がらずにその距離から飛び込む。画面を覆う距離(cover)より手前には寄せない
- */
 export const entryDistance = (
   screen: Matrix4,
   camera: Vector3,

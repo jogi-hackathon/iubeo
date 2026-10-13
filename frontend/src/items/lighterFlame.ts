@@ -112,7 +112,6 @@ setSkipGTAO(outlineMaterial, true);
 export const FLAME_MATERIAL = flameMaterial;
 export const FLAME_OUTLINE_MATERIAL = outlineMaterial;
 
-// ライターを持って蓋を開けるまで描かれないので、見本をウォームアップに描かせる
 registerShaderSwatch("lighterFlame", () => {
   const group = new Group();
   group.add(

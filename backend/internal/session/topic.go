@@ -7,7 +7,6 @@ import (
 	"github.com/jogi-hackathon/iubeo/backend/internal/api"
 )
 
-// webSearchTopics は Web 検索タスクのお題の候補。お題はサーバーがタスクごとに決めて、クライアントは表示と判定に使う。
 var webSearchTopics = []string{
 	"firefox-wasm",
 	"WISP protocol",
@@ -50,7 +49,6 @@ func topicsOf(tasks []TaskState) []string {
 	return topics
 }
 
-// assignTopics は、フェーズの web_search タスクにお題を割り当てる。同じフェーズ内では、なるべく別々の語になる。
 func (st *State) assignTopics(r *rand.Rand) {
 	for i := range st.Phase.Tasks {
 		t := &st.Phase.Tasks[i]
@@ -60,8 +58,6 @@ func (st *State) assignTopics(r *rand.Rand) {
 	}
 }
 
-// pickTopic は、同じフェーズで既に使われているお題を避けて引く。候補を使い切ったら、重複を許す。
-// intn は [0, n) の乱数を返す関数。
 func pickTopic(used []string, intn func(n int) int) string {
 	pool := slices.DeleteFunc(slices.Clone(webSearchTopics), func(topic string) bool {
 		return slices.Contains(used, topic)

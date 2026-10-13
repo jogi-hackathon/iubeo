@@ -1,3 +1,4 @@
+import {sfxEngine} from "../core/audio/sfx/engine";
 import {
   ApiError,
   type ApiClient,
@@ -65,7 +66,6 @@ export const createGameFlow = ({
   sleep,
   pollMs = 1000,
 }: GameFlowOptions) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: GameFlowState = {status: "idle"};
   const listeners = new Set<() => void>();
   let run = 0;
@@ -89,6 +89,7 @@ export const createGameFlow = ({
 
   const enterSession = (playerId: string, sessionId: string) => {
     set({status: "matched", playerId, sessionId});
+    sfxEngine.them("match");
     set({status: "entering", playerId, sessionId});
     try {
       void Promise.resolve(navigator.enter("sandbox")).catch(fail);

@@ -13,7 +13,6 @@ export type ToggleInitial = {
 };
 
 export const createToggleStore = (initial: ToggleInitial = {}) => {
-  // state は変更のたびに新しいオブジェクトにする(useSyncExternalStore の参照同一性のため)
   let state: ToggleState = {
     hidden: new Set(initial.hidden),
     disabled: new Set(initial.disabled),

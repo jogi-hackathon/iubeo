@@ -7,7 +7,6 @@ import {COLORS, FONT, FONT_BOLD} from "../theme/classic";
 import {paintIcon} from "../theme/icons";
 import {createButton, createControlSet} from "../toolkit/controls";
 
-/** マッチングのアプリが使う、ゲームの流れ(flow/gameFlow)の口 */
 export type MatchmakingPort = {
   getState(): GameFlowState;
   subscribe(listener: () => void): () => void;
@@ -25,6 +24,12 @@ const defaultSchedule: Schedule = (fn, ms) => {
 const SIZE: Size = {width: 300, height: 150};
 
 export const MATCHMAKING_LAYOUT = {
+  voice: {
+    x: SIZE.width - 92 - 6 - 96,
+    y: SIZE.height - 33,
+    width: 96,
+    height: 23,
+  },
   button: {x: SIZE.width - 92, y: SIZE.height - 33, width: 80, height: 23},
   marquee: {x: 12, y: SIZE.height - 62, width: SIZE.width - 24, height: 16},
 } as const satisfies Record<string, Rect>;
@@ -50,7 +55,6 @@ const phaseOf = (state: GameFlowState): Phase => {
   }
 };
 
-/** 流れるバーを出して時を刻む間(接続中・探している間・見つかってから試合に入るまで) */
 const busy = (state: GameFlowState): boolean =>
   state.status !== "inSession" &&
   ["connecting", "waiting", "found"].includes(phaseOf(state));
@@ -60,7 +64,6 @@ const formatElapsed = (ms: number): string => {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 };
 
-/** 今の状態で出す文(1 つ目が本文、2 つ目は待ち時間やエラーの中身などの補足) */
 export const matchmakingLines = (
   state: GameFlowState,
   elapsedMs: number | null,
@@ -92,11 +95,6 @@ export const matchmakingLines = (
   }
 };
 
-/**
- * 接続の窓(中身はマッチング。プレイヤーは相手を探すのではなく、セッションへつながれるのを待つ側なので、画面ではそう呼ぶ)。
- * 待機・取り下げをゲームの流れへ伝え、待っている間は流れるバーと待機時間を出す。
- * 接続先が決まったら、そのまま画面へ飛び込む(シーンの切り替えが PC の画面を入口にする)
- */
 export const createMatchmakingApp = ({
   flow,
   now = () => Date.now(),
@@ -110,7 +108,7 @@ export const createMatchmakingApp = ({
   title: "接続",
   icon: "terminal",
   size: SIZE,
-  open: (): AppView => {
+  open: (context): AppView => {
     const listeners = new Set<() => void>();
     const notify = () => {
       for (const l of Array.from(listeners)) {
@@ -152,7 +150,11 @@ export const createMatchmakingApp = ({
         }
       },
     });
-    const controls = createControlSet([button]);
+    const voice = createButton({
+      rect: MATCHMAKING_LAYOUT.voice,
+      onClick: () => context.launch("settings", {tab: "sound"}),
+    });
+    const controls = createControlSet([button, voice]);
 
     sync();
     const offFlow = flow.subscribe(() => {
@@ -202,6 +204,7 @@ export const createMatchmakingApp = ({
         }
         const label =
           phase === "connecting" || phase === "waiting" ? "取り下げ" : "待機";
+        paintButton(ctx, voice, "VC の設定…");
         paintButton(ctx, button, label, {isDefault: true});
       },
       pointer: (event) => {

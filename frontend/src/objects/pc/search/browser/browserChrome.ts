@@ -98,13 +98,11 @@ export const displayUrl = (url: string): string =>
 export const addressDraftFor = (url: string): string =>
   url.startsWith("data:") ? "" : url;
 
-/** アドレス欄の中身。位置は文字(コードポイント)の数で数え、caret と anchor の間が選択範囲 */
 type AddressSnapshot = {text: string; caret: number; anchor: number};
 
 export type AddressEdit = AddressSnapshot & {
   undo: readonly AddressSnapshot[];
   redo: readonly AddressSnapshot[];
-  /** 直前の操作が文字の入力か。続けて打った文字は、元に戻すときにまとめて消す */
   typing: boolean;
 };
 
@@ -152,7 +150,6 @@ const moveTo = (
   return {...edit, caret, anchor, typing: false};
 };
 
-/** start から end までを insert に置き換える。元に戻せるよう、前の状態を積む */
 const replaceRange = (
   edit: AddressEdit,
   start: number,
@@ -194,7 +191,6 @@ const replaceSelection = (
 const isWordChar = (char: string | undefined): boolean =>
   char !== undefined && /[\p{L}\p{N}_]/u.test(char);
 
-/** 左の単語の頭。単語のすき間(記号・空白)を飛ばしてから、単語の頭まで進む */
 const wordStart = (chars: string[], from: number): number => {
   let i = from;
   while (i > 0 && !isWordChar(chars[i - 1])) {
@@ -217,7 +213,6 @@ const wordEnd = (chars: string[], from: number): number => {
   return i;
 };
 
-/** caret の位置の単語を選ぶ(ダブルクリック) */
 export const selectAddressWord = (
   edit: AddressEdit,
   at: number,
@@ -268,13 +263,6 @@ const redo = (edit: AddressEdit): AddressEdit => {
   };
 };
 
-/**
- * アドレス欄のキー操作。Mac と Windows の定番のショートカットをどちらも受ける。
- *  - ⌘/Ctrl+A 全選択、⌘/Ctrl+X 切り取り(選択を消す。クリップボードへは呼び出し側が書く)
- *  - ⌘/Ctrl+Z 元に戻す、⌘/Ctrl+Shift+Z と Ctrl+Y やり直す
- *  - ←→ 1 文字、Option/Ctrl+←→ 1 単語、⌘←→・Home/End・↑↓ 行の端へ。Shift を足すと選択を広げる
- *  - Backspace/Delete 1 文字、Option/Ctrl 付きで 1 単語、⌘ 付きで行の端まで消す
- */
 export const applyAddressKey = (
   edit: AddressEdit,
   event: {
@@ -368,7 +356,6 @@ export const applyAddressKey = (
   return edit;
 };
 
-/** 貼り付けや IME の確定。選択があれば置き換える(改行は除く) */
 export const applyAddressText = (
   edit: AddressEdit,
   text: string,

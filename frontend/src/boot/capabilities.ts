@@ -1,4 +1,3 @@
-/** WebGPU が使えない理由。unsupported=API 自体が無い / no-adapter=adapter を取れない / init-failed=レンダラー初期化で WebGL2 に落ちた */
 export type WebGPUUnavailableReason =
   | "unsupported"
   | "no-adapter"
@@ -11,7 +10,6 @@ const REASON_TEXT: Record<WebGPUUnavailableReason, string> = {
     "WebGPU の初期化に失敗しました(WebGL2 へのフォールバックは対応していません)",
 };
 
-/** WebGPU のみサポートする。WebGL / WebGL2 フォールバックでは起動しない */
 export class WebGPUUnavailableError extends Error {
   readonly reason: WebGPUUnavailableReason;
 
@@ -53,7 +51,6 @@ export const assertWebGPUAvailable = async (): Promise<void> => {
 /**
  * WebGPURenderer は WebGPU の初期化に失敗すると黙って WebGL2 バックエンドに差し替える
  * (WebGPURenderer のコンストラクタが getFallback を上書きするため、オプションでは止められない)。
- * init 後にバックエンドを見て、WebGPU でなければ投げる
  */
 export const assertWebGPUBackend = (renderer: object): void => {
   const backend = (renderer as {backend?: {isWebGPUBackend?: boolean}}).backend;

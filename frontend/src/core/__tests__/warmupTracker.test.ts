@@ -35,7 +35,6 @@ describe("sceneSignature", () => {
   });
 });
 
-/** 最低フレーム数のぶんを先に描いた状態のトラッカー(時間の条件だけを見るテスト用) */
 const trackerAfterMinFrames = (signature = "a", held = false) => {
   const t = createWarmupTracker(0);
   for (let i = 0; i < WARMUP_MIN_FRAMES; i++) {
