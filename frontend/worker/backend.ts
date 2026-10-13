@@ -3,6 +3,7 @@ import {DurableObject} from "cloudflare:workers";
 interface Env {
   IUBEO_SIGNING_KEY: string;
   IUBEO_WISP_KEY?: string;
+  IUBEO_ALLOWED_ORIGIN_PATTERNS?: string;
   IUBEO_VC_PRIVATE_KEY?: string;
   IUBEO_VC_SIGNALING_URL?: string;
   IUBEO_VC_MEDIA_URL?: string;
@@ -59,6 +60,7 @@ export class Backend extends DurableObject<Env> {
           IUBEO_SIGNING_KEY: key,
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
+          ...originPatternEnv(this.env.IUBEO_ALLOWED_ORIGIN_PATTERNS),
           ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
           ...voiceEnv(this.env),
         },
@@ -123,6 +125,14 @@ const voiceEnv = (env: Env): Record<string, string> => {
     IUBEO_VC_MEDIA_URL: media,
   };
 };
+
+/**
+ * 正規表現で許可する Origin(展示用の PR プレビュー等)。空なら何も渡さない
+ */
+const originPatternEnv = (
+  patterns: string | undefined,
+): Record<string, string> =>
+  patterns ? {IUBEO_ALLOWED_ORIGIN_PATTERNS: patterns} : {};
 
 const wispEnv = (
   origin: string,

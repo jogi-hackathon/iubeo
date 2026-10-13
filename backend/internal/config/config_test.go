@@ -232,3 +232,31 @@ func TestLoadBraveAPIKey(t *testing.T) {
 		t.Errorf("BraveAPIKey = %q, want brave-key", cfg.BraveAPIKey)
 	}
 }
+
+func TestLoadAllowedOriginPatterns(t *testing.T) {
+	base := map[string]string{"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173"}
+
+	cfg, err := Load(env(map[string]string{
+		"IUBEO_SIGNING_KEY":             base["IUBEO_SIGNING_KEY"],
+		"IUBEO_ALLOWED_ORIGINS":         base["IUBEO_ALLOWED_ORIGINS"],
+		"IUBEO_ALLOWED_ORIGIN_PATTERNS": ` https://pr-[0-9]+-x\.example\.dev , https://y\.example\.dev `,
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AllowedOriginRegexps) != 2 {
+		t.Fatalf("AllowedOriginRegexps = %d, want 2", len(cfg.AllowedOriginRegexps))
+	}
+	if !cfg.AllowedOriginRegexps[0].MatchString("https://pr-12-x.example.dev") {
+		t.Error("first pattern should match a PR origin")
+	}
+
+	_, err = Load(env(map[string]string{
+		"IUBEO_SIGNING_KEY":             base["IUBEO_SIGNING_KEY"],
+		"IUBEO_ALLOWED_ORIGINS":         base["IUBEO_ALLOWED_ORIGINS"],
+		"IUBEO_ALLOWED_ORIGIN_PATTERNS": "https://(broken",
+	}))
+	if err == nil {
+		t.Error("invalid pattern should be an error")
+	}
+}

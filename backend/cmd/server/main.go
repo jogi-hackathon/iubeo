@@ -37,6 +37,7 @@ func main() {
 		matchmaking.New(cfg.MatchSize, sessions, time.Now, matchmaking.Options{FillAfter: cfg.CPUFillAfter}),
 		cfg.AllowedOrigins,
 	)
+	srv.WithOriginRegexps(cfg.AllowedOriginRegexps)
 	if cfg.WispKey != nil {
 		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL)
 	}

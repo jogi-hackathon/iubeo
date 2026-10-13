@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"slices"
 
 	"github.com/coder/websocket"
 
@@ -50,7 +49,7 @@ func (s *Server) ConnectSession(w http.ResponseWriter, r *http.Request, sessionI
 	if !ok {
 		return
 	}
-	if origin := r.Header.Get("Origin"); !slices.Contains(s.allowedOrigins, origin) {
+	if origin := r.Header.Get("Origin"); !s.originAllowed(origin) {
 		writeError(w, http.StatusForbidden, "forbidden_origin", "origin is not allowed")
 		return
 	}
