@@ -1,3 +1,4 @@
+import {audioManager} from "../core/audio/audioManager";
 import {closeDevPanel} from "../core/debug/devPanel";
 import {
   resumePointerLock,
@@ -16,8 +17,14 @@ import {presentStore} from "./store";
 
 let releaseControl: (() => void) | null = null;
 let releasePointer: (() => void) | null = null;
+/** プレゼンを始める前に音が止まっていたか(音声の了承前なら、終わっても止めたままにする) */
+let mutedBefore: boolean | null = null;
 
 const releaseAll = (): void => {
+  if (mutedBefore !== null) {
+    audioManager.setMuted(mutedBefore);
+    mutedBefore = null;
+  }
   releasePointer?.();
   releasePointer = null;
   releaseControl?.();
@@ -52,7 +59,7 @@ const prepareBehind = (deck: DeckId, step: number): void => {
 };
 
 /**
- * dev パネル(または F9)から呼ぶ。プレイヤーの操作とポインターロックを止めて始める。
+ * dev パネル(または F9)から呼ぶ。プレイヤーの操作とポインターロックと音を止めて始める。
  * イントロは黒い画面から始め、裏でゲームを最初の部屋・チュートリアルの始めに戻す。
  * 技術パートはデモの画面のまま目を閉じるところから始める
  */
@@ -64,6 +71,9 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
   if (document.pointerLockElement !== null) {
     document.exitPointerLock();
   }
+  // スライド中はゲームの音(効果音・ボイスチャット)を鳴らさない
+  mutedBefore = audioManager.isMuted();
+  audioManager.setMuted(true);
   releaseControl = lockPlayerControl();
   releasePointer = suppressPointerLock();
   if (deck === "intro") {
