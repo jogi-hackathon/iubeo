@@ -588,11 +588,6 @@ body,
 /* 右側に実物を描くときは、箇条書きの右端を実物の手前で止める */
 .present-outline.present-kodawari-points[data-beside="true"] {
   right: 36vw;
-  font-size: clamp(14px, 1.7vw, 32px);
-}
-
-.present-outline.present-kodawari-points[data-beside="true"] > li + li {
-  margin-top: 0.4em;
 }
 
 /* その手順で新しく出た項目(最後の小見出し)に、こだわりの立方体の縁の色で下線を引く。文字は白のまま */

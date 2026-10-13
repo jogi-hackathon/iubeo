@@ -143,20 +143,20 @@ export const KODAWARI_CONTENT: readonly KodawariContent[] = [
     color: "#e63946",
     points: [
       {
-        text: "WebGPU 専用にし、影を使わず半球光と AO だけで陰影を付けた",
+        text: "半球光と AO だけの陰影",
         scene: "light",
       },
       {
-        text: "部屋の PC で Windows 2000 風のデスクトップを動かした",
+        text: "Windows 2000 風のデスクトップ",
         scene: "pc",
       },
-      {text: "画像生成はノイズから絵が現れるようにした", scene: "canvas"},
+      {text: "ノイズから絵が現れる画像生成", scene: "canvas"},
       {
-        text: "脱落すると体がラグドールになって燃えて欠けていくようにした",
+        text: "燃えて欠けていくラグドール",
         scene: "ragdoll",
       },
       {
-        text: "ライターで火をつけるとディレクトリが侵食されて消えるようにした",
+        text: "ライターの火で侵食されて消えるディレクトリ",
         scene: "directory",
       },
     ],
