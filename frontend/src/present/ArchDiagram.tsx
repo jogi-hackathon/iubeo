@@ -1,8 +1,9 @@
-import {after, Slide} from "./svgParts";
+import {Icon, type IconName, IconNode} from "./icons";
+import {Slide} from "./svgParts";
 
 /**
  * 技術パートの構成図。docs/assets/arch.png と同じ構成を白い線で描き直し、手順ごとに 1 つの経路だけを光らせる
- * (それ以外は暗くし、光らせた線の上に点を流す)。VC は PNG に無いので、ここで描き足している
+ * (それ以外は暗くする)。VC は PNG に無いので、ここで描き足している
  */
 
 /** 光らせる経路。overview は全体を見せるだけ */
@@ -33,21 +34,18 @@ const TITLES: Record<ArchRoute, string> = {
   browser: "ゲーム内ブラウザの通信",
   judge: "検索の判定",
   vc: "ボイスチャット",
-  ops: "必要なときだけ EC2 を起こす",
+  ops: "必要なときだけ EC2 を起こすようにした",
 };
 
 type Lit = Exclude<ArchRoute, "overview">;
 
 interface ArchNode {
   id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** アイコンの中心 */
+  cx: number;
+  cy: number;
   title: string;
-  lines?: readonly string[];
-  /** 開発用・フォールバックの物は破線で描く */
-  dashed?: boolean;
+  icons: readonly IconName[];
   routes: readonly Lit[];
 }
 
@@ -60,203 +58,218 @@ interface ArchEdge {
   labelAt?: readonly [number, number];
 }
 
+/** ノードのアイコンの大きさ */
+const ICON_SIZE = 64;
+/** 横の線はアイコンの手前で止める(中心からの距離。2 つ並ぶ EC2 は IconRow の幅から) */
+const H = ICON_SIZE / 2 + 14;
+const EC2_H = (ICON_SIZE * 2.4) / 2 + 14;
+/** 縦の線は、上のノードの名前の下から、下のノードのアイコンの手前まで */
+const BELOW = ICON_SIZE / 2 + 38;
+const ABOVE = ICON_SIZE / 2 + 14;
+
+/** 横長の画面いっぱいに広げる図の幅と、列の x */
+const WIDTH = 1700;
+const PLAYER = 80;
+const FRONT = 380;
+const MID = 700;
+const EC2 = 1150;
+const RIGHT = 1560;
+/** 列の間で曲がる線の折り返し */
+const MID_EC2 = (MID + EC2) / 2;
+const EC2_RIGHT = (EC2 + RIGHT) / 2;
+
+/** Cloudflare・AWS の範囲(破線の枠) */
+const CF_GROUP = {x: 230, w: 630};
+const AWS_GROUP = {x: 960, w: 380};
+
 const NODES: readonly ArchNode[] = [
   {
     id: "player",
-    x: 10,
-    y: 270,
-    w: 120,
-    h: 80,
+    cx: PLAYER,
+    cy: 300,
     title: "プレイヤー",
-    lines: ["Chrome"],
+    icons: ["chrome"],
     routes: ["play", "browser", "judge", "vc"],
   },
   {
     id: "frontend",
-    x: 185,
-    y: 270,
-    w: 190,
-    h: 80,
-    title: "iubeo-frontend",
-    lines: ["配信・中継"],
+    cx: FRONT,
+    cy: 300,
+    title: "frontend",
+    icons: ["workers"],
     routes: ["play", "browser", "judge"],
   },
   {
     id: "backend",
-    x: 410,
-    y: 110,
-    w: 190,
-    h: 80,
-    title: "iubeo-backend",
-    lines: ["/api"],
+    cx: MID,
+    cy: 140,
+    title: "backend",
+    icons: ["workers"],
     routes: ["play", "ops"],
   },
   {
     id: "wisp",
-    x: 410,
-    y: 270,
-    w: 190,
-    h: 80,
-    title: "iubeo-wisp",
-    lines: ["/wisp"],
+    cx: MID,
+    cy: 300,
+    title: "wisp",
+    icons: ["workers"],
     routes: ["browser", "ops"],
   },
   {
     id: "ai",
-    x: 185,
-    y: 430,
-    w: 190,
-    h: 80,
+    cx: FRONT,
+    cy: 440,
     title: "Workers AI",
-    lines: ["/judge(Clef)"],
+    icons: ["ai"],
     routes: ["judge"],
   },
   {
     id: "kv",
-    x: 185,
-    y: 535,
-    w: 190,
-    h: 70,
+    cx: FRONT,
+    cy: 555,
     title: "KV",
-    lines: ["target"],
+    icons: ["db"],
     routes: ["ops"],
   },
   {
     id: "containers",
-    x: 410,
-    y: 430,
-    w: 190,
-    h: 80,
+    cx: MID,
+    cy: 440,
     title: "Containers",
-    lines: ["開発用・フォールバック"],
-    dashed: true,
+    icons: ["docker"],
     routes: ["ops"],
   },
   {
     id: "ec2",
-    x: 690,
-    y: 150,
-    w: 240,
-    h: 160,
+    cx: EC2,
+    cy: 220,
     title: "EC2",
-    lines: ["Go のサーバー :8080", "WISP :8081", "Elastic IP"],
+    icons: ["ec2", "go"],
     routes: ["play", "browser", "ops"],
   },
   {
     id: "lambda",
-    x: 690,
-    y: 430,
-    w: 240,
-    h: 90,
+    cx: EC2,
+    cy: 440,
     title: "Lambda",
-    lines: ["起動・停止・自動停止"],
+    icons: ["lambda"],
     routes: ["ops"],
   },
   {
     id: "brave",
-    x: 990,
-    y: 110,
-    w: 200,
-    h: 70,
-    title: "Brave Search API",
+    cx: RIGHT,
+    cy: 120,
+    title: "Brave Search",
+    icons: ["brave"],
     routes: ["browser"],
   },
   {
     id: "web",
-    x: 990,
-    y: 210,
-    w: 200,
-    h: 70,
-    title: "外部サイト",
+    cx: RIGHT,
+    cy: 240,
+    title: "Web",
+    icons: ["globe"],
     routes: ["browser"],
   },
   {
-    id: "vc",
-    x: 990,
-    y: 330,
-    w: 200,
-    h: 90,
-    title: "ボイスチャット",
-    lines: ["MoQ リレー(別ホスト)"],
-    routes: ["vc"],
+    id: "discord",
+    cx: RIGHT,
+    cy: 440,
+    title: "Discord",
+    icons: ["discord"],
+    routes: ["ops"],
   },
   {
-    id: "discord",
-    x: 990,
-    y: 450,
-    w: 200,
-    h: 70,
-    title: "Discord",
-    lines: ["/ec2start /ec2stop"],
-    routes: ["ops"],
+    id: "vc",
+    cx: RIGHT,
+    cy: 555,
+    title: "VC リレー",
+    icons: ["mic"],
+    routes: ["vc"],
   },
 ];
 
 const EDGES: readonly ArchEdge[] = [
   {
     id: "https",
-    d: "M130,310 L182,310",
+    d: `M${PLAYER + H},300 L${FRONT - H},300`,
     routes: ["play", "browser", "judge"],
     label: "HTTPS",
-    labelAt: [156, 262],
+    labelAt: [(PLAYER + FRONT) / 2, 288],
   },
-  {id: "api", d: "M375,290 C392,290 392,150 407,150", routes: ["play"]},
-  {id: "wisp", d: "M375,310 L407,310", routes: ["browser"]},
-  {id: "judge", d: "M280,350 L280,427", routes: ["judge"]},
+  {
+    id: "api",
+    d: `M${FRONT + H},300 C${FRONT + 140},300 ${MID - 140},140 ${MID - H},140`,
+    routes: ["play"],
+  },
+  {id: "wisp", d: `M${FRONT + H},300 L${MID - H},300`, routes: ["browser"]},
+  {
+    id: "judge",
+    d: `M${FRONT},${300 + BELOW} L${FRONT},${440 - ABOVE}`,
+    routes: ["judge"],
+  },
   {
     id: "backend-ec2",
-    d: "M600,150 C645,150 645,200 687,200",
+    d: `M${MID + H},140 C${MID_EC2},140 ${MID_EC2},210 ${EC2 - EC2_H},210`,
     routes: ["play"],
     label: ":8080",
-    labelAt: [645, 140],
+    labelAt: [MID_EC2, 160],
   },
   {
     id: "wisp-ec2",
-    d: "M600,310 C645,310 645,265 687,265",
+    d: `M${MID + H},300 C${MID_EC2},300 ${MID_EC2},230 ${EC2 - EC2_H},230`,
     routes: ["browser"],
     label: ":8081",
-    labelAt: [645, 330],
+    labelAt: [MID_EC2, 296],
   },
   {
     id: "ec2-brave",
-    d: "M930,190 C960,190 960,145 987,145",
+    d: `M${EC2 + EC2_H},210 C${EC2_RIGHT},210 ${EC2_RIGHT},120 ${RIGHT - H},120`,
     routes: ["browser"],
   },
-  {id: "ec2-web", d: "M930,235 C960,235 960,245 987,245", routes: ["browser"]},
+  {
+    id: "ec2-web",
+    d: `M${EC2 + EC2_H},230 C${EC2_RIGHT},230 ${EC2_RIGHT},240 ${RIGHT - H},240`,
+    routes: ["browser"],
+  },
   {
     id: "player-vc",
-    d: "M70,350 L70,628 L1090,628 L1090,423",
+    d: `M${PLAYER},${300 + BELOW} L${PLAYER},650 L${RIGHT - 150},650 C${RIGHT - 100},650 ${RIGHT - 130},555 ${RIGHT - 80},555 L${RIGHT - H},555`,
     routes: ["vc"],
-    label: "QUIC(MoQ)",
-    labelAt: [580, 618],
+    label: "QUIC",
+    labelAt: [(PLAYER + RIGHT) / 2, 640],
   },
   {
     id: "backend-containers",
-    d: "M600,170 L632,170 L632,470 L603,470",
+    d: `M${MID + H},152 L${MID + 95},152 L${MID + 95},440 L${MID + H},440`,
     routes: ["ops"],
     dashed: true,
   },
   {
     id: "wisp-containers",
-    d: "M505,350 L505,427",
+    d: `M${MID},${300 + BELOW} L${MID},${440 - ABOVE}`,
     routes: ["ops"],
     dashed: true,
   },
-  {id: "discord-lambda", d: "M990,485 L933,485", routes: ["ops"]},
+  {
+    id: "discord-lambda",
+    d: `M${RIGHT - H},440 L${EC2 + H},440`,
+    routes: ["ops"],
+  },
   {
     id: "lambda-ec2",
-    d: "M810,430 L810,313",
+    d: `M${EC2},${440 - ABOVE} L${EC2},${220 + BELOW}`,
     routes: ["ops"],
     label: "起動 / 停止",
-    labelAt: [860, 375],
+    labelAt: [EC2 + 60, 350],
   },
   {
     id: "lambda-kv",
-    d: "M690,500 C640,500 640,570 378,570",
+    d: `M${EC2 - H},455 C${EC2 - 160},452 ${EC2 - 160},555 ${FRONT + H},555`,
     routes: ["ops"],
     dashed: true,
     label: "target",
-    labelAt: [520, 560],
+    labelAt: [(FRONT + EC2) / 2, 545],
   },
 ];
 
@@ -266,8 +279,11 @@ const isOn = (focus: ArchRoute, routes: readonly Lit[]): boolean =>
 export function ArchDiagram({focus}: {focus: ArchRoute}) {
   const focused = focus !== "overview";
   return (
-    <Slide kicker="全体像" title={TITLES[focus]} titleKey={focus}>
-      <svg className="present-svg present-arch-svg" viewBox="0 0 1200 640">
+    <Slide title={TITLES[focus]}>
+      <svg
+        className="present-svg present-arch-svg"
+        viewBox={`0 0 ${WIDTH} 670`}
+      >
         <defs>
           <marker
             id="present-arch-arrow"
@@ -281,31 +297,33 @@ export function ArchDiagram({focus}: {focus: ArchRoute}) {
             <path d="M0,0 L10,5 L0,10 z" fill="#fff" />
           </marker>
         </defs>
-        <g className="present-in" style={after(0.2)}>
+        <g>
           <rect
             className="present-group"
-            x={160}
+            x={CF_GROUP.x}
             y={20}
-            width={460}
-            height={595}
+            width={CF_GROUP.w}
+            height={615}
             rx={16}
           />
-          <text className="present-group-label" x={180} y={50}>
+          <Icon name="cloudflare" x={CF_GROUP.x + 18} y={26} size={34} />
+          <text className="present-group-label" x={CF_GROUP.x + 58} y={50}>
             Cloudflare
           </text>
           <rect
             className="present-group"
-            x={665}
+            x={AWS_GROUP.x}
             y={20}
-            width={290}
-            height={595}
+            width={AWS_GROUP.w}
+            height={615}
             rx={16}
           />
-          <text className="present-group-label" x={685} y={50}>
-            AWS(東京)
+          <Icon name="aws" x={AWS_GROUP.x + 15} y={22} size={40} />
+          <text className="present-group-label" x={AWS_GROUP.x + 61} y={50}>
+            東京
           </text>
         </g>
-        {EDGES.map((edge, i) => {
+        {EDGES.map((edge) => {
           const on = isOn(focus, edge.routes);
           return (
             <g
@@ -315,44 +333,25 @@ export function ArchDiagram({focus}: {focus: ArchRoute}) {
               data-focused={focused && on}
             >
               <path
-                className={
-                  edge.dashed
-                    ? "present-arch-edge present-in"
-                    : "present-arch-edge present-draw"
-                }
+                className="present-arch-edge"
                 data-dashed={edge.dashed === true}
                 d={edge.d}
-                pathLength={edge.dashed ? undefined : 1}
                 markerEnd="url(#present-arch-arrow)"
-                style={after(0.6 + i * 0.08)}
               />
               {edge.label && edge.labelAt && (
                 <text
-                  className="present-edge-label present-in"
+                  className="present-edge-label"
                   x={edge.labelAt[0]}
                   y={edge.labelAt[1]}
                   textAnchor="middle"
-                  style={after(1 + i * 0.08)}
                 >
                   {edge.label}
                 </text>
               )}
-              {/* 光らせた経路にだけ点を流す。経路が変わったら流し直す */}
-              {focused && on && (
-                <circle key={focus} r={6} className="present-packet">
-                  <animateMotion
-                    dur="1.4s"
-                    repeatCount="indefinite"
-                    path={edge.d}
-                  />
-                </circle>
-              )}
             </g>
           );
         })}
-        {NODES.map((node, i) => {
-          const top =
-            node.y + node.h / 2 - ((node.lines?.length ?? 0) * 22) / 2 + 6;
+        {NODES.map((node) => {
           const on = isOn(focus, node.routes);
           return (
             <g
@@ -361,36 +360,14 @@ export function ArchDiagram({focus}: {focus: ArchRoute}) {
               data-on={on}
               data-focused={focused && on}
             >
-              <g className="present-in" style={after(0.3 + i * 0.06)}>
-                <rect
-                  className="present-box present-arch-node"
-                  data-dashed={node.dashed === true}
-                  x={node.x}
-                  y={node.y}
-                  width={node.w}
-                  height={node.h}
-                  rx={12}
-                />
-                <text
-                  className="present-arch-title"
-                  x={node.x + node.w / 2}
-                  y={top}
-                  textAnchor="middle"
-                >
-                  {node.title}
-                </text>
-                {node.lines?.map((line, j) => (
-                  <text
-                    key={line}
-                    className="present-box-sub present-arch-sub"
-                    x={node.x + node.w / 2}
-                    y={top + 24 + j * 22}
-                    textAnchor="middle"
-                  >
-                    {line}
-                  </text>
-                ))}
-              </g>
+              <IconNode
+                names={node.icons}
+                cx={node.cx}
+                cy={node.cy}
+                size={ICON_SIZE}
+                title={node.title}
+                className="present-arch-title"
+              />
             </g>
           );
         })}

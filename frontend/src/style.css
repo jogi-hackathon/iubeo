@@ -142,7 +142,11 @@ body,
   overflow: hidden;
   background: #000;
   color: #fff;
-  cursor: none;
+  /* 黒い画面でも見えるよう白い矢印にする(目を開けたあとの白い部屋でも見えるよう黒で縁取る) */
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 2v20l5.5-5.2 3.6 8.4 3.4-1.5-3.6-8.2H20z' fill='%23fff' stroke='%23000' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E")
+      4 2,
+    default;
   user-select: none;
   font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
 }
@@ -456,14 +460,7 @@ body,
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 7vh 7vw 5vh;
-}
-
-.present-kicker {
-  margin-bottom: 0.6em;
-  font-size: clamp(12px, 1.1vw, 18px);
-  letter-spacing: 0.3em;
-  opacity: 0.55;
+  padding: 4vh 7vw 4vh;
 }
 
 .present-tech-body {
@@ -484,71 +481,21 @@ body,
   fill: #fff;
 }
 
-.present-box {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.8);
-  stroke-width: 1.5;
-}
-
 .present-box-title {
   font-size: 24px;
   font-weight: 600;
 }
 
-.present-svg .present-box-sub,
-.present-svg .present-edge-label,
-.present-svg .present-row-label {
+.present-svg .present-edge-label {
   fill: rgb(255 255 255 / 0.6);
   font-size: 17px;
 }
 
-.present-svg .present-row-label {
-  letter-spacing: 0.15em;
-}
-
-.present-caption {
-  font-size: 20px;
-}
-
-.present-big {
-  font-size: 110px;
-  font-weight: 600;
-}
-
-.present-packet {
-  fill: #fff;
-}
-
-/* 手順に入ってから順に現れる(delay は style の animation-delay) */
-.present-in {
-  animation: present-fade-up 0.7s ease-out both;
-}
-
-@keyframes present-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* 線を引くように描く(pathLength=1 の path) */
-.present-draw {
+/* 矢印の付いた線(src/present/svgParts の Edge) */
+.present-edge {
   fill: none;
   stroke: rgb(255 255 255 / 0.8);
   stroke-width: 1.5;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: present-draw 0.8s ease-out forwards;
-}
-
-@keyframes present-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
 }
 
 /* 技術パートの構成図(src/present/ArchDiagram)。光らせた経路以外は暗くする */
@@ -572,11 +519,6 @@ body,
   opacity: 0.15;
 }
 
-/* ラベルは登場のアニメーションで別に描かれ、親の opacity が効かないので、文字色で暗くする */
-.present-svg .present-arch-el[data-on="false"] .present-edge-label {
-  fill: rgb(255 255 255 / 0.1);
-}
-
 .present-arch-edge {
   fill: none;
   stroke: rgb(255 255 255 / 0.7);
@@ -595,54 +537,97 @@ body,
   stroke-width: 2.5;
 }
 
-.present-arch-node {
-  transition: fill 0.5s ease;
-}
-
-.present-arch-node[data-dashed="true"] {
-  stroke-dasharray: 6 5;
-}
-
-.present-arch-el[data-focused="true"] .present-arch-node {
-  fill: rgb(255 255 255 / 0.1);
-}
-
 .present-svg .present-arch-title {
   font-size: 20px;
   font-weight: 600;
 }
 
-.present-svg .present-arch-sub {
-  font-size: 15px;
+/* 見どころ 2: Three.js と Babylon.js の比較表 */
+.present-compare {
+  align-self: center;
+  width: 100%;
+  font-size: clamp(16px, 2vw, 38px);
 }
 
-.present-svg .present-small {
-  font-size: 21px;
-  font-weight: 500;
+.present-compare table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.present-base {
-  fill: rgb(255 255 255 / 0.08);
+.present-compare th,
+.present-compare td {
+  padding: 0.45em 0.8em;
+  border-bottom: 1px solid rgb(255 255 255 / 0.2);
+  text-align: left;
 }
 
-.present-big-sub {
-  font-size: 72px;
+.present-compare thead th {
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-/* 積み木のように上から落ちてくる */
-.present-drop {
-  animation: present-drop 0.6s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+.present-compare thead th > span {
+  margin-left: 0.6em;
+  padding: 0.1em 0.5em;
+  border: 1px solid currentColor;
+  border-radius: 0.3em;
+  font-size: 0.6em;
+  vertical-align: middle;
 }
 
-@keyframes present-drop {
-  from {
-    opacity: 0;
-    transform: translateY(-40px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.present-compare tbody th {
+  font-weight: 400;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.present-compare td[data-good="true"] {
+  font-weight: 700;
+}
+
+.present-compare td[data-good="false"] {
+  opacity: 0.5;
+}
+
+.present-compare-icon {
+  width: 1.2em;
+  height: 1.2em;
+  margin-right: 0.4em;
+  vertical-align: -0.2em;
+}
+
+.present-compare p {
+  margin: 1.2em 0 0;
+  font-size: 0.8em;
+}
+
+/* 見どころの縦の箇条書き(小見出しの下に項目を入れ子にする) */
+.present-outline {
+  align-self: center;
+  width: 100%;
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: clamp(18px, 2.3vw, 44px);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.present-outline > li + li {
+  margin-top: 0.7em;
+}
+
+.present-outline ul {
+  margin: 0.2em 0 0;
+  padding-left: 1.4em;
+  font-size: 0.85em;
+  font-weight: 400;
+  list-style: circle;
+}
+
+.present-outline b {
+  margin-left: 0.6em;
+  font-size: 1.25em;
+  font-weight: 700;
 }
 
 .present-infra {
@@ -662,6 +647,9 @@ body,
 }
 
 .present-code-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
   padding: 0.5em 1em;
   border-bottom: 1px solid rgb(255 255 255 / 0.2);
   font:
@@ -692,43 +680,38 @@ body,
   margin: 0 0 1em;
 }
 
-.present-infra-cost {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6em;
-  margin-top: 1.5em;
-  opacity: 0.85;
+.present-code-icon {
+  width: 1.4em;
+  height: 1.4em;
 }
 
-.present-cost {
-  display: inline-block;
-  min-width: 3.4em;
-  margin-right: 0.5em;
-  font-size: 1.8em;
+.present-infra-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
   font-weight: 600;
+}
+
+.present-infra-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+  margin: 0;
+  padding-left: 1.1em;
+}
+
+.present-infra-icon {
+  width: 1.4em;
+  height: 1.4em;
+  flex: none;
 }
 
 .present-closing {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.2em;
-  text-align: center;
-  font-size: clamp(18px, 2.2vw, 36px);
 }
 
 .present-closing img {
   width: min(28vw, 420px);
-  margin-bottom: 1em;
-}
-
-.present-closing p {
-  margin: 0;
-}
-
-.present-closing-sub {
-  font-size: 0.75em;
-  letter-spacing: 0.2em;
-  opacity: 0.75;
 }
