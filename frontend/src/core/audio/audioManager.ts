@@ -299,6 +299,7 @@ export const createAudioManager = ({
     voiceBus: (): GainNode => ensure().voiceBus,
     unlock,
     setMuted,
+    isMuted: (): boolean => muted,
     setListener,
     acquireMic,
     micLevel,
