@@ -256,6 +256,44 @@ describe("audioManager", () => {
     expect(master?.gain.value).toBe(0);
   });
 
+  it("setMixMuted はゲームとボイスの音だけを止め、soloBus は limiter へ直結して master が開けば鳴る", () => {
+    const {manager, context, settings} = make();
+    type Node = ReturnType<typeof fakeNode>;
+    const gains: Node[] = [];
+    const limiters: Node[] = [];
+    context.ctx.createGain = () => {
+      const node = fakeNode();
+      gains.push(node);
+      return node;
+    };
+    context.ctx.createDynamicsCompressor = () => {
+      const node = fakeNode();
+      limiters.push(node);
+      return node;
+    };
+    settings.set({gameVolume: 0.4});
+    manager.setMixMuted(true);
+    const game = manager.gameBus() as unknown as Node;
+    const voice = manager.voiceBus() as unknown as Node;
+    const solo = manager.soloBus() as unknown as Node;
+    const limiter = limiters[0]!;
+    const master = gains.find((g) =>
+      g.connect.mock.calls.some(([to]) => to === context.ctx.destination),
+    )!;
+    expect(limiter.connect).toHaveBeenCalledWith(master);
+    expect(solo.connect).toHaveBeenCalledWith(limiter);
+    const mix = game.connect.mock.calls[0]![0] as Node;
+    expect(voice.connect).toHaveBeenCalledWith(mix);
+    expect(mix.connect).toHaveBeenCalledWith(limiter);
+    expect(mix.gain.value).toBe(0);
+    expect(solo.gain.value).toBe(0.4);
+    manager.setMuted(false);
+    expect(master.gain.value).toBe(1);
+    expect(mix.gain.value).toBe(0);
+    manager.setMixMuted(false);
+    expect(mix.gain.value).toBe(1);
+  });
+
   it("unlock は止まっているときだけ resume する", async () => {
     const {manager, context} = make();
     manager.unlock();

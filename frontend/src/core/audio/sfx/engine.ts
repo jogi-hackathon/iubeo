@@ -20,7 +20,7 @@ export type ToneApi = {
 };
 
 export type SfxEngineDeps = {
-  audio: Pick<AudioManager, "context" | "gameBus">;
+  audio: Pick<AudioManager, "context" | "gameBus" | "soloBus">;
   recipes: SfxRecipes;
   tone?: ToneApi;
 };
@@ -174,6 +174,7 @@ export const createSfxEngine = ({
   };
 
   const global = new Map<SfxId, AnyVoice>();
+  const soloVoices = new Map<SfxId, AnyVoice>();
 
   const them = <Id extends SfxId>(id: Id, ...options: OptionArgs<Id>) => {
     try {
@@ -185,6 +186,19 @@ export const createSfxEngine = ({
       voice.play(tone.now(), options[0] as never);
     } catch (e) {
       console.warn(`[sfx] them(${id}) failed`, e);
+    }
+  };
+
+  const solo = <Id extends SfxId>(id: Id, ...options: OptionArgs<Id>) => {
+    try {
+      let voice = soloVoices.get(id);
+      if (!voice) {
+        voice = makeVoice(id, audio.soloBus()).voice;
+        soloVoices.set(id, voice);
+      }
+      voice.play(tone.now(), options[0] as never);
+    } catch (e) {
+      console.warn(`[sfx] solo(${id}) failed`, e);
     }
   };
 
@@ -206,6 +220,7 @@ export const createSfxEngine = ({
   return {
     emitter,
     them,
+    solo,
     stopThem,
     setTrim,
     trim: (id) => trims.get(id) ?? 0,

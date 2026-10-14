@@ -1,104 +1,241 @@
-import type {ReactNode} from "react";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import logoUrl from "../assets/brand/iubeo_logo.svg";
 import {
   type Attachment,
+  type ChatMessage,
   GLITCH_MS,
   inputAt,
+  bubbleKindOf,
+  isBlackedOut,
+  rushGlitchAt,
   isDrained,
+  isSwapped,
+  revealAt,
+  sideOf,
+  spinnerFrame,
   type Speaker,
+  type VisibleMessage,
+  type VisibleToolCall,
   typingSpeaker,
   visibleMessages,
 } from "./chat";
-import {glitchSlicesAt} from "./glitch";
+import {
+  glitchPulseAt,
+  revealClipPath,
+  shiftedBlocksAt,
+  shiftStepAt,
+} from "./glitch";
 import {stepIndexOf} from "./script";
+import {SkyBackdrop} from "./SkyBackdrop";
+import {isSkyActive} from "./skyView";
 import {progress} from "./timeline";
+import {MOTION_BLUR_ID, useMotionBlur} from "./useMotionBlur";
 
 const ASK = stepIndexOf("intro", "ask");
 const SWAP = stepIndexOf("intro", "swap");
 const LOGO = stepIndexOf("intro", "logo");
 
-/** イントロ(目を開ける手前まで)。チャット画面から、立場が入れかわる瞬間のグリッチ、ロゴまで */
+const DECOR_MESSAGES = 40;
+
+interface ChatView {
+  step: number;
+  elapsed: number;
+  shown: boolean;
+  drained: boolean;
+  swapped: boolean;
+  messages: VisibleMessage[];
+  typing: Speaker | null;
+  input: ReturnType<typeof inputAt>;
+}
+
+const chatViewAt = (step: number, elapsed: number): ChatView => ({
+  step,
+  elapsed,
+  shown: step >= ASK && step < LOGO,
+  drained: isDrained(step, elapsed),
+  swapped: isSwapped(step, elapsed),
+  messages: visibleMessages(step, elapsed),
+  typing: typingSpeaker(step, elapsed),
+  input: inputAt(step, elapsed),
+});
+
 export function IntroStage({step, elapsed}: {step: number; elapsed: number}) {
-  const slices = step === SWAP ? glitchSlicesAt(elapsed, GLITCH_MS) : [];
+  const view = chatViewAt(step, elapsed);
+  const [skyFailed, setSkyFailed] = useState(false);
+  const onSkyFailed = useCallback(() => setSkyFailed(true), []);
+  const strength =
+    step === SWAP
+      ? Math.max(glitchPulseAt(elapsed, GLITCH_MS), rushGlitchAt(step, elapsed))
+      : 0;
+  const shiftStep = shiftStepAt(elapsed);
+  const active = strength > 0;
+  const latest = useRef({view, strength});
+  latest.current = {view, strength};
+  const decor = useMemo(
+    () => ({
+      blocks: active
+        ? shiftedBlocksAt(
+            shiftStep,
+            latest.current.strength,
+            window.innerWidth,
+            window.innerHeight,
+          )
+        : [],
+      view: {
+        ...latest.current.view,
+        messages: latest.current.view.messages.slice(-DECOR_MESSAGES),
+      },
+    }),
+    [shiftStep, active],
+  );
+  const blackedOut = isBlackedOut(step, elapsed);
+  const inverted = step === SWAP && view.swapped;
+  const reveal = revealAt(step, elapsed);
+  const skyActive = isSkyActive(inverted, blackedOut);
+  const clipPath =
+    reveal === null
+      ? undefined
+      : revealClipPath(reveal, window.innerWidth, window.innerHeight);
   return (
     <>
-      <Chat step={step} elapsed={elapsed} />
-      {/* ゲーム画面のグリッチと同じく、乱れた帯だけ横にずらして白黒にする(帯ごとにチャットを描き直して切り抜く) */}
-      {slices.map((slice, i) => (
-        <div
-          key={i}
-          className="present-glitch-slice"
-          aria-hidden
-          style={{
-            clipPath: `inset(${slice.top}% 0 ${100 - slice.top - slice.height}% 0)`,
-            transform: `translateX(${slice.shift * 100}vw)`,
-          }}
-        >
-          <Chat step={step} elapsed={elapsed} />
+      {!blackedOut && reveal !== null && (
+        <DecorChat view={{...view, drained: false, swapped: false}} decor />
+      )}
+      <div
+        className="present-layer"
+        style={{
+          clipPath,
+          visibility: inverted && !blackedOut ? undefined : "hidden",
+        }}
+      >
+        {inverted && <div className="present-layer present-inverted-bg" />}
+        {!skyFailed && (
+          <div className="present-layer present-sky">
+            <SkyBackdrop active={skyActive} onFailed={onSkyFailed} />
+          </div>
+        )}
+      </div>
+      {!blackedOut && (
+        <div className="present-layer" style={{clipPath}}>
+          <Chat view={view} />
         </div>
-      ))}
-      <Logo shown={step === LOGO} elapsed={elapsed} />
+      )}
+      {!blackedOut &&
+        decor.blocks.map((block) => (
+          <div
+            key={`${block.x}:${block.y}`}
+            className="present-glitch-block"
+            data-inverted={inverted}
+            aria-hidden
+            style={{
+              clipPath: `inset(${block.y}px calc(100% - ${block.x + block.width}px) calc(100% - ${block.y + block.height}px) ${block.x}px)`,
+              transform: `translateX(${block.shift}px)`,
+            }}
+          >
+            <DecorChat view={decor.view} decor />
+          </div>
+        ))}
+      <Logo shown={!blackedOut && step === LOGO} elapsed={elapsed} />
     </>
   );
 }
 
-/** 吹き出しを出す側。人間が右・AI が左 */
-const sideOf = (from: Speaker): "left" | "right" =>
-  from === "human" ? "right" : "left";
-
-const LABEL: Record<Speaker, string> = {human: "あなた", ai: "AI"};
+const LABEL: Record<ChatMessage["from"], string> = {
+  human: "あなた",
+  ai: "AI",
+};
 
 /**
- * 手順 ask〜swap のチャット画面。AI は頼みごとに従順に答え続けるが、ある時から AI の方が頼んでくる。
- * 立場が入れかわる瞬間にグリッチが走り、画面から色が抜ける
+ * 手順 ask〜swap のチャット画面。AI は Tool Call を実行して頼みごとに従順に答え続けるが、ある時から AI の方が頼んでくる。
+ * 立場が入れかわる瞬間にグリッチが走り、画面から色が抜けて、頼む側の青いボックスが人間から AI に移る
  */
-function Chat({step, elapsed}: {step: number; elapsed: number}) {
-  const drained = isDrained(step, elapsed);
-  const messages = visibleMessages(step, elapsed);
-  const typing = typingSpeaker(step, elapsed);
-  const input = inputAt(step, elapsed);
+function Chat({view, decor = false}: {view: ChatView; decor?: boolean}) {
+  const {step, elapsed, shown, drained, swapped, messages, typing, input} =
+    view;
+  const {logRef, trackRef, blurRef} = useMotionBlur(!decor && shown && swapped);
+  const lastMessage = messages[messages.length - 1]?.message;
   return (
     <div
       className="present-layer present-chat"
-      data-shown={step >= ASK && step < LOGO}
+      data-shown={shown}
       data-drained={drained}
+      data-decor={decor}
     >
-      <div className="present-chat-log">
-        {messages.map(({message, text, done}, i) => {
-          // 話し手が変わるか、手順が変わったら名前を出し直す(AI が急に頼んでくる場面を返事の続きに見せない)
-          const prev = messages[i - 1]?.message;
-          const named =
-            prev?.from !== message.from || prev.step !== message.step;
-          return (
-            <Row
-              key={message.id}
-              side={sideOf(message.from)}
-              fast={message.instant === true}
-            >
-              {named && (
-                <div className="present-sender" data-from={message.from}>
-                  {LABEL[message.from]}
+      {!decor && (
+        <svg className="present-filters" width="0" height="0" aria-hidden>
+          <filter
+            id={MOTION_BLUR_ID}
+            x="-10%"
+            y="-10%"
+            width="120%"
+            height="120%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feGaussianBlur ref={blurRef} stdDeviation="0 0" />
+          </filter>
+        </svg>
+      )}
+      <div className="present-chat-log" ref={decor ? undefined : logRef}>
+        <div className="present-chat-track" ref={decor ? undefined : trackRef}>
+          {messages.map(({message, text, done, tools}, i) => {
+            const prev = messages[i - 1]?.message;
+            const kind = bubbleKindOf(message, swapped);
+            return (
+              <Row
+                key={message.id}
+                side={sideOf(message.from)}
+                fast={message.instant === true}
+                blur={message.step >= SWAP}
+              >
+                {isNamed(prev, message) && (
+                  <div className="present-sender" data-from={message.from}>
+                    {LABEL[message.from]}
+                  </div>
+                )}
+                {kind !== "agent" ? (
+                  <div className="present-bubble" data-kind={kind}>
+                    {text}
+                    {done && message.attachment && (
+                      <AttachmentView attachment={message.attachment} />
+                    )}
+                  </div>
+                ) : (
+                  <div className="present-agent">
+                    {tools.map((tool) => (
+                      <ToolCallLine key={tool.call.startAt} tool={tool} />
+                    ))}
+                    {text !== "" && (
+                      <div className="present-agent-text">{text}</div>
+                    )}
+                    {done && message.attachment && (
+                      <AttachmentView attachment={message.attachment} />
+                    )}
+                  </div>
+                )}
+              </Row>
+            );
+          })}
+          {typing && (
+            <Row side={sideOf(typing)}>
+              {isNamed(lastMessage, {from: typing, step}) && (
+                <div className="present-sender" data-from={typing}>
+                  {LABEL[typing]}
                 </div>
               )}
-              <div className="present-bubble" data-from={message.from}>
-                {text}
-                {done && message.attachment && (
-                  <AttachmentView attachment={message.attachment} />
-                )}
+              <div className="present-thinking">
+                {spinnerFrame(elapsed)} 考え中
               </div>
             </Row>
-          );
-        })}
-        {typing && (
-          <Row side={sideOf(typing)}>
-            <div className="present-bubble present-typing" data-from={typing}>
-              <span />
-              <span />
-              <span />
-            </div>
-          </Row>
-        )}
+          )}
+        </div>
       </div>
       <div className="present-input">
         {input.text}
@@ -116,18 +253,35 @@ function Chat({step, elapsed}: {step: number; elapsed: number}) {
   );
 }
 
+const DecorChat = memo(Chat);
+
+const isNamed = (
+  prev: Pick<ChatMessage, "from" | "step"> | undefined,
+  message: Pick<ChatMessage, "from" | "step">,
+): boolean => prev?.from !== message.from || prev.step !== message.step;
+
+function ToolCallLine({tool}: {tool: VisibleToolCall}) {
+  return (
+    <div className="present-tool" data-done={tool.done}>
+      {tool.status}
+    </div>
+  );
+}
+
 function Row({
   side,
   fast = false,
+  blur = false,
   children,
 }: {
   side: "left" | "right";
+  blur?: boolean;
   /** 大量に届く命令は素早く押し上げる */
   fast?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="present-msg" data-fast={fast}>
+    <div className="present-msg" data-fast={fast} data-blur={blur}>
       <div className="present-msg-inner">
         <div className="present-slot" data-side={side}>
           {children}

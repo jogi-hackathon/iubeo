@@ -47,12 +47,15 @@ export const createAudioManager = ({
     master: GainNode;
     gameBus: GainNode;
     voiceBus: GainNode;
+    soloBus: GainNode;
+    mix: GainNode;
     micGain: GainNode;
     analyser: AnalyserNode;
     levelBuf: Float32Array<ArrayBuffer>;
   };
   let graph: Graph | undefined;
   let muted = true;
+  let mixMuted = false;
 
   let sinkRequested: string | null = null;
   let sinkSwitch: Promise<void> = Promise.resolve();
@@ -147,6 +150,7 @@ export const createAudioManager = ({
     }
     const s = settings.getState();
     graph.gameBus.gain.value = s.gameVolume;
+    graph.soloBus.gain.value = s.gameVolume;
     graph.voiceBus.gain.value = s.voiceVolume;
     graph.micGain.gain.value = s.micVolume;
     applySink(graph, s.outputDeviceId);
@@ -173,10 +177,15 @@ export const createAudioManager = ({
     master.gain.value = muted ? 0 : 1;
     master.connect(ctx.destination);
     limiter.connect(master);
+    const mix = ctx.createGain();
+    mix.gain.value = mixMuted ? 0 : 1;
+    mix.connect(limiter);
     const gameBus = ctx.createGain();
-    gameBus.connect(limiter);
+    gameBus.connect(mix);
     const voiceBus = ctx.createGain();
-    voiceBus.connect(limiter);
+    voiceBus.connect(mix);
+    const soloBus = ctx.createGain();
+    soloBus.connect(limiter);
     const micGain = ctx.createGain();
     const analyser = ctx.createAnalyser();
     analyser.fftSize = LEVEL_FFT_SIZE;
@@ -186,6 +195,8 @@ export const createAudioManager = ({
       master,
       gameBus,
       voiceBus,
+      soloBus,
+      mix,
       micGain,
       analyser,
       levelBuf: new Float32Array(LEVEL_FFT_SIZE),
@@ -206,6 +217,13 @@ export const createAudioManager = ({
     muted = next;
     if (graph) {
       graph.master.gain.value = muted ? 0 : 1;
+    }
+  };
+
+  const setMixMuted = (next: boolean): void => {
+    mixMuted = next;
+    if (graph) {
+      graph.mix.gain.value = mixMuted ? 0 : 1;
     }
   };
 
@@ -297,8 +315,10 @@ export const createAudioManager = ({
     context: (): AudioContext => ensure().ctx,
     gameBus: (): GainNode => ensure().gameBus,
     voiceBus: (): GainNode => ensure().voiceBus,
+    soloBus: (): GainNode => ensure().soloBus,
     unlock,
     setMuted,
+    setMixMuted,
     isMuted: (): boolean => muted,
     setListener,
     acquireMic,

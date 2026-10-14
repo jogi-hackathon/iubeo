@@ -1,6 +1,8 @@
 import {useEffect, useReducer} from "react";
 
 import {DEBUG_AVAILABLE} from "../core/debug/flags";
+import {SWAP_END_MS} from "./chat";
+import {createFrameGate} from "./frameGate";
 import {IntroStage} from "./IntroStage";
 import {DECKS, type DeckId, stepIdOf} from "./script";
 import {
@@ -39,8 +41,11 @@ const PREV_KEYS = new Set([
 const useElapsed = (since: number): number => {
   const [, tick] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    let id = requestAnimationFrame(function loop() {
-      tick();
+    const open = createFrameGate();
+    let id = requestAnimationFrame(function loop(now) {
+      if (open(now)) {
+        tick();
+      }
       id = requestAnimationFrame(loop);
     });
     return () => cancelAnimationFrame(id);
@@ -153,6 +158,15 @@ function PresentStage({
     const id = setTimeout(endPresentation, LID_DURATION_MS);
     return () => clearTimeout(id);
   }, [waking]);
+
+  const swapping = deck === "intro" && id === "swap";
+  useEffect(() => {
+    if (!swapping) {
+      return;
+    }
+    const id = setTimeout(advancePresentation, SWAP_END_MS);
+    return () => clearTimeout(id);
+  }, [swapping]);
 
   if (waking) {
     return <Lid elapsed={elapsed} keys={LID_KEYS} />;

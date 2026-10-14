@@ -1,4 +1,5 @@
 import {audioManager} from "../core/audio/audioManager";
+import {sfxEngine} from "../core/audio/sfx/engine";
 import {closeDevPanel} from "../core/debug/devPanel";
 import {
   resumePointerLock,
@@ -12,19 +13,15 @@ import {credits} from "../scenes/RoomScene/credits/store";
 import {tutorialManager} from "../scenes/RoomScene/tutorial/manager";
 import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
 import {applySpawn} from "../scenes/spawn";
+import {GLITCH_MS} from "./chat";
 import {type DeckId, lastStepOf, stepIdOf} from "./script";
 import {presentStore} from "./store";
 
 let releaseControl: (() => void) | null = null;
 let releasePointer: (() => void) | null = null;
-/** プレゼンを始める前に音が止まっていたか(音声の了承前なら、終わっても止めたままにする) */
-let mutedBefore: boolean | null = null;
 
 const releaseAll = (): void => {
-  if (mutedBefore !== null) {
-    audioManager.setMuted(mutedBefore);
-    mutedBefore = null;
-  }
+  audioManager.setMixMuted(false);
   releasePointer?.();
   releasePointer = null;
   releaseControl?.();
@@ -58,6 +55,13 @@ const prepareBehind = (deck: DeckId, step: number): void => {
   }
 };
 
+const cueStep = (deck: DeckId, step: number): void => {
+  if (deck === "intro" && stepIdOf(deck, step) === "swap") {
+    sfxEngine.solo("glitch", GLITCH_MS);
+    audioManager.unlock();
+  }
+};
+
 /**
  * dev パネル(または F9)から呼ぶ。プレイヤーの操作とポインターロックと音を止めて始める。
  * イントロは黒い画面から始め、裏でゲームを最初の部屋・チュートリアルの始めに戻す。
@@ -71,9 +75,8 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
   if (document.pointerLockElement !== null) {
     document.exitPointerLock();
   }
-  // スライド中はゲームの音(効果音・ボイスチャット)を鳴らさない
-  mutedBefore = audioManager.isMuted();
-  audioManager.setMuted(true);
+  // スライド中はゲームの音(効果音・ボイスチャット)を鳴らさない。master は触らないので、音声の了承前なら演出の音も鳴らない
+  audioManager.setMixMuted(true);
   releaseControl = lockPlayerControl();
   releasePointer = suppressPointerLock();
   if (deck === "intro") {
@@ -81,6 +84,7 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
   }
   presentStore.start(deck, step);
   prepareBehind(deck, step);
+  cueStep(deck, step);
 };
 
 /**
@@ -94,6 +98,7 @@ export const advancePresentation = (): void => {
   }
   presentStore.next();
   prepareBehind(state.deck, state.step + 1);
+  cueStep(state.deck, state.step + 1);
   if (state.step + 1 === lastStepOf(state.deck)) {
     releasePointer?.();
     releasePointer = null;
@@ -102,7 +107,12 @@ export const advancePresentation = (): void => {
 };
 
 export const backPresentation = (): void => {
+  const before = presentStore.getState();
   presentStore.prev();
+  const after = presentStore.getState();
+  if (before.active && after.active && after.step !== before.step) {
+    cueStep(after.deck, after.step);
+  }
 };
 
 /** 目を開け終えたとき、または Esc で途中でやめたときに呼ぶ。ゲームはそのまま操作できる状態に戻る */
