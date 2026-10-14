@@ -14,6 +14,7 @@ import {tutorialManager} from "../scenes/RoomScene/tutorial/manager";
 import {sceneManager, sceneTransitionManager} from "../scenes/sceneStore";
 import {applySpawn} from "../scenes/spawn";
 import {GLITCH_MS} from "./chat";
+import {riseStore} from "./riseStore";
 import {type DeckId, lastStepOf, stepIdOf} from "./script";
 import {presentStore} from "./store";
 
@@ -55,7 +56,19 @@ const prepareBehind = (deck: DeckId, step: number): void => {
   }
 };
 
+const turnToGame = (): void => {
+  const releaseRise = lockPlayerControl();
+  releaseAll();
+  presentStore.exit();
+  riseStore.start(performance.now(), releaseRise);
+  resumePointerLock();
+};
+
 const cueStep = (deck: DeckId, step: number): void => {
+  if (deck === "intro" && stepIdOf(deck, step) === "turn") {
+    turnToGame();
+    return;
+  }
   if (deck === "intro" && stepIdOf(deck, step) === "swap") {
     sfxEngine.solo("glitch", GLITCH_MS);
     audioManager.unlock();
@@ -71,6 +84,7 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
   if (presentStore.getState().active) {
     return;
   }
+  riseStore.finish();
   closeDevPanel();
   if (document.pointerLockElement !== null) {
     document.exitPointerLock();
@@ -88,8 +102,8 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
 };
 
 /**
- * 次の手順へ。キー操作やクリックの中で呼ぶこと: 目を開ける手順に入るときにポインターロックを取り直すので、
- * ユーザー操作の最中でないとブラウザに断られる
+ * 次の手順へ。技術パートの目を開ける手順とイントロの転換に入るときにポインターロックを取り直す。
+ * キー操作やクリックの中ならロックできる。ロゴからの自動の転換ではブラウザに断られうるが、既存のクリックで再開する
  */
 export const advancePresentation = (): void => {
   const state = presentStore.getState();
@@ -99,7 +113,7 @@ export const advancePresentation = (): void => {
   presentStore.next();
   prepareBehind(state.deck, state.step + 1);
   cueStep(state.deck, state.step + 1);
-  if (state.step + 1 === lastStepOf(state.deck)) {
+  if (state.deck === "tech" && state.step + 1 === lastStepOf(state.deck)) {
     releasePointer?.();
     releasePointer = null;
     resumePointerLock();

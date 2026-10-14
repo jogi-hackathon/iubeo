@@ -6,7 +6,7 @@ import {createPresentStore} from "../store";
 describe.each(DECK_IDS)("presentStore(%s)", (deck) => {
   const last = lastStepOf(deck);
 
-  it("最後の手順(目を開ける)までは進めるが、そこからは進めも戻しもしない", () => {
+  it("最後の手順までは進めるが、そこからは進めも戻しもしない", () => {
     const store = createPresentStore(() => 0);
     store.start(deck, last - 1);
     store.next();

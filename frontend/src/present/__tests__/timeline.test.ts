@@ -5,6 +5,10 @@ import {
   CLOSE_LID_KEYS,
   LID_DURATION_MS,
   lidAt,
+  LOGO_FADE_OUT_MS,
+  LOGO_FADE_OUT_START_MS,
+  logoFadeOutAt,
+  LOGO_TURN_MS,
   typedText,
 } from "../timeline";
 
@@ -32,5 +36,18 @@ describe("lidAt(目を閉じる)", () => {
     const end = lidAt(CLOSE_LID_DURATION_MS, CLOSE_LID_KEYS);
     expect(end.open).toBe(0);
     expect(end.blur).toBeGreaterThan(0);
+  });
+});
+
+describe("logoFadeOutAt", () => {
+  it("1 秒待ってから 1 秒かけて消え、真っ黒のまま 1 秒待ってから転換する", () => {
+    expect(logoFadeOutAt(0)).toBe(1);
+    expect(logoFadeOutAt(LOGO_FADE_OUT_START_MS)).toBe(1);
+    expect(logoFadeOutAt(LOGO_FADE_OUT_START_MS + LOGO_FADE_OUT_MS / 2)).toBe(
+      0.5,
+    );
+    expect(logoFadeOutAt(LOGO_FADE_OUT_START_MS + LOGO_FADE_OUT_MS)).toBe(0);
+    expect(LOGO_FADE_OUT_START_MS).toBe(3200);
+    expect(LOGO_TURN_MS).toBe(LOGO_FADE_OUT_START_MS + LOGO_FADE_OUT_MS + 1000);
   });
 });

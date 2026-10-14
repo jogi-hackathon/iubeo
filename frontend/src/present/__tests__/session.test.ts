@@ -38,6 +38,7 @@ vi.mock("../../scenes/sceneStore", () => ({
 vi.mock("../../scenes/spawn", () => ({applySpawn: vi.fn()}));
 
 import {GLITCH_MS} from "../chat";
+import {riseStore} from "../riseStore";
 import {stepIndexOf} from "../script";
 import {
   advancePresentation,
@@ -48,6 +49,7 @@ import {
 import {presentStore} from "../store";
 
 const SWAP = stepIndexOf("intro", "swap");
+const LOGO = stepIndexOf("intro", "logo");
 
 describe("session の効果音", () => {
   beforeEach(() => {
@@ -81,5 +83,29 @@ describe("session の効果音", () => {
     endPresentation();
     startPresentation("intro", SWAP);
     expect(mocks.solo).toHaveBeenCalledTimes(2);
+  });
+
+  it("ロゴの次へで転換し、音を戻して、プレゼンの層を消して起き上がりに入る", () => {
+    startPresentation("intro", LOGO);
+    expect(riseStore.getState()).toBeNull();
+    advancePresentation();
+    expect(presentStore.getState().active).toBe(false);
+    expect(mocks.setMixMuted).toHaveBeenLastCalledWith(false);
+    expect(riseStore.getState()).not.toBeNull();
+    riseStore.finish();
+    expect(riseStore.getState()).toBeNull();
+  });
+
+  it("転換の手順から始めても同じく転換する", () => {
+    startPresentation("intro", LOGO + 1);
+    expect(presentStore.getState().active).toBe(false);
+    expect(riseStore.getState()).not.toBeNull();
+    riseStore.finish();
+  });
+
+  it("ロゴの最中の Esc では起き上がりに入らない", () => {
+    startPresentation("intro", LOGO);
+    endPresentation();
+    expect(riseStore.getState()).toBeNull();
   });
 });

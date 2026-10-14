@@ -14,6 +14,7 @@ import {OverviewCursor} from "./objects/directory/OverviewCursor";
 import {LocalPlayerSkeleton, PlayerController} from "./player";
 import {PresentOverlay} from "./present/PresentOverlay";
 import {PresentPanel} from "./present/PresentPanel";
+import {RiseDirector} from "./present/RiseDirector";
 import {scenes} from "./scenes";
 import {readinessOf} from "./scenes/readiness";
 import {ReportSceneReady} from "./scenes/ReportSceneReady";
@@ -67,6 +68,7 @@ export function App() {
         <LocalPlayerSkeleton />
         <OrderSlipDirector />
         <FirstPersonCamera />
+        <RiseDirector />
         <FlyCamera />
         <DiveDirector />
         <WarmupProbe />

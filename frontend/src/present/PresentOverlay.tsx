@@ -19,6 +19,7 @@ import {
   LID_DURATION_MS,
   LID_KEYS,
   lidAt,
+  LOGO_TURN_MS,
 } from "./timeline";
 
 const NEXT_KEYS = new Set([
@@ -101,7 +102,7 @@ function PresentStage({
 }) {
   const elapsed = useElapsed(since);
   const id = stepIdOf(deck, step);
-  const waking = id === "wake";
+  const waking = deck === "tech" && id === "wake";
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (waking) {
@@ -158,6 +159,15 @@ function PresentStage({
     const id = setTimeout(endPresentation, LID_DURATION_MS);
     return () => clearTimeout(id);
   }, [waking]);
+
+  const logoShowing = deck === "intro" && id === "logo";
+  useEffect(() => {
+    if (!logoShowing) {
+      return;
+    }
+    const id = setTimeout(advancePresentation, LOGO_TURN_MS);
+    return () => clearTimeout(id);
+  }, [logoShowing]);
 
   const swapping = deck === "intro" && id === "swap";
   useEffect(() => {
