@@ -120,6 +120,14 @@ func TestLoadErrors(t *testing.T) {
 			},
 			want: []string{"IUBEO_CPU_FILL_AFTER"},
 		},
+		{
+			name: "デモのタスクの種類が不正",
+			env: map[string]string{
+				"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+				"IUBEO_DEMO_TASKS": "write;draw",
+			},
+			want: []string{"IUBEO_DEMO_TASKS", "phase 2"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -230,6 +238,28 @@ func TestLoadBraveAPIKey(t *testing.T) {
 	}
 	if cfg.BraveAPIKey != "brave-key" {
 		t.Errorf("BraveAPIKey = %q, want brave-key", cfg.BraveAPIKey)
+	}
+}
+
+func TestLoadDemoTasks(t *testing.T) {
+	base := map[string]string{
+		"IUBEO_SIGNING_KEY":     validKey,
+		"IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+	}
+	cfg, err := Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DemoTasks != nil {
+		t.Errorf("DemoTasks = %+v, want nil when unset(いつもどおり抽選する)", cfg.DemoTasks)
+	}
+	base["IUBEO_DEMO_TASKS"] = "write;web_search:名古屋 グルメ;read_edit"
+	cfg, err = Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.DemoTasks) != 3 || cfg.DemoTasks[1][0].Topic != "名古屋 グルメ" {
+		t.Errorf("DemoTasks = %+v", cfg.DemoTasks)
 	}
 }
 
