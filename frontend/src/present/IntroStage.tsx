@@ -36,7 +36,7 @@ import {
 import {stepIndexOf} from "./script";
 import {SkyBackdrop} from "./SkyBackdrop";
 import {isSkyActive} from "./skyView";
-import {logoFadeOutAt, progress} from "./timeline";
+import {logoFadeOutAt} from "./timeline";
 import {MOTION_BLUR_ID, useMotionBlur} from "./useMotionBlur";
 
 const ASK = stepIndexOf("intro", "ask");
@@ -325,7 +325,6 @@ function AttachmentView({attachment}: {attachment: Attachment}) {
 }
 
 function Logo({shown, elapsed}: {shown: boolean; elapsed: number}) {
-  const tagline = shown ? progress(elapsed, 1400, 800) : 0;
   return (
     <div
       className="present-layer"
@@ -333,7 +332,6 @@ function Logo({shown, elapsed}: {shown: boolean; elapsed: number}) {
     >
       <div className="present-layer present-logo" data-shown={shown}>
         <img src={logoUrl} alt="IUBEO" />
-        <p style={{opacity: tagline}}>AIと人間の立場が入れかわった世界</p>
       </div>
     </div>
   );

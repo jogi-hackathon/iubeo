@@ -258,6 +258,22 @@ const LOGO_DELAY_MS = 1000;
 export const BLACKOUT_AT_MS = FLOOD_END_MS + BLACKOUT_DELAY_MS;
 export const SWAP_END_MS = BLACKOUT_AT_MS + LOGO_DELAY_MS;
 
+const ASK_HOLD_MS = 1500;
+const PROMPTS_HOLD_MS = 1200;
+const STALL_HOLD_MS = 2000;
+
+const settledAtOf = (m: ChatMessage): number =>
+  m.from === "human" || m.instant
+    ? m.at
+    : (m.textAt ?? m.at) + Array.from(m.text).length * AI_MS_PER_CHAR;
+
+const lastSettledAt = (step: number): number =>
+  Math.max(...CHAT_SCRIPT.filter((m) => m.step === step).map(settledAtOf));
+
+export const ASK_END_MS = lastSettledAt(ASK) + ASK_HOLD_MS;
+export const PROMPTS_END_MS = lastSettledAt(PROMPTS) + PROMPTS_HOLD_MS;
+export const STALL_END_MS = lastSettledAt(STALL) + STALL_HOLD_MS;
+
 export const isBlackedOut = (step: number, elapsed: number): boolean =>
   step === SWAP && elapsed >= BLACKOUT_AT_MS;
 

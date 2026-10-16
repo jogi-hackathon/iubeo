@@ -1,10 +1,10 @@
 import {useEffect, useReducer} from "react";
 
 import {DEBUG_AVAILABLE} from "../core/debug/flags";
-import {SWAP_END_MS} from "./chat";
+import {ASK_END_MS, PROMPTS_END_MS, STALL_END_MS, SWAP_END_MS} from "./chat";
 import {createFrameGate} from "./frameGate";
 import {IntroStage} from "./IntroStage";
-import {DECKS, type DeckId, stepIdOf} from "./script";
+import {DECKS, type DeckId, type StepId, stepIdOf} from "./script";
 import {
   advancePresentation,
   backPresentation,
@@ -38,6 +38,17 @@ const PREV_KEYS = new Set([
   "KeyP",
 ]);
 
+const INTRO_AUTO_ADVANCE_MS: Partial<Record<StepId<"intro">, number>> = {
+  ask: ASK_END_MS,
+  prompts: PROMPTS_END_MS,
+  stall: STALL_END_MS,
+  swap: SWAP_END_MS,
+  logo: LOGO_TURN_MS,
+};
+
+const autoAdvanceMsOf = (deck: DeckId, id: string): number | undefined =>
+  deck === "intro" ? INTRO_AUTO_ADVANCE_MS[id as StepId<"intro">] : undefined;
+
 /** 経過時間(ms)で描き直す。プレゼン中だけ毎フレーム再描画する */
 const useElapsed = (since: number): number => {
   const [, tick] = useReducer((n: number) => n + 1, 0);
@@ -59,7 +70,8 @@ const TECH_KEY = "F9";
 
 /**
  * プレゼンの演出。dev パネルの Present タブ(技術パートは F9 でも)から始める。
- * → / Space / PageDown / Enter / クリックで次へ、← / PageUp / Backspace で戻る、Esc でやめる
+ * → / Space / PageDown / Enter / クリックで次へ、← / PageUp / Backspace で戻る、Esc でやめる。
+ * イントロは喋らずに流すので、暗転で待っているところから次へを押すと、あとは起き上がりまで自動で進む
  */
 export function PresentOverlay() {
   const state = usePresent();
@@ -103,6 +115,8 @@ function PresentStage({
   const elapsed = useElapsed(since);
   const id = stepIdOf(deck, step);
   const waking = deck === "tech" && id === "wake";
+  const autoAdvanceMs = autoAdvanceMsOf(deck, id);
+  const autoplaying = autoAdvanceMs !== undefined;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (waking) {
@@ -118,6 +132,8 @@ function PresentStage({
       }
       if (e.code === "Escape") {
         endPresentation();
+      } else if (autoplaying) {
+        e.preventDefault();
       } else if (NEXT_KEYS.has(e.code)) {
         e.preventDefault();
         advancePresentation();
@@ -128,7 +144,7 @@ function PresentStage({
     };
     // クリックでも進める(右クリックで戻る)。目を開け始めたらクリックはゲームの画面へ通す
     const onPointer = (e: MouseEvent) => {
-      if (waking) {
+      if (waking || autoplaying) {
         return;
       }
       if (e.button === 0) {
@@ -150,7 +166,7 @@ function PresentStage({
       window.removeEventListener("mousedown", onPointer);
       window.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [waking]);
+  }, [waking, autoplaying]);
 
   useEffect(() => {
     if (!waking) {
@@ -160,23 +176,13 @@ function PresentStage({
     return () => clearTimeout(id);
   }, [waking]);
 
-  const logoShowing = deck === "intro" && id === "logo";
   useEffect(() => {
-    if (!logoShowing) {
+    if (autoAdvanceMs === undefined) {
       return;
     }
-    const id = setTimeout(advancePresentation, LOGO_TURN_MS);
+    const id = setTimeout(advancePresentation, autoAdvanceMs);
     return () => clearTimeout(id);
-  }, [logoShowing]);
-
-  const swapping = deck === "intro" && id === "swap";
-  useEffect(() => {
-    if (!swapping) {
-      return;
-    }
-    const id = setTimeout(advancePresentation, SWAP_END_MS);
-    return () => clearTimeout(id);
-  }, [swapping]);
+  }, [step, autoAdvanceMs]);
 
   if (waking) {
     return <Lid elapsed={elapsed} keys={LID_KEYS} />;
@@ -187,7 +193,7 @@ function PresentStage({
   }
 
   return (
-    <div className="present">
+    <div className="present" data-deck={deck}>
       {deck === "intro" ? (
         <IntroStage step={step} elapsed={elapsed} />
       ) : (

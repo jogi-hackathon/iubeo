@@ -151,6 +151,10 @@ body,
   font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
 }
 
+.present[data-deck="intro"] {
+  cursor: none;
+}
+
 .present-layer {
   position: absolute;
   inset: 0;
@@ -461,12 +465,6 @@ body,
 
 .present-logo img {
   width: min(50vw, 720px);
-}
-
-.present-logo p {
-  margin: 0;
-  font-size: clamp(14px, 1.6vw, 26px);
-  letter-spacing: 0.2em;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -69,6 +69,10 @@ const cueStep = (deck: DeckId, step: number): void => {
     turnToGame();
     return;
   }
+  // swap には自動で進むのでブラウザに音を断られうる。再生を始めるキー操作の中で先に許可を取っておく
+  if (deck === "intro" && stepIdOf(deck, step) === "ask") {
+    audioManager.unlock();
+  }
   if (deck === "intro" && stepIdOf(deck, step) === "swap") {
     sfxEngine.solo("glitch", GLITCH_MS);
     audioManager.unlock();
