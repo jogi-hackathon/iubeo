@@ -62,7 +62,7 @@ export class Backend extends DurableObject<Env> {
           IUBEO_MATCH_SIZE: "3",
           // 展示では 1 試合を短くする(既定は 5 フェーズ × 45s、間 8s、バイパス 30s、CPU 補充 30s)
           IUBEO_PHASE_COUNT: "3",
-          IUBEO_PHASE_DURATION: "30s",
+          IUBEO_PHASE_DURATION: "40s",
           IUBEO_INTERMISSION_DURATION: "5s",
           IUBEO_BYPASS_DURATION: "20s",
           IUBEO_CPU_FILL_AFTER: "15s",
