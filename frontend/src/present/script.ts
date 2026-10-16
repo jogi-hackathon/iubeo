@@ -52,7 +52,7 @@ export const DECKS = {
     },
     {
       id: "arch-ops",
-      line: "EC2 は Discord のコマンドで必要なときだけ起動し、KV の target で向き先を切り替えます。それ以外のときは Cloudflare Containers に流れます",
+      line: "EC2 は Discord のコマンドで必要なときだけ起動し、3 時間たつと自動で止まります。KV の target で向き先を切り替えます。それ以外のときは Cloudflare Containers に流れます",
     },
     {
       id: "kodawari",
