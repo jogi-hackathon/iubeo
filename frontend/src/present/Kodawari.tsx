@@ -166,6 +166,8 @@ export const KodawariStage = memo(function KodawariStage({
   const current = focus === null || !shown ? null : KODAWARI[focus]!;
   // 世界観の項目は、いま出している最後の項目の実物を右側に描く
   const worldScene = current?.points.slice(0, count).at(-1)?.scene ?? null;
+  // 実物が出る前から右端を縮めておき、途中で折り返しが変わって文字が動かないようにする
+  const beside = current?.points.some((p) => p.scene !== undefined) ?? false;
   return (
     <div
       className="present-layer present-kodawari"
@@ -206,7 +208,7 @@ export const KodawariStage = memo(function KodawariStage({
           </h2>
           <ul
             className="present-outline present-kodawari-points"
-            data-beside={worldScene !== null}
+            data-beside={beside}
             style={{"--kodawari-color": current.color} as CSSProperties}
           >
             {current.points.slice(0, count).map(({text, sub}) => (

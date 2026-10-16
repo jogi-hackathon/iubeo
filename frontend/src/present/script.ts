@@ -32,11 +32,11 @@ export const DECKS = {
     },
     {
       id: "arch",
-      line: "全体の構成です。プレイヤーのブラウザから Cloudflare と東京の AWS につながっています",
+      line: "全体の構成です。プレイヤーのブラウザから Cloudflare と AWS につながっています",
     },
     {
       id: "arch-play",
-      line: "ゲームの通信は /api から iubeo-backend を通り、東京の EC2 の Go サーバーへ WebSocket でつながります",
+      line: "ゲームの通信は /api から iubeo-backend を通り、EC2 の Go サーバーへ WebSocket でつながります",
     },
     {
       id: "arch-browser",

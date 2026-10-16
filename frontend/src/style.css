@@ -610,8 +610,9 @@ body,
 }
 
 /* こだわりの手順では、左にファイルが来るので空ける */
+/* 立方体は横 10vw を中心に、画面の高さに比例した大きさで回る(Kodawari.tsx の HEADING・HEADING_SIZE)。回っても文字に寄りすぎない位置に置く */
 .present-kodawari-heading[data-beside="true"] {
-  left: 17vw;
+  left: calc(10vw + 12vh + 2.5vw);
 }
 
 .present-kodawari-label {
@@ -643,7 +644,8 @@ body,
 
 /* 右側に実物を描くときは、箇条書きの右端を実物の手前で止める */
 .present-outline.present-kodawari-points[data-beside="true"] {
-  right: 36vw;
+  right: 42vw;
+  text-wrap: pretty;
 }
 
 /* その手順で新しく出た項目(最後の小見出し)に、こだわりの立方体の縁の色で下線を引く。文字は白のまま */
@@ -664,6 +666,7 @@ body,
   font-size: clamp(18px, 2.3vw, 44px);
   font-weight: 600;
   line-height: 1.5;
+  word-break: auto-phrase;
 }
 
 .present-outline > li + li {

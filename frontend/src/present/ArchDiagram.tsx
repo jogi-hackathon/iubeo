@@ -320,7 +320,7 @@ export function ArchDiagram({focus}: {focus: ArchRoute}) {
           />
           <Icon name="aws" x={AWS_GROUP.x + 15} y={22} size={40} />
           <text className="present-group-label" x={AWS_GROUP.x + 61} y={50}>
-            東京
+            AWS
           </text>
         </g>
         {EDGES.map((edge) => {
