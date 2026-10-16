@@ -1,4 +1,4 @@
-import {siBrave, siDiscord, siThreedotjs} from "simple-icons";
+import {siBrave, siDiscord, siTerraform, siThreedotjs} from "simple-icons";
 
 import awsUrl from "./logos/aws.svg";
 import chromeUrl from "./logos/chrome.svg";
@@ -29,6 +29,7 @@ const LOGOS = {
 const BRANDS = {
   brave: {d: siBrave.path, color: `#${siBrave.hex}`},
   discord: {d: siDiscord.path, color: `#${siDiscord.hex}`},
+  terraform: {d: siTerraform.path, color: `#${siTerraform.hex}`},
   three: {d: siThreedotjs.path, color: "#fff"},
 } as const;
 
@@ -47,6 +48,10 @@ const GLYPHS = {
   },
   globe: {
     d: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0M3 12h18M12 3c-5 5-5 13 0 18M12 3c5 5 5 13 0 18",
+    color: WHITE,
+  },
+  clock: {
+    d: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0M12 7v5l3.5 2",
     color: WHITE,
   },
   mic: {

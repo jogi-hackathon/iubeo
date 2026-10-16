@@ -119,7 +119,7 @@ const NODES: readonly ArchNode[] = [
     id: "ai",
     cx: FRONT,
     cy: 440,
-    title: "Workers AI",
+    title: "Workers AI (Clef)",
     icons: ["ai"],
     routes: ["judge"],
   },
@@ -156,6 +156,14 @@ const NODES: readonly ArchNode[] = [
     routes: ["ops"],
   },
   {
+    id: "scheduler",
+    cx: 1240,
+    cy: 560,
+    title: "Scheduler",
+    icons: ["clock"],
+    routes: ["ops"],
+  },
+  {
     id: "brave",
     cx: RIGHT,
     cy: 120,
@@ -183,7 +191,7 @@ const NODES: readonly ArchNode[] = [
     id: "vc",
     cx: RIGHT,
     cy: 555,
-    title: "VC リレー",
+    title: "MoQ リレー",
     icons: ["mic"],
     routes: ["vc"],
   },
@@ -236,7 +244,7 @@ const EDGES: readonly ArchEdge[] = [
     id: "player-vc",
     d: `M${PLAYER},${300 + BELOW} L${PLAYER},650 L${RIGHT - 150},650 C${RIGHT - 100},650 ${RIGHT - 130},555 ${RIGHT - 80},555 L${RIGHT - H},555`,
     routes: ["vc"],
-    label: "QUIC",
+    label: "Media over QUIC",
     labelAt: [(PLAYER + RIGHT) / 2, 640],
   },
   {
@@ -262,6 +270,13 @@ const EDGES: readonly ArchEdge[] = [
     routes: ["ops"],
     label: "起動 / 停止",
     labelAt: [EC2 + 60, 350],
+  },
+  {
+    id: "scheduler-lambda",
+    d: `M1240,${560 - ABOVE} C1240,480 1215,466 ${EC2 + H},462`,
+    routes: ["ops"],
+    label: "3 時間後",
+    labelAt: [1295, 500],
   },
   {
     id: "lambda-kv",
@@ -321,6 +336,10 @@ export function ArchDiagram({focus}: {focus: ArchRoute}) {
           <Icon name="aws" x={AWS_GROUP.x + 15} y={22} size={40} />
           <text className="present-group-label" x={AWS_GROUP.x + 61} y={50}>
             AWS
+          </text>
+          <Icon name="terraform" x={AWS_GROUP.x + 120} y={31} size={24} />
+          <text className="present-group-label" x={AWS_GROUP.x + 150} y={50}>
+            Terraform
           </text>
         </g>
         {EDGES.map((edge) => {
