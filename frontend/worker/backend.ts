@@ -60,6 +60,11 @@ export class Backend extends DurableObject<Env> {
           IUBEO_SIGNING_KEY: key,
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
+          // 展示では 1 試合を短くする(既定は 5 フェーズ × 45s、間 8s、バイパス 30s)
+          IUBEO_PHASE_COUNT: "3",
+          IUBEO_PHASE_DURATION: "30s",
+          IUBEO_INTERMISSION_DURATION: "5s",
+          IUBEO_BYPASS_DURATION: "20s",
           ...originPatternEnv(this.env.IUBEO_ALLOWED_ORIGIN_PATTERNS),
           ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
           ...voiceEnv(this.env),
