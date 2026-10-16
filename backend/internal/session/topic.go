@@ -52,7 +52,7 @@ func topicsOf(tasks []TaskState) []string {
 func (st *State) assignTopics(r *rand.Rand) {
 	for i := range st.Phase.Tasks {
 		t := &st.Phase.Tasks[i]
-		if t.Type == api.WebSearch {
+		if t.Type == api.WebSearch && t.Topic == "" {
 			t.Topic = pickTopic(topicsOf(st.Phase.Tasks[:i]), r.IntN)
 		}
 	}

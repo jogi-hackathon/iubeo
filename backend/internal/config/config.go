@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 )
 
 const minSigningKeyLen = 32
@@ -25,6 +27,7 @@ type Config struct {
 	BypassDuration       time.Duration
 	FireDuration         time.Duration
 	CPUFillAfter         time.Duration
+	DemoTasks            [][]session.DemoTask
 	WispKey              []byte
 	WispURL              string
 	VCSeed               []byte
@@ -158,6 +161,12 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	cfg.BraveAPIKey = getenv("IUBEO_BRAVE_API_KEY")
+
+	if demo, err := session.ParseDemoTasks(getenv("IUBEO_DEMO_TASKS")); err != nil {
+		errs = append(errs, fmt.Errorf("IUBEO_DEMO_TASKS: %w", err))
+	} else {
+		cfg.DemoTasks = demo
+	}
 
 	return cfg, errors.Join(errs...)
 }
