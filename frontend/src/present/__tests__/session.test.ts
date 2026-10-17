@@ -50,6 +50,7 @@ import {presentStore} from "../store";
 
 const SWAP = stepIndexOf("intro", "swap");
 const LOGO = stepIndexOf("intro", "logo");
+const LOGO_OUT = stepIndexOf("intro", "logo-out");
 
 describe("session の効果音", () => {
   beforeEach(() => {
@@ -85,8 +86,10 @@ describe("session の効果音", () => {
     expect(mocks.solo).toHaveBeenCalledTimes(2);
   });
 
-  it("ロゴの次へで転換し、音を戻して、プレゼンの層を消して起き上がりに入る", () => {
+  it("ロゴの次へで暗転に進み、そこから転換して、音を戻して、プレゼンの層を消して起き上がりに入る", () => {
     startPresentation("intro", LOGO);
+    advancePresentation();
+    expect(presentStore.getState()).toMatchObject({step: LOGO_OUT});
     expect(riseStore.getState()).toBeNull();
     advancePresentation();
     expect(presentStore.getState().active).toBe(false);
@@ -97,14 +100,14 @@ describe("session の効果音", () => {
   });
 
   it("転換の手順から始めても同じく転換する", () => {
-    startPresentation("intro", LOGO + 1);
+    startPresentation("intro", LOGO_OUT + 1);
     expect(presentStore.getState().active).toBe(false);
     expect(riseStore.getState()).not.toBeNull();
     riseStore.finish();
   });
 
-  it("ロゴの最中の Esc では起き上がりに入らない", () => {
-    startPresentation("intro", LOGO);
+  it("ロゴが消える最中の Esc では起き上がりに入らない", () => {
+    startPresentation("intro", LOGO_OUT);
     endPresentation();
     expect(riseStore.getState()).toBeNull();
   });

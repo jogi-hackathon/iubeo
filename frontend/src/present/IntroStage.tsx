@@ -42,6 +42,7 @@ import {MOTION_BLUR_ID, useMotionBlur} from "./useMotionBlur";
 const ASK = stepIndexOf("intro", "ask");
 const SWAP = stepIndexOf("intro", "swap");
 const LOGO = stepIndexOf("intro", "logo");
+const LOGO_OUT = stepIndexOf("intro", "logo-out");
 
 const DECOR_MESSAGES = 40;
 
@@ -143,7 +144,10 @@ export function IntroStage({step, elapsed}: {step: number; elapsed: number}) {
             <DecorChat view={decor.view} decor />
           </div>
         ))}
-      <Logo shown={!blackedOut && step === LOGO} elapsed={elapsed} />
+      <Logo
+        shown={!blackedOut && (step === LOGO || step === LOGO_OUT)}
+        opacity={step === LOGO_OUT ? logoFadeOutAt(elapsed) : 1}
+      />
     </>
   );
 }
@@ -324,12 +328,9 @@ function AttachmentView({attachment}: {attachment: Attachment}) {
   }
 }
 
-function Logo({shown, elapsed}: {shown: boolean; elapsed: number}) {
+function Logo({shown, opacity}: {shown: boolean; opacity: number}) {
   return (
-    <div
-      className="present-layer"
-      style={{opacity: logoFadeOutAt(elapsed), transition: "none"}}
-    >
+    <div className="present-layer" style={{opacity, transition: "none"}}>
       <div className="present-layer present-logo" data-shown={shown}>
         <img src={logoUrl} alt="IUBEO" />
       </div>

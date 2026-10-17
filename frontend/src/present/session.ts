@@ -107,7 +107,7 @@ export const startPresentation = (deck: DeckId, step = 0): void => {
 
 /**
  * 次の手順へ。技術パートの目を開ける手順とイントロの転換に入るときにポインターロックを取り直す。
- * キー操作やクリックの中ならロックできる。ロゴからの自動の転換ではブラウザに断られうるが、既存のクリックで再開する
+ * キー操作やクリックの中ならロックできる。ロゴが消えたあとの自動の転換ではブラウザに断られうるが、既存のクリックで再開する
  */
 export const advancePresentation = (): void => {
   const state = presentStore.getState();

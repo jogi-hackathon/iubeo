@@ -44,7 +44,7 @@ import {
 } from "../session";
 import {presentStore} from "../store";
 
-const LOGO = stepIndexOf("intro", "logo");
+const LOGO_OUT = stepIndexOf("intro", "logo-out");
 
 describe("session の操作ロック", () => {
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe("session の操作ロック", () => {
   });
 
   it("転換のあとも起き上がりが終わるまでロックが続き、finish で外れる", () => {
-    startPresentation("intro", LOGO);
+    startPresentation("intro", LOGO_OUT);
     expect(isPlayerControlLocked()).toBe(true);
     advancePresentation();
     expect(presentStore.getState().active).toBe(false);
@@ -64,9 +64,9 @@ describe("session の操作ロック", () => {
   });
 
   it("起き上がり中に始め直しても解除漏れがない", () => {
-    startPresentation("intro", LOGO);
+    startPresentation("intro", LOGO_OUT);
     advancePresentation();
-    startPresentation("intro", LOGO);
+    startPresentation("intro", LOGO_OUT);
     expect(isPlayerControlLocked()).toBe(true);
     endPresentation();
     expect(isPlayerControlLocked()).toBe(false);

@@ -43,7 +43,7 @@ const INTRO_AUTO_ADVANCE_MS: Partial<Record<StepId<"intro">, number>> = {
   prompts: PROMPTS_END_MS,
   stall: STALL_END_MS,
   swap: SWAP_END_MS,
-  logo: LOGO_TURN_MS,
+  "logo-out": LOGO_TURN_MS,
 };
 
 const autoAdvanceMsOf = (deck: DeckId, id: string): number | undefined =>
@@ -71,7 +71,7 @@ const TECH_KEY = "F9";
 /**
  * プレゼンの演出。dev パネルの Present タブ(技術パートは F9 でも)から始める。
  * → / Space / PageDown / Enter / クリックで次へ、← / PageUp / Backspace で戻る、Esc でやめる。
- * イントロは喋らずに流すので、暗転で待っているところから次へを押すと、あとは起き上がりまで自動で進む
+ * イントロは喋らずに流すので、暗転で待っているところから次へを押すとロゴまで、ロゴで次へを押すと起き上がりまで自動で進む
  */
 export function PresentOverlay() {
   const state = usePresent();

@@ -50,17 +50,13 @@ export const CLOSE_LID_KEYS: readonly LidKey[] = [
   {ms: 3000, open: 0, blur: 14},
 ];
 
-const LOGO_IN_MS = 2200;
-const LOGO_HOLD_MS = 1000;
 export const LOGO_FADE_OUT_MS = 1000;
 const LOGO_BLACK_MS = 1000;
 
-export const LOGO_FADE_OUT_START_MS = LOGO_IN_MS + LOGO_HOLD_MS;
-export const LOGO_TURN_MS =
-  LOGO_FADE_OUT_START_MS + LOGO_FADE_OUT_MS + LOGO_BLACK_MS;
+export const LOGO_TURN_MS = LOGO_FADE_OUT_MS + LOGO_BLACK_MS;
 
 export const logoFadeOutAt = (elapsedMs: number): number =>
-  1 - progress(elapsedMs, LOGO_FADE_OUT_START_MS, LOGO_FADE_OUT_MS);
+  1 - progress(elapsedMs, 0, LOGO_FADE_OUT_MS);
 
 export const durationOf = (keys: readonly LidKey[]): number =>
   keys[keys.length - 1]!.ms;
