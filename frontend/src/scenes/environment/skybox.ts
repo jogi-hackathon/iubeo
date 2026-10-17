@@ -62,8 +62,8 @@ const skyColor = (dirY: Node<"float">): Node<"vec3"> => {
   return mix(color(SKY_HORIZON), color(SKY_ZENITH), banded);
 };
 
-const rayDirection = (px: Node<"vec2">): Node<"vec3"> => {
-  const ndc = px.div(drawingBufferSize).mul(2).sub(1).mul(vec2(1, -1));
+const rayDirectionIn = (px: Node<"vec2">, size: Node<"vec2">): Node<"vec3"> => {
+  const ndc = px.div(size).mul(2).sub(1).mul(vec2(1, -1));
   const view = cameraProjectionMatrixInverse.mul(vec4(ndc, 1, 1));
   return cameraWorldMatrix.mul(vec4(view.xyz.div(view.w), 0)).xyz.normalize();
 };
@@ -114,7 +114,20 @@ const anomalyEnvelope = (elapsed: number): number => {
   return Math.max(0, 1 - decay) ** 2;
 };
 
-const createSkybox = (): Skybox => {
+export interface SkyboxSurface {
+  size: Node<"vec2">;
+  pixel: Node<"vec2">;
+}
+
+const GAME_SURFACE: SkyboxSurface = {
+  size: drawingBufferSize,
+  pixel: screenPixel,
+};
+
+const createSkybox = (surface: SkyboxSurface): Skybox => {
+  const {size: surfaceSize} = surface;
+  const rayDirection = (px: Node<"vec2">): Node<"vec3"> =>
+    rayDirectionIn(px, surfaceSize);
   const u = {
     enabled: uniform(1),
     intensity: uniform(1),
@@ -135,7 +148,7 @@ const createSkybox = (): Skybox => {
   let lastUpdateAt = performance.now();
 
   const sea = createSea();
-  const px = screenPixel;
+  const px = surface.pixel;
   const dir = rayDirection(px);
   const layerAt = (dirY: Node<"float">): Node<"float"> =>
     max(
@@ -171,7 +184,7 @@ const createSkybox = (): Skybox => {
     vec2(shiftBlocks.mul(u.blockSize3), 0),
     vec2(0),
   );
-  const samplePx = px.add(offset).clamp(vec2(0), drawingBufferSize.sub(1));
+  const samplePx = px.add(offset).clamp(vec2(0), surfaceSize.sub(1));
   const base = skyColor(rayDirection(samplePx).y);
 
   const center1 = floor(samplePx.div(u.blockSize1)).add(0.5).mul(u.blockSize1);
@@ -302,6 +315,9 @@ const createSkybox = (): Skybox => {
 let shared: Skybox | null = null;
 
 export const getSkybox = (): Skybox => {
-  shared ??= createSkybox();
+  shared ??= createSkybox(GAME_SURFACE);
   return shared;
 };
+
+export const createStandaloneSkybox = (surface: SkyboxSurface): Skybox =>
+  createSkybox(surface);

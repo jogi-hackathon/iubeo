@@ -8,6 +8,7 @@ import {heldSlipWorld} from "../../game/slip/zoom";
 import {HeldItem, useItemState} from "../../items";
 import {LIGHTER_KIND} from "../../items/lighter";
 import {useWorkingAtWorkspace} from "../../objects/workspace/useWorkingAtWorkspace";
+import {useRising} from "../../present/riseStore";
 import {useTransitionActive} from "../../scenes/transitionActive";
 import {localPlayer} from "../local";
 import {useLighterSound} from "../useLighterSound";
@@ -17,6 +18,7 @@ export function LocalPlayerSkeleton() {
   const {freeCamera} = useDebugFlags();
   const detached = useCameraDetached();
   const transitioning = useTransitionActive();
+  const rising = useRising();
   const dead = useSpectatePhase() !== "alive";
   const {held: item} = useItemState();
   const held = useWorkingAtWorkspace(useMyPlayerId()) ? null : item;
@@ -36,7 +38,7 @@ export function LocalPlayerSkeleton() {
   return (
     <PlayerSkeleton
       state={localPlayer}
-      visible={!transitioning}
+      visible={!transitioning && !rising}
       hideHead={!freeCamera && !detached}
       ragdoll={dead}
       holding={slip !== null || held !== null}

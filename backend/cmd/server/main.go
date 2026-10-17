@@ -29,6 +29,7 @@ func main() {
 		Intermission: cfg.IntermissionDuration,
 		Bypass:       cfg.BypassDuration,
 		Fire:         cfg.FireDuration,
+		Demo:         cfg.DemoTasks,
 	}
 	sessions := session.NewManager(session.NewMemoryStore(), time.Now, sessionConfig)
 	srv := server.New(
@@ -37,6 +38,7 @@ func main() {
 		matchmaking.New(cfg.MatchSize, sessions, time.Now, matchmaking.Options{FillAfter: cfg.CPUFillAfter}),
 		cfg.AllowedOrigins,
 	)
+	srv.WithOriginRegexps(cfg.AllowedOriginRegexps)
 	if cfg.WispKey != nil {
 		srv.WithWisp(wisp.NewIssuer(cfg.WispKey, wisp.DefaultTTL, time.Now), cfg.WispURL)
 	}
@@ -53,7 +55,7 @@ func main() {
 	}
 	slog.Info("listening", "addr", cfg.Addr, "matchSize", cfg.MatchSize, "allowedOrigins", cfg.AllowedOrigins,
 		"phases", cfg.PhaseCount, "phaseDuration", cfg.PhaseDuration, "intermission", cfg.IntermissionDuration,
-		"bypass", cfg.BypassDuration, "fire", cfg.FireDuration)
+		"bypass", cfg.BypassDuration, "fire", cfg.FireDuration, "demoPhases", len(cfg.DemoTasks))
 	if err := http.ListenAndServe(cfg.Addr, srv.Handler()); err != nil {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)

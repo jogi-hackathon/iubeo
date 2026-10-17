@@ -120,6 +120,14 @@ func TestLoadErrors(t *testing.T) {
 			},
 			want: []string{"IUBEO_CPU_FILL_AFTER"},
 		},
+		{
+			name: "デモのタスクの種類が不正",
+			env: map[string]string{
+				"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+				"IUBEO_DEMO_TASKS": "write;draw",
+			},
+			want: []string{"IUBEO_DEMO_TASKS", "phase 2"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -230,5 +238,55 @@ func TestLoadBraveAPIKey(t *testing.T) {
 	}
 	if cfg.BraveAPIKey != "brave-key" {
 		t.Errorf("BraveAPIKey = %q, want brave-key", cfg.BraveAPIKey)
+	}
+}
+
+func TestLoadDemoTasks(t *testing.T) {
+	base := map[string]string{
+		"IUBEO_SIGNING_KEY":     validKey,
+		"IUBEO_ALLOWED_ORIGINS": "http://localhost:5173",
+	}
+	cfg, err := Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DemoTasks != nil {
+		t.Errorf("DemoTasks = %+v, want nil when unset(いつもどおり抽選する)", cfg.DemoTasks)
+	}
+	base["IUBEO_DEMO_TASKS"] = "write;web_search:名古屋 グルメ;read_edit"
+	cfg, err = Load(env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.DemoTasks) != 3 || cfg.DemoTasks[1][0].Topic != "名古屋 グルメ" {
+		t.Errorf("DemoTasks = %+v", cfg.DemoTasks)
+	}
+}
+
+func TestLoadAllowedOriginPatterns(t *testing.T) {
+	base := map[string]string{"IUBEO_SIGNING_KEY": validKey, "IUBEO_ALLOWED_ORIGINS": "http://localhost:5173"}
+
+	cfg, err := Load(env(map[string]string{
+		"IUBEO_SIGNING_KEY":             base["IUBEO_SIGNING_KEY"],
+		"IUBEO_ALLOWED_ORIGINS":         base["IUBEO_ALLOWED_ORIGINS"],
+		"IUBEO_ALLOWED_ORIGIN_PATTERNS": ` https://pr-[0-9]+-x\.example\.dev , https://y\.example\.dev `,
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AllowedOriginRegexps) != 2 {
+		t.Fatalf("AllowedOriginRegexps = %d, want 2", len(cfg.AllowedOriginRegexps))
+	}
+	if !cfg.AllowedOriginRegexps[0].MatchString("https://pr-12-x.example.dev") {
+		t.Error("first pattern should match a PR origin")
+	}
+
+	_, err = Load(env(map[string]string{
+		"IUBEO_SIGNING_KEY":             base["IUBEO_SIGNING_KEY"],
+		"IUBEO_ALLOWED_ORIGINS":         base["IUBEO_ALLOWED_ORIGINS"],
+		"IUBEO_ALLOWED_ORIGIN_PATTERNS": "https://(broken",
+	}))
+	if err == nil {
+		t.Error("invalid pattern should be an error")
 	}
 }

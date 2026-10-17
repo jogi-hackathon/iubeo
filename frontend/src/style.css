@@ -133,3 +133,566 @@ body,
   background: #111;
   color: #f88;
 }
+
+/* プレゼン冒頭の演出(src/present)。黒い世界に白い文字 */
+.present {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  /* 黒い画面でも見えるよう白い矢印にする(目を開けたあとの白い部屋でも見えるよう黒で縁取る) */
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 2v20l5.5-5.2 3.6 8.4 3.4-1.5-3.6-8.2H20z' fill='%23fff' stroke='%23000' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E")
+      4 2,
+    default;
+  user-select: none;
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+}
+
+.present[data-deck="intro"] {
+  cursor: none;
+}
+
+.present-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.6s ease;
+}
+
+.present-chat {
+  --ink: 255 255 255;
+  color: rgb(var(--ink));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(820px, 92vw);
+  margin: 0 auto;
+  padding: 0 0 6vh;
+  font-size: clamp(15px, 1.35vw, 21px);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.present-chat[data-shown="true"] {
+  opacity: 1;
+}
+
+/* 立場が入れかわる瞬間に色が抜け、IUBEO の白い世界に近づく */
+.present-chat[data-drained="true"] {
+  --ink: 0 0 0;
+}
+
+.present-chat[data-drained="true"] .present-attach {
+  filter: grayscale(1);
+}
+
+.present-inverted-bg {
+  background: #fff;
+  transition: none;
+}
+
+.present-sky {
+  transition: none;
+}
+
+.present-sky-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.present-chat-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  mask-image: linear-gradient(transparent, #000 30%);
+}
+
+.present-chat-track {
+  flex: none;
+}
+
+.present-glitch-block {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+}
+
+.present-glitch-block[data-inverted="true"] {
+  background: transparent;
+}
+
+.present-chat[data-decor="true"] {
+  opacity: 1;
+  transition: none;
+}
+
+.present-chat[data-decor="true"] .present-msg,
+.present-chat[data-decor="true"] .present-attach {
+  animation: none;
+}
+
+.present-filters {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* 新しいメッセージは高さを広げながら現れ、古いものを上へ押し上げる */
+.present-msg {
+  display: grid;
+  animation: present-msg-in 0.35s ease-out both;
+}
+
+.present-msg[data-fast="true"] {
+  animation-duration: 0.12s;
+}
+
+.present-msg[data-blur="true"] {
+  animation:
+    present-msg-in 0.35s ease-out both,
+    present-msg-blur 0.3s ease-out backwards;
+}
+
+.present-msg[data-blur="true"][data-fast="true"] {
+  animation-duration: 0.12s;
+}
+
+.present-msg-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes present-msg-blur {
+  from {
+    filter: blur(3px);
+  }
+}
+
+@keyframes present-msg-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+.present-slot {
+  width: fit-content;
+  max-width: 72%;
+  padding: 6px 0;
+}
+
+.present-slot[data-side="right"] {
+  margin-left: auto;
+}
+
+.present-slot[data-side="right"] .present-sender {
+  text-align: right;
+}
+
+.present-sender {
+  margin: 8px 0 4px;
+  font:
+    0.7em ui-monospace,
+    Menlo,
+    monospace;
+  letter-spacing: 0.14em;
+  opacity: 0.6;
+}
+
+.present-bubble {
+  padding: 0.55em 0.95em;
+  border-radius: 0.35em;
+  line-height: 1.5;
+}
+
+.present-bubble[data-kind="command"] {
+  background: #b0101c;
+  color: #fff;
+}
+
+.present-bubble[data-kind="outline"] {
+  border: 1px solid rgb(var(--ink) / 0.45);
+}
+
+.present-bubble[data-kind="command"] {
+  font:
+    0.9em/1.5 ui-monospace,
+    Menlo,
+    monospace;
+}
+
+.present-agent {
+  line-height: 1.6;
+}
+
+.present-tool {
+  font-size: 0.8em;
+  line-height: 1.6;
+  color: rgb(var(--ink) / 0.5);
+}
+
+.present-agent-text {
+  margin-top: 0.4em;
+}
+
+.present-thinking {
+  font-size: 0.8em;
+  line-height: 1.6;
+  color: rgb(var(--ink) / 0.5);
+}
+
+.present-attach {
+  margin-top: 0.6em;
+  animation: present-msg-in 0.35s ease-out both;
+}
+
+.present-search {
+  width: 18em;
+  max-width: 100%;
+  padding: 0.7em 0.9em;
+  border: 1px solid rgb(var(--ink) / 0.25);
+  border-radius: 0.3em;
+  background: rgb(var(--ink) / 0.04);
+}
+
+.present-search-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+  color: rgb(var(--ink));
+  font-size: 0.85em;
+}
+
+.present-favicon {
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  background: conic-gradient(#f43f5e, #f59e0b, #22c55e, #3b82f6, #f43f5e);
+}
+
+.present-search-line {
+  height: 0.4em;
+  margin-top: 0.4em;
+  border-radius: 0.2em;
+  background: rgb(var(--ink) / 0.25);
+}
+
+.present-image {
+  width: 11em;
+  height: 7em;
+  border-radius: 0.3em;
+}
+
+.present-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.8em;
+  border: 1px solid rgb(var(--ink) / 0.25);
+  border-radius: 0.3em;
+  background: rgb(var(--ink) / 0.04);
+  font:
+    0.85em ui-monospace,
+    Menlo,
+    monospace;
+}
+
+.present-file-icon {
+  width: 1em;
+  height: 1.25em;
+  border-radius: 0.15em;
+  background: #f97316;
+}
+
+.present-input {
+  min-height: 1.5em;
+  margin-top: 16px;
+  padding: 0.75em 1em;
+  border: 1px solid rgb(var(--ink) / 0.35);
+  border-radius: 0.35em;
+  line-height: 1.5;
+}
+
+.present-placeholder {
+  opacity: 0.4;
+}
+
+.present-placeholder .present-caret {
+  margin: 0 0.08em 0 0;
+}
+
+.present-caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 1em;
+  margin-left: 0.08em;
+  vertical-align: -0.12em;
+  background: rgb(var(--ink));
+  animation: present-blink 1s steps(1) infinite;
+}
+
+@keyframes present-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.present-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 1.2s ease,
+    transform 2.4s ease;
+}
+
+.present-logo[data-shown="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.present-logo img {
+  width: min(50vw, 720px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .present-msg,
+  .present-msg[data-blur="true"] {
+    animation-name: present-msg-in;
+  }
+}
+
+.present-step {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  font:
+    11px ui-monospace,
+    Menlo,
+    monospace;
+  opacity: 0.25;
+}
+
+.present-blur,
+.present-lid {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  pointer-events: none;
+}
+
+.present-lid {
+  background: #000;
+}
+
+/* 技術パート(src/present/TechStage)。黒い世界に白い線の図 */
+.present-tech-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.present-tech-title h2,
+.present-tech h2 {
+  margin: 0;
+  font-size: clamp(26px, 3.2vw, 52px);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.present-tech {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 4vh 7vw 4vh;
+}
+
+.present-tech-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.present-svg {
+  width: 100%;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.present-svg text {
+  fill: #fff;
+}
+
+.present-box-title {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.present-svg .present-edge-label {
+  fill: rgb(255 255 255 / 0.6);
+  font-size: 17px;
+}
+
+/* 技術パートの構成図(src/present/ArchDiagram)。光らせた経路以外は暗くする */
+.present-group {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.25);
+  stroke-dasharray: 6 6;
+}
+
+.present-svg .present-group-label {
+  fill: rgb(255 255 255 / 0.45);
+  font-size: 16px;
+  letter-spacing: 0.15em;
+}
+
+.present-arch-el {
+  transition: opacity 0.5s ease;
+}
+
+.present-arch-el[data-on="false"] {
+  opacity: 0.15;
+}
+
+.present-arch-edge {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.7);
+  stroke-width: 1.5;
+  transition:
+    stroke 0.5s ease,
+    stroke-width 0.5s ease;
+}
+
+.present-arch-edge[data-dashed="true"] {
+  stroke-dasharray: 6 5;
+}
+
+.present-arch-el[data-focused="true"] .present-arch-edge {
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.present-svg .present-arch-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* 6 つのこだわり(src/present/Kodawari)。3D のファイルの上に HTML の文字を重ねる */
+.present-kodawari-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+/* 見出しの縦の中心を、こだわりの手順で横に置くファイル(Kodawari の HEADING)とそろえる */
+.present-kodawari-heading {
+  position: absolute;
+  top: 14vh;
+  left: 7vw;
+  margin: 0;
+  transform: translateY(-50%);
+  font-size: clamp(32px, 4.4vw, 84px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* こだわりの手順では、左にファイルが来るので空ける */
+/* 立方体は横 10vw を中心に、画面の高さに比例した大きさで回る(Kodawari.tsx の HEADING・HEADING_SIZE)。回っても文字に寄りすぎない位置に置く */
+.present-kodawari-heading[data-beside="true"] {
+  left: calc(10vw + 12vh + 2.5vw);
+}
+
+.present-kodawari-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: clamp(16px, 2vw, 36px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.present-outline.present-kodawari-points {
+  position: absolute;
+  top: 28vh;
+  left: 7vw;
+  right: 7vw;
+  width: auto;
+  font-size: clamp(16px, 2vw, 38px);
+}
+
+/* 世界観の項目で右側に描く実物(src/present/WorldShowcase)。枠は付けず、見切れてもよいので右端まで使う */
+.present-world-showcase {
+  position: absolute;
+  top: 26vh;
+  right: 0;
+  bottom: 0;
+  width: 36vw;
+  overflow: hidden;
+}
+
+/* 右側に実物を描くときは、箇条書きの右端を実物の手前で止める */
+.present-outline.present-kodawari-points[data-beside="true"] {
+  right: 42vw;
+  text-wrap: pretty;
+}
+
+/* その手順で新しく出た項目(最後の小見出し)に、こだわりの立方体の縁の色で下線を引く。文字は白のまま */
+.present-kodawari-points > li:last-child > .present-kodawari-point {
+  text-decoration: underline;
+  text-decoration-color: var(--kodawari-color, #fff);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.3em;
+  text-decoration-skip-ink: none;
+}
+
+/* こだわりの縦の箇条書き(項目の下に補足を入れ子にする) */
+.present-outline {
+  align-self: center;
+  width: 100%;
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: clamp(18px, 2.3vw, 44px);
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: auto-phrase;
+}
+
+.present-outline > li + li {
+  margin-top: 0.7em;
+}
+
+.present-outline ul {
+  margin: 0.2em 0 0;
+  padding-left: 1.4em;
+  font-size: 0.85em;
+  font-weight: 400;
+  list-style: circle;
+}
+
+.present-outline b {
+  margin-left: 0.6em;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+
+.present-closing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.present-closing img {
+  width: min(50vw, 720px);
+}

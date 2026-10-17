@@ -99,6 +99,7 @@ export type SfxEngine = {
     spatial?: Spatial,
   ): Emitter;
   them<Id extends SfxId>(id: Id, ...options: OptionArgs<Id>): void;
+  solo<Id extends SfxId>(id: Id, ...options: OptionArgs<Id>): void;
   stopThem(id: SfxId): void;
   setTrim(id: SfxId, db: number): void;
   trim(id: SfxId): number;

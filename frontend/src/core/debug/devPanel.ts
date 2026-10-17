@@ -63,6 +63,12 @@ export const toggleDevPanel = (): void => {
   setState({open: !state.open});
 };
 
+export const closeDevPanel = (): void => {
+  if (state.open) {
+    setState({open: false});
+  }
+};
+
 export const selectDevTab = (tabId: string): void => {
   setState({tabId});
 };

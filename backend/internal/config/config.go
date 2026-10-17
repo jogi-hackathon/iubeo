@@ -5,9 +5,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jogi-hackathon/iubeo/backend/internal/session"
 )
 
 const minSigningKeyLen = 32
@@ -16,6 +19,7 @@ type Config struct {
 	Addr                 string
 	SigningKey           []byte
 	AllowedOrigins       []string
+	AllowedOriginRegexps []*regexp.Regexp
 	MatchSize            int
 	PhaseCount           int
 	PhaseDuration        time.Duration
@@ -23,6 +27,7 @@ type Config struct {
 	BypassDuration       time.Duration
 	FireDuration         time.Duration
 	CPUFillAfter         time.Duration
+	DemoTasks            [][]session.DemoTask
 	WispKey              []byte
 	WispURL              string
 	VCSeed               []byte
@@ -65,6 +70,20 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if len(cfg.AllowedOrigins) == 0 {
 		errs = append(errs, errors.New("IUBEO_ALLOWED_ORIGINS is required"))
+	}
+
+	// 完全一致の IUBEO_ALLOWED_ORIGINS に加えて、正規表現で許可する Origin(展示用の PR プレビュー等)。
+	// カンマ区切り。各パターンは全体一致として扱う。カンマを含むパターンは書けない
+	for o := range strings.SplitSeq(getenv("IUBEO_ALLOWED_ORIGIN_PATTERNS"), ",") {
+		if o = strings.TrimSpace(o); o == "" {
+			continue
+		}
+		re, err := regexp.Compile("^(?:" + o + ")$")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("IUBEO_ALLOWED_ORIGIN_PATTERNS has an invalid pattern %q: %w", o, err))
+			continue
+		}
+		cfg.AllowedOriginRegexps = append(cfg.AllowedOriginRegexps, re)
 	}
 
 	if v := getenv("IUBEO_MATCH_SIZE"); v != "" {
@@ -142,6 +161,12 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	cfg.BraveAPIKey = getenv("IUBEO_BRAVE_API_KEY")
+
+	if demo, err := session.ParseDemoTasks(getenv("IUBEO_DEMO_TASKS")); err != nil {
+		errs = append(errs, fmt.Errorf("IUBEO_DEMO_TASKS: %w", err))
+	} else {
+		cfg.DemoTasks = demo
+	}
 
 	return cfg, errors.Join(errs...)
 }

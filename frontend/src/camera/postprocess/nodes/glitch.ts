@@ -18,10 +18,11 @@ import type {Node} from "three/webgpu";
 
 import {glitchStrength} from "../glitchState";
 
-const BANDS = 28;
-const STEPS_PER_SECOND = 30;
-const BAND_DENSITY = 0.55;
-const MAX_SHIFT = 0.16;
+/** 帯の数・乱れ方を切り替える速さ・乱れる帯の割合・横ずれの最大(画面幅に対する割合)。プレゼン冒頭の演出(src/present)も同じ値で乱す */
+export const BANDS = 28;
+export const STEPS_PER_SECOND = 30;
+export const BAND_DENSITY = 0.55;
+export const MAX_SHIFT = 0.16;
 const GHOST = 0.006;
 const LUMA = vec3(0.299, 0.587, 0.114);
 

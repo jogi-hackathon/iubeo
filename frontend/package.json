@@ -31,6 +31,7 @@
     "@react-three/fiber": "^9.8.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "simple-icons": "16.33.0",
     "three": "^0.186.1",
     "three-mesh-bvh": "^0.9.15",
     "tone": "15.1.22"

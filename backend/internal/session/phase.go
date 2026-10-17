@@ -14,6 +14,8 @@ type PhaseRules struct {
 	Intermission time.Duration
 	Bypass       time.Duration
 	Fire         time.Duration
+	// Demo は発表のデモで決め打ちにするタスク(フェーズ順)。ここにないフェーズはいつもどおり抽選する
+	Demo [][]DemoTask
 }
 
 type PhaseState struct {
@@ -77,6 +79,27 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 			alive = append(alive, p.ID)
 		}
 	}
+	var tasks []TaskState
+	if number <= len(st.Phases.Demo) {
+		tasks = st.demoTasks(number, st.Phases.Demo[number-1], alive)
+	} else {
+		tasks = st.drawTasks(number, r, alive)
+	}
+
+	st.Status = api.SessionStatusPlaying
+	st.Phase = PhaseState{
+		Number:     number,
+		Status:     api.PhaseStatusActive,
+		StartedAt:  now,
+		DeadlineAt: now.Add(st.Phases.Duration),
+		Tasks:      tasks,
+	}
+	st.resetCPUAgents(now)
+	st.assignTopics(r)
+	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
+}
+
+func (st *State) drawTasks(number int, r *rand.Rand, alive []string) []TaskState {
 	total := tasksPerPlayer(number) * len(st.Players)
 	quota := make([]int, len(alive))
 	for i := range quota {
@@ -131,18 +154,7 @@ func (st *State) startPhase(number int, now time.Time) []Output {
 			claimed[id] = true
 		}
 	}
-
-	st.Status = api.SessionStatusPlaying
-	st.Phase = PhaseState{
-		Number:     number,
-		Status:     api.PhaseStatusActive,
-		StartedAt:  now,
-		DeadlineAt: now.Add(st.Phases.Duration),
-		Tasks:      tasks,
-	}
-	st.resetCPUAgents(now)
-	st.assignTopics(r)
-	return append(out, Broadcast{Msg: api.PhaseStartedMessage{Type: api.PhaseStarted, Seq: st.nextSeq(), ServerTime: now, Phase: st.apiPhase()}})
+	return tasks
 }
 
 func (st *State) resetItems() []Output {

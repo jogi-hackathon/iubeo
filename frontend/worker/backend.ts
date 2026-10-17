@@ -3,6 +3,7 @@ import {DurableObject} from "cloudflare:workers";
 interface Env {
   IUBEO_SIGNING_KEY: string;
   IUBEO_WISP_KEY?: string;
+  IUBEO_ALLOWED_ORIGIN_PATTERNS?: string;
   IUBEO_VC_PRIVATE_KEY?: string;
   IUBEO_VC_SIGNALING_URL?: string;
   IUBEO_VC_MEDIA_URL?: string;
@@ -59,6 +60,16 @@ export class Backend extends DurableObject<Env> {
           IUBEO_SIGNING_KEY: key,
           IUBEO_ALLOWED_ORIGINS: origin,
           IUBEO_MATCH_SIZE: "3",
+          // 展示では 1 試合を短くする(既定は 5 フェーズ × 45s、間 8s、バイパス 30s、CPU 補充 30s)
+          IUBEO_PHASE_COUNT: "3",
+          IUBEO_PHASE_DURATION: "40s",
+          IUBEO_INTERMISSION_DURATION: "5s",
+          IUBEO_BYPASS_DURATION: "20s",
+          IUBEO_CPU_FILL_AFTER: "15s",
+          // 発表のデモで毎回同じ展開にする(1: ルール紹介、2: Web 検索、3: 同じファイルの取り合い)
+          IUBEO_DEMO_TASKS:
+            "write,image_generation;web_search:名古屋 グルメ;read_edit",
+          ...originPatternEnv(this.env.IUBEO_ALLOWED_ORIGIN_PATTERNS),
           ...wispEnv(origin, this.env.IUBEO_WISP_KEY),
           ...voiceEnv(this.env),
         },
@@ -119,6 +130,14 @@ const voiceEnv = (env: Env): Record<string, string> => {
     IUBEO_VC_MEDIA_URL: media,
   };
 };
+
+/**
+ * 正規表現で許可する Origin(展示用の PR プレビュー等)。空なら何も渡さない
+ */
+const originPatternEnv = (
+  patterns: string | undefined,
+): Record<string, string> =>
+  patterns ? {IUBEO_ALLOWED_ORIGIN_PATTERNS: patterns} : {};
 
 const wispEnv = (
   origin: string,

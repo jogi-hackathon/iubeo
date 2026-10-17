@@ -44,6 +44,8 @@ jobs:
           # dev パネル(?debug / F10)を PR プレビューでも開けるようにする。
           # VITE_ENABLE_DEBUG は本番ビルドでは読まれないので、ここで明示する
           VITE_ENABLE_DEBUG: "true"
+          # 無いと PC のエンジンを同一オリジンの /engine/ に取りに行き、SPA の index.html が返って読み込めない
+          VITE_ENGINE_BASE_URL: ${{ vars.VITE_ENGINE_BASE_URL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
@@ -59,7 +61,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           marker='<!-- iubeo-preview -->'
-          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1 || true)
+          url=$(grep -oE 'https://[a-z0-9-]+-iubeo-frontend[a-z0-9-]*\.[a-z0-9.-]+\.workers\.dev' /tmp/preview.log | head -1 || true)
           if [ -n "$url" ]; then
             text="🔍 Preview: $url"
           else

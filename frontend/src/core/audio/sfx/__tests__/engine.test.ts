@@ -21,6 +21,7 @@ const fakeNode = () => ({
 
 const fakeAudio = () => {
   const gameBus = fakeNode();
+  const soloBus = fakeNode();
   const panners: ReturnType<typeof fakePanner>[] = [];
   const fakePanner = () => ({
     ...fakeNode(),
@@ -50,9 +51,11 @@ const fakeAudio = () => {
     audio: {
       context: vi.fn(() => ctx as unknown as AudioContext),
       gameBus: vi.fn(() => gameBus as unknown as GainNode),
+      soloBus: vi.fn(() => soloBus as unknown as GainNode),
     },
     ctx,
     gameBus,
+    soloBus,
     panners,
     gains,
   };
@@ -186,6 +189,18 @@ describe("sfxEngine", () => {
     expect(t.voices.shatter.play).toHaveBeenCalledTimes(2);
     expect(t.voices.shatter.play).toHaveBeenCalledWith(10, undefined);
     expect(t.ctx.createPanner).not.toHaveBeenCalled();
+  });
+
+  it("solo は soloBus へ直結した voice を them とは別に 1 つ作って再利用する", () => {
+    const t = make();
+    t.engine.solo("shatter");
+    t.engine.solo("shatter");
+    expect(t.make("shatter")).toHaveBeenCalledTimes(1);
+    expect(t.gains[0]!.connect).toHaveBeenCalledWith(t.soloBus);
+    expect(t.gains[0]!.connect).not.toHaveBeenCalledWith(t.gameBus);
+    expect(t.voices.shatter.play).toHaveBeenCalledTimes(2);
+    t.engine.them("shatter");
+    expect(t.make("shatter")).toHaveBeenCalledTimes(2);
   });
 
   it("setTrim は emitter と them の Gain に反映され、dispose 後は外れる", () => {
